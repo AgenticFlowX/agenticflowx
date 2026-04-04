@@ -1,0 +1,16 @@
+// Copyright 2026 AgenticFlowX contributors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Based on Roo Code (https://github.com/RooCodeInc/Roo-Code)
+// Original work by Saoud Rizwan (Claude Dev)
+
+export { getRulesSection } from "./rules"
+export { getSystemInfoSection } from "./system-info"
+export { getObjectiveSection } from "./objective"
+export { addCustomInstructions } from "./custom-instructions"
+export { getSharedToolUseSection } from "./tool-use"
+export { getToolUseGuidelinesSection } from "./tool-use-guidelines"
+export { getCapabilitiesSection } from "./capabilities"
+export { getModesSection } from "./modes"
+export { markdownFormattingSection } from "./markdown-formatting"
+export { getSkillsSection } from "./skills"

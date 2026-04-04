@@ -1,0 +1,52 @@
+{
+	"routers": {
+		"requesty": {
+			"description": "Seu roteador LLM otimizado",
+			"incentive": "Crédito grátis de $1"
+		},
+		"openrouter": {
+			"description": "Uma interface unificada para LLMs"
+		},
+		"afx": {
+			"description": "Os melhores modelos gratuitos para começar",
+			"incentive": "Tente AFX gratuitamente"
+		}
+	},
+	"landing": {
+		"greeting": "Bem-vindo ao AgenticFlowX!",
+		"introduction": "Com uma variedade de Modos integrados e extensíveis, o AgenticFlowX permite que você planeje, arquitete, codifique, depure e aumente sua produtividade como nunca antes.",
+		"accountMention": "Para começar, crie sua conta AgenticFlowX Cloud. Obtenha modelos poderosos, controle na web, análises, suporte e muito mais.",
+		"getStarted": "Criar conta AFX",
+		"noAccount": "ou usar sem conta"
+	},
+	"providerSignup": {
+		"heading": "Escolha seu provedor",
+		"chooseProvider": "AFX precisa de um provedor LLM para funcionar. Escolha um para começar, você pode adicionar mais depois.",
+		"afxCloudProvider": "Provedor AgenticFlowX Cloud",
+		"afxCloudDescription": "A maneira mais simples de começar é com o Provedor AgenticFlowX Cloud: uma mistura selecionada de modelos gratuitos e pagos a baixo custo.",
+		"learnMore": "Saiba mais",
+		"useAnotherProvider": "Provedor de terceiros",
+		"useAnotherProviderDescription": "Insira uma chave API e comece.",
+		"noApiKeys": "Não quer lidar com chaves API e contas separadas?",
+		"backToAfx": "Escolha o Provedor AgenticFlowX Cloud.",
+		"goBack": "Voltar",
+		"finish": "Concluir"
+	},
+	"waitingForCloud": {
+		"heading": "Fazendo login no AgenticFlowX Cloud...",
+		"description": "Vamos levá-lo ao seu navegador para se registrar no AgenticFlowX Cloud. Depois o trazeremos de volta aqui para terminar.",
+		"noPrompt": "Se você não for solicitado a abrir uma URL, <clickHere>clique aqui</clickHere>.",
+		"havingTrouble": "Se você completou o cadastro mas está tendo problemas, <clickHere>clique aqui</clickHere>.",
+		"pasteUrl": "Cole a URL de callback mostrada no seu navegador:",
+		"docsLink": "Não está funcionando? <DocsLink>Consulte a documentação</DocsLink>.",
+		"invalidURL": "Isso não parece ser uma URL de callback válida. Por favor, copie o que o AgenticFlowX Cloud está mostrando em seu navegador.",
+		"goBack": "Voltar"
+	},
+	"startRouter": "Recomendamos usar um roteador LLM:",
+	"startCustom": "Ou você pode trazer sua própria chave API:",
+	"telemetry": {
+		"helpImprove": "Ajude a melhorar o AgenticFlowX",
+		"helpImproveMessage": "AgenticFlowX coleta dados de erro e uso para nos ajudar a corrigir bugs e melhorar a extensão. Esta telemetria não coleta código, prompts ou informações pessoais. Você pode desabilitar isso nas <settingsLink>configurações</settingsLink>."
+	},
+	"importSettings": "Importar configurações"
+}

@@ -1,0 +1,92 @@
+// Copyright 2026 AgenticFlowX contributors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Based on Roo Code (https://github.com/RooCodeInc/Roo-Code)
+// Original work by Saoud Rizwan (Claude Dev)
+
+import { HTMLAttributes } from "react"
+
+import type { Experiments } from "@agenticflowx/types"
+
+import { EXPERIMENT_IDS, experimentConfigsMap } from "@afx/experiments"
+
+import { useAppTranslation } from "@src/i18n/TranslationContext"
+import { cn } from "@src/lib/utils"
+
+import { SetExperimentEnabled } from "./types"
+import { SectionHeader } from "./SectionHeader"
+import { Section } from "./Section"
+import { SearchableSetting } from "./SearchableSetting"
+import { ExperimentalFeature } from "./ExperimentalFeature"
+import { CustomToolsSettings } from "./CustomToolsSettings"
+
+type ExperimentalSettingsProps = HTMLAttributes<HTMLDivElement> & {
+	experiments: Experiments
+	setExperimentEnabled: SetExperimentEnabled
+	apiConfiguration?: any
+	setApiConfigurationField?: any
+}
+
+export const ExperimentalSettings = ({
+	experiments,
+	setExperimentEnabled,
+	apiConfiguration,
+	setApiConfigurationField,
+	className,
+	...props
+}: ExperimentalSettingsProps) => {
+	const { t } = useAppTranslation()
+
+	return (
+		<div className={cn("flex flex-col gap-2", className)} {...props}>
+			<SectionHeader>{t("settings:sections.experimental")}</SectionHeader>
+
+			<Section>
+				{Object.entries(experimentConfigsMap)
+					.filter(([key]) => key in EXPERIMENT_IDS)
+					.map((config) => {
+						// Use the same translation key pattern as ExperimentalFeature
+						const experimentKey = config[0]
+						const label = t(`settings:experimental.${experimentKey}.name`)
+
+						if (config[0] === "CUSTOM_TOOLS") {
+							return (
+								<SearchableSetting
+									key={config[0]}
+									settingId={`experimental-${config[0].toLowerCase()}`}
+									section="experimental"
+									label={label}>
+									<CustomToolsSettings
+										enabled={experiments[EXPERIMENT_IDS.CUSTOM_TOOLS] ?? false}
+										onChange={(enabled) =>
+											setExperimentEnabled(EXPERIMENT_IDS.CUSTOM_TOOLS, enabled)
+										}
+									/>
+								</SearchableSetting>
+							)
+						}
+						return (
+							<SearchableSetting
+								key={config[0]}
+								settingId={`experimental-${config[0].toLowerCase()}`}
+								section="experimental"
+								label={label}>
+								<ExperimentalFeature
+									experimentKey={config[0]}
+									enabled={
+										experiments[EXPERIMENT_IDS[config[0] as keyof typeof EXPERIMENT_IDS]] ?? false
+									}
+									onChange={(enabled) =>
+										setExperimentEnabled(
+											EXPERIMENT_IDS[config[0] as keyof typeof EXPERIMENT_IDS],
+											enabled,
+										)
+									}
+								/>
+							</SearchableSetting>
+						)
+					})}
+			</Section>
+		</div>
+	)
+}

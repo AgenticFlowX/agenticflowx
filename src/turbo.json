@@ -1,0 +1,19 @@
+{
+	"$schema": "https://turbo.build/schema.json",
+	"extends": ["//"],
+	"tasks": {
+		"bundle": {
+			"dependsOn": ["^build", "@agenticflowx/vscode-webview#build"],
+			"outputs": ["dist/**"]
+		},
+		"vsix": {
+			"dependsOn": ["bundle"],
+			"inputs": ["dist/**"],
+			"outputs": ["../bin/**"]
+		},
+		"watch:bundle": {
+			"dependsOn": ["@agenticflowx/build#build", "@agenticflowx/types#build"],
+			"cache": false
+		}
+	}
+}

@@ -1,0 +1,17 @@
+AgenticFlowX
+Copyright 2026 AgenticFlowX contributors
+
+This product includes software developed by:
+
+- Saoud Rizwan — original author of "Claude Dev" (July 2024)
+  https://github.com/cline/cline
+
+- Cline Bot Inc. — continued development as "Cline"
+  https://github.com/cline/cline
+
+- Roo Code, Inc. — fork and derivative work as "Roo Code"
+  https://github.com/RooCodeInc/Roo-Code
+
+AgenticFlowX is a derivative work of Roo Code, which is itself a
+derivative work of Cline (originally Claude Dev). All upstream code
+is licensed under the Apache License, Version 2.0.

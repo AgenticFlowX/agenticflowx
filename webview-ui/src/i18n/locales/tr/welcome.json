@@ -1,0 +1,52 @@
+{
+	"routers": {
+		"requesty": {
+			"description": "Optimize edilmiş LLM yönlendiriciniz",
+			"incentive": "$1 ücretsiz kredi"
+		},
+		"openrouter": {
+			"description": "LLM'ler için birleşik bir arayüz"
+		},
+		"afx": {
+			"description": "Başlamak için en iyi ücretsiz modeller",
+			"incentive": "AFX'yu ücretsiz dene"
+		}
+	},
+	"landing": {
+		"greeting": "AgenticFlowX'a Hoş Geldin!",
+		"introduction": "Yerleşik ve genişletilebilir Modlar yelpazesiyle AgenticFlowX, daha önce hiç olmadığı gibi planlama, mimari tasarım, kodlama, hata ayıklama ve üretkenliğini artırmanı sağlar.",
+		"accountMention": "Başlamak için AgenticFlowX Cloud hesabını oluştur. Güçlü modeller, web kontrolü, analizler, destek ve daha fazlasını al.",
+		"getStarted": "AFX Hesabı Oluştur",
+		"noAccount": "veya hesap olmadan kullan"
+	},
+	"providerSignup": {
+		"heading": "Sağlayıcınızı seçin",
+		"chooseProvider": "AFX'nun çalışması için bir LLM sağlayıcısına ihtiyacı var. Başlamak için bir tane seç, sonra daha fazlasını ekleyebilirsin.",
+		"afxCloudProvider": "AgenticFlowX Cloud Sağlayıcı",
+		"afxCloudDescription": "Başlamak için en kolay yol AgenticFlowX Cloud Sağlayıcısı'nı kullanmaktır: ücretsiz ve ücretli modellerin dikkatli seçilmiş bir karışımı, düşük maliyette.",
+		"learnMore": "Daha fazla bilgi",
+		"useAnotherProvider": "Üçüncü taraf Sağlayıcı",
+		"useAnotherProviderDescription": "Bir API anahtarı gir ve başla.",
+		"noApiKeys": "API anahtarları ve ayrı hesaplarla uğraşmak istemez misin?",
+		"backToAfx": "AgenticFlowX Cloud Sağlayıcısını seç.",
+		"goBack": "Geri",
+		"finish": "Bitir"
+	},
+	"waitingForCloud": {
+		"heading": "AgenticFlowX Cloud'a giriş yapılıyor...",
+		"description": "Seni AgenticFlowX Cloud'a kaydolmak için tarayıcına göndereceğiz. Sonra seni buraya geri getireceğiz.",
+		"noPrompt": "Bir URL açmanız istenmezse, <clickHere>buraya tıklayın</clickHere>.",
+		"havingTrouble": "Kaydı tamamladıysanız ama sorun yaşıyorsanız, <clickHere>buraya tıklayın</clickHere>.",
+		"pasteUrl": "Tarayıcınızda gösterilen geri arama URL'sini yapıştırın:",
+		"docsLink": "Çalışmıyor mu? <DocsLink>Belgeleri kontrol edin</DocsLink>.",
+		"invalidURL": "Bu geçerli bir geri arama URL'si gibi görünmüyor. AgenticFlowX Cloud'un tarayıcınızda gösterdiğini kopyalayın.",
+		"goBack": "Geri"
+	},
+	"startRouter": "Bir LLM yönlendiricisi kullanmanızı öneririz:",
+	"startCustom": "Veya kendi API anahtarınızı getirebilirsiniz:",
+	"telemetry": {
+		"helpImprove": "AgenticFlowX'u iyileştirmeye yardımcı ol",
+		"helpImproveMessage": "AgenticFlowX, hataları düzeltmemize ve uzantıyı iyileştirmemize yardımcı olmak için hata ve kullanım verilerini toplar. Bu telemetri kod, komutlar veya kişisel bilgileri toplamaz. Bunu <settingsLink>ayarlardan</settingsLink> devre dışı bırakabilirsin."
+	},
+	"importSettings": "Ayarları İçe Aktar"
+}

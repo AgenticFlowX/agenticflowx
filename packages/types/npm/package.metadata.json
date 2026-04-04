@@ -1,0 +1,22 @@
+{
+	"name": "@agenticflowx/types",
+	"version": "1.115.0",
+	"description": "TypeScript type definitions for AgenticFlowX.",
+	"publishConfig": {
+		"access": "public",
+		"name": "@agenticflowx/types",
+		"registry": "https://registry.npmjs.org/"
+	},
+	"author": "AgenticFlowX Team",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/agenticflowx/agenticflowx.git"
+	},
+	"bugs": {
+		"url": "https://github.com/agenticflowx/agenticflowx/issues"
+	},
+	"homepage": "https://agenticflowx.com",
+	"keywords": ["afx", "agenticflowx", "ai"],
+	"files": ["dist"]
+}
