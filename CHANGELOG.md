@@ -1,5 +1,24 @@
 # AgenticFlowX Changelog
 
+## 1.0.3
+
+### Welcome & Onboarding
+
+- **Welcome page redesign** — 3-card onboarding layout: What is AFX (hero, philosophy strip, SDD explainer), Why spec-driven (value props), Quick Start (provider setup, CLI install, examples)
+- **Collapsible sections** — SDD four-file explainer, value propositions, and power tips collapse to reduce visual noise
+- **ChatView quick start** — new chat empty state shows Hero + Quick Start (CLI install + collapsible examples) + Power Tips
+- **Telemetry disclosure** — Welcome page footer shows privacy notice with link to settings
+- **Documentation link** — Welcome page footer links to agenticflowx.github.io
+
+### Assets & Packaging
+
+- **Updated extension icons**
+- **Removed Discord references**
+
+### Fixes
+
+- **Bedrock credentials type** — fixed AWS SDK type compatibility for credentials config
+
 ## 1.0.2
 
 ### Telemetry & Privacy

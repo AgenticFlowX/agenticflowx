@@ -50,7 +50,7 @@ export class BedrockEmbedder implements IEmbedder {
 			userAgentAppId: `AgenticFlowX#${Package.version}`,
 			region: this.region,
 			credentials,
-		})
+		} as any)
 
 		this.defaultModelId = modelId || getDefaultModelId("bedrock")
 	}

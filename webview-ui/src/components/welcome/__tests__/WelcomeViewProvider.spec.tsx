@@ -40,7 +40,7 @@ vi.mock("@vscode/webview-ui-toolkit/react", () => ({
 // Mock Button component
 vi.mock("@src/components/ui", () => ({
 	Button: ({ children, onClick, variant }: any) => (
-		<button onClick={onClick} data-testid={`button-${variant}`}>
+		<button onClick={onClick} data-testid={`button-${variant}`} data-variant={variant}>
 			{children}
 		</button>
 	),
@@ -57,9 +57,17 @@ vi.mock("../../common/Tab", () => ({
 	TabContent: ({ children }: any) => <div data-testid="tab-content">{children}</div>,
 }))
 
-// Mock AFXHero
-vi.mock("../AfxHero", () => ({
-	default: () => <div data-testid="afx-hero">AFX Hero</div>,
+// Mock AfxQuickStart (shared component used by WelcomeViewProvider)
+vi.mock("../AfxQuickStart", () => ({
+	default: ({ onSetUpProvider }: any) => (
+		<div data-testid="afx-quick-start">
+			{onSetUpProvider && (
+				<button onClick={onSetUpProvider} data-testid="setup-provider-btn">
+					Set Up Provider
+				</button>
+			)}
+		</div>
+	),
 }))
 
 // Mock lucide-react icons
@@ -130,35 +138,33 @@ describe("WelcomeViewProvider", () => {
 	})
 
 	describe("Landing Screen", () => {
-		it("renders landing screen by default", () => {
+		it("renders landing screen with hero and quick start", () => {
 			renderWelcomeViewProvider()
 
-			// Should show AfxHero
-			expect(screen.getByTestId("afx-hero")).toBeInTheDocument()
+			// Hero content (inlined)
+			expect(screen.getByText("AgenticFlowX")).toBeInTheDocument()
+			expect(screen.getByText("The spec-driven AI coding environment")).toBeInTheDocument()
 
-			// Should show "Get Started" button
-			expect(screen.getByTestId("button-primary")).toBeInTheDocument()
-			expect(screen.getByText(/welcome:landing.getStarted/)).toBeInTheDocument()
+			// Quick start (shared component)
+			expect(screen.getByTestId("afx-quick-start")).toBeInTheDocument()
 
-			// Should show "Import Settings" button
+			// Footer
 			expect(screen.getByText(/welcome:importSettings/)).toBeInTheDocument()
+			expect(screen.getByText("Documentation")).toBeInTheDocument()
 
 			// Should NOT show API options on landing
 			expect(screen.queryByTestId("api-options")).not.toBeInTheDocument()
 		})
 
-		it("navigates to provider setup when 'Get Started' is clicked", () => {
+		it("navigates to provider setup when Set Up Provider is clicked", () => {
 			renderWelcomeViewProvider()
 
-			const getStartedButton = screen.getByTestId("button-primary")
-			fireEvent.click(getStartedButton)
+			const setupBtn = screen.getByTestId("setup-provider-btn")
+			fireEvent.click(setupBtn)
 
-			// Should navigate to provider setup screen (no cloud auth)
+			// Should navigate to provider setup screen
 			expect(screen.getByTestId("api-options")).toBeInTheDocument()
 			expect(screen.getByText(/welcome:providerSignup.heading/)).toBeInTheDocument()
-
-			// Should NOT trigger any cloud sign-in
-			expect(vscode.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: "afxCloudSignIn" }))
 		})
 
 		it("sends importSettings message when import button is clicked", () => {
@@ -169,28 +175,33 @@ describe("WelcomeViewProvider", () => {
 
 			expect(vscode.postMessage).toHaveBeenCalledWith({ type: "importSettings" })
 		})
+
+		it("sends openExternal message when Documentation is clicked", () => {
+			renderWelcomeViewProvider()
+
+			const docsButton = screen.getByText("Documentation")
+			fireEvent.click(docsButton)
+
+			expect(vscode.postMessage).toHaveBeenCalledWith({
+				type: "openExternal",
+				url: "https://agenticflowx.github.io/agenticflowx/",
+			})
+		})
 	})
 
 	describe("Provider Setup Screen", () => {
 		const navigateToProviderSetup = () => {
-			const getStartedButton = screen.getByTestId("button-primary")
-			fireEvent.click(getStartedButton)
+			const setupBtn = screen.getByTestId("setup-provider-btn")
+			fireEvent.click(setupBtn)
 		}
 
 		it("shows API options and heading", () => {
 			renderWelcomeViewProvider()
 			navigateToProviderSetup()
 
-			// Should show the heading
 			expect(screen.getByText(/welcome:providerSignup.heading/)).toBeInTheDocument()
-
-			// Should show provider description
 			expect(screen.getByText(/welcome:providerSignup.useAnotherProviderDescription/)).toBeInTheDocument()
-
-			// Should show API options
 			expect(screen.getByTestId("api-options")).toBeInTheDocument()
-
-			// Should show Back and Finish buttons
 			expect(screen.getByTestId("button-secondary")).toBeInTheDocument()
 			expect(screen.getByText(/welcome:providerSignup.goBack/)).toBeInTheDocument()
 			expect(screen.getByTestId("button-primary")).toBeInTheDocument()
@@ -201,16 +212,14 @@ describe("WelcomeViewProvider", () => {
 			renderWelcomeViewProvider()
 			navigateToProviderSetup()
 
-			// Verify we're on provider setup
 			expect(screen.getByTestId("api-options")).toBeInTheDocument()
 
-			// Click Back
 			const backButton = screen.getByTestId("button-secondary")
 			fireEvent.click(backButton)
 
 			// Should be back on landing screen
-			expect(screen.getByTestId("afx-hero")).toBeInTheDocument()
-			expect(screen.getByText(/welcome:landing.getStarted/)).toBeInTheDocument()
+			expect(screen.getByText("AgenticFlowX")).toBeInTheDocument()
+			expect(screen.getByTestId("afx-quick-start")).toBeInTheDocument()
 			expect(screen.queryByTestId("api-options")).not.toBeInTheDocument()
 		})
 

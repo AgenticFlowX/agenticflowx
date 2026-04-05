@@ -31,6 +31,7 @@ import { useAppTranslation } from "@src/i18n/TranslationContext"
 import { useExtensionState } from "@src/context/ExtensionStateContext"
 import { useSelectedModel } from "@src/components/ui/hooks/useSelectedModel"
 import AfxHero from "@src/components/welcome/AfxHero"
+import AfxQuickStart from "@src/components/welcome/AfxQuickStart"
 import AfxTips from "@src/components/welcome/AfxTips"
 import { StandardTooltip, Button } from "@src/components/ui"
 
@@ -1481,10 +1482,20 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 							onClick={() => setShowAnnouncementModal(true)}
 							className="absolute top-2 right-3 z-10"
 						/>
-						<div className="flex flex-col gap-4 w-full">
-							<AfxHero />
-							{/* Show AfxTips when user is new */}
-							{taskHistory.length < 6 && <AfxTips />}
+						<div className="flex flex-col gap-3 w-full">
+							{/* Card: Hero */}
+							<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-5">
+								<AfxHero />
+							</div>
+							{/* Card: Quick Start + Tips — for new users */}
+							{taskHistory.length < 6 && (
+								<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-5 flex flex-col gap-4">
+									<p className="my-0 text-sm font-semibold text-vscode-foreground">Quick start</p>
+									<AfxQuickStart />
+									<hr className="border-vscode-panel-border my-0" />
+									<AfxTips />
+								</div>
+							)}
 							{/* Everyone should see their task history if any */}
 							{taskHistory.length > 0 && <HistoryPreview />}
 						</div>

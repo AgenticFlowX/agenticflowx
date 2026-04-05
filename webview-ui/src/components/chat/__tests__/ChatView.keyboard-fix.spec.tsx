@@ -47,7 +47,7 @@ vi.mock("@src/components/welcome/AfxTips", () => ({
 	default: () => null,
 }))
 
-vi.mock("@src/components/welcome/AfxHero", () => ({
+vi.mock("@src/components/welcome/AfxQuickStart", () => ({
 	default: () => null,
 }))
 

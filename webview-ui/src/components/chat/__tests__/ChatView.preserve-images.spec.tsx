@@ -119,6 +119,13 @@ vi.mock("@src/components/welcome/AfxHero", () => ({
 	},
 }))
 
+// Mock AfxQuickStart component
+vi.mock("@src/components/welcome/AfxQuickStart", () => ({
+	default: function MockAfxQuickStart() {
+		return <div data-testid="afx-quick-start">Quick start content</div>
+	},
+}))
+
 // Mock i18n
 vi.mock("react-i18next", () => ({
 	useTranslation: () => ({

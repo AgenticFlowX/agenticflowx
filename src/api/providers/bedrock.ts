@@ -257,7 +257,7 @@ export class AwsBedrockHandler extends BaseProvider implements SingleCompletionH
 
 		this.costModelConfig = this.getModel()
 
-		const clientConfig: BedrockRuntimeClientConfig = {
+		const clientConfig: BedrockRuntimeClientConfig & { credentials?: any } = {
 			userAgentAppId: `AgenticFlowX#${Package.version}`,
 			region: this.options.awsRegion,
 			// Add the endpoint configuration when specified and enabled
