@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "Bizimle konuşmanız mı gerekiyor? Yazın"
 		},
-		"community": "İpuçları mı istiyorsunuz yoksa sadece diğer AgenticFlowX kullanıcılarıyla takılmak mı istiyorsunuz? <redditLink>GitHub Discussions</redditLink> veya <discordLink>agenticflowx.dev</discordLink>'a katılın",
+		"community": "İpuçları mı istiyorsunuz yoksa sadece diğer AgenticFlowX kullanıcılarıyla takılmak mı istiyorsunuz? <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "İletişim ve Topluluk",
 		"manageSettings": "Ayarları Yönet",
 		"debugMode": {

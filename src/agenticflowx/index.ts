@@ -117,6 +117,7 @@ export class AfxManager implements vscode.Disposable {
 			this.specsData,
 			this.context.extensionUri,
 			this.context.extensionMode,
+			() => (this.context.globalState.get("telemetrySetting") as string) || "unset",
 			this.log,
 			(stats) => {
 				this.statusBar.update(stats)

@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "需要與我們聯絡？請寫信"
 		},
-		"community": "想要取得使用技巧或與其他 AgenticFlowX 使用者交流？加入 <redditLink>GitHub Discussions</redditLink> 或 <discordLink>agenticflowx.dev</discordLink>",
+		"community": "想要取得使用技巧或與其他 AgenticFlowX 使用者交流？加入 <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "聯絡與社群",
 		"manageSettings": "管理設定",
 		"debugMode": {

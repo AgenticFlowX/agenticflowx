@@ -472,7 +472,7 @@ describe("AfxProvider", () => {
 
 		// Verify Content Security Policy contains the necessary connect-src domains
 		expect(mockWebviewView.webview.html).toContain(
-			"connect-src vscode-webview://test-csp-source https://openrouter.ai https://api.requesty.ai;",
+			"connect-src vscode-webview://test-csp-source https://openrouter.ai https://api.requesty.ai https://www.clarity.ms https://*.clarity.ms;",
 		)
 
 		// Extract the script-src directive section and verify required security elements

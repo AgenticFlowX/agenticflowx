@@ -1253,10 +1253,46 @@ export class AfxProvider
 		const nonce = getNonce()
 
 		// Get the OpenRouter base URL from configuration
-		const { apiConfiguration } = await this.getState()
+		const { apiConfiguration, telemetrySetting } = await this.getState()
 		const openRouterBaseUrl = apiConfiguration.openRouterBaseUrl || "https://openrouter.ai"
 		// Extract the domain for CSP
 		const openRouterDomain = openRouterBaseUrl.match(/^(https?:\/\/[^\/]+)/)?.[1] || "https://openrouter.ai"
+
+		/**
+		 * Conditional Clarity analytics script injection.
+		 * Only loaded when telemetry is not explicitly disabled.
+		 *
+		 * @see docs/specs/vscode-agenticflowx-clarity/spec.md [FR-2] [FR-4] [FR-5]
+		 * @see docs/specs/vscode-agenticflowx-clarity/design.md [DES-INJECT]
+		 */
+		const clarityScript =
+			telemetrySetting !== "disabled"
+				? `<script type="text/javascript" nonce="${nonce}">
+				try {
+					(function(c,l,a,r,i,t,y){
+						c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+						t=l.createElement(r);t.async=1;
+						t.src="https://www.clarity.ms/tag/"+i;
+						y=l.getElementsByTagName(r)[0];
+						y.parentNode.insertBefore(t,y);
+					})(window,document,"clarity","script","w6orgkccwz");
+					window.clarity("set","content",{
+						mask:[
+							"input[type=text]","input[type=search]","input[type=password]",
+							"textarea","[contenteditable]",
+							"[data-testid=chat-row]","[data-testid=chat-view]",
+							".chat-text-area",
+							"pre","code",".code-block-scrollable",
+							".custom-markdown",
+							"[data-testid=api-error-message]","[data-testid=error-message]",
+							".katex",".katex-display"
+						]
+					});
+				} catch(e) {
+					console.warn("Clarity initialization failed:",e);
+				}
+			</script>`
+				: ""
 
 		// Tip: Install the es6-string-html VS Code extension to enable code highlighting below
 		return /*html*/ `
@@ -1266,7 +1302,7 @@ export class AfxProvider
             <meta charset="utf-8">
             <meta name="viewport" content="width=device-width,initial-scale=1,shrink-to-fit=no">
             <meta name="theme-color" content="#000000">
-            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https://storage.googleapis.com data:; media-src ${webview.cspSource}; script-src ${webview.cspSource} 'wasm-unsafe-eval' 'nonce-${nonce}' 'strict-dynamic'; connect-src ${webview.cspSource} ${openRouterDomain} https://api.requesty.ai;">
+            <meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} https://storage.googleapis.com data:; media-src ${webview.cspSource}; script-src ${webview.cspSource} 'wasm-unsafe-eval' 'nonce-${nonce}' 'strict-dynamic' https://www.clarity.ms https://*.clarity.ms; connect-src ${webview.cspSource} ${openRouterDomain} https://api.requesty.ai https://www.clarity.ms https://*.clarity.ms;">
             <link rel="stylesheet" type="text/css" href="${stylesUri}">
 			<link href="${codiconsUri}" rel="stylesheet" />
 			<script nonce="${nonce}">
@@ -1279,6 +1315,7 @@ export class AfxProvider
             <noscript>You need to enable JavaScript to run this app.</noscript>
             <div id="root"></div>
             <script nonce="${nonce}" type="module" src="${scriptUri}"></script>
+            ${clarityScript}
           </body>
         </html>
       `

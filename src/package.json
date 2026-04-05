@@ -3,7 +3,7 @@
 	"displayName": "AgenticFlowX",
 	"description": "The spec-driven AI coding environment.",
 	"publisher": "agenticflowx",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",
@@ -21,6 +21,9 @@
 		"url": "https://github.com/AgenticFlowX/agenticflowx"
 	},
 	"homepage": "https://github.com/AgenticFlowX/agenticflowx",
+	"telemetry": {
+		"url": "https://clarity.ms"
+	},
 	"categories": [
 		"AI",
 		"Chat",

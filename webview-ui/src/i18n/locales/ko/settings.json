@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "문의가 필요하신가요? 이메일 보내기"
 		},
-		"community": "팁을 얻거나 다른 AgenticFlowX 사용자들과 교류하고 싶으신가요? <redditLink>GitHub Discussions</redditLink> 또는 <discordLink>agenticflowx.dev</discordLink>에 참여하세요",
+		"community": "팁을 얻거나 다른 AgenticFlowX 사용자들과 교류하고 싶으신가요? <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "문의 및 커뮤니티",
 		"manageSettings": "설정 관리",
 		"debugMode": {

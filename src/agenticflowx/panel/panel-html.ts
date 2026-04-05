@@ -6,24 +6,56 @@
  * Follows AfxProvider.getHtmlContent() pattern (src/core/webview/AfxProvider.ts:1308).
  *
  * @see docs/specs/vscode-agenticflowx-panel/design.md#panel-html
+ * @see docs/specs/vscode-agenticflowx-clarity/spec.md [FR-2] [FR-3] [FR-4] [FR-5]
+ * @see docs/specs/vscode-agenticflowx-clarity/design.md [DES-INJECT] [DES-CSP]
  */
 
 import * as vscode from "vscode"
 import { getUri } from "../../core/webview/getUri"
 
-export function getAfxPanelHtml(webview: vscode.Webview, extensionUri: vscode.Uri): string {
+export function getAfxPanelHtml(
+	webview: vscode.Webview,
+	extensionUri: vscode.Uri,
+	telemetrySetting: string = "unset",
+): string {
 	const scriptUri = getUri(webview, extensionUri, ["webview-ui", "build", "assets", "panel.js"])
 	const cssUri = getUri(webview, extensionUri, ["webview-ui", "build", "assets", "index.css"])
 	const codiconsUri = getUri(webview, extensionUri, ["assets", "codicons", "codicon.css"])
 
 	const nonce = getNonce()
 
+	const clarityScript =
+		telemetrySetting !== "disabled"
+			? `<script type="text/javascript" nonce="${nonce}">
+		try {
+			(function(c,l,a,r,i,t,y){
+				c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+				t=l.createElement(r);t.async=1;
+				t.src="https://www.clarity.ms/tag/"+i;
+				y=l.getElementsByTagName(r)[0];
+				y.parentNode.insertBefore(t,y);
+			})(window,document,"clarity","script","w6orgkccwz");
+			window.clarity("set","content",{
+				mask:[
+					"input[type=text]","input[type=search]","input[type=password]",
+					"textarea","[contenteditable]",
+					"pre","code",".code-block-scrollable",
+					".custom-markdown",
+					".katex",".katex-display"
+				]
+			});
+		} catch(e) {
+			console.warn("Clarity initialization failed:",e);
+		}
+	</script>`
+			: ""
+
 	const html = /*html*/ `<!DOCTYPE html>
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:; script-src 'unsafe-eval' ${webview.cspSource} 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; img-src ${webview.cspSource} data:; script-src 'unsafe-eval' ${webview.cspSource} 'nonce-${nonce}' 'strict-dynamic' https://www.clarity.ms https://*.clarity.ms; connect-src ${webview.cspSource} https://www.clarity.ms https://*.clarity.ms;">
 	<link rel="stylesheet" href="${codiconsUri}">
 	<link rel="stylesheet" href="${cssUri}">
 	<title>AgenticFlowX</title>
@@ -40,6 +72,7 @@ export function getAfxPanelHtml(webview: vscode.Webview, extensionUri: vscode.Ur
 		};
 	</script>
 	<script type="module" nonce="${nonce}" src="${scriptUri}"></script>
+	${clarityScript}
 </body>
 </html>`
 

@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "お問い合わせが必要ですか？メールを送信"
 		},
-		"community": "ヒントが欲しいですか、または他のAgenticFlowXユーザーと交流したいですか？<redditLink>GitHub Discussions</redditLink>または<discordLink>agenticflowx.dev</discordLink>に参加してください",
+		"community": "ヒントが欲しいですか、または他のAgenticFlowXユーザーと交流したいですか？<redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "お問い合わせとコミュニティ",
 		"manageSettings": "設定を管理",
 		"debugMode": {
