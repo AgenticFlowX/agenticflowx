@@ -1,5 +1,16 @@
 # AgenticFlowX Changelog
 
+## 1.0.2
+
+### Telemetry & Privacy
+
+- **Telemetry opt-in checkbox** — About page, toggling anonymous usage reporting
+- **Microsoft Clarity integration** — session replay and heatmaps for UX improvement, gated behind telemetry setting
+- **Strict masking** — all text content (chat, code, inputs, markdown, terminal output) masked client-side before transmission; Clarity dashboard set to Strict mode
+- **CSP hardened** — Clarity domains added to Content-Security-Policy for both main sidebar and bottom panel webviews
+- **Privacy disclosure** — PRIVACY.md updated with full session replay disclosure, masking details, and Clarity privacy policy link
+- **Marketplace compliance** — `package.json` declares telemetry metadata
+
 ## 1.0.0
 
 ### The Spec Layer

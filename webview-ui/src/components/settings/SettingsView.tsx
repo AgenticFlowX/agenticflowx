@@ -16,7 +16,12 @@ import React, {
 	useState,
 } from "react"
 
-import { type ProviderSettings, type ExperimentId, DEFAULT_CHECKPOINT_TIMEOUT_SECONDS } from "@agenticflowx/types"
+import {
+	type ProviderSettings,
+	type ExperimentId,
+	type TelemetrySetting,
+	DEFAULT_CHECKPOINT_TIMEOUT_SECONDS,
+} from "@agenticflowx/types"
 
 import { vscode } from "@src/utils/vscode"
 import { cn } from "@src/lib/utils"
@@ -268,6 +273,11 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 			setChangeDetected(true)
 			return { ...prevState, debug }
 		})
+	}, [])
+
+	const setTelemetrySetting = useCallback((setting: TelemetrySetting) => {
+		setCachedState((prevState) => ({ ...prevState, telemetrySetting: setting }))
+		vscode.postMessage({ type: "telemetrySetting", text: setting })
 	}, [])
 
 	const setCustomSupportPromptsField = useCallback((prompts: Record<string, string | undefined>) => {
@@ -820,7 +830,14 @@ const SettingsView = forwardRef<SettingsViewRef, SettingsViewProps>(({ onDone, t
 						)}
 
 						{/* About Section */}
-						{renderTab === "about" && <About debug={cachedState.debug} setDebug={setDebug} />}
+						{renderTab === "about" && (
+							<About
+								telemetrySetting={cachedState.telemetrySetting}
+								setTelemetrySetting={setTelemetrySetting}
+								debug={cachedState.debug}
+								setDebug={setDebug}
+							/>
+						)}
 					</SearchIndexProvider>
 				</TabContent>
 			</div>

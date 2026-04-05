@@ -32,7 +32,10 @@ vi.mock("@afx/package", () => ({
 }))
 
 describe("About", () => {
-	const defaultProps = {}
+	const defaultProps = {
+		telemetrySetting: "unset" as const,
+		setTelemetrySetting: vi.fn(),
+	}
 
 	beforeEach(() => {
 		vi.clearAllMocks()

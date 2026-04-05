@@ -37,6 +37,7 @@ export function createAfxPanelProvider(
 	specsProvider: SpecsDataProvider,
 	extensionUri: vscode.Uri,
 	extensionMode: vscode.ExtensionMode,
+	getTelemetrySetting: () => string,
 	log: vscode.OutputChannel,
 	onStatsUpdate?: (data: {
 		featureCount: number
@@ -289,11 +290,11 @@ export function createAfxPanelProvider(
 					view.webview.html = getAfxPanelHMRHtml(view.webview, port)
 				} catch {
 					log.appendLine("[AFX] No HMR port file — using production HTML fallback")
-					view.webview.html = getAfxPanelHtml(view.webview, extensionUri)
+					view.webview.html = getAfxPanelHtml(view.webview, extensionUri, getTelemetrySetting())
 				}
 			} else {
 				log.appendLine("[AFX] Production mode — using built HTML")
-				view.webview.html = getAfxPanelHtml(view.webview, extensionUri)
+				view.webview.html = getAfxPanelHtml(view.webview, extensionUri, getTelemetrySetting())
 			}
 
 			const messageDisposable = view.webview.onDidReceiveMessage((msg: AfxPanelToExtensionMessage) =>
