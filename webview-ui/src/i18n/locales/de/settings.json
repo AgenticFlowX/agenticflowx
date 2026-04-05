@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "Musst du mit uns sprechen? Schreibe"
 		},
-		"community": "Möchtest du Tipps oder dich einfach mit anderen AgenticFlowX-Nutzern austauschen? Tritt <redditLink>GitHub Discussions</redditLink> oder <discordLink>agenticflowx.dev</discordLink> bei",
+		"community": "Möchtest du Tipps oder dich einfach mit anderen AgenticFlowX-Nutzern austauschen? Tritt <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "Kontakt & Community",
 		"manageSettings": "Einstellungen verwalten",
 		"debugMode": {

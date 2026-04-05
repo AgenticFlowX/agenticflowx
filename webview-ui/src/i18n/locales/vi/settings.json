@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "Cần nói chuyện với chúng tôi? Viết"
 		},
-		"community": "Muốn nhận mẹo hoặc chỉ muốn giao lưu với những người dùng AgenticFlowX khác? Tham gia <redditLink>GitHub Discussions</redditLink> hoặc <discordLink>agenticflowx.dev</discordLink>",
+		"community": "Muốn nhận mẹo hoặc chỉ muốn giao lưu với những người dùng AgenticFlowX khác? Tham gia <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "Liên Hệ & Cộng Đồng",
 		"manageSettings": "Quản Lý Cài Đặt",
 		"debugMode": {

@@ -87,7 +87,6 @@ export const About = ({ debug, setDebug, className, ...props }: AboutProps) => {
 									redditLink: (
 										<VSCodeLink href="https://github.com/AgenticFlowX/agenticflowx/discussions" />
 									),
-									discordLink: <VSCodeLink href="https://github.com/AgenticFlowX/agenticflowx" />,
 								}}
 							/>
 						</span>

@@ -58,7 +58,7 @@
 		"contact": {
 			"label": "Moet je met ons praten? Schrijf"
 		},
-		"community": "Wil je tips of gewoon even hangen met andere AgenticFlowX-gebruikers? Sluit je aan bij <redditLink>GitHub Discussions</redditLink> of <discordLink>agenticflowx.dev</discordLink>",
+		"community": "Wil je tips of gewoon even hangen met andere AgenticFlowX-gebruikers? Sluit je aan bij <redditLink>GitHub Discussions</redditLink>",
 		"contactAndCommunity": "Contact & Gemeenschap",
 		"manageSettings": "Instellingen Beheren",
 		"debugMode": {
