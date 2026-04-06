@@ -24,6 +24,7 @@ import { Button } from "@src/components/ui"
 import ApiOptions from "../settings/ApiOptions"
 import { Tab, TabContent } from "../common/Tab"
 import AfxQuickStart from "./AfxQuickStart"
+import { TIPS } from "./AfxTips"
 
 const FOUR_FILES = [
 	{ icon: "file-code", name: "spec.md", role: "WHAT", desc: "Requirements, acceptance criteria, user stories" },
@@ -45,14 +46,6 @@ const VALUE_PROPS = [
 		title: "Auditable by design",
 		lines: ["Every change links to a requirement.", "Your codebase has a memory."],
 	},
-]
-
-const TIPS = [
-	{ icon: "mention", text: "Use @afx-specs in chat to inject spec context" },
-	{ icon: "arrow-right", text: "Right-click a task → dispatch to any agent" },
-	{ icon: "link", text: "Add @see annotations for code↔spec traceability" },
-	{ icon: "files", text: "Pass files with @file for broader context" },
-	{ icon: "terminal", text: "Use /afx-next in chat for context-aware guidance" },
 ]
 
 const CollapsibleSection = ({
@@ -212,9 +205,9 @@ const WelcomeViewProvider = () => {
 
 					{/* ── Card 3: Tips + Telemetry ── */}
 					<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-5 flex flex-col gap-4">
-						<CollapsibleSection title="Power tips">
+						<CollapsibleSection title="Tips">
 							<ul className="list-none pl-0 my-0 flex flex-col gap-2.5">
-								{TIPS.map(({ icon, text }, i) => (
+								{TIPS.map(({ icon, text, url, urlLabel }, i) => (
 									<li
 										key={i}
 										className="flex items-start gap-2.5 text-sm text-vscode-descriptionForeground">
@@ -222,7 +215,21 @@ const WelcomeViewProvider = () => {
 											className={`codicon codicon-${icon} mt-0.5 flex-shrink-0 text-vscode-textLink-foreground`}
 											style={{ fontSize: 13 }}
 										/>
-										<span className="leading-snug text-xs">{text}</span>
+										<span className="leading-snug text-xs">
+											{text}
+											{url && (
+												<>
+													{" "}
+													<button
+														onClick={() =>
+															vscode.postMessage({ type: "openExternal", url })
+														}
+														className="cursor-pointer bg-transparent border-none p-0 text-vscode-textLink-foreground hover:underline text-xs">
+														{urlLabel ?? url}
+													</button>
+												</>
+											)}
+										</span>
 									</li>
 								))}
 							</ul>
