@@ -5,7 +5,7 @@
  * AgenticFlowX project-level configuration.
  * Loaded from .afx.yaml (user overrides) and .afx/.afx.yaml (managed defaults).
  *
- * @see docs/specs/16-vscode-agenticflowx-core/design.md#models
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
  */
 
 export interface AfxConfig {

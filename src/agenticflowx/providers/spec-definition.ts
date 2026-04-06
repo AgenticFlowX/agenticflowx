@@ -5,7 +5,7 @@
  * Spec Definition Provider — Cmd+click on @see annotations
  * navigates to the spec heading.
  *
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#navigation
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md [DES-NAVIGATION]
  */
 
 import * as path from "path"

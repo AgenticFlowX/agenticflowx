@@ -5,7 +5,7 @@
  * File watchers for AgenticFlowX spec/config changes.
  * All watchers use 500ms debounce to avoid rapid re-scans.
  *
- * @see docs/specs/16-vscode-agenticflowx-core/design.md#file-watchers
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-FILE-WATCHERS]
  */
 
 import * as path from "path"

@@ -6,7 +6,7 @@
  * Auto-generates discussion ID following AFX journal format.
  * Matches /afx-session skill output format.
  *
- * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#write-tools
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-WRITE-TOOLS]
  */
 
 import * as path from "path"

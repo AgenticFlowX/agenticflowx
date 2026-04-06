@@ -7,7 +7,7 @@
  * See docs/research/res-phase4-deep-integration.md "Clickable @see Parts" section for
  * investigation steps.
  *
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#navigation
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md [DES-NAVIGATION]
  */
 
 import * as path from "path"

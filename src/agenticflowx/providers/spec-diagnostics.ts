@@ -8,7 +8,7 @@
  * - Error: @see target file doesn't exist (ghost)
  * - Error: @see target heading doesn't exist (ghost section)
  *
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#diagnostics-and-decorations
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md [DES-DIAGNOSTICS]
  */
 
 import * as path from "path"

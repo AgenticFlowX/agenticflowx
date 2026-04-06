@@ -5,7 +5,7 @@
  * @spec mention resolver — reads spec files directly from filesystem.
  * Does NOT depend on AfxManager (parseMentions doesn't have access to AfxProvider).
  *
- * @see docs/specs/15-vscode-agenticflowx-copilot-chat/design.md#afx-specs-mention
+ * @see docs/specs/15-vscode-agenticflowx-copilot-chat/design.md [DES-MENTION]
  */
 
 import * as path from "path"

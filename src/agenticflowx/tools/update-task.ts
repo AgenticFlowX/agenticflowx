@@ -5,7 +5,7 @@
  * update_task tool — toggle a task checkbox in tasks.md.
  * Uses shared toggleTaskCheckbox logic from hook-engine.
  *
- * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#write-tools
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-WRITE-TOOLS]
  */
 
 import * as path from "path"

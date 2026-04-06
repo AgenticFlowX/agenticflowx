@@ -5,7 +5,7 @@
  * read_spec tool — load spec document with parsed structure.
  * Agent-autonomous: the agent decides when to read specs.
  *
- * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#read-only-tools
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-READ-ONLY-TOOLS]
  */
 
 import * as path from "path"

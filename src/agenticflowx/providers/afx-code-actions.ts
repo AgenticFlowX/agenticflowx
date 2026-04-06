@@ -10,8 +10,8 @@
  * - Spec files: Review, Validate, Approve, Discuss (Phase 4G)
  * - Task lines: Dispatch to Copilot/AFX/Claude (Phase 4G)
  *
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#spec-aware-code-actions
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/tasks.md#5-spec-aware-code-actions
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md [DES-CODE-ACTIONS]
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/tasks.md [5]
  */
 
 import * as vscode from "vscode"

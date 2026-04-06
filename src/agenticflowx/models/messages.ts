@@ -5,7 +5,7 @@
  * Message types for AgenticFlowX panel ↔ extension communication.
  * Kept local until stable — will move to packages/types/ later.
  *
- * @see docs/specs/16-vscode-agenticflowx-core/design.md#models
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
  */
 
 import type {

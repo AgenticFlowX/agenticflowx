@@ -5,7 +5,7 @@
  * HTML generation for the AgenticFlowX panel webview.
  * Follows AfxProvider.getHtmlContent() pattern (src/core/webview/AfxProvider.ts:1308).
  *
- * @see docs/specs/19-vscode-agenticflowx-panel/design.md#panel-html
+ * @see docs/specs/19-vscode-agenticflowx-panel/design.md [DES-PANEL-HTML]
  * @see docs/specs/34-vscode-agenticflowx-clarity/spec.md [FR-2] [FR-3] [FR-4] [FR-5]
  * @see docs/specs/34-vscode-agenticflowx-clarity/design.md [DES-INJECT] [DES-CSP]
  */

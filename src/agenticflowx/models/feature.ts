@@ -4,7 +4,7 @@
 /**
  * Feature model — represents a spec-driven feature with its 4 documents.
  *
- * @see docs/specs/16-vscode-agenticflowx-core/design.md#models
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
  */
 
 import * as path from "path"

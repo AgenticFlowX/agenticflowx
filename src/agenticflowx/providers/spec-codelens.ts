@@ -4,7 +4,7 @@
 /**
  * Code lens provider — shows clickable @see spec references above annotated functions.
  *
- * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#code-lens-and-hover
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md [DES-CODELENS]
  */
 
 import * as vscode from "vscode"

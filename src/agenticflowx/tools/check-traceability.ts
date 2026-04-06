@@ -5,7 +5,7 @@
  * check_traceability tool — verify @see/@trace links in a file.
  * Reports linked, orphaned, and ghost reference counts.
  *
- * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#read-only-tools
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-READ-ONLY-TOOLS]
  */
 
 import * as path from "path"

@@ -6,7 +6,7 @@
  * Resolves AfxManager via global registry — no param threading needed.
  * Called via dynamic import from system.ts to avoid signature changes.
  *
- * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#system-prompt-injection
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-SYSTEM-PROMPT]
  */
 
 import { getGlobalAfxManager } from "../index"
