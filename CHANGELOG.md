@@ -1,5 +1,17 @@
 # AgenticFlowX Changelog
 
+## 1.0.4
+
+### Welcome & Onboarding
+
+- **Revised tips** — replaced 5 unverified "Power tips" with 3 verified features: Focus Track, AFX Panel, Spec-Driven Development with repo link
+- **DRY tips data** — WelcomeViewProvider now imports shared TIPS array from AfxTips
+
+### Fixes
+
+- **Traceability annotations** — converted hash-fragment @see annotations to [DES-*] node IDs
+- **Spec paths** — updated @see paths after spec folder prefix rename
+
 ## 1.0.3
 
 ### Welcome & Onboarding
