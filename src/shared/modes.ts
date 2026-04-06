@@ -50,7 +50,7 @@ export function getToolsForMode(groups: readonly GroupEntry[]): string[] {
 
 // Main modes configuration — includes both General (DEFAULT_MODES) and Focus (FOCUS_MODES)
 // SkillsManager.getAvailableModes() uses this to build mode-specific skill directory scan list
-// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-SKILLLOAD]
+// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-SKILLLOAD]
 export const modes: readonly ModeConfig[] = [...DEFAULT_MODES, ...FOCUS_MODES]
 
 // Export the default mode slug (always the first General mode)
@@ -103,7 +103,7 @@ export function getAllModes(customModes?: ModeConfig[]): ModeConfig[] {
  * Get modes for a specific track (general or focus), including custom modes.
  * Built-in modes come first, custom modes with matching track appended (deduped by slug).
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-SCHEMA]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-SCHEMA]
  */
 export function getModesForTrack(track: "general" | "focus", customModes?: ModeConfig[]): ModeConfig[] {
 	const builtIn = modes.filter((m) => (m.track ?? "general") === track)

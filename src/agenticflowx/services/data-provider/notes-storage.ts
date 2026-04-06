@@ -9,7 +9,7 @@
  *   ### HH:MM:SS.mmm       (time entry)
  *   body content...        (freeform markdown until next ### or ##)
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#data-provider
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md#data-provider
  */
 
 import * as path from "path"

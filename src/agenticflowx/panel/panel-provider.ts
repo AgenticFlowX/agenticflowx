@@ -5,7 +5,7 @@
  * AgenticFlowX panel WebviewViewProvider.
  * Serves the bottom panel webview and handles data collection + message routing.
  *
- * @see docs/specs/vscode-agenticflowx-panel/design.md#panel-provider
+ * @see docs/specs/19-vscode-agenticflowx-panel/design.md#panel-provider
  */
 
 import * as path from "path"

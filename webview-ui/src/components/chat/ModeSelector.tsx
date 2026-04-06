@@ -27,8 +27,8 @@ const SEARCH_THRESHOLD = 6
  * Built-in Focus modes are placed by slug match. Custom Focus modes
  * that don't match any built-in category appear under CUSTOM.
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-2]
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-UI]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-2]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
  */
 const FOCUS_CATEGORIES = [
 	{
@@ -65,7 +65,7 @@ function groupFocusModes(modes: ModeConfig[]): FocusCategoryGroup[] {
 
 /**
  * File context hint from the file context detector.
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
  */
 export interface FileContextHint {
 	feature?: string

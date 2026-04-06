@@ -792,7 +792,7 @@ export class AfxProvider
 			this.updateCodeIndexStatusSubscription()
 
 			// Focus Track: detect file context and notify webview
-			// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
+			// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
 			if (editor) {
 				try {
 					const { getFileContextAction } = await import("../file-context/file-context-detector")
@@ -1262,8 +1262,8 @@ export class AfxProvider
 		 * Conditional Clarity analytics script injection.
 		 * Only loaded when telemetry is not explicitly disabled.
 		 *
-		 * @see docs/specs/vscode-agenticflowx-clarity/spec.md [FR-2] [FR-4] [FR-5]
-		 * @see docs/specs/vscode-agenticflowx-clarity/design.md [DES-INJECT]
+		 * @see docs/specs/34-vscode-agenticflowx-clarity/spec.md [FR-2] [FR-4] [FR-5]
+		 * @see docs/specs/34-vscode-agenticflowx-clarity/design.md [DES-INJECT]
 		 */
 		const clarityScript =
 			telemetrySetting !== "disabled"

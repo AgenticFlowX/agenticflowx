@@ -5,7 +5,7 @@
  * log_session tool — append session discussion entry to journal.md.
  * Uses AFX journal format with auto-generated discussion ID.
  *
- * @see docs/specs/vscode-agenticflowx-agent-tools/design.md#write-tools
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md#write-tools
  */
 
 import * as path from "path"

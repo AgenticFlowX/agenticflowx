@@ -12,7 +12,7 @@
  *
  * Uses runtime detection — gracefully skips if chat API unavailable.
  *
- * @see docs/specs/vscode-agenticflowx-copilot-chat/design.md#chat-participant
+ * @see docs/specs/15-vscode-agenticflowx-copilot-chat/design.md#chat-participant
  */
 
 import * as vscode from "vscode"

@@ -148,7 +148,7 @@ export class SkillsManager {
 			}
 
 			// Parse modeSlugs: metadata.modeSlugs (agentskills.io standard) > frontmatter.modeSlugs (legacy) > frontmatter.mode > directory mode
-			// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-SKILLS]
+			// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-SKILLS]
 			const metadataRaw = frontmatter.metadata as Record<string, unknown> | undefined
 			let modeSlugs: string[] | undefined
 			if (Array.isArray(metadataRaw?.["modeSlugs"])) {

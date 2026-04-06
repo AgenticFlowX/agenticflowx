@@ -5,7 +5,7 @@
  * File decoration provider — shows spec status badges in VS Code explorer.
  * Port from vscode-afx fileDecorationProvider.ts, adapted to plain function style.
  *
- * @see docs/specs/vscode-agenticflowx-ide-providers/design.md#diagnostics-and-decorations
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#diagnostics-and-decorations
  */
 
 import * as vscode from "vscode"

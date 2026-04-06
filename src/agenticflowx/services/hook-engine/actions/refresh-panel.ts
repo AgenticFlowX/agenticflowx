@@ -4,7 +4,7 @@
 /**
  * refresh_panel action — triggers panel data refresh.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#hook-actions
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md#hook-actions
  */
 
 export function executeRefreshPanel(refreshPanel: () => void): void {

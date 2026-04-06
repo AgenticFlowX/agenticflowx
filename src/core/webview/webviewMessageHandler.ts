@@ -1476,7 +1476,7 @@ export const webviewMessageHandler = async (
 		case "mode":
 			await provider.handleModeSwitch(message.text as Mode)
 			break
-		// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-UI]
+		// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
 		case "track":
 			await updateGlobalState("track", message.text as "general" | "focus")
 			break

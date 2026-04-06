@@ -5,7 +5,7 @@
  * suggest_see_link action — shows VS Code notification suggesting @see annotation
  * when a new .ts file is created in src/.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#hook-actions
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md#hook-actions
  */
 
 import * as vscode from "vscode"

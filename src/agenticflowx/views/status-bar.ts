@@ -5,7 +5,7 @@
  * AgenticFlowX status bar item.
  * Shows feature count, task progress, and health percentage.
  *
- * @see docs/specs/vscode-agenticflowx-panel/design.md#status-bar
+ * @see docs/specs/19-vscode-agenticflowx-panel/design.md#status-bar
  */
 
 import * as vscode from "vscode"

@@ -8,7 +8,7 @@
  * Triggered on `/` and `#` characters inside `@see docs/specs/` context.
  * Completely additive — no agenticflowx files modified.
  *
- * @see docs/specs/vscode-agenticflowx-ide-providers/design.md#completions
+ * @see docs/specs/18-vscode-agenticflowx-ide-providers/design.md#completions
  */
 
 import * as path from "path"

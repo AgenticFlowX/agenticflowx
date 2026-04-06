@@ -9,8 +9,8 @@
  * Detects the active file's type and suggests the matching Focus mode.
  * Also determines whether to auto-switch from General to Focus track.
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-4] [FR-8]
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-4] [FR-8]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
  */
 
 import * as fs from "fs/promises"

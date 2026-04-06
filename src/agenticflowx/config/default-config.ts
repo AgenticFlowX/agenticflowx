@@ -4,7 +4,7 @@
 /**
  * Hardcoded fallback AfxConfig — used when no .afx/.afx.yaml or .afx.yaml exist.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#configuration
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md#configuration
  */
 
 import type { AfxConfig } from "../models/config"

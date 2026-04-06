@@ -71,8 +71,8 @@ async function generatePrompt(
 	const modeConfig = getModeBySlug(mode, customModeConfigs) || modes.find((m) => m.slug === mode) || modes[0]
 
 	// ── Focus Track: lean prompt path ──
-	// @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-6]
-	// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-PROMPT]
+	// @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-6]
+	// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-PROMPT]
 	if (modeConfig.track === "focus") {
 		return buildFocusPrompt(modeConfig, cwd, skillsManager)
 	}

@@ -8,8 +8,8 @@
  * Selective spec artifact loader for Focus Track modes.
  * Resolves the active feature's spec directory and loads only the declared artifacts.
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-7]
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-ARTIFACT]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-7]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-ARTIFACT]
  */
 
 import * as path from "path"
@@ -50,8 +50,8 @@ export async function loadSpecArtifacts(cwd: string, specContext: SpecArtifact[]
  * 2. @see annotation — if active file has @see docs/specs/{feature}/..., use that feature
  * 3. Fallback — return null (caller handles gracefully)
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-6]
- * @see docs/specs/vscode-agenticflowx-focus-track/tasks.md [1.9]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-6]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/tasks.md [1.9]
  */
 export async function resolveFeatureDir(cwd: string): Promise<string | null> {
 	const activeEditor = vscode.window.activeTextEditor

@@ -4,7 +4,7 @@
 /**
  * Kanban board parser — reads .afx/kanban/*.md files.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#data-provider
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md#data-provider
  */
 
 import * as path from "path"
