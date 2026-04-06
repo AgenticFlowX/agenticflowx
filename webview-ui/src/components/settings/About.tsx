@@ -24,8 +24,8 @@ import { SearchableSetting } from "./SearchableSetting"
 /**
  * About section with telemetry opt-in/out checkbox.
  *
- * @see docs/specs/vscode-agenticflowx-clarity/spec.md [FR-1]
- * @see docs/specs/vscode-agenticflowx-clarity/design.md [DES-UI]
+ * @see docs/specs/34-vscode-agenticflowx-clarity/spec.md [FR-1]
+ * @see docs/specs/34-vscode-agenticflowx-clarity/design.md [DES-UI]
  */
 type AboutProps = HTMLAttributes<HTMLDivElement> & {
 	telemetrySetting: TelemetrySetting

@@ -5,7 +5,7 @@
  * Data shapes for the AgenticFlowX bottom panel.
  * Extension sends these to the panel webview via postMessage.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#models
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
  */
 
 export interface PipelineRow {

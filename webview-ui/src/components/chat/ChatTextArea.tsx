@@ -947,7 +947,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		const placeholderBottomText = `\n(${t("chat:addContext")}${shouldDisableImages ? `, ${t("chat:dragFiles")}` : `, ${t("chat:dragFilesImages")}`})`
 
 		// ── Focus Track state ──
-		// @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-UI]
+		// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
 		const [track, setTrack] = useState<"general" | "focus">("general")
 		const [fileContextHint, setFileContextHint] = useState<
 			{ feature?: string; artifact?: string; suggestedMode?: string } | undefined

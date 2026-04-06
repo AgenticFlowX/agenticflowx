@@ -10,8 +10,8 @@
  * Note: @see links below are for developer reference (AFX traceability standard).
  * The spec/design docs live in the afx-project workspace, not shipped with the extension.
  *
- * @see docs/specs/vscode-agenticflowx-spec-hover/spec.md
- * @see docs/specs/vscode-agenticflowx-spec-hover/design.md#architecture
+ * @see docs/specs/20-vscode-agenticflowx-spec-hover/spec.md [FR-1]
+ * @see docs/specs/20-vscode-agenticflowx-spec-hover/design.md [DES-ARCH]
  */
 
 import * as vscode from "vscode"

@@ -6,7 +6,7 @@
  * Injects prior decisions into the system prompt so agents don't
  * contradict their own earlier architectural choices.
  *
- * @see docs/specs/vscode-agenticflowx-agent-tools/design.md#decision-replay
+ * @see docs/specs/14-vscode-agenticflowx-agent-tools/design.md [DES-DECISION-REPLAY]
  */
 
 import type { Feature } from "../models/feature"

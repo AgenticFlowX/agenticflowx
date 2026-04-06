@@ -5,7 +5,7 @@
  * toggle_checkbox action — marks the next unchecked task as complete in tasks.md.
  * Shared logic used by both hook actions and the update_task agent tool.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#hook-actions
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md [DES-HOOK-ACTIONS]
  */
 
 import type { WriteCoordinator } from "../write-coordinator"

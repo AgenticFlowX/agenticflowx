@@ -8,7 +8,7 @@
  * 2. .afx.yaml       → user overrides (never overwritten)
  * 3. Hardcoded DEFAULT_AFX_CONFIG as ultimate fallback
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#configuration
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-CONFIG]
  */
 
 import * as path from "path"

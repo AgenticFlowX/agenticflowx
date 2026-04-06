@@ -8,7 +8,7 @@
  * Class is required here: implements vscode.Disposable, held by AfxProvider.
  * All other agenticflowx code uses plain functions.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#architecture
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-ARCH]
  */
 
 import * as path from "path"

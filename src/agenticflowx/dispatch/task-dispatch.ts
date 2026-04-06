@@ -5,7 +5,7 @@
  * Task dispatch — send a task to Copilot Chat, AgenticFlowX, or Claude Code terminal.
  * Shared logic used by both panel context menu and editor code actions.
  *
- * @see docs/specs/vscode-agenticflowx-copilot-chat/design.md#multi-agent-dispatch
+ * @see docs/specs/15-vscode-agenticflowx-copilot-chat/design.md [DES-DISPATCH]
  */
 
 import * as vscode from "vscode"

@@ -4,7 +4,7 @@
 /**
  * AgenticFlowX data provider — collects all data for the bottom panel.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#data-provider
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-DATA-PROVIDER]
  */
 
 import * as path from "path"

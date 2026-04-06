@@ -5,8 +5,8 @@
  * Quick start section — CLI install + examples
  * Used by WelcomeViewProvider (full mode) and ChatView (compact mode)
  *
- * @see docs/specs/afx-examples/spec.md [FR-12]
- * @see docs/specs/afx-examples/design.md [DES-VSCODE]
+ * @see docs/specs/35-afx-examples/spec.md [FR-12]
+ * @see docs/specs/35-afx-examples/design.md [DES-VSCODE]
  */
 
 import { useState } from "react"

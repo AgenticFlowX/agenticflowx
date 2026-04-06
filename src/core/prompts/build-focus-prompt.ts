@@ -9,8 +9,8 @@
  * Produces a system prompt with only 3 sections: role + artifacts + skills listing.
  * Used when modeConfig.track === "focus" instead of the full 12-section General prompt.
  *
- * @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-6] [NFR-1]
- * @see docs/specs/vscode-agenticflowx-focus-track/design.md [DES-PROMPT]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-6] [NFR-1]
+ * @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-PROMPT]
  */
 
 import * as path from "path"
@@ -49,8 +49,8 @@ export async function buildFocusPrompt(
 	}
 
 	// 3. Context orientation — acknowledge feature + loaded artifacts (~50 tokens)
-	// @see docs/specs/vscode-agenticflowx-focus-track/spec.md [FR-6]
-	// @see docs/specs/vscode-agenticflowx-focus-track/tasks.md [1.9]
+	// @see docs/specs/31-vscode-agenticflowx-focus-track/spec.md [FR-6]
+	// @see docs/specs/31-vscode-agenticflowx-focus-track/tasks.md [1.9]
 	const featureDir = await resolveFeatureDir(cwd)
 	if (featureDir) {
 		const featureName = path.basename(featureDir)

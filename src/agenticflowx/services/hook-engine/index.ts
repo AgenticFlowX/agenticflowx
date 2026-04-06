@@ -6,7 +6,7 @@
  * Receives events from agenticflowx (tool execution, task completion)
  * and dispatches to configured actions.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#hook-engine
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md [DES-HOOK-ENGINE]
  */
 
 import * as path from "path"

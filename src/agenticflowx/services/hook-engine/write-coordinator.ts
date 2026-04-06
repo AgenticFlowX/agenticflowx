@@ -7,7 +7,7 @@
  *
  * All spec file writes (from agent tools, hooks, or panel) go through here.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#write-coordinator
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md [DES-WRITE-INFRA]
  */
 
 import { writeFile, readFile } from "fs/promises"

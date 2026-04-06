@@ -5,7 +5,7 @@
  * auto_log_session action — appends a session discussion entry to journal.md.
  * Follows AFX journal format with auto-generated discussion ID.
  *
- * @see docs/specs/vscode-agenticflowx-hook-engine/design.md#hook-actions
+ * @see docs/specs/17-vscode-agenticflowx-hook-engine/design.md [DES-HOOK-ACTIONS]
  * @see /Users/rix/Workspace/afx-project/.agents/skills/afx-session/SKILL.md
  */
 

@@ -4,7 +4,7 @@
 /**
  * Spec document types used across AgenticFlowX.
  *
- * @see docs/specs/vscode-agenticflowx-core/design.md#models
+ * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
  */
 
 export interface Frontmatter {
