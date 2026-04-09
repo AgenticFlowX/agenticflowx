@@ -110,27 +110,32 @@ export class AfxManager implements vscode.Disposable {
 		})
 		this.log.appendLine("[AFX] Hook engine created")
 
-		// Panel provider
-		this.panelProvider = createAfxPanelProvider(
-			() => this.state?.config,
-			() => this.state?.root ?? "",
-			this.specsData,
-			this.context.extensionUri,
-			this.context.extensionMode,
-			() => (this.context.globalState.get("telemetrySetting") as string) || "unset",
-			this.log,
-			(stats) => {
-				this.statusBar.update(stats)
-			},
-		)
-
-		// Register panel view
-		this.context.subscriptions.push(
-			vscode.window.registerWebviewViewProvider("agenticflowx.panel", this.panelProvider, {
-				webviewOptions: { retainContextWhenHidden: true },
-			}),
-		)
-		this.log.appendLine("[AFX] Panel provider registered")
+		// Panel provider — only register if panel build assets exist (not included in public/open-source builds)
+		const panelAssetPath = path.join(this.context.extensionUri.fsPath, "webapp-core", "build", "assets", "panel.js")
+		try {
+			await access(panelAssetPath)
+			await vscode.commands.executeCommand("setContext", "agenticflowx.panelAvailable", true)
+			this.panelProvider = createAfxPanelProvider(
+				() => this.state?.config,
+				() => this.state?.root ?? "",
+				this.specsData,
+				this.context.extensionUri,
+				this.context.extensionMode,
+				() => (this.context.globalState.get("telemetrySetting") as string) || "unset",
+				this.log,
+				(stats) => {
+					this.statusBar.update(stats)
+				},
+			)
+			this.context.subscriptions.push(
+				vscode.window.registerWebviewViewProvider("agenticflowx.panel", this.panelProvider, {
+					webviewOptions: { retainContextWhenHidden: true },
+				}),
+			)
+			this.log.appendLine("[AFX] Panel provider registered")
+		} catch {
+			this.log.appendLine("[AFX] Panel assets not found — panel view not registered (public build)")
+		}
 
 		// File watchers
 		this.watchers = createFileWatchers(parsed.config, root, {

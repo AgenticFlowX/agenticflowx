@@ -1028,6 +1028,9 @@ importers:
       '@agenticflowx/config-typescript':
         specifier: workspace:^
         version: link:../packages/config-typescript
+      '@agenticflowx/webapp-core':
+        specifier: workspace:^
+        version: link:../packages/webapp-core
       '@ai-sdk/openai-compatible':
         specifier: ^2.0.28
         version: 2.0.28(zod@3.25.76)
@@ -1136,6 +1139,10 @@ importers:
       zod-to-ts:
         specifier: ^1.2.0
         version: 1.2.0(typescript@5.8.3)(zod@3.25.76)
+    optionalDependencies:
+      '@agenticflowx/webapp-panel':
+        specifier: workspace:^
+        version: link:../packages/webapp-panel
 
 packages:
 

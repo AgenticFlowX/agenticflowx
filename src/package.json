@@ -140,7 +140,7 @@
 					"type": "webview",
 					"id": "agenticflowx.panel",
 					"name": "AgenticFlowX",
-					"when": "true"
+					"when": "agenticflowx.panelAvailable"
 				}
 			]
 		},
@@ -818,10 +818,14 @@
 		"zhipu-ai-provider": "^0.2.2",
 		"zod": "3.25.76"
 	},
+	"optionalDependencies": {
+		"@agenticflowx/webapp-panel": "workspace:^"
+	},
 	"devDependencies": {
 		"@ai-sdk/openai-compatible": "^2.0.28",
 		"@openrouter/ai-sdk-provider": "^2.1.1",
 		"@agenticflowx/build": "workspace:^",
+		"@agenticflowx/webapp-core": "workspace:^",
 		"@agenticflowx/config-eslint": "workspace:^",
 		"@agenticflowx/config-typescript": "workspace:^",
 		"@types/clone-deep": "^4.0.4",
