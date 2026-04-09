@@ -20,10 +20,8 @@
 		"jsx": "react-jsx",
 		"baseUrl": ".",
 		"paths": {
-			"@/*": ["./src/*"],
-			"@src/*": ["./src/*"],
-			"@afx/*": ["../src/shared/*"]
+			"@/*": ["./src/*"]
 		}
 	},
-	"include": ["src", "../src/shared", "vitest.setup.ts"]
+	"include": ["src"]
 }

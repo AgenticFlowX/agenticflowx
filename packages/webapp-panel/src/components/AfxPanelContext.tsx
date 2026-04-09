@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
-import { vscode as vscodeApi } from "@/utils/vscode"
+import { vscode as vscodeApi } from "@agenticflowx/webapp-core/utils/vscode"
 import type {
 	PipelineRow,
 	FeatureTasksData,

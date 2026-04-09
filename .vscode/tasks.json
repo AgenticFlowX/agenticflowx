@@ -17,7 +17,7 @@
 		{
 			"label": "watch:webview",
 			"type": "shell",
-			"command": "pnpm --filter @agenticflowx/vscode-webview dev",
+			"command": "pnpm --filter @agenticflowx/webapp-core dev",
 			"group": "build",
 			"problemMatcher": {
 				"owner": "vite",

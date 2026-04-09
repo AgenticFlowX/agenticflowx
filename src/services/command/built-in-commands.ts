@@ -255,7 +255,7 @@ Please analyze this codebase and create an AGENTS.md file containing:
     - Provider examples in src/api/providers/ are the canonical reference (docs are outdated)
     - UI runs in VSCode webview with restrictions (no localStorage, limited APIs)
     - Package.json scripts must be run from specific directories, not root
-    - Locales in root are for extension, webview-ui/src/i18n for UI (two separate systems)
+    - Locales in root are for extension, packages/webapp-core/src/i18n for UI (two separate systems)
     \`\`\`
     
     .afx/rules-architect/AGENTS.md - ONLY non-obvious architectural constraints:

@@ -98,7 +98,7 @@
         <practice>Wait for translation completion before proceeding to validation phase.</practice>
       </best_practices>
       <when_to_use>
-        <trigger>Changes to webview-ui/src/i18n/locales/en/*.json files</trigger>
+        <trigger>Changes to packages/webapp-core/src/i18n/locales/en/*.json files</trigger>
         <trigger>Changes to src/i18n/locales/en/*.json files</trigger>
         <trigger>Modifications to UI components with user-facing text</trigger>
         <trigger>Updates to announcement files or documentation requiring localization</trigger>
@@ -110,8 +110,8 @@
 <message>Translation updates needed for PR #1234 fixes. Please translate the following changes:
 
 Files modified:
-- webview-ui/src/i18n/locales/en/common.json: Added new error message "connection_failed"
-- webview-ui/src/components/settings/ApiSettings.tsx: Updated button text from "Save" to "Save Configuration"
+- packages/webapp-core/src/i18n/locales/en/common.json: Added new error message "connection_failed"
+- packages/webapp-core/src/components/settings/ApiSettings.tsx: Updated button text from "Save" to "Save Configuration"
 
 Please ensure all supported languages (ca, de, es, fr, hi, id, it, ja, ko, nl, pl, pt-BR, ru, tr, vi, zh-CN, zh-TW) are updated with appropriate translations for these changes.</message>
 </new_task>

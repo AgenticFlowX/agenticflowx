@@ -29,7 +29,7 @@ mode: code
 
 6. If a major or minor release:
     - Ask the user what the three most important areas to highlight are in the release
-    - Update the English version relevant announcement files and documentation (webview-ui/src/components/chat/Announcement.tsx, README.md, and the `latestAnnouncementId` in src/core/webview/AfxProvider.ts)
+    - Update the English version relevant announcement files and documentation (packages/webapp-core/src/components/chat/Announcement.tsx, README.md, and the `latestAnnouncementId` in src/core/webview/AfxProvider.ts)
     - Ask the user to confirm that the English version looks good to them before proceeding
     - Use the new_task tool to create a subtask in `translate` mode with detailed instructions of which content needs to be translated into all supported languages (The READMEs as well as the translation strings)
 7. Create a new branch for the release preparation: `git checkout -b release/v[version]`

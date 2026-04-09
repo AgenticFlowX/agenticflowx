@@ -18,8 +18,8 @@ export function getAfxPanelHtml(
 	extensionUri: vscode.Uri,
 	telemetrySetting: string = "unset",
 ): string {
-	const scriptUri = getUri(webview, extensionUri, ["webview-ui", "build", "assets", "panel.js"])
-	const cssUri = getUri(webview, extensionUri, ["webview-ui", "build", "assets", "index.css"])
+	const scriptUri = getUri(webview, extensionUri, ["webapp-core", "build", "assets", "panel.js"])
+	const cssUri = getUri(webview, extensionUri, ["webapp-core", "build", "assets", "index.css"])
 	const codiconsUri = getUri(webview, extensionUri, ["assets", "codicons", "codicon.css"])
 
 	const nonce = getNonce()

@@ -11,9 +11,9 @@
  *
  * The actual implementation is in src/utils/path.ts.
  *
- * This separate declaration file is necessary because the webview-ui package
+ * This separate declaration file is necessary because the webapp-core package
  * includes ../src/shared in its tsconfig.json but not ../src/utils/path.ts.
- * Without this file, the webview-ui compilation would fail when processing
+ * Without this file, the webapp-core compilation would fail when processing
  * files that use the toPosix() method.
  */
 declare global {

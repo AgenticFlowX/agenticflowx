@@ -36,6 +36,6 @@ export default [
 		},
 	},
 	{
-		ignores: ["webview-ui", "out"],
+		ignores: ["webapp-core", "out"],
 	},
 ]

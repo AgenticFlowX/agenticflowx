@@ -48,7 +48,7 @@ const persistPortPlugin = (): Plugin => ({
 			const port = address && typeof address === "object" ? address.port : null
 
 			if (port) {
-				fs.writeFileSync(resolve(__dirname, "..", ".vite-port"), port.toString())
+				fs.writeFileSync(resolve(__dirname, "..", "..", ".vite-port"), port.toString())
 				console.log(`[Vite Plugin] Server started on port ${port}`)
 			} else {
 				console.warn("[Vite Plugin] Could not determine server port")
@@ -59,9 +59,9 @@ const persistPortPlugin = (): Plugin => ({
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-	let outDir = "../src/webview-ui/build"
+	let outDir = "../../src/webapp-core/build"
 
-	const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "src", "package.json"), "utf8"))
+	const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "..", "src", "package.json"), "utf8"))
 	const gitSha = getGitSha()
 
 	const define: Record<string, any> = {
@@ -91,7 +91,7 @@ export default defineConfig(({ mode }) => {
 			alias: {
 				"@": resolve(__dirname, "./src"),
 				"@src": resolve(__dirname, "./src"),
-				"@afx": resolve(__dirname, "../src/shared"),
+				"@afx": resolve(__dirname, "../../src/shared"),
 			},
 		},
 		build: {
@@ -111,7 +111,6 @@ export default defineConfig(({ mode }) => {
 				external: ["vscode"],
 				input: {
 					index: resolve(__dirname, "index.html"),
-					panel: resolve(__dirname, "panel.html"),
 				},
 				output: {
 					entryFileNames: `assets/[name].js`,

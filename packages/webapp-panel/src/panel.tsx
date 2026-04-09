@@ -7,7 +7,7 @@
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 import "./index.css"
-import { AfxPanel } from "./components/agenticflowx/AfxPanel"
+import { AfxPanel } from "./components/AfxPanel"
 
 createRoot(document.getElementById("afx-root")!).render(
 	<StrictMode>

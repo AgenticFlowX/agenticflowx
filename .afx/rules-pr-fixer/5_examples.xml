@@ -128,8 +128,8 @@
 <message>Translation updates needed for PR #1234 fixes. The following changes were made based on review feedback:
 
 Files modified:
-- webview-ui/src/components/settings/ApiSettings.tsx: Changed button text from "Save" to "Save Configuration"
-- webview-ui/src/i18n/locales/en/common.json: Updated key "save_button" to "save_config_button"
+- packages/webapp-core/src/components/settings/ApiSettings.tsx: Changed button text from "Save" to "Save Configuration"
+- packages/webapp-core/src/i18n/locales/en/common.json: Updated key "save_button" to "save_config_button"
 
 Please update all supported languages (ca, de, es, fr, hi, id, it, ja, ko, nl, pl, pt-BR, ru, tr, vi, zh-CN, zh-TW) with appropriate translations for:
 - New key "save_config_button" with translation equivalent to "Save Configuration"

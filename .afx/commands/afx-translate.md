@@ -19,7 +19,7 @@ Perform translation and localization tasks for the AgenticFlowX extension. This 
 
 3. **Translation locations:**
     - Core Extension: `src/i18n/locales/`
-    - WebView UI: `webview-ui/src/i18n/locales/`
+    - WebView UI: `packages/webapp-core/src/i18n/locales/`
 
 ## Workflow
 

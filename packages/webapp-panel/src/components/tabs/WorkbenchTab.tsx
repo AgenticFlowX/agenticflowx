@@ -3,7 +3,7 @@
 
 import { useState, useCallback } from "react"
 import { useAfxPanel } from "../AfxPanelContext"
-import MarkdownBlock from "@src/components/common/MarkdownBlock"
+import MarkdownBlock from "@agenticflowx/webapp-core/components/common/MarkdownBlock"
 import { surfaceStyle } from "../afxTheme"
 
 type ColumnId = "spec" | "design" | "tasks" | "sessions"

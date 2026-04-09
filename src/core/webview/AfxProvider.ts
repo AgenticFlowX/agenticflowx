@@ -1146,7 +1146,7 @@ export class AfxProvider
 		const openRouterDomain = openRouterBaseUrl.match(/^(https?:\/\/[^\/]+)/)?.[1] || "https://openrouter.ai"
 
 		const stylesUri = getUri(webview, this.contextProxy.extensionUri, [
-			"webview-ui",
+			"webapp-core",
 			"build",
 			"assets",
 			"index.css",
@@ -1224,13 +1224,18 @@ export class AfxProvider
 
 		// The CSS file from the React build output
 		const stylesUri = getUri(webview, this.contextProxy.extensionUri, [
-			"webview-ui",
+			"webapp-core",
 			"build",
 			"assets",
 			"index.css",
 		])
 
-		const scriptUri = getUri(webview, this.contextProxy.extensionUri, ["webview-ui", "build", "assets", "index.js"])
+		const scriptUri = getUri(webview, this.contextProxy.extensionUri, [
+			"webapp-core",
+			"build",
+			"assets",
+			"index.js",
+		])
 		const codiconsUri = getUri(webview, this.contextProxy.extensionUri, ["assets", "codicons", "codicon.css"])
 		const materialIconsUri = getUri(webview, this.contextProxy.extensionUri, [
 			"assets",

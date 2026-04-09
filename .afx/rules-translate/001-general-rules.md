@@ -3,7 +3,7 @@
 - Localize all strings into the following locale files: ca, de, en, es, fr, hi, id, it, ja, ko, nl, pl, pt-BR, ru, tr, vi, zh-CN, zh-TW
 - The VSCode extension has two main areas that require localization:
     - Core Extension: src/i18n/locales/ (extension backend)
-    - WebView UI: webview-ui/src/i18n/locales/ (user interface)
+    - WebView UI: packages/webapp-core/src/i18n/locales/ (user interface)
 
 # 2. VOICE, STYLE AND TONE
 
@@ -27,9 +27,9 @@
 - When updating strings in core.json, maintain all existing interpolation variables
 - Check string usages in the codebase before making changes to ensure you're not breaking functionality
 
-# 4. WEBVIEW UI LOCALIZATION (webview-ui/src/)
+# 4. WEBVIEW UI LOCALIZATION (packages/webapp-core/src/)
 
-- Located in webview-ui/src/i18n/locales/
+- Located in packages/webapp-core/src/i18n/locales/
 - Uses standard React i18next patterns with the useTranslation hook
 - All user interface strings should be internationalized
 - Always use the Trans component with named components for text with embedded components

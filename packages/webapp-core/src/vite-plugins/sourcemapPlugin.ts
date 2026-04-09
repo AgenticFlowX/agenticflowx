@@ -25,7 +25,7 @@ export function sourcemapPlugin(): Plugin {
 
 				// Determine the correct output directory based on the build mode
 				const mode = process.env.NODE_ENV
-				const outDir = path.resolve("../src/webview-ui/build")
+				const outDir = path.resolve("../../src/webapp-core/build")
 
 				const assetsDir = path.join(outDir, "assets")
 

@@ -268,13 +268,13 @@ export function createAfxPanelProvider(
 		resolveWebviewView(view: vscode.WebviewView) {
 			log.appendLine("[AFX] resolveWebviewView called — panel is visible")
 			log.appendLine(`[AFX] extensionUri: ${extensionUri.fsPath}`)
-			log.appendLine(`[AFX] build dir: ${vscode.Uri.joinPath(extensionUri, "webview-ui", "build").fsPath}`)
+			log.appendLine(`[AFX] build dir: ${vscode.Uri.joinPath(extensionUri, "webapp-core", "build").fsPath}`)
 			webviewView = view
 
 			view.webview.options = {
 				enableScripts: true,
 				localResourceRoots: [
-					vscode.Uri.joinPath(extensionUri, "webview-ui", "build"),
+					vscode.Uri.joinPath(extensionUri, "webapp-core", "build"),
 					vscode.Uri.joinPath(extensionUri, "assets"),
 					vscode.Uri.file(getRoot()),
 				],
@@ -283,7 +283,7 @@ export function createAfxPanelProvider(
 			if (extensionMode === vscode.ExtensionMode.Development) {
 				try {
 					const fs = require("fs")
-					const portFile = path.join(extensionUri.fsPath, "webview-ui", ".vite-port")
+					const portFile = path.join(extensionUri.fsPath, "webapp-core", ".vite-port")
 					log.appendLine(`[AFX] Dev mode — looking for HMR port file: ${portFile}`)
 					const port = parseInt(fs.readFileSync(portFile, "utf-8").trim(), 10)
 					log.appendLine(`[AFX] Using HMR on port ${port}`)

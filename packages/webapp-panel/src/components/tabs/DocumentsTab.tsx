@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { useAfxPanel } from "../AfxPanelContext"
 import { ResizablePanes } from "../shared/ResizablePanes"
-import MarkdownBlock from "@src/components/common/MarkdownBlock"
+import MarkdownBlock from "@agenticflowx/webapp-core/components/common/MarkdownBlock"
 import type { DocumentRow } from "../types"
 
 const TYPE_FILTERS = [

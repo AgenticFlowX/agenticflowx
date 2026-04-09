@@ -20,7 +20,7 @@
 import { MarketplaceItem, MarketplaceInstalledMetadata } from "@agenticflowx/types"
 
 import { vscode } from "../../utils/vscode"
-import { WebviewMessage } from "../../../../src/shared/WebviewMessage"
+import { WebviewMessage } from "@afx/WebviewMessage"
 
 export interface ViewState {
 	allItems: MarketplaceItem[]

@@ -3,7 +3,7 @@
 	"extends": ["//"],
 	"tasks": {
 		"bundle": {
-			"dependsOn": ["^build", "@agenticflowx/vscode-webview#build"],
+			"dependsOn": ["^build", "@agenticflowx/webapp-core#build", "@agenticflowx/webapp-panel#build"],
 			"outputs": ["dist/**"]
 		},
 		"vsix": {

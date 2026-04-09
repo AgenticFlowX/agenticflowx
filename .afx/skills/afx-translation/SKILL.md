@@ -1,6 +1,6 @@
 ---
 name: afx-translation
-description: Provides comprehensive guidelines for translating and localizing AgenticFlowX extension strings. Use when tasks involve i18n, translation, localization, adding new languages, or updating existing translation files. This skill covers both core extension (src/i18n/locales/) and WebView UI (webview-ui/src/i18n/locales/) localization.
+description: Provides comprehensive guidelines for translating and localizing AgenticFlowX extension strings. Use when tasks involve i18n, translation, localization, adding new languages, or updating existing translation files. This skill covers both core extension (src/i18n/locales/) and WebView UI (packages/webapp-core/src/i18n/locales/) localization.
 ---
 
 # AgenticFlowX Translation Skill
@@ -29,10 +29,10 @@ Localize all strings into the following locale files: ca, de, en, es, fr, hi, id
 
 The VSCode extension has two main areas that require localization:
 
-| Component          | Path                           | Purpose                   |
-| ------------------ | ------------------------------ | ------------------------- |
-| **Core Extension** | `src/i18n/locales/`            | Extension backend strings |
-| **WebView UI**     | `webview-ui/src/i18n/locales/` | User interface strings    |
+| Component          | Path                                     | Purpose                   |
+| ------------------ | ---------------------------------------- | ------------------------- |
+| **Core Extension** | `src/i18n/locales/`                      | Extension backend strings |
+| **WebView UI**     | `packages/webapp-core/src/i18n/locales/` | User interface strings    |
 
 ## Brand Voice, Tone, and Word Choice
 
@@ -67,9 +67,9 @@ This guidance file is loaded at runtime and should be consulted for the latest b
 - When updating strings in `core.json`, maintain all existing interpolation variables
 - Check string usages in the codebase before making changes to ensure you're not breaking functionality
 
-## WebView UI Localization (webview-ui/src/)
+## WebView UI Localization (packages/webapp-core/src/)
 
-- Located in `webview-ui/src/i18n/locales/`
+- Located in `packages/webapp-core/src/i18n/locales/`
 - Uses standard React i18next patterns with the `useTranslation` hook
 - All user interface strings should be internationalized
 - Always use the `Trans` component with named components for text with embedded components

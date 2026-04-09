@@ -17,13 +17,13 @@
 !dist/i18n/**
 
 # Include the built webview
-!webview-ui/audio
-!webview-ui/build/assets/*.js
-!webview-ui/build/assets/*.ttf
-!webview-ui/build/assets/*.css
-!webview-ui/build/assets/fonts/*.woff
-!webview-ui/build/assets/fonts/*.woff2
-!webview-ui/build/assets/fonts/*.ttf
+!webapp-core/audio
+!webapp-core/build/assets/*.js
+!webapp-core/build/assets/*.ttf
+!webapp-core/build/assets/*.css
+!webapp-core/build/assets/fonts/*.woff
+!webapp-core/build/assets/fonts/*.woff2
+!webapp-core/build/assets/fonts/*.ttf
 
 # Include default themes JSON files used in getTheme
 !integrations/theme/default-themes/**

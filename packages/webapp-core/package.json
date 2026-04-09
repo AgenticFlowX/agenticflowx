@@ -1,7 +1,13 @@
 {
-	"name": "@agenticflowx/vscode-webview",
+	"name": "@agenticflowx/webapp-core",
 	"private": true,
 	"type": "module",
+	"exports": {
+		".": "./src/index.tsx",
+		"./components/ui/Tooltip": "./src/components/ui/Tooltip.tsx",
+		"./components/common/MarkdownBlock": "./src/components/common/MarkdownBlock.tsx",
+		"./utils/vscode": "./src/utils/vscode.ts"
+	},
 	"scripts": {
 		"lint": "eslint src --ext=ts,tsx --max-warnings=0",
 		"check-types": "tsc",
@@ -11,7 +17,7 @@
 		"dev": "vite",
 		"build": "tsc -b && vite build",
 		"preview": "vite preview",
-		"clean": "rimraf ../src/webview-ui ../apps/vscode-nightly/build/webview-ui tsconfig.tsbuildinfo .turbo"
+		"clean": "rimraf ../../src/webapp-core ../../apps/vscode-nightly/build/webapp-core tsconfig.tsbuildinfo .turbo"
 	},
 	"dependencies": {
 		"@agenticflowx/types": "workspace:^",

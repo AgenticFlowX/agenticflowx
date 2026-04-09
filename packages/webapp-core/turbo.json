@@ -3,10 +3,10 @@
 	"extends": ["//"],
 	"tasks": {
 		"build": {
-			"outputs": ["../src/webview-ui/**"]
+			"outputs": ["../../src/webapp-core/**"]
 		},
 		"build:nightly": {
-			"outputs": ["../apps/vscode-nightly/build/webview-ui/**"]
+			"outputs": ["../../apps/vscode-nightly/build/webapp-core/**"]
 		}
 	}
 }

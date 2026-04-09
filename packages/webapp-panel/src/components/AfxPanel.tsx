@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState, useMemo } from "react"
-import { TooltipProvider } from "@/components/ui/tooltip"
+import { TooltipProvider } from "@agenticflowx/webapp-core/components/ui/Tooltip"
 import { AfxPanelProvider, useAfxPanel } from "./AfxPanelContext"
 import { useAfxTheme } from "./afxTheme"
 import { PipelineTab } from "./tabs/PipelineTab"

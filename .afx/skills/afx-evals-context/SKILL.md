@@ -18,7 +18,7 @@ Use this skill when the task involves:
 
 Do NOT use this skill when:
 
-- Working on unrelated parts of the codebase (extension, webview-ui, etc.)
+- Working on unrelated parts of the codebase (extension, webapp-core, etc.)
 - The task is purely about the VS Code extension's core functionality
 
 ## Directory Structure Reference
