@@ -1,5 +1,15 @@
 # AgenticFlowX Changelog
 
+## 1.0.5 — 2026-04-09
+
+### Changed
+
+- **Monorepo restructure** — split `webview-ui/` into `packages/webapp-core` (public) and `packages/webapp-panel` (private git submodule)
+- **Build output renamed** — `src/webview-ui/build/` → `src/webapp-core/build/` to match new package structure
+- **webapp-panel as submodule** — extracted to `AgenticFlowX/webapp-panel` private repo, included via git submodule
+- **Conditional panel view** — bottom panel hidden when panel assets absent (clean UX for public/open-source builds)
+- **Turbo dynamic deps** — bundle task uses `^build` with `optionalDependencies` for graceful degradation when webapp-panel is absent
+
 ## 1.0.4
 
 ### Welcome & Onboarding
