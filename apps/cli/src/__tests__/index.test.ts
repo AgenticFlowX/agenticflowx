@@ -46,7 +46,7 @@ function isCliBuilt(): boolean {
 
 function isExtensionBuilt(): boolean {
 	const monorepoRoot = findMonorepoRoot()
-	const extensionPath = path.join(monorepoRoot, "src/dist")
+	const extensionPath = path.join(monorepoRoot, "apps/vscode/dist")
 	return fs.existsSync(path.join(extensionPath, "extension.js"))
 }
 

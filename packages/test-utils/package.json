@@ -1,0 +1,20 @@
+{
+	"name": "@agenticflowx/test-utils",
+	"description": "Shared test infrastructure — VS Code mock, vitest helpers",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts",
+		"./vscode-mock": "./src/vscode-mock.js"
+	},
+	"scripts": {
+		"lint": "eslint src --ext=ts,js --max-warnings=0",
+		"check-types": "echo 'Skipped: test-utils contains JS mock files'",
+		"clean": "rimraf .turbo"
+	},
+	"devDependencies": {
+		"@agenticflowx/config-eslint": "workspace:^",
+		"@agenticflowx/config-typescript": "workspace:^"
+	}
+}

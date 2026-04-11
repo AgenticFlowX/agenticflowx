@@ -3,27 +3,27 @@
 	"ignore": [
 		"**/__tests__/**",
 		"apps/vscode-e2e/**",
-		"src/extension/api.ts",
-		"src/activate/**",
-		"src/workers/countTokens.ts",
-		"src/extension.ts",
+		"apps/vscode/extension/api.ts",
+		"apps/vscode/activate/**",
+		"apps/vscode/workers/countTokens.ts",
+		"apps/vscode/extension.ts",
 		"scripts/**",
 		"apps/cli/scripts/**",
 		"apps/web-agenticflowx/next-sitemap.config.cjs"
 	],
 	"workspaces": {
-		"src": {
+		"apps/vscode": {
 			"entry": ["extension.ts"],
 			"project": ["**/*.ts"]
 		},
-		"packages/webapp-core": {
+		"apps/webview": {
 			"entry": ["src/index.tsx"],
-			"project": ["src/**/*.{ts,tsx}", "../../src/shared/*.ts"]
+			"project": ["src/**/*.{ts,tsx}", "../vscode/shared/*.ts"]
 		},
 		"packages/{build,cloud,evals,ipc,telemetry,types}": {
 			"project": ["src/**/*.ts"]
 		},
-		"packages/webapp-panel": {
+		"apps/webview-panel": {
 			"entry": ["src/panel.tsx"],
 			"project": ["src/**/*.{ts,tsx}"]
 		}

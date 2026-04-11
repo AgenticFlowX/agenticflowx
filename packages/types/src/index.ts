@@ -5,6 +5,8 @@
 // Original work by Saoud Rizwan (Claude Dev)
 
 export * from "./api.js"
+export * from "./api-message.js"
+export * from "./api-handler.js"
 export * from "./cli.js"
 export * from "./cloud.js"
 export * from "./codebase-index.js"
@@ -25,6 +27,7 @@ export * from "./message.js"
 export * from "./mode.js"
 export * from "./model.js"
 export * from "./provider-settings.js"
+export * from "./provider.js"
 export * from "./task.js"
 export * from "./todo.js"
 export * from "./skills.js"

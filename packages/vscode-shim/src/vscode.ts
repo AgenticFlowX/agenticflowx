@@ -14,12 +14,12 @@
 // ============================================================================
 // Classes from ./classes/
 // ============================================================================
-export { Position } from "./classes/Position.js"
-export { Range } from "./classes/Range.js"
-export { Selection } from "./classes/Selection.js"
-export { Uri } from "./classes/Uri.js"
-export { EventEmitter } from "./classes/EventEmitter.js"
-export { TextEdit, WorkspaceEdit } from "./classes/TextEdit.js"
+export { Position } from "./classes/position.js"
+export { Range } from "./classes/range.js"
+export { Selection } from "./classes/selection.js"
+export { Uri } from "./classes/uri.js"
+export { EventEmitter } from "./classes/event-emitter.js"
+export { TextEdit, WorkspaceEdit } from "./classes/text-edit.js"
 export {
 	Location,
 	Diagnostic,
@@ -32,32 +32,32 @@ export {
 	LanguageModelToolCallPart,
 	LanguageModelToolResultPart,
 	FileSystemError,
-} from "./classes/Additional.js"
-export { CancellationTokenSource, type CancellationToken } from "./classes/CancellationToken.js"
-export { OutputChannel } from "./classes/OutputChannel.js"
-export { StatusBarItem } from "./classes/StatusBarItem.js"
-export { TextEditorDecorationType } from "./classes/TextEditorDecorationType.js"
+} from "./classes/additional.js"
+export { CancellationTokenSource, type CancellationToken } from "./classes/cancellation-token.js"
+export { OutputChannel } from "./classes/output-channel.js"
+export { StatusBarItem } from "./classes/status-bar-item.js"
+export { TextEditorDecorationType } from "./classes/text-editor-decoration-type.js"
 
 // ============================================================================
 // Context
 // ============================================================================
-export { ExtensionContextImpl as ExtensionContext } from "./context/ExtensionContext.js"
+export { ExtensionContextImpl as ExtensionContext } from "./context/extension-context.js"
 
 // ============================================================================
 // API Classes from ./api/
 // ============================================================================
-export { FileSystemAPI } from "./api/FileSystemAPI.js"
+export { FileSystemAPI } from "./api/file-system-api.js"
 export {
 	MockWorkspaceConfiguration,
 	setRuntimeConfig,
 	setRuntimeConfigValues,
 	clearRuntimeConfig,
 	getRuntimeConfig,
-} from "./api/WorkspaceConfiguration.js"
-export { WorkspaceAPI } from "./api/WorkspaceAPI.js"
-export { TabGroupsAPI, type Tab, type TabInputText, type TabGroup } from "./api/TabGroupsAPI.js"
-export { WindowAPI } from "./api/WindowAPI.js"
-export { CommandsAPI } from "./api/CommandsAPI.js"
+} from "./api/workspace-configuration.js"
+export { WorkspaceAPI } from "./api/workspace-api.js"
+export { TabGroupsAPI, type Tab, type TabInputText, type TabGroup } from "./api/tab-groups-api.js"
+export { WindowAPI } from "./api/window-api.js"
+export { CommandsAPI } from "./api/commands-api.js"
 export { createVSCodeAPIMock } from "./api/create-vscode-api-mock.js"
 
 // ============================================================================

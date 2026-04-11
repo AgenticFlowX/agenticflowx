@@ -6,7 +6,7 @@
 
 import { createRun, finishRun } from "../runs"
 import { createTask } from "../tasks"
-import { createTaskMetrics } from "../taskMetrics"
+import { createTaskMetrics } from "../task-metrics"
 
 describe("finishRun", () => {
 	it("aggregates task metrics, including tool usage", async () => {

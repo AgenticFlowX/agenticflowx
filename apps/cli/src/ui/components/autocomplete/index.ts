@@ -38,7 +38,7 @@ export { type AutocompleteInputProps, type AutocompleteInputHandle, Autocomplete
 export { type PickerSelectProps, PickerSelect } from "./PickerSelect.js"
 
 // Hook
-export { useAutocompletePicker } from "./useAutocompletePicker.js"
+export { useAutocompletePicker } from "./use-autocomplete-picker.js"
 
 // Types
 export * from "./types.js"

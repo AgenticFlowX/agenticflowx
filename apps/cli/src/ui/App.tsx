@@ -16,7 +16,7 @@ import { getContextWindow } from "@/lib/utils/context-window.js"
 
 import * as theme from "./theme.js"
 import { useCLIStore } from "./store.js"
-import { useUIStateStore } from "./stores/uiStateStore.js"
+import { useUIStateStore } from "./stores/ui-state-store.js"
 
 // Import extracted hooks.
 import {

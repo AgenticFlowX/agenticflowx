@@ -33,7 +33,7 @@ jobs:
         run: echo "POSTHOG_API_KEY=${{ secrets.POSTHOG_API_KEY }}" >> .env
       - name: Package Extension
         run: |
-          current_package_version=$(node -p "require('./src/package.json').version")
+          current_package_version=$(node -p "require('./apps/vscode/package.json').version")
           pnpm vsix
 
           # Save VSIX contents to a temporary file to avoid broken pipe issues.
@@ -43,8 +43,8 @@ jobs:
           grep -q "extension/package.json" /tmp/agenticflowx-vsix-contents.txt || exit 1
           grep -q "extension/package.nls.json" /tmp/agenticflowx-vsix-contents.txt || exit 1
           grep -q "extension/dist/extension.js" /tmp/agenticflowx-vsix-contents.txt || exit 1
-          grep -q "extension/webapp-core/audio/celebration.wav" /tmp/agenticflowx-vsix-contents.txt || exit 1
-          grep -q "extension/webapp-core/build/assets/index.js" /tmp/agenticflowx-vsix-contents.txt || exit 1
+          grep -q "extension/webview/audio/celebration.wav" /tmp/agenticflowx-vsix-contents.txt || exit 1
+          grep -q "extension/webview/build/assets/index.js" /tmp/agenticflowx-vsix-contents.txt || exit 1
           grep -q "extension/assets/codicons/codicon.ttf" /tmp/agenticflowx-vsix-contents.txt || exit 1
           grep -q "extension/assets/vscode-material-icons/icons/3d.svg" /tmp/agenticflowx-vsix-contents.txt || exit 1
           grep -q ".env" /tmp/agenticflowx-vsix-contents.txt || exit 1
@@ -53,7 +53,7 @@ jobs:
           rm /tmp/agenticflowx-vsix-contents.txt
       - name: Create and Push Git Tag
         run: |
-          current_package_version=$(node -p "require('./src/package.json').version")
+          current_package_version=$(node -p "require('./apps/vscode/package.json').version")
           git tag -a "v${current_package_version}" -m "Release v${current_package_version}"
           git push origin "v${current_package_version}" --no-verify
           echo "Successfully created and pushed git tag v${current_package_version}"
@@ -62,14 +62,14 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          current_package_version=$(node -p "require('./src/package.json').version")
+          current_package_version=$(node -p "require('./apps/vscode/package.json').version")
           pnpm --filter agenticflowx publish:marketplace
           echo "Successfully published version $current_package_version to VS Code Marketplace"
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          current_package_version=$(node -p "require('./src/package.json').version")
+          current_package_version=$(node -p "require('./apps/vscode/package.json').version")
 
           # Extract changelog for current version
           echo "Extracting changelog for version ${current_package_version}"

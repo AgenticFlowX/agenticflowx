@@ -4,5 +4,5 @@
 // Based on Roo Code (https://github.com/RooCodeInc/Roo-Code)
 // Original work by Saoud Rizwan (Claude Dev)
 
-export * from "./BaseTelemetryClient"
-export * from "./TelemetryService"
+export * from "./base-telemetry-client"
+export * from "./telemetry-service"

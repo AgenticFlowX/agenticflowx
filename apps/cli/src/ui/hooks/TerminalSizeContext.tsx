@@ -10,7 +10,7 @@
  */
 
 import { createContext, useContext, ReactNode } from "react"
-import { useTerminalSize as useTerminalSizeHook } from "./useTerminalSize.js"
+import { useTerminalSize as useTerminalSizeHook } from "./use-terminal-size.js"
 
 interface TerminalSizeContextValue {
 	columns: number

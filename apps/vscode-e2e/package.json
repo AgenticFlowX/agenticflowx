@@ -5,8 +5,8 @@
 		"lint": "eslint src --ext=ts --max-warnings=0",
 		"check-types": "tsc -p tsconfig.esm.json --noEmit",
 		"format": "prettier --write src",
-		"test:ci": "pnpm -w bundle && pnpm --filter @agenticflowx/webapp-core build && pnpm test:run",
-		"test:run": "rimraf out && tsc -p tsconfig.json && npx dotenvx run -f .env.local -- node ./out/runTest.js",
+		"test:ci": "pnpm -w bundle && pnpm --filter @agenticflowx/webview build && pnpm test:run",
+		"test:run": "rimraf out && tsc -p tsconfig.json && npx dotenvx run -f .env.local -- node ./out/run-test.js",
 		"clean": "rimraf out .turbo"
 	},
 	"devDependencies": {

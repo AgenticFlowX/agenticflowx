@@ -1,8 +1,12 @@
 {
 	"extends": "@agenticflowx/config-typescript/base.json",
 	"compilerOptions": {
-		"types": ["vitest/globals"],
-		"outDir": "dist"
+		"types": ["vitest/globals", "vscode"],
+		"outDir": "dist",
+		"rootDir": ".",
+		"moduleResolution": "bundler",
+		"module": "esnext",
+		"noUncheckedIndexedAccess": false
 	},
 	"include": ["src", "scripts", "*.config.ts"],
 	"exclude": ["node_modules"]

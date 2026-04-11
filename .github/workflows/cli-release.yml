@@ -106,7 +106,7 @@ jobs:
 
           # Copy extension bundle.
           echo "Copying extension bundle..."
-          cp -r src/dist/* "$RELEASE_DIR/extension/"
+          cp -r apps/vscode/dist/* "$RELEASE_DIR/extension/"
 
           # Add package.json to extension directory for CommonJS.
           echo '{"type": "commonjs"}' > "$RELEASE_DIR/extension/package.json"

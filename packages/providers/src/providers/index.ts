@@ -1,0 +1,34 @@
+// Copyright 2026 AgenticFlowX contributors
+// SPDX-License-Identifier: Apache-2.0
+//
+// Based on Roo Code (https://github.com/RooCodeInc/Roo-Code)
+// Original work by Saoud Rizwan (Claude Dev)
+
+export { AnthropicVertexHandler } from "./anthropic-vertex"
+export { AnthropicHandler } from "./anthropic"
+export { AwsBedrockHandler } from "./bedrock"
+export { DeepSeekHandler } from "./deepseek"
+export { MoonshotHandler } from "./moonshot"
+export { FakeAIHandler } from "./fake-ai"
+export { GeminiHandler } from "./gemini"
+export { LiteLLMHandler } from "./lite-llm"
+export { LmStudioHandler } from "./lm-studio"
+export { MistralHandler } from "./mistral"
+// OpenAiCodexHandler stays in extension (oauth + i18n deps)
+export { OpenAiNativeHandler } from "./openai-native"
+export { OpenAiHandler } from "./openai"
+export { OpenAICompatibleHandler } from "./openai-compatible"
+export type { OpenAICompatibleConfig } from "./openai-compatible"
+export { OpenRouterHandler } from "./openrouter"
+export { QwenCodeHandler } from "./qwen-code"
+export { RequestyHandler } from "./requesty"
+export { SambaNovaHandler } from "./sambanova"
+export { UnboundHandler } from "./unbound"
+export { VertexHandler } from "./vertex"
+// VsCodeLmHandler stays in extension (vscode API dep)
+export { XAIHandler } from "./xai"
+export { ZAiHandler } from "./zai"
+export { FireworksHandler } from "./fireworks"
+export { VercelAiGatewayHandler } from "./vercel-ai-gateway"
+export { MiniMaxHandler } from "./minimax"
+export { BasetenHandler } from "./baseten"

@@ -12,12 +12,12 @@ import { machineIdSync } from "../utils/machine-id.js"
 import { logs } from "../utils/logger.js"
 
 // Import classes
-import { Uri } from "../classes/Uri.js"
-import { Position } from "../classes/Position.js"
-import { Range } from "../classes/Range.js"
-import { Selection } from "../classes/Selection.js"
-import { EventEmitter } from "../classes/EventEmitter.js"
-import { TextEdit, WorkspaceEdit } from "../classes/TextEdit.js"
+import { Uri } from "../classes/uri.js"
+import { Position } from "../classes/position.js"
+import { Range } from "../classes/range.js"
+import { Selection } from "../classes/selection.js"
+import { EventEmitter } from "../classes/event-emitter.js"
+import { TextEdit, WorkspaceEdit } from "../classes/text-edit.js"
 import {
 	Location,
 	Diagnostic,
@@ -30,15 +30,15 @@ import {
 	LanguageModelToolCallPart,
 	LanguageModelToolResultPart,
 	FileSystemError,
-} from "../classes/Additional.js"
-import { CancellationTokenSource } from "../classes/CancellationToken.js"
-import { StatusBarItem } from "../classes/StatusBarItem.js"
-import { ExtensionContextImpl } from "../context/ExtensionContext.js"
+} from "../classes/additional.js"
+import { CancellationTokenSource } from "../classes/cancellation-token.js"
+import { StatusBarItem } from "../classes/status-bar-item.js"
+import { ExtensionContextImpl } from "../context/extension-context.js"
 
 // Import APIs
-import { WorkspaceAPI } from "./WorkspaceAPI.js"
-import { WindowAPI } from "./WindowAPI.js"
-import { CommandsAPI } from "./CommandsAPI.js"
+import { WorkspaceAPI } from "./workspace-api.js"
+import { WindowAPI } from "./window-api.js"
+import { CommandsAPI } from "./commands-api.js"
 
 // Import types and enums
 import {

@@ -12,7 +12,7 @@ import { RecordNotFoundError, RecordNotCreatedError } from "./errors"
 import type { InsertRun, UpdateRun } from "../schema"
 import { schema } from "../schema"
 import { client as db } from "../db"
-import { createTaskMetrics } from "./taskMetrics"
+import { createTaskMetrics } from "./task-metrics"
 import { getTasks } from "./tasks"
 
 export const findRun = async (id: number) => {

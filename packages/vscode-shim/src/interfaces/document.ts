@@ -8,9 +8,9 @@
  * Document-related interfaces for VSCode API
  */
 
-import type { Range } from "../classes/Range.js"
-import type { Position } from "../classes/Position.js"
-import type { Uri } from "../classes/Uri.js"
+import type { Range } from "../classes/range.js"
+import type { Position } from "../classes/position.js"
+import type { Uri } from "../classes/uri.js"
 import type { Thenable, Disposable } from "../types.js"
 
 /**

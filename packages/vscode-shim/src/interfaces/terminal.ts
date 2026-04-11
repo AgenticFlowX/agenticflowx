@@ -8,8 +8,8 @@
  * Terminal-related interfaces for VSCode API
  */
 
-import type { Uri } from "../classes/Uri.js"
-import type { ThemeIcon } from "../classes/Additional.js"
+import type { Uri } from "../classes/uri.js"
+import type { ThemeIcon } from "../classes/additional.js"
 import type { Thenable } from "../types.js"
 
 /**

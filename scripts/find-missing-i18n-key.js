@@ -47,8 +47,8 @@ const DIRS = {
 		localesDir: path.join(__dirname, "../webview-ui/src/i18n/locales"),
 	},
 	src: {
-		path: path.join(__dirname, "../src"),
-		localesDir: path.join(__dirname, "../src/i18n/locales"),
+		path: path.join(__dirname, "../apps/vscode"),
+		localesDir: path.join(__dirname, "../apps/vscode/i18n/locales"),
 	},
 }
 

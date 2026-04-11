@@ -1,0 +1,26 @@
+{
+	"name": "@agenticflowx/ignore",
+	"description": "File access control via .afxignore patterns",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "eslint src --ext=ts --max-warnings=0",
+		"check-types": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"clean": "rimraf .turbo"
+	},
+	"dependencies": {
+		"ignore": "^7.0.4"
+	},
+	"devDependencies": {
+		"@agenticflowx/config-eslint": "workspace:^",
+		"@agenticflowx/config-typescript": "workspace:^",
+		"@types/node": "^24.1.0",
+		"@types/vscode": "^1.84.0",
+		"vitest": "^3.2.3"
+	}
+}

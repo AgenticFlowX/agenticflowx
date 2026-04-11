@@ -8,8 +8,8 @@ export * from "./schema"
 
 export * from "./queries/runs"
 export * from "./queries/tasks"
-export * from "./queries/taskMetrics"
-export * from "./queries/toolErrors"
-export * from "./queries/copyRun"
+export * from "./queries/task-metrics"
+export * from "./queries/tool-errors"
+export * from "./queries/copy-run"
 
 export * from "./db"

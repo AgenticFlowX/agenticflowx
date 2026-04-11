@@ -35,8 +35,8 @@ export function getDefaultExtensionPath(dirname: string): string {
 		packageRoot = path.dirname(packageRoot)
 	}
 
-	// The extension is at ../../src/dist relative to apps/cli (monorepo/src/dist)
-	const monorepoPath = path.resolve(packageRoot, "../../src/dist")
+	// The extension is at ../../apps/vscode/dist relative to apps/cli
+	const monorepoPath = path.resolve(packageRoot, "../../apps/vscode/dist")
 
 	if (fs.existsSync(path.join(monorepoPath, "extension.js"))) {
 		return monorepoPath

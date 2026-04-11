@@ -10,9 +10,9 @@ import { run, command, option, flag, number, boolean } from "cmd-ts"
 
 import { EVALS_REPO_PATH } from "../exercises/index"
 
-import { runCi } from "./runCi"
-import { runEvals } from "./runEvals"
-import { processTask } from "./processTask"
+import { runCi } from "./run-ci"
+import { runEvals } from "./run-evals"
+import { processTask } from "./process-task"
 
 const main = async () => {
 	await run(

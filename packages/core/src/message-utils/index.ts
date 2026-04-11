@@ -9,10 +9,10 @@ export {
 	consolidateTokenUsage,
 	hasTokenUsageChanged,
 	hasToolUsageChanged,
-} from "./consolidateTokenUsage.js"
+} from "./consolidate-token-usage.js"
 
-export { consolidateApiRequests } from "./consolidateApiRequests.js"
+export { consolidateApiRequests } from "./consolidate-api-requests.js"
 
-export { consolidateCommands, COMMAND_OUTPUT_STRING } from "./consolidateCommands.js"
+export { consolidateCommands, COMMAND_OUTPUT_STRING } from "./consolidate-commands.js"
 
-export { safeJsonParse } from "./safeJsonParse.js"
+export { safeJsonParse } from "./safe-json-parse.js"

@@ -27,7 +27,7 @@ describe("getDefaultExtensionPath", () => {
 
 	it("should return monorepo path when extension.js exists there", () => {
 		const mockDirname = "/test/apps/cli/dist"
-		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../src/dist")
+		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../apps/vscode/dist")
 
 		// Walk-up: dist/ has no package.json, apps/cli/ does
 		vi.mocked(fs.existsSync).mockImplementation((p) => {
@@ -89,13 +89,13 @@ describe("getDefaultExtensionPath", () => {
 
 		getDefaultExtensionPath(mockDirname)
 
-		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../src/dist")
+		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../apps/vscode/dist")
 		expect(fs.existsSync).toHaveBeenCalledWith(path.join(expectedMonorepoPath, "extension.js"))
 	})
 
 	it("should work when called from source directory (tsx dev)", () => {
 		const mockDirname = "/test/apps/cli/src/commands/cli"
-		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../src/dist")
+		const expectedMonorepoPath = path.resolve("/test/apps/cli", "../../apps/vscode/dist")
 
 		// Walk-up: no package.json in src subdirs, found at apps/cli/
 		vi.mocked(fs.existsSync).mockImplementation((p) => {

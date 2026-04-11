@@ -98,8 +98,8 @@ function findEsbuildWasmScript(startDir: string): string | null {
 			return scriptPath
 		}
 
-		// Also check src/node_modules for monorepo where src is a workspace.
-		const srcScriptPath = path.join(currentDir, "src", "node_modules", "esbuild-wasm", "bin", "esbuild")
+		// Also check apps/vscode/node_modules for monorepo where vscode extension is a workspace.
+		const srcScriptPath = path.join(currentDir, "apps", "vscode", "node_modules", "esbuild-wasm", "bin", "esbuild")
 
 		if (fs.existsSync(srcScriptPath)) {
 			return srcScriptPath

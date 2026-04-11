@@ -25,7 +25,11 @@
 	"dependencies": {
 		"zod": "3.25.76"
 	},
+	"peerDependencies": {
+		"@anthropic-ai/sdk": ">=0.40.0"
+	},
 	"devDependencies": {
+		"@anthropic-ai/sdk": "^0.37.0",
 		"@agenticflowx/config-eslint": "workspace:^",
 		"@agenticflowx/config-typescript": "workspace:^",
 		"@types/node": "^24.1.0",

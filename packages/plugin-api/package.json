@@ -1,0 +1,33 @@
+{
+	"name": "@agenticflowx/plugin-api",
+	"description": "Plugin contracts, tool converters, and provider registry interfaces",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "eslint src --ext=ts --max-warnings=0",
+		"check-types": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"clean": "rimraf .turbo"
+	},
+	"dependencies": {
+		"@agenticflowx/core": "workspace:^",
+		"@agenticflowx/types": "workspace:^",
+		"@agenticflowx/utils": "workspace:^",
+		"partial-json": "^0.1.7"
+	},
+	"peerDependencies": {
+		"@anthropic-ai/sdk": ">=0.40.0",
+		"openai": ">=4.0.0"
+	},
+	"devDependencies": {
+		"@agenticflowx/config-eslint": "workspace:^",
+		"@agenticflowx/config-typescript": "workspace:^",
+		"@types/node": "^24.1.0",
+		"@types/vscode": "^1.84.0",
+		"vitest": "^3.2.3"
+	}
+}

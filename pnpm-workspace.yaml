@@ -1,4 +1,4 @@
 packages:
-    - "src" # Should be apps/vscode
+    - "apps/vscode"
     - "apps/*"
     - "packages/*"

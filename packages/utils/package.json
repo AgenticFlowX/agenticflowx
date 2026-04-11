@@ -1,0 +1,42 @@
+{
+	"name": "@agenticflowx/utils",
+	"description": "Shared utilities — platform-agnostic (Tier 1)",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "eslint src --ext=ts --max-warnings=0",
+		"check-types": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"clean": "rimraf .turbo"
+	},
+	"dependencies": {
+		"@agenticflowx/telemetry": "workspace:^",
+		"@agenticflowx/types": "workspace:^",
+		"@agenticflowx/workers": "workspace:^",
+		"i18next": "^25.0.0",
+		"json-stream-stringify": "^3.1.6",
+		"proper-lockfile": "^4.1.2",
+		"tiktoken": "^1.0.21",
+		"workerpool": "^9.2.0",
+		"shell-quote": "^1.8.2",
+		"zod": "^3.25.61"
+	},
+	"peerDependencies": {
+		"@anthropic-ai/sdk": ">=0.37.0",
+		"vscode": "*"
+	},
+	"devDependencies": {
+		"@agenticflowx/config-eslint": "workspace:^",
+		"@agenticflowx/config-typescript": "workspace:^",
+		"@anthropic-ai/sdk": "^0.37.0",
+		"@types/node": "^24.1.0",
+		"@types/vscode": "^1.96.0",
+		"@types/proper-lockfile": "^4.1.4",
+		"@types/shell-quote": "^1.7.5",
+		"vitest": "^3.2.3"
+	}
+}

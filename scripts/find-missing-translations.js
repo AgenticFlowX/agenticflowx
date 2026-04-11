@@ -75,7 +75,7 @@ Output:
 
 // Paths to the locales directories
 const LOCALES_DIRS = {
-	core: path.join(__dirname, "../src/i18n/locales"),
+	core: path.join(__dirname, "../apps/vscode/i18n/locales"),
 	webview: path.join(__dirname, "../webview-ui/src/i18n/locales"),
 }
 
@@ -284,7 +284,7 @@ function outputResults(missingTranslations, area) {
 
 // Function to check package.nls.json translations
 async function checkPackageNlsTranslations() {
-	const SRC_DIR = path.join(__dirname, "../src")
+	const SRC_DIR = path.join(__dirname, "../apps/vscode")
 
 	// Read the base package.nls.json file
 	const baseFilePath = path.join(SRC_DIR, "package.nls.json")

@@ -1,0 +1,52 @@
+{
+	"name": "@agenticflowx/providers",
+	"description": "LLM provider handlers — Anthropic, OpenAI, Gemini, Bedrock, and 30+ more",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"scripts": {
+		"lint": "eslint src --ext=ts --max-warnings=0",
+		"check-types": "tsc --noEmit",
+		"test": "vitest run --passWithNoTests",
+		"clean": "rimraf .turbo"
+	},
+	"dependencies": {
+		"@agenticflowx/core": "workspace:^",
+		"@agenticflowx/plugin-api": "workspace:^",
+		"@agenticflowx/telemetry": "workspace:^",
+		"@agenticflowx/types": "workspace:^",
+		"@agenticflowx/utils": "workspace:^",
+		"@ai-sdk/openai-compatible": "^2.0.28",
+		"@anthropic-ai/sdk": "^0.37.0",
+		"@anthropic-ai/vertex-sdk": "^0.7.0",
+		"@aws-sdk/client-bedrock-runtime": "^3.922.0",
+		"@aws-sdk/credential-providers": "^3.922.0",
+		"@google/genai": "^1.29.1",
+		"@lmstudio/sdk": "^1.1.1",
+		"@mistralai/mistralai": "^1.9.18",
+		"ai": "^6.0.75",
+		"axios": "^1.12.0",
+		"google-auth-library": "^9.15.1",
+		"i18next": "^25.0.0",
+		"node-cache": "^5.1.2",
+		"ollama": "^0.5.17",
+		"openai": "^5.12.2",
+		"sanitize-filename": "^1.6.3",
+		"semver-compare": "^1.0.0",
+		"uuid": "^11.1.0",
+		"zod": "3.25.76"
+	},
+	"peerDependencies": {
+		"vscode": "*"
+	},
+	"devDependencies": {
+		"@agenticflowx/config-eslint": "workspace:^",
+		"@agenticflowx/config-typescript": "workspace:^",
+		"@types/node": "^24.1.0",
+		"@types/vscode": "^1.84.0",
+		"vitest": "^3.2.3"
+	}
+}

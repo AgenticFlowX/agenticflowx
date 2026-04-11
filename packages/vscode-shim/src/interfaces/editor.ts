@@ -8,11 +8,11 @@
  * Editor-related interfaces for VSCode API
  */
 
-import type { Range } from "../classes/Range.js"
-import type { Position } from "../classes/Position.js"
-import type { Selection } from "../classes/Selection.js"
-import type { Uri } from "../classes/Uri.js"
-import type { ThemeColor } from "../classes/Additional.js"
+import type { Range } from "../classes/range.js"
+import type { Position } from "../classes/position.js"
+import type { Selection } from "../classes/selection.js"
+import type { Uri } from "../classes/uri.js"
+import type { ThemeColor } from "../classes/additional.js"
 import type {
 	Thenable,
 	ViewColumn,

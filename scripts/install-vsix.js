@@ -40,12 +40,12 @@ async function main() {
 			const nightlyPackageJson = JSON.parse(
 				fs.readFileSync("./apps/vscode-nightly/package.nightly.json", "utf-8"),
 			)
-			const srcPackageJson = JSON.parse(fs.readFileSync("./src/package.json", "utf-8"))
+			const srcPackageJson = JSON.parse(fs.readFileSync("./apps/vscode/package.json", "utf-8"))
 			name = nightlyPackageJson.name
 			version = nightlyPackageJson.version
 			publisher = srcPackageJson.publisher
 		} else {
-			const packageJson = JSON.parse(fs.readFileSync("./src/package.json", "utf-8"))
+			const packageJson = JSON.parse(fs.readFileSync("./apps/vscode/package.json", "utf-8"))
 			name = packageJson.name
 			version = packageJson.version
 			publisher = packageJson.publisher
