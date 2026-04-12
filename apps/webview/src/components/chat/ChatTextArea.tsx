@@ -1199,7 +1199,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		return (
 			<div
 				className={cn(
-					"@container flex flex-col gap-1 bg-editor-background outline-none border border-none box-border",
+					"@container flex flex-col bg-editor-background outline-none border border-none box-border",
 					isEditMode ? "p-2 w-full" : "relative px-1.5 pb-1 w-[calc(100%-16px)] ml-auto mr-auto",
 				)}>
 				<div className={cn(!isEditMode && "relative")}>
@@ -1261,8 +1261,8 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						)}
 
 						{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] */}
-						{/* Fixed-height slot: reserved whether or not a hint is shown, so the chatbox never jumps */}
-						<div className="h-[26px] flex-shrink-0 overflow-hidden">
+						{/* Fixed-height slot [A]: inset from sides, shifted down to sit on chatbox border edge. */}
+						<div className="h-[26px] flex-shrink-0 overflow-visible relative z-10 px-[3px] translate-y-[3px]">
 							{showHintStrip && hintSignal && (
 								<ContextHintStrip
 									signal={hintSignal}
@@ -1283,36 +1283,36 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								"min-h-0",
 								"overflow-hidden",
 								"rounded-lg",
-								isFocused
-									? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
-									: isDraggingOver
-										? "border-2 border-dashed border-vscode-focusBorder"
-										: "border border-transparent",
 								isDraggingOver
 									? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
 									: "bg-vscode-input-background",
-							)}>
-							{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [C] FeatureContextBar */}
-							{/* Fixed-height slot reserved regardless of state so the chatbox never jumps:
-								- First child in flex-col-reverse → renders at the BOTTOM visually
-								- Always 20px whether FeatureContextBar is shown, hidden while typing,
-								  or hidden because no feature is grounded */}
-							<div className="h-[20px] flex-shrink-0 overflow-hidden">
-								{!inputValue && groundedFeature && (
+							)}
+							style={{
+								outline: isFocused
+									? "1px solid var(--vscode-focusBorder)"
+									: isDraggingOver
+										? "2px dashed var(--vscode-focusBorder)"
+										: "1px solid transparent",
+								outlineOffset: "-1px",
+							}}>
+							{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [C] */}
+							{/* Absolutely positioned at the bottom — no flex seam, no interior line. */}
+							{!inputValue && groundedFeature && (
+								<div className="absolute bottom-0 left-0 right-0 h-[20px] z-20">
 									<FeatureContextBar
 										feature={groundedFeature.name}
 										artifact={groundedFeature.artifact}
 										completed={groundedFeature.completed}
 										total={groundedFeature.total}
 									/>
-								)}
-							</div>
+								</div>
+							)}
 							<div
 								ref={highlightLayerRef}
 								data-testid="highlight-layer"
 								className={cn(
 									"absolute",
-									"inset-0",
+									"top-0 left-0 right-0 bottom-[20px]",
 									"pointer-events-none",
 									"whitespace-pre-wrap",
 									"break-words",
@@ -1321,7 +1321,8 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									"font-vscode-font-family",
 									"text-vscode-editor-font-size",
 									"leading-vscode-editor-line-height",
-									"border border-transparent",
+									"border-none",
+									"rounded-lg",
 									"pl-2",
 									"py-2",
 									isEditMode ? "pr-20" : "pr-9",
@@ -1379,8 +1380,10 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									"text-vscode-editor-font-size",
 									"leading-vscode-editor-line-height",
 									"cursor-text",
-									"py-2 pl-2",
-									"border border-transparent",
+									"pt-2 pl-2",
+									groundedFeature ? "pb-[20px]" : "pb-2",
+									"border-none",
+									"outline-none",
 									"bg-transparent",
 									"min-h-[94px]",
 									"box-border",
@@ -1577,7 +1580,6 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 				<div
 					className={cn(
 						"flex items-center h-8 px-1.5 gap-1",
-						"border-t border-vscode-panel-border/50",
 						"bg-vscode-editorGroupHeader-tabsBackground/30",
 					)}>
 					<div className="flex items-center min-w-0 flex-1 overflow-hidden gap-1">

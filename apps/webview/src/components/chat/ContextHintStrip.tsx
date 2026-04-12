@@ -111,7 +111,9 @@ export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
 			className={cn(
 				"flex items-center gap-2 px-2.5 py-1 text-xs",
 				"text-vscode-descriptionForeground",
-				"bg-vscode-editorGroupHeader-tabsBackground/20",
+				"bg-vscode-editorGroupHeader-tabsBackground",
+				"rounded-t-lg",
+				"border border-b-0 border-vscode-panel-border/50",
 			)}>
 			<div className="flex-1 min-w-0 flex items-center overflow-hidden">{renderContent()}</div>
 			<button
