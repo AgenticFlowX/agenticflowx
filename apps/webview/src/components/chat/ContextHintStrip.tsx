@@ -28,7 +28,7 @@ interface ContextHintStripProps {
 	isAutoMode: boolean
 	autoSwitchFired: boolean
 	onAction: (action: "switch" | "viewSpec" | "ground" | "capture" | "undo") => void
-	onDismiss: () => void
+	onDismiss?: () => void
 }
 
 export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
@@ -38,6 +38,9 @@ export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
 	onAction,
 	onDismiss,
 }) => {
+	// fileDetection hints stay visible — the user may want to act on them later.
+	// specMatch / specCapture are informational and can be dismissed.
+	const isDismissible = signal.type !== "fileDetection"
 	const renderContent = () => {
 		switch (signal.type) {
 			case "fileDetection": {
@@ -116,12 +119,14 @@ export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
 				"border border-b-0 border-vscode-panel-border/50",
 			)}>
 			<div className="flex-1 min-w-0 flex items-center overflow-hidden">{renderContent()}</div>
-			<button
-				className="text-vscode-descriptionForeground hover:text-vscode-foreground flex-shrink-0 text-xs"
-				onClick={onDismiss}
-				title="Dismiss">
-				&#x2715;
-			</button>
+			{isDismissible && onDismiss && (
+				<button
+					className="text-vscode-descriptionForeground hover:text-vscode-foreground flex-shrink-0 text-xs"
+					onClick={onDismiss}
+					title="Dismiss">
+					&#x2715;
+				</button>
+			)}
 		</div>
 	)
 }
