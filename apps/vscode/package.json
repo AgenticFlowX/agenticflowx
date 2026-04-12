@@ -3,7 +3,7 @@
 	"displayName": "AgenticFlowX",
 	"description": "The spec-driven AI coding environment.",
 	"publisher": "agenticflowx",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"icon": "assets/icons/icon.png",
 	"galleryBanner": {
 		"color": "#617A91",

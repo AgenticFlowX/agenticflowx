@@ -1,5 +1,36 @@
 # AgenticFlowX Changelog
 
+## 1.0.6 — 2026-04-12
+
+### Added
+
+- **Focus Track Autopilot UX** — three new context surfaces that make spec-driven workflow discoverable without expertise
+    - **Context Hint Strip** — transient strip above textarea showing file detection, spec match, and spec capture signals with dismiss/switch actions
+    - **Feature Context Bar** — persistent read-only bar inside the chatbox showing grounded feature, artifact, and task progress
+    - **Smart Switch chip** — Auto/Manual toggle in bottom strip controlling whether Focus track switches automatically on spec file detection
+    - **Feature Picker Card** — welcome screen "Pick up where you left off" showing top 3 recent features by `updated_at`
+    - **Spec Awareness Protocol** — General mode agent detects conversation matching existing specs and suggests grounding
+    - **Context-aware input hints** — helper text adapts to active artifact (spec/design/tasks/journal/research/adr)
+- **Task progress parsing** — `parseTaskProgress()` counts checkboxes in tasks.md, shown in context bar and welcome screen
+- **Feature scanner** — `scanRecentFeatures()` scans docs/specs/ for recent features sorted by latest frontmatter date
+- **`openFeatureFiles` message handler** — opens spec/design/tasks files from welcome screen feature click
+- **`persistTrackState` message handler** — persists Smart switch mode, track, and grounded feature to workspaceState
+
+### Changed
+
+- **Welcome screen** — AfxHero shows hero banner + feature picker together (not either/or), single border card (no card-in-card)
+- **Responsive layout** — welcome screen and chatbox adapt to narrow sidebar via `@container` queries (title, tagline, progress, Quick start visibility)
+- **`debugLog()` utility** — dev-only lifecycle logging gated behind `ExtensionMode.Development`
+- **`.vite-port` path resolution** — fixed for monorepo structure (3 levels up from `apps/vscode/dist/`)
+- **`watch:tsc` script** — fixed stale `src/tsconfig.json` path from pre-monorepo era
+- **`tasks.json`** — `watch:tsc` uses custom background problem matcher compatible with pnpm output
+
+### Fixed
+
+- **Smart Switch respects Manual mode** — `setMode()` no longer fires when Manual mode + General track (truth table rows 10–15)
+- **Hint strip resets on toggle** — switching Auto↔Manual dismisses active hint and resets state (truth table T1–T6)
+- **Feature context bar placement** — moved inside chatbox border container, flush under helper text
+
 ## 1.0.5 — 2026-04-09
 
 ### Changed
