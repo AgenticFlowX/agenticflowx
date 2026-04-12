@@ -4,7 +4,7 @@
 // Based on Roo Code (https://github.com/RooCodeInc/Roo-Code)
 // Original work by Saoud Rizwan (Claude Dev)
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react"
 
 import {
 	type ProviderSettings,
@@ -296,6 +296,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [groundedFeature, setGroundedFeature] = useState<GroundedFeature | null>(null)
 	const [smartSwitchMode, setSmartSwitchMode] = useState<SmartSwitchMode>("auto")
 	const [track, setTrack] = useState<"general" | "focus">("general")
+	// Boot hydration guard: only apply persisted Focus Track state from the FIRST state message.
+	// Subsequent postStateToWebview calls (feature scans, mode changes, etc.) must not overwrite
+	// values that the user or fileContext handler may have changed since boot.
+	const focusTrackHydratedRef = useRef(false)
 
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
@@ -318,6 +322,14 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 			switch (message.type) {
 				case "state": {
 					const newState = message.state ?? {}
+					console.log(
+						"[AFX] state received, smartSwitchMode =",
+						(newState as any).smartSwitchMode,
+						"| keys with afx:",
+						Object.keys(newState).filter(
+							(k) => k.includes("smart") || k.includes("track") || k.includes("grounded"),
+						),
+					)
 					setState((prevState) => mergeExtensionState(prevState, newState))
 					setShowWelcome(!checkExistKey(newState.apiConfiguration))
 					setDidHydrateState(true)
@@ -342,16 +354,17 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 						setIncludeCurrentCost((newState as any).includeCurrentCost)
 					}
 					// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
-					// Hydrate Focus Track state from persisted workspaceState so Smart Switch
-					// and grounded feature survive reloads (fixes webview/extension drift).
-					if ((newState as any).smartSwitchMode !== undefined) {
-						setSmartSwitchMode((newState as any).smartSwitchMode)
-					}
-					if ((newState as any).groundedFeature !== undefined) {
-						setGroundedFeature((newState as any).groundedFeature)
-					}
-					if ((newState as any).track !== undefined) {
-						setTrack((newState as any).track)
+					// Hydrate Focus Track state once from the first state message (boot).
+					// Subsequent state pushes (feature scans, mode changes) must not overwrite
+					// values the user or fileContext handler changed after boot.
+					if (!focusTrackHydratedRef.current) {
+						// Only restore smartSwitchMode (user preference) on boot.
+						// track always resets to General so auto-switch fires fresh each session.
+						// groundedFeature will be set by the cold-start fileContext message if a spec file is active.
+						if ((newState as any).smartSwitchMode !== undefined) {
+							setSmartSwitchMode((newState as any).smartSwitchMode)
+						}
+						focusTrackHydratedRef.current = true
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {

@@ -1498,13 +1498,13 @@ export const webviewMessageHandler = async (
 		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-API]
 		case "persistTrackState":
 			if (message.smartSwitchMode) {
-				provider.context.workspaceState.update("afx.smartSwitchMode", message.smartSwitchMode)
+				await provider.context.globalState.update("afx.smartSwitchMode", message.smartSwitchMode)
 			}
 			if (message.track) {
 				await updateGlobalState("track", message.track as "general" | "focus")
 			}
 			if (message.groundedFeature !== undefined) {
-				provider.context.workspaceState.update("afx.groundedFeature", message.groundedFeature)
+				await provider.context.workspaceState.update("afx.groundedFeature", message.groundedFeature)
 			}
 			break
 		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-25]

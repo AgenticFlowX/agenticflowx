@@ -14,7 +14,8 @@ import React from "react"
 
 import { cn } from "@/lib/utils"
 import { useAfxPortal } from "@/components/ui/hooks/use-afx-portal"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui"
+import { Popover, PopoverContent, PopoverTrigger, StandardTooltip } from "@/components/ui"
+import { useExtensionState } from "@/context/ExtensionStateContext"
 
 export type SmartSwitchMode = "auto" | "manual"
 
@@ -23,26 +24,30 @@ interface SmartSwitchChipProps {
 	onModeChange: (mode: SmartSwitchMode) => void
 }
 
-export const SmartSwitchChip: React.FC<SmartSwitchChipProps> = ({ mode, onModeChange }) => {
+export const SmartSwitchChip: React.FC<SmartSwitchChipProps> = ({ onModeChange }) => {
+	const { smartSwitchMode: mode } = useExtensionState()
 	const [open, setOpen] = React.useState(false)
 	const portalContainer = useAfxPortal("afx-portal")
+	const modeLabel = mode === "manual" ? "Manual" : "Auto"
+	const tooltipText = `Smart switch: ${modeLabel} — click to change`
 
 	return (
 		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger asChild>
-				<button
-					className={cn(
-						"flex items-center gap-1 px-1.5 py-0.5 text-xs rounded",
-						"text-vscode-descriptionForeground hover:text-vscode-foreground",
-						"hover:bg-vscode-toolbar-hoverBackground",
-						"transition-colors",
-						"min-w-0 whitespace-nowrap overflow-hidden",
-					)}
-					title="Smart switch — Auto/Manual track switching">
-					<span className="codicon codicon-layers size-3 flex-shrink-0" />
-					<span className="truncate">Smart switch</span>
-				</button>
-			</PopoverTrigger>
+			<StandardTooltip content={tooltipText}>
+				<PopoverTrigger asChild>
+					<button
+						className={cn(
+							"inline-flex items-center gap-1.5 relative whitespace-nowrap px-1.5 py-0.5 text-xs rounded",
+							"text-vscode-descriptionForeground hover:text-vscode-foreground",
+							"hover:bg-vscode-toolbar-hoverBackground",
+							"transition-colors",
+							"min-w-0",
+						)}>
+						<span className="codicon codicon-layers size-3 flex-shrink-0" />
+						<span className="truncate">Smart switch: {modeLabel}</span>
+					</button>
+				</PopoverTrigger>
+			</StandardTooltip>
 			<PopoverContent container={portalContainer} side="top" align="end" className="w-72 p-3 text-xs">
 				<div className="space-y-2.5">
 					<div className="font-medium text-vscode-foreground">Smart switch</div>

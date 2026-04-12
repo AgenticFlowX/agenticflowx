@@ -1906,7 +1906,6 @@ export class AfxProvider
 	async postStateToWebview() {
 		this.debugLog("postStateToWebview: gathering state...")
 		const state = await this.getStateToPostToWebview()
-		this.debugLog(`postStateToWebview: state ready (${Object.keys(state).length} keys), posting to webview`)
 		this.afxMessagesSeq++
 		state.afxMessagesSeq = this.afxMessagesSeq
 		this.postMessageToWebview({ type: "state", state })
@@ -2247,6 +2246,16 @@ export class AfxProvider
 					return []
 				}
 			})(),
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-API]
+			// Hydrate webview with persisted Focus Track state so Smart Switch, track, and grounded feature survive reloads.
+			track: (this.getGlobalState("track") as "general" | "focus") || "general",
+			smartSwitchMode: this.context.globalState.get<"auto" | "manual">("afx.smartSwitchMode", "auto"),
+			groundedFeature: this.context.workspaceState.get<{
+				name: string
+				artifact?: string
+				completed?: number
+				total?: number
+			} | null>("afx.groundedFeature", null),
 		}
 	}
 
@@ -2385,16 +2394,6 @@ export class AfxProvider
 			includeCurrentCost: stateValues.includeCurrentCost ?? true,
 			maxGitStatusFiles: stateValues.maxGitStatusFiles ?? 0,
 			taskSyncEnabled,
-			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-API]
-			// Hydrate webview with persisted Focus Track state so Smart Switch, track, and grounded feature survive reloads.
-			track: (this.getGlobalState("track") as "general" | "focus") || "general",
-			smartSwitchMode: this.context.workspaceState.get<"auto" | "manual">("afx.smartSwitchMode", "auto"),
-			groundedFeature: this.context.workspaceState.get<{
-				name: string
-				artifact?: string
-				completed?: number
-				total?: number
-			} | null>("afx.groundedFeature", null),
 		}
 	}
 
