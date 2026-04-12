@@ -146,7 +146,11 @@ export async function getFileContextAction(
 ): Promise<FileContextAction> {
 	const context = detectFileContext(filePath, workspaceRoot)
 
-	// Spec/research/ADR files → auto-switch to Focus track
+	// Spec/research/ADR files → auto-switch to Focus track (transition only)
+	// switchTrack is only set when transitioning from General → Focus, so the Auto-mode
+	// confirmation ("Switched to Focus: X") only shows on the actual transition, not on
+	// every subsequent spec-file browse while already in Focus.
+	// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
 	const isSpecFile = /docs\/(specs|research|adr)\//.test(filePath)
 	if (isSpecFile) {
 		return {

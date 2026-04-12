@@ -112,11 +112,15 @@ export interface ExtensionMessage {
 	text?: string
 	/** For fileContent: { path, content, error? } */
 	fileContent?: { path: string; content: string | null; error?: string }
-	/** For fileContext: Focus Track file context detection */
+	/** For fileContext: Focus Track file context detection (raw from extension) */
 	switchTrack?: "focus"
 	suggestedMode?: string
 	feature?: string
 	artifact?: string
+	/** True when the active file is a spec/research/adr artifact (webview uses this + own state to decide switch behavior) */
+	isSpecArtifact?: boolean
+	/** For fileContext: clear all Focus Track hint + grounded feature state (no editor or non-AFX file) */
+	clear?: boolean
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	signal?: any // For hintSignal message type
 	completed?: number // Task progress from tasks.md
@@ -315,6 +319,15 @@ export type ExtensionState = Pick<
 	| "showWorktreesInHomeScreen"
 	| "disabledTools"
 > & {
+	// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-API]
+	track?: "general" | "focus"
+	smartSwitchMode?: "auto" | "manual"
+	groundedFeature?: {
+		name: string
+		artifact?: string
+		completed?: number
+		total?: number
+	} | null
 	lockApiConfigAcrossModes?: boolean
 	version: string
 	afxMessages: AfxMessage[]
@@ -484,6 +497,7 @@ export interface WebviewMessage {
 		| "setApiConfigPassword"
 		| "mode"
 		| "track"
+		| "requestFileContext"
 		| "updatePrompt"
 		| "getSystemPrompt"
 		| "copySystemPrompt"

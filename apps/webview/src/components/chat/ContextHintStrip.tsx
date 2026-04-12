@@ -43,34 +43,32 @@ export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
 			case "fileDetection": {
 				const artifactLabel = signal.artifact || "file"
 				if (isAutoMode && autoSwitchFired) {
-					// Confirmation mode — auto-switch already happened
+					// Confirmation mode — auto-switch already happened.
+					// Layout mirrors the suggestion so the "Switch/Switched to Focus: X" label
+					// stays in the same visual position (right side of the em-dash).
 					return (
-						<>
-							<span className="flex-1 truncate">
-								Switched to Focus: {capitalize(artifactLabel)} &mdash; {signal.feature} /{" "}
-								{artifactLabel}.md
-							</span>
+						<span className="truncate">
+							{signal.feature} / {artifactLabel}.md &mdash; Switched to Focus: {capitalize(artifactLabel)}{" "}
+							&middot;{" "}
 							<button
-								className="ml-1 text-vscode-textLink-foreground hover:underline text-xs flex-shrink-0"
+								className="text-vscode-textLink-foreground hover:underline"
 								onClick={() => onAction("undo")}
-								title="Undo auto-switch">
-								&#8617;
+								title="Revert to General track">
+								Undo
 							</button>
-						</>
+						</span>
 					)
 				}
 				// Suggestion mode — user decides
 				return (
-					<>
-						<span className="flex-1 truncate">
-							{signal.feature} / {artifactLabel}.md detected &mdash;{" "}
-							<button
-								className="text-vscode-textLink-foreground hover:underline"
-								onClick={() => onAction("switch")}>
-								Switch to Focus: {capitalize(artifactLabel)}
-							</button>
-						</span>
-					</>
+					<span className="truncate">
+						{signal.feature} / {artifactLabel}.md detected &mdash;{" "}
+						<button
+							className="text-vscode-textLink-foreground hover:underline"
+							onClick={() => onAction("switch")}>
+							Switch to Focus: {capitalize(artifactLabel)}
+						</button>
+					</span>
 				)
 			}
 			case "specMatch":
@@ -111,14 +109,13 @@ export const ContextHintStrip: React.FC<ContextHintStripProps> = ({
 	return (
 		<div
 			className={cn(
-				"flex items-center gap-1 px-2.5 py-1 text-xs",
+				"flex items-center gap-2 px-2.5 py-1 text-xs",
 				"text-vscode-descriptionForeground",
-				"border-b border-vscode-panel-border/50",
 				"bg-vscode-editorGroupHeader-tabsBackground/20",
 			)}>
-			{renderContent()}
+			<div className="flex-1 min-w-0 flex items-center overflow-hidden">{renderContent()}</div>
 			<button
-				className="ml-1 text-vscode-descriptionForeground hover:text-vscode-foreground flex-shrink-0 text-xs"
+				className="text-vscode-descriptionForeground hover:text-vscode-foreground flex-shrink-0 text-xs"
 				onClick={onDismiss}
 				title="Dismiss">
 				&#x2715;

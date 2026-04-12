@@ -106,6 +106,8 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			setGroundedFeature,
 			smartSwitchMode,
 			setSmartSwitchMode,
+			track,
+			setTrack,
 		} = useExtensionState()
 
 		// Find the ID and display text for the currently selected API configuration.
@@ -984,7 +986,6 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		// ── Focus Track state ──
 		// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
 		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-DATA]
-		const [track, setTrack] = useState<"general" | "focus">("general")
 		const [fileContextHint, setFileContextHint] = useState<
 			{ feature?: string; artifact?: string; suggestedMode?: string } | undefined
 		>(undefined)
@@ -1011,50 +1012,83 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			return () => window.removeEventListener("message", handler)
 		}, [])
 
-		// Listen for fileContext messages from extension
+		// Listen for fileContext messages from extension.
+		// The extension sends RAW detection (isSpecArtifact, feature, artifact, suggestedMode, progress).
+		// The webview is the single source of truth — it decides Auto/Manual behavior based on its own
+		// smartSwitchMode + track state, matching the truth tables in design.md §3.5.0.1, §3.5.0.2, §3.6.
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
 		useEffect(() => {
 			const handler = (event: MessageEvent) => {
 				const message = event.data
-				if (message.type === "fileContext") {
-					// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
-					if (message.switchTrack) {
-						// Auto mode: track switches, mode follows
-						setTrack(message.switchTrack)
-						setAutoSwitchFired(true)
-						if (message.suggestedMode) {
-							setMode(message.suggestedMode)
-							vscode.postMessage({ type: "mode", text: message.suggestedMode })
-						}
-					} else {
-						setAutoSwitchFired(false)
-						// Already in Focus track: update mode to match artifact (rows 7-8, 16-17)
-						// Manual mode + General track: do NOT change mode (rows 10-15)
-						if (track === "focus" && message.suggestedMode) {
-							setMode(message.suggestedMode)
-							vscode.postMessage({ type: "mode", text: message.suggestedMode })
-						}
-					}
-					setFileContextHint({
-						feature: message.feature,
-						artifact: message.artifact,
-						suggestedMode: message.suggestedMode,
-					})
-					// Update grounded feature when a feature is detected
-					if (message.feature) {
-						setGroundedFeature({
-							name: message.feature,
-							artifact: message.artifact,
-							completed: message.completed,
-							total: message.total,
-						})
-					}
-					// Reset hint dismissed on new file context
+				if (message.type !== "fileContext") return
+
+				// Clear signal: no active editor OR non-AFX file (row 23).
+				// NOTE: autoSwitchFired is NOT reset here — it's provenance (user is in Focus
+				// because Auto fired), and navigating to a non-spec file doesn't change that.
+				// It's only reset when the user actually leaves Focus (undo, revert, manual switch).
+				if (message.clear) {
+					setFileContextHint(undefined)
+					setGroundedFeature(null)
 					setHintDismissed(false)
+					vscode.postMessage({ type: "persistTrackState", groundedFeature: null })
+					return
 				}
+
+				const isAuto = smartSwitchMode === "auto"
+				const isGeneral = track === "general"
+				const isFocus = track === "focus"
+				const isSpec = message.isSpecArtifact === true
+
+				// ─── Decision matrix (rows 1-18, F1-F10) ───
+				if (isAuto && isGeneral && isSpec) {
+					// Rows 1-6 / F1-F4: Auto + General + spec → switch to Focus, show confirmation
+					setTrack("focus")
+					setAutoSwitchFired(true)
+					vscode.postMessage({ type: "track", text: "focus" })
+					if (message.suggestedMode) {
+						setMode(message.suggestedMode)
+						vscode.postMessage({ type: "mode", text: message.suggestedMode })
+					}
+				} else if (isAuto && isFocus && isSpec) {
+					// Rows 7-8 / F5: Auto + already Focus → update mode to match artifact.
+					// autoSwitchFired is NOT reset — if true (auto got us here), stay true so
+					// confirmation keeps showing as we navigate between spec files. If false
+					// (user manually clicked to Focus earlier), stay false so no confirmation shows.
+					if (message.suggestedMode) {
+						setMode(message.suggestedMode)
+						vscode.postMessage({ type: "mode", text: message.suggestedMode })
+					}
+				} else if (!isAuto && isGeneral && isSpec) {
+					// Rows 10-15 / F6-F9: Manual + General + spec → suggestion hint, NO mode change
+					setAutoSwitchFired(false)
+				} else if (!isAuto && isFocus && isSpec) {
+					// Rows 16-17 / F10: Manual + already Focus → update mode, hint hidden.
+					// autoSwitchFired stays as-is (provenance preserved).
+					if (message.suggestedMode) {
+						setMode(message.suggestedMode)
+						vscode.postMessage({ type: "mode", text: message.suggestedMode })
+					}
+				}
+
+				// Always update these (rules 3, 4 in the truth table)
+				setFileContextHint({
+					feature: message.feature,
+					artifact: message.artifact,
+					suggestedMode: message.suggestedMode,
+				})
+				if (message.feature) {
+					setGroundedFeature({
+						name: message.feature,
+						artifact: message.artifact,
+						completed: message.completed,
+						total: message.total,
+					})
+				}
+				setHintDismissed(false)
 			}
 			window.addEventListener("message", handler)
 			return () => window.removeEventListener("message", handler)
-		}, [setMode, setGroundedFeature, track])
+		}, [setMode, setGroundedFeature, setTrack, track, smartSwitchMode])
 
 		// Common mode selector handler
 		const handleModeChange = useCallback(
@@ -1066,10 +1100,17 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		)
 
 		// Track change handler — switches between General and Focus
-		const handleTrackChange = useCallback((newTrack: "general" | "focus") => {
-			setTrack(newTrack)
-			vscode.postMessage({ type: "track", text: newTrack })
-		}, [])
+		const handleTrackChange = useCallback(
+			(newTrack: "general" | "focus") => {
+				setTrack(newTrack)
+				// Manual track change to General clears auto-switch provenance
+				if (newTrack === "general") {
+					setAutoSwitchFired(false)
+				}
+				vscode.postMessage({ type: "track", text: newTrack })
+			},
+			[setTrack],
+		)
 
 		// Compute hint signal from file context or agent hints (priority order)
 		const hintSignal: HintSignal | null = useMemo(() => {
@@ -1088,10 +1129,16 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		}, [fileContextHint, agentHintSignal])
 
 		// Visibility logic for hint strip
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
+		// Show file detection hints only when a track change is relevant:
+		//   - user on General → show suggestion (Manual) or pre-switch state
+		//   - auto-switch just fired → show confirmation
+		// Suppress when user is already on Focus in Manual mode (no switch needed — they're already there).
+		// Agent hints (specMatch/specCapture) always show.
 		const showHintStrip =
 			hintSignal !== null &&
 			!hintDismissed &&
-			!(hintSignal.type === "fileDetection" && smartSwitchMode === "auto" && autoSwitchFired)
+			(hintSignal.type !== "fileDetection" || track === "general" || autoSwitchFired)
 
 		// Hint strip action handler
 		const handleHintAction = useCallback(
@@ -1107,6 +1154,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						break
 					case "undo":
 						setTrack("general")
+						setAutoSwitchFired(false)
 						vscode.postMessage({ type: "track", text: "general" })
 						break
 					case "viewSpec":
@@ -1135,7 +1183,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 				}
 				setHintDismissed(true)
 			},
-			[fileContextHint, hintSignal, setMode],
+			[fileContextHint, hintSignal, setMode, setTrack],
 		)
 
 		// Helper function to handle API config change
@@ -1212,15 +1260,19 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							</div>
 						)}
 
-						{showHintStrip && hintSignal && (
-							<ContextHintStrip
-								signal={hintSignal}
-								isAutoMode={smartSwitchMode === "auto"}
-								autoSwitchFired={autoSwitchFired}
-								onAction={handleHintAction}
-								onDismiss={() => setHintDismissed(true)}
-							/>
-						)}
+						{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] */}
+						{/* Fixed-height slot: reserved whether or not a hint is shown, so the chatbox never jumps */}
+						<div className="h-[26px] flex-shrink-0 overflow-hidden">
+							{showHintStrip && hintSignal && (
+								<ContextHintStrip
+									signal={hintSignal}
+									isAutoMode={smartSwitchMode === "auto"}
+									autoSwitchFired={autoSwitchFired}
+									onAction={handleHintAction}
+									onDismiss={() => setHintDismissed(true)}
+								/>
+							)}
+						</div>
 
 						<div
 							className={cn(
@@ -1231,7 +1283,30 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 								"min-h-0",
 								"overflow-hidden",
 								"rounded-lg",
+								isFocused
+									? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
+									: isDraggingOver
+										? "border-2 border-dashed border-vscode-focusBorder"
+										: "border border-transparent",
+								isDraggingOver
+									? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
+									: "bg-vscode-input-background",
 							)}>
+							{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [C] FeatureContextBar */}
+							{/* Fixed-height slot reserved regardless of state so the chatbox never jumps:
+								- First child in flex-col-reverse → renders at the BOTTOM visually
+								- Always 20px whether FeatureContextBar is shown, hidden while typing,
+								  or hidden because no feature is grounded */}
+							<div className="h-[20px] flex-shrink-0 overflow-hidden">
+								{!inputValue && groundedFeature && (
+									<FeatureContextBar
+										feature={groundedFeature.name}
+										artifact={groundedFeature.artifact}
+										completed={groundedFeature.completed}
+										total={groundedFeature.total}
+									/>
+								)}
+							</div>
 							<div
 								ref={highlightLayerRef}
 								data-testid="highlight-layer"
@@ -1246,17 +1321,12 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									"font-vscode-font-family",
 									"text-vscode-editor-font-size",
 									"leading-vscode-editor-line-height",
-									isFocused
-										? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
-										: isDraggingOver
-											? "border-2 border-dashed border-vscode-focusBorder"
-											: "border border-transparent",
+									"border border-transparent",
 									"pl-2",
 									"py-2",
 									isEditMode ? "pr-20" : "pr-9",
 									"z-10",
 									"forced-color-adjust-none",
-									"rounded-lg",
 								)}
 								style={{
 									color: "transparent",
@@ -1310,19 +1380,10 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									"leading-vscode-editor-line-height",
 									"cursor-text",
 									"py-2 pl-2",
-									isFocused
-										? "border border-vscode-focusBorder outline outline-vscode-focusBorder"
-										: isDraggingOver
-											? "border-2 border-dashed border-vscode-focusBorder"
-											: "border border-transparent",
-									isDraggingOver
-										? "bg-[color-mix(in_srgb,var(--vscode-input-background)_95%,var(--vscode-focusBorder))]"
-										: "bg-vscode-input-background",
-									"transition-background-color duration-150 ease-in-out",
-									"will-change-background-color",
+									"border border-transparent",
+									"bg-transparent",
 									"min-h-[94px]",
 									"box-border",
-									"rounded",
 									"resize-none",
 									"overflow-x-hidden",
 									"overflow-y-auto",
@@ -1497,15 +1558,6 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									{placeholderBottomText}
 								</div>
 							)}
-							{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] */}
-							{!inputValue && groundedFeature && (
-								<FeatureContextBar
-									feature={groundedFeature.name}
-									artifact={groundedFeature.artifact}
-									completed={groundedFeature.completed}
-									total={groundedFeature.total}
-								/>
-							)}
 						</div>
 					</div>
 				</div>
@@ -1563,12 +1615,27 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							onModeChange={(newMode) => {
 								setSmartSwitchMode(newMode)
 								// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
-								setHintDismissed(true)
+								setHintDismissed(false)
+
+								// Revert a previous auto-switch when toggling away from Auto.
+								// If the user is on Focus because Auto fired (autoSwitchFired=true) and
+								// they toggle to Manual, revert to General so the re-evaluation surfaces
+								// the Manual suggestion for the current file (row T1 → F6). Manual-click
+								// flows (autoSwitchFired=false) are NOT reverted — those were an explicit
+								// user choice to enter Focus.
+								if (newMode === "manual" && autoSwitchFired && track === "focus") {
+									setTrack("general")
+									vscode.postMessage({ type: "track", text: "general" })
+								}
 								setAutoSwitchFired(false)
+
 								vscode.postMessage({
 									type: "persistTrackState",
 									smartSwitchMode: newMode,
 								})
+								// Ask the extension to re-run file detection against the new mode.
+								// The fileContext handler will apply the matching §3.6.1 row.
+								vscode.postMessage({ type: "requestFileContext" })
 							}}
 						/>
 					</div>

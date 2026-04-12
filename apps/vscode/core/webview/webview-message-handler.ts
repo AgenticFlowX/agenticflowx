@@ -683,6 +683,12 @@ export const webviewMessageHandler = async (
 			})
 
 			provider.isViewLaunched = true
+
+			// Focus Track: cold-start file detection. Fires AFTER postStateToWebview so the
+			// webview has already hydrated smartSwitchMode + track from workspace state before
+			// processing the fileContext event.
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
+			provider.detectAndPostFileContext(vscode.window.activeTextEditor)
 			break
 		case "newTask":
 			// Initializing new instance of Cline will make sure that any
@@ -1480,6 +1486,13 @@ export const webviewMessageHandler = async (
 		// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
 		case "track":
 			await updateGlobalState("track", message.text as "general" | "focus")
+			break
+		// Focus Track: toggle re-evaluation — webview requests a fresh fileContext for the
+		// current active editor after Smart Switch mode changes, so hint/context bar reflect
+		// the new mode immediately.
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-API]
+		case "requestFileContext":
+			await provider.detectAndPostFileContext(vscode.window.activeTextEditor)
 			break
 		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-24] [FR-20] [FR-21]
 		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-API]

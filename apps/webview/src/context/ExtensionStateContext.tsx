@@ -157,6 +157,8 @@ export interface ExtensionStateContextType extends ExtensionState {
 	setGroundedFeature: (value: GroundedFeature | null) => void
 	smartSwitchMode: SmartSwitchMode
 	setSmartSwitchMode: (value: SmartSwitchMode) => void
+	track: "general" | "focus"
+	setTrack: (value: "general" | "focus") => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -293,6 +295,7 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [includeCurrentCost, setIncludeCurrentCost] = useState(true)
 	const [groundedFeature, setGroundedFeature] = useState<GroundedFeature | null>(null)
 	const [smartSwitchMode, setSmartSwitchMode] = useState<SmartSwitchMode>("auto")
+	const [track, setTrack] = useState<"general" | "focus">("general")
 
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
@@ -337,6 +340,18 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 					// Update includeCurrentCost if present in state message
 					if ((newState as any).includeCurrentCost !== undefined) {
 						setIncludeCurrentCost((newState as any).includeCurrentCost)
+					}
+					// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
+					// Hydrate Focus Track state from persisted workspaceState so Smart Switch
+					// and grounded feature survive reloads (fixes webview/extension drift).
+					if ((newState as any).smartSwitchMode !== undefined) {
+						setSmartSwitchMode((newState as any).smartSwitchMode)
+					}
+					if ((newState as any).groundedFeature !== undefined) {
+						setGroundedFeature((newState as any).groundedFeature)
+					}
+					if ((newState as any).track !== undefined) {
+						setTrack((newState as any).track)
 					}
 					// Handle marketplace data if present in state message
 					if (newState.marketplaceItems !== undefined) {
@@ -600,6 +615,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		setGroundedFeature,
 		smartSwitchMode,
 		setSmartSwitchMode,
+		track,
+		setTrack,
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

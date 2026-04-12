@@ -796,36 +796,9 @@ export class AfxProvider
 		const activeEditorSubscription = vscode.window.onDidChangeActiveTextEditor(async (editor) => {
 			// Update subscription when workspace might have changed.
 			this.updateCodeIndexStatusSubscription()
-
 			// Focus Track: detect file context and notify webview
-			// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
-			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-ARCH] [DES-API]
-			if (editor) {
-				try {
-					const { getFileContextAction } = await import("../file-context/file-context-detector")
-					const currentTrack = ((await this.getGlobalState("track")) as string) || "general"
-					const smartSwitchMode = this.context.workspaceState.get<string>("afx.smartSwitchMode", "auto")
-					const action = await getFileContextAction(
-						editor.document.uri.fsPath,
-						currentTrack as "general" | "focus",
-						this.cwd,
-					)
-					if (action.suggestedMode || action.switchTrack || action.feature) {
-						const msg = {
-							type: "fileContext" as const,
-							switchTrack: smartSwitchMode === "auto" ? action.switchTrack : undefined,
-							suggestedMode: action.suggestedMode,
-							feature: action.feature,
-							artifact: action.artifact,
-							completed: action.completed,
-							total: action.total,
-						}
-						await this.postMessageToWebview(msg)
-					}
-				} catch (err) {
-					console.warn("[AfxProvider] File context detection failed:", err)
-				}
-			}
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-ARCH] [DES-API]
+			await this.detectAndPostFileContext(editor)
 		})
 		this.webviewDisposables.push(activeEditorSubscription)
 
@@ -2412,6 +2385,16 @@ export class AfxProvider
 			includeCurrentCost: stateValues.includeCurrentCost ?? true,
 			maxGitStatusFiles: stateValues.maxGitStatusFiles ?? 0,
 			taskSyncEnabled,
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-API]
+			// Hydrate webview with persisted Focus Track state so Smart Switch, track, and grounded feature survive reloads.
+			track: (this.getGlobalState("track") as "general" | "focus") || "general",
+			smartSwitchMode: this.context.workspaceState.get<"auto" | "manual">("afx.smartSwitchMode", "auto"),
+			groundedFeature: this.context.workspaceState.get<{
+				name: string
+				artifact?: string
+				completed?: number
+				total?: number
+			} | null>("afx.groundedFeature", null),
 		}
 	}
 
@@ -2510,6 +2493,42 @@ export class AfxProvider
 	// @deprecated - Use `ContextProxy#getValue` instead.
 	private getGlobalState<K extends keyof GlobalState>(key: K) {
 		return this.contextProxy.getValue(key)
+	}
+
+	/**
+	 * Focus Track: detect file context for the given editor and post the result to the webview.
+	 * Single entry point used by active-editor-change, cold-start (webviewDidLaunch), and
+	 * toggle re-evaluation (requestFileContext). The extension reports RAW detection only;
+	 * the webview decides Auto/Manual behavior using its own smartSwitchMode + track state.
+	 *
+	 * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] [DES-ARCH] [DES-API]
+	 */
+	public async detectAndPostFileContext(editor: vscode.TextEditor | undefined): Promise<void> {
+		try {
+			if (!editor) {
+				await this.postMessageToWebview({ type: "fileContext", clear: true })
+				return
+			}
+			const { detectFileContext } = await import("../file-context/file-context-detector")
+			const filePath = editor.document.uri.fsPath
+			const ctx = detectFileContext(filePath, this.cwd)
+			const isSpecArtifact = /docs\/(specs|research|adr)\//.test(filePath)
+			if (isSpecArtifact || ctx.feature || ctx.suggestedMode) {
+				await this.postMessageToWebview({
+					type: "fileContext",
+					isSpecArtifact,
+					suggestedMode: ctx.suggestedMode,
+					feature: ctx.feature,
+					artifact: ctx.artifact,
+					completed: ctx.completed,
+					total: ctx.total,
+				})
+			} else {
+				await this.postMessageToWebview({ type: "fileContext", clear: true })
+			}
+		} catch (err) {
+			console.warn("[AfxProvider] File context detection failed:", err)
+		}
 	}
 
 	public async setValue<K extends keyof AfxSettings>(key: K, value: AfxSettings[K]) {
