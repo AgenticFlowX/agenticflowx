@@ -1,5 +1,24 @@
 # AgenticFlowX Changelog
 
+## 1.0.7 — 2026-04-12
+
+### Fixed
+
+- **Smart Switch messaging** — "Switched to Focus: X" confirmation now shows correctly after auto-switch; was regressing to "Switch to..." suggestion due to `autoSwitchFired` being incorrectly reset on non-spec file navigation
+- **`autoSwitchFired` provenance** — treated as durable state (only cleared when track actually leaves Focus), not a per-event flag; eliminates the "hint disappears on README browse" bug
+- **Webview as single source of truth** — extension now reports raw detection (`isSpecArtifact`) only; all Smart Switch branching logic moved to webview, ending split-authority drift
+- **Cold-start file detection** — `webviewDidLaunch` fires `detectAndPostFileContext` after `postStateToWebview` so hint strip and context bar populate correctly on panel open
+- **Toggle re-evaluation** — SmartSwitchChip posts `requestFileContext` after mode change; Auto→Manual with `autoSwitchFired` reverts track to General and re-evaluates as suggestion
+- **ContextHintStrip UI** — replaced cryptic `↩` icon with "Undo" text link; label ("Switch to / Switched to Focus: X") anchored to same visual position in both suggestion and confirmation states
+- **Fixed-height chatbox slots** — 26px reserved for hint strip [A], 20px for context bar [C]; chatbox height no longer shifts when hints appear/disappear
+- **FeatureContextBar placement** — correctly positioned inside chatbox border (flex-col-reverse container owns border/bg; DynamicTextArea is transparent within it)
+- **State sync on init** — `track`, `smartSwitchMode`, and `groundedFeature` synced from extension workspace state to webview on every `postStateToWebview`, eliminating drift after panel reloads
+
+### Changed
+
+- **Design spec v1.3** — added `autoSwitchFired` Provenance Rules (§3.5.0.1a), cold-start scenarios M1–M6 (§3.6.2a), revised toggle truth table T1–T6 with revert/retroactive behavior, UI anchoring rule for hint strip label position
+- **`@see` annotations** — fixed 7 annotations across staged files: Node IDs only (`[DES-*]`), no subsection refs (`§x.y.z`, `UI-x.y.z`)
+
 ## 1.0.6 — 2026-04-12
 
 ### Added
