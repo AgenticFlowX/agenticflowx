@@ -108,6 +108,7 @@ export interface ExtensionMessage {
 		| "skills"
 		| "fileContent"
 		| "fileContext"
+		| "hintSignal"
 	text?: string
 	/** For fileContent: { path, content, error? } */
 	fileContent?: { path: string; content: string | null; error?: string }
@@ -116,6 +117,10 @@ export interface ExtensionMessage {
 	suggestedMode?: string
 	feature?: string
 	artifact?: string
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	signal?: any // For hintSignal message type
+	completed?: number // Task progress from tasks.md
+	total?: number // Task progress from tasks.md
 	payload?: any // eslint-disable-line @typescript-eslint/no-explicit-any
 	checkpointWarning?: {
 		type: "WAIT_TIMEOUT" | "INIT_TIMEOUT"
@@ -384,6 +389,11 @@ export type ExtensionState = Pick<
 	 * (captured during async getStateToPostToWebview) from overwriting newer messages.
 	 */
 	afxMessagesSeq?: number
+
+	// Focus Track Autopilot
+	// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-DATA]
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	recentFeatures?: any[]
 }
 
 export interface Command {
@@ -574,6 +584,10 @@ export interface WebviewMessage {
 		| "moveSkill"
 		| "updateSkillModes"
 		| "openSkillFile"
+		// Focus Track Autopilot messages
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-API]
+		| "openFeatureFiles"
+		| "persistTrackState"
 	text?: string
 	taskId?: string
 	editedMessageContent?: string
@@ -628,6 +642,13 @@ export interface WebviewMessage {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	settings?: any
 	url?: string // For openExternal
+	// Focus Track Autopilot fields
+	feature?: string // For openFeatureFiles
+	filesOnly?: string[] // For openFeatureFiles (subset of files to open)
+	smartSwitchMode?: string // For persistTrackState
+	track?: string // For persistTrackState
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	groundedFeature?: any // For persistTrackState
 	mpItem?: MarketplaceItem
 	mpInstallOptions?: InstallMarketplaceItemOptions
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

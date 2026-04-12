@@ -91,13 +91,22 @@ async function generatePrompt(
 	const effectiveProtocol = "native"
 
 	// [AFX-START] Load AFX spec context for system prompt injection — @see docs/research/res-afx-plugin-architecture-plan.md
-	const [modesSection, skillsSection, afxSpecSection] = await Promise.all([
+	const [modesSection, skillsSection, afxSpecSection, specAwarenessSection] = await Promise.all([
 		getModesSection(context),
 		getSkillsSection(skillsManager, mode as string),
 		(async () => {
 			try {
 				const { getAfxSpecContextSection } = await import("../../agenticflowx/prompt/afx-inject")
 				return await getAfxSpecContextSection()
+			} catch {
+				return ""
+			}
+		})(),
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
+		(async () => {
+			try {
+				const { getSpecAwarenessSection } = await import("./sections/spec-awareness")
+				return getSpecAwarenessSection(cwd)
 			} catch {
 				return ""
 			}
@@ -119,7 +128,7 @@ ${getSharedToolUseSection()}${toolsCatalog}
 ${getCapabilitiesSection(cwd, shouldIncludeMcp ? mcpHub : undefined)}
 
 ${modesSection}
-${skillsSection ? `\n${skillsSection}` : ""}${afxSpecSection ? `\n${afxSpecSection}` : "" /* [AFX] Inject spec context into prompt */}
+${skillsSection ? `\n${skillsSection}` : ""}${afxSpecSection ? `\n${afxSpecSection}` : "" /* [AFX] Inject spec context into prompt */}${specAwarenessSection ? `\n${specAwarenessSection}` : ""}
 ${getRulesSection(cwd, settings)}
 
 ${getSystemInfoSection(cwd)}

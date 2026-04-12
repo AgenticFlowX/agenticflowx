@@ -14,14 +14,29 @@
  */
 
 import * as fs from "fs/promises"
+import * as fsSync from "fs"
+import * as path from "path"
 
 /**
  * File context detection result.
  */
+/**
+ * Task progress from parsing tasks.md checkboxes.
+ *
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-8] [FR-22] [FR-23]
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-ARCH]
+ */
+export interface TaskProgress {
+	completed: number
+	total: number
+}
+
 export interface FileContext {
 	feature?: string
 	artifact?: string
 	suggestedMode?: string
+	completed?: number
+	total?: number
 	filePath: string
 }
 
@@ -33,6 +48,8 @@ export interface FileContextAction {
 	suggestedMode?: string
 	feature?: string
 	artifact?: string
+	completed?: number
+	total?: number
 }
 
 /**
@@ -46,17 +63,49 @@ const ARTIFACT_TO_MODE: Record<string, string> = {
 }
 
 /**
+ * Parse task progress from a feature's tasks.md by counting checkboxes.
+ * Returns completed/total counts, or undefined if no tasks.md exists.
+ *
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-8] [FR-22] [FR-23]
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-ARCH]
+ */
+export function parseTaskProgress(featurePath: string): TaskProgress | undefined {
+	const tasksPath = path.join(featurePath, "tasks.md")
+	if (!fsSync.existsSync(tasksPath)) return undefined
+
+	const content = fsSync.readFileSync(tasksPath, "utf-8")
+	const checkboxes = content.match(/^- \[([ xX])\]/gm) ?? []
+	const total = checkboxes.length
+	const completed = checkboxes.filter((m) => m.includes("[x]") || m.includes("[X]")).length
+	return { completed, total }
+}
+
+/**
  * Detect file context from a file path.
  * Returns the feature, artifact type, and suggested Focus mode.
  */
-export function detectFileContext(filePath: string): FileContext {
+export function detectFileContext(filePath: string, workspaceRoot?: string): FileContext {
 	// Match spec artifacts: docs/specs/{feature}/{artifact}.md
 	const specMatch = filePath.match(/docs\/specs\/([^/]+)\/(spec|design|tasks|journal)\.md$/)
 	if (specMatch) {
+		const feature = specMatch[1]
+		const artifact = specMatch[2]
+		let completed: number | undefined
+		let total: number | undefined
+
+		if (workspaceRoot) {
+			const featurePath = path.join(workspaceRoot, "docs/specs", feature)
+			const taskProgress = parseTaskProgress(featurePath)
+			completed = taskProgress?.completed
+			total = taskProgress?.total
+		}
+
 		return {
-			feature: specMatch[1],
-			artifact: specMatch[2],
-			suggestedMode: ARTIFACT_TO_MODE[specMatch[2]],
+			feature,
+			artifact,
+			suggestedMode: ARTIFACT_TO_MODE[artifact],
+			completed,
+			total,
 			filePath,
 		}
 	}
@@ -93,8 +142,9 @@ export function detectFileContext(filePath: string): FileContext {
 export async function getFileContextAction(
 	filePath: string,
 	currentTrack: "general" | "focus",
+	workspaceRoot?: string,
 ): Promise<FileContextAction> {
-	const context = detectFileContext(filePath)
+	const context = detectFileContext(filePath, workspaceRoot)
 
 	// Spec/research/ADR files → auto-switch to Focus track
 	const isSpecFile = /docs\/(specs|research|adr)\//.test(filePath)
@@ -104,6 +154,8 @@ export async function getFileContextAction(
 			suggestedMode: context.suggestedMode,
 			feature: context.feature,
 			artifact: context.artifact,
+			completed: context.completed,
+			total: context.total,
 		}
 	}
 

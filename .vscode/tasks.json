@@ -61,9 +61,25 @@
 		{
 			"label": "watch:tsc",
 			"type": "shell",
-			"command": "npx turbo watch:tsc",
+			"command": "pnpm --filter agenticflowx run watch:tsc",
 			"group": "build",
-			"problemMatcher": "$tsc-watch",
+			"problemMatcher": {
+				"owner": "tsc-watch",
+				"pattern": {
+					"regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(TS\\d+):\\s+(.+)$",
+					"file": 1,
+					"line": 2,
+					"column": 3,
+					"severity": 4,
+					"code": 5,
+					"message": 6
+				},
+				"background": {
+					"activeOnStart": true,
+					"beginsPattern": ".*Starting compilation.*|.*File change detected.*",
+					"endsPattern": ".*Found \\d+ error.*|.*Watching for file changes.*"
+				}
+			},
 			"isBackground": true,
 			"presentation": {
 				"group": "watch",

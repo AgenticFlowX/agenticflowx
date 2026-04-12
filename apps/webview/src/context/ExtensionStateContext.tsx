@@ -35,6 +35,21 @@ import { experimentDefault } from "@afx/experiments"
 import { vscode } from "@src/utils/vscode"
 import { convertTextMateToHljs } from "@src/utils/text-mate-to-hljs"
 
+/**
+ * Grounded feature state — the currently active feature in Focus Track.
+ *
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-20] [FR-13a]
+ * @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-DATA]
+ */
+export interface GroundedFeature {
+	name: string
+	artifact?: string
+	completed?: number
+	total?: number
+}
+
+export type SmartSwitchMode = "auto" | "manual"
+
 export interface ExtensionStateContextType extends ExtensionState {
 	historyPreviewCollapsed?: boolean // Add the new state property
 	didHydrateState: boolean
@@ -138,6 +153,10 @@ export interface ExtensionStateContextType extends ExtensionState {
 	showWorktreesInHomeScreen: boolean
 	setShowWorktreesInHomeScreen: (value: boolean) => void
 	skills?: SkillMetadata[]
+	groundedFeature: GroundedFeature | null
+	setGroundedFeature: (value: GroundedFeature | null) => void
+	smartSwitchMode: SmartSwitchMode
+	setSmartSwitchMode: (value: SmartSwitchMode) => void
 }
 
 export const ExtensionStateContext = createContext<ExtensionStateContextType | undefined>(undefined)
@@ -272,6 +291,8 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 	const [includeTaskHistoryInEnhance, setIncludeTaskHistoryInEnhance] = useState(true)
 	const [includeCurrentTime, setIncludeCurrentTime] = useState(true)
 	const [includeCurrentCost, setIncludeCurrentCost] = useState(true)
+	const [groundedFeature, setGroundedFeature] = useState<GroundedFeature | null>(null)
+	const [smartSwitchMode, setSmartSwitchMode] = useState<SmartSwitchMode>("auto")
 
 	const setListApiConfigMeta = useCallback(
 		(value: ProviderSettingsEntry[]) => setState((prevState) => ({ ...prevState, listApiConfigMeta: value })),
@@ -575,6 +596,10 @@ export const ExtensionStateContextProvider: React.FC<{ children: React.ReactNode
 		showWorktreesInHomeScreen: state.showWorktreesInHomeScreen ?? true,
 		setShowWorktreesInHomeScreen: (value) =>
 			setState((prevState) => ({ ...prevState, showWorktreesInHomeScreen: value })),
+		groundedFeature,
+		setGroundedFeature,
+		smartSwitchMode,
+		setSmartSwitchMode,
 	}
 
 	return <ExtensionStateContext.Provider value={contextValue}>{children}</ExtensionStateContext.Provider>

@@ -83,6 +83,7 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 		customModes,
 		messageQueue = [],
 		showWorktreesInHomeScreen,
+		recentFeatures,
 	} = useExtensionState()
 
 	// Show a WarningRow when the user sends a message with a retired provider.
@@ -1476,20 +1477,20 @@ const ChatViewComponent: React.ForwardRefRenderFunction<ChatViewRef, ChatViewPro
 					)}
 				</>
 			) : (
-				<div className="flex flex-col h-full justify-center p-6 min-h-0 overflow-y-auto gap-4 relative">
-					<div className="flex flex-col items-start gap-2 justify-center h-full min-[400px]:px-6">
-						<VersionIndicator
-							onClick={() => setShowAnnouncementModal(true)}
-							className="absolute top-2 right-3 z-10"
-						/>
-						<div className="flex flex-col gap-3 w-full">
+				<div className="flex flex-col h-full p-4 min-h-0 overflow-y-auto overflow-x-hidden gap-3 relative">
+					<div className="flex flex-col items-start gap-2 min-[400px]:px-6">
+						<div className="@container flex flex-col gap-3 w-full">
 							{/* Card: Hero */}
-							<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-5">
-								<AfxHero />
+							<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-3 @[350px]:p-5 relative">
+								<VersionIndicator
+									onClick={() => setShowAnnouncementModal(true)}
+									className="absolute top-3 right-3 text-[10px] opacity-40"
+								/>
+								<AfxHero recentFeatures={recentFeatures} />
 							</div>
-							{/* Card: Quick Start + Tips — for new users */}
+							{/* Card: Quick Start + Tips — for new users, hidden at narrow widths */}
 							{taskHistory.length < 6 && (
-								<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-5 flex flex-col gap-4">
+								<div className="bg-vscode-editor-background border border-vscode-panel-border rounded-xl p-3 @[350px]:p-5 flex-col gap-4 hidden @[300px]:flex">
 									<p className="my-0 text-sm font-semibold text-vscode-foreground">Quick start</p>
 									<AfxQuickStart />
 									<hr className="border-vscode-panel-border my-0" />

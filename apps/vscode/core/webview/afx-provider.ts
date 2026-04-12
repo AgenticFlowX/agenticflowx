@@ -728,6 +728,9 @@ export class AfxProvider
 	}
 
 	async resolveWebviewView(webviewView: vscode.WebviewView | vscode.WebviewPanel) {
+		this.debugLog(
+			`resolveWebviewView called, mode=${this.contextProxy.extensionMode === vscode.ExtensionMode.Development ? "dev" : "prod"}`,
+		)
 		this.view = webviewView
 		const inTabMode = "onDidChangeViewState" in webviewView
 
@@ -774,10 +777,12 @@ export class AfxProvider
 			localResourceRoots: resourceRoots,
 		}
 
+		this.debugLog("Generating webview HTML...")
 		webviewView.webview.html =
 			this.contextProxy.extensionMode === vscode.ExtensionMode.Development
 				? await this.getHMRHtmlContent(webviewView.webview)
 				: await this.getHtmlContent(webviewView.webview)
+		this.debugLog(`Webview HTML set (${webviewView.webview.html.length} chars)`)
 
 		// Sets up an event listener to listen for messages passed from the webview view context
 		// and executes code based on the message that is received.
@@ -794,22 +799,28 @@ export class AfxProvider
 
 			// Focus Track: detect file context and notify webview
 			// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-FILEDETECT]
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-ARCH] [DES-API]
 			if (editor) {
 				try {
 					const { getFileContextAction } = await import("../file-context/file-context-detector")
 					const currentTrack = ((await this.getGlobalState("track")) as string) || "general"
+					const smartSwitchMode = this.context.workspaceState.get<string>("afx.smartSwitchMode", "auto")
 					const action = await getFileContextAction(
 						editor.document.uri.fsPath,
 						currentTrack as "general" | "focus",
+						this.cwd,
 					)
-					if (action.suggestedMode || action.switchTrack) {
-						await this.postMessageToWebview({
-							type: "fileContext",
-							switchTrack: action.switchTrack,
+					if (action.suggestedMode || action.switchTrack || action.feature) {
+						const msg = {
+							type: "fileContext" as const,
+							switchTrack: smartSwitchMode === "auto" ? action.switchTrack : undefined,
 							suggestedMode: action.suggestedMode,
 							feature: action.feature,
 							artifact: action.artifact,
-						})
+							completed: action.completed,
+							total: action.total,
+						}
+						await this.postMessageToWebview(msg)
 					}
 				} catch (err) {
 					console.warn("[AfxProvider] File context detection failed:", err)
@@ -1114,26 +1125,40 @@ export class AfxProvider
 		try {
 			const fs = require("fs")
 			const path = require("path")
-			const portFilePath = path.resolve(__dirname, "../../.vite-port")
+			// Try multiple paths — monorepo structure means __dirname is apps/vscode/dist/
+			const candidates = [
+				path.resolve(__dirname, "../../../.vite-port"), // apps/vscode/dist/ → repo root
+				path.resolve(__dirname, "../../.vite-port"), // fallback: old path
+			]
 
-			if (fs.existsSync(portFilePath)) {
-				localPort = fs.readFileSync(portFilePath, "utf8").trim()
-				console.log(`[AfxProvider:Vite] Using Vite server port from ${portFilePath}: ${localPort}`)
-			} else {
-				console.log(
-					`[AfxProvider:Vite] Port file not found at ${portFilePath}, using default port: ${localPort}`,
-				)
+			let found = false
+			for (const portFilePath of candidates) {
+				if (fs.existsSync(portFilePath)) {
+					localPort = fs.readFileSync(portFilePath, "utf8").trim()
+					this.debugLog(`Vite port from ${portFilePath}: ${localPort}`)
+					found = true
+					break
+				}
+			}
+			if (!found) {
+				this.debugLog(`Vite port file not found (tried: ${candidates.join(", ")}), using default: ${localPort}`)
 			}
 		} catch (err) {
-			console.error("[AfxProvider:Vite] Failed to read Vite port file:", err)
+			console.warn("[AfxProvider] Failed to read Vite port file:", err)
 		}
 
 		const localServerUrl = `localhost:${localPort}`
+		this.debugLog(`Checking Vite dev server at http://${localServerUrl}...`)
 
 		// Check if local dev server is running.
 		try {
 			await axios.get(`http://${localServerUrl}`)
+			this.debugLog(`Vite dev server running on port ${localPort}`)
 		} catch (error) {
+			console.warn(
+				`[AfxProvider] Vite dev server NOT reachable at http://${localServerUrl}:`,
+				(error as any)?.message || error,
+			)
 			vscode.window.showErrorMessage(t("common:errors.hmr_not_running"))
 			return this.getHtmlContent(webview)
 		}
@@ -1906,7 +1931,9 @@ export class AfxProvider
 	}
 
 	async postStateToWebview() {
+		this.debugLog("postStateToWebview: gathering state...")
 		const state = await this.getStateToPostToWebview()
+		this.debugLog(`postStateToWebview: state ready (${Object.keys(state).length} keys), posting to webview`)
 		this.afxMessagesSeq++
 		state.afxMessagesSeq = this.afxMessagesSeq
 		this.postMessageToWebview({ type: "state", state })
@@ -2237,6 +2264,16 @@ export class AfxProvider
 				}
 			})(),
 			debug: vscode.workspace.getConfiguration(Package.name).get<boolean>("debug", false),
+			// Focus Track Autopilot — recent features for welcome screen
+			// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-DATA]
+			recentFeatures: await (async () => {
+				try {
+					const { scanRecentFeatures } = await import("../../agenticflowx/utils/feature-scanner")
+					return scanRecentFeatures(cwd, 3)
+				} catch {
+					return []
+				}
+			})(),
 		}
 	}
 
@@ -2517,6 +2554,17 @@ export class AfxProvider
 	public log(message: string) {
 		this.outputChannel.appendLine(message)
 		console.log(message)
+	}
+
+	/**
+	 * Debug log — only outputs in Development mode.
+	 * Use for verbose lifecycle tracing (webview init, file detection, state sync).
+	 * Always visible in Debug Console; filtered out in production.
+	 */
+	public debugLog(message: string) {
+		if (this.contextProxy.extensionMode === vscode.ExtensionMode.Development) {
+			console.log(`[AfxProvider:debug] ${message}`)
+		}
 	}
 
 	// getters

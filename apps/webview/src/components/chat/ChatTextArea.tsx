@@ -33,6 +33,9 @@ import { AutoApproveDropdown } from "./AutoApproveDropdown"
 import { MAX_IMAGES_PER_MESSAGE } from "./ChatView"
 import ContextMenu from "./ContextMenu"
 import { IndexingStatusBadge } from "./IndexingStatusBadge"
+import { ContextHintStrip, type HintSignal } from "./ContextHintStrip"
+import { FeatureContextBar } from "./FeatureContextBar"
+import { SmartSwitchChip } from "./SmartSwitchChip"
 import { usePromptHistory } from "./hooks/use-prompt-history"
 
 interface ChatTextAreaProps {
@@ -99,6 +102,10 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			commands,
 			enterBehavior,
 			lockApiConfigAcrossModes,
+			groundedFeature,
+			setGroundedFeature,
+			smartSwitchMode,
+			setSmartSwitchMode,
 		} = useExtensionState()
 
 		// Find the ID and display text for the currently selected API configuration.
@@ -944,37 +951,110 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			],
 		)
 
-		const placeholderBottomText = `\n(${t("chat:addContext")}${shouldDisableImages ? `, ${t("chat:dragFiles")}` : `, ${t("chat:dragFilesImages")}`})`
+		const defaultHelperText = `(${t("chat:addContext")}${shouldDisableImages ? `, ${t("chat:dragFiles")}` : `, ${t("chat:dragFilesImages")}`})`
+
+		// Context-aware helper text based on active artifact
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-31]
+		const contextAwareHelperText = useMemo(() => {
+			const artifact = groundedFeature?.artifact
+			if (!artifact) {
+				if (groundedFeature) return "(/afx-dev review against spec, /afx-check trace for compliance)"
+				return defaultHelperText
+			}
+			switch (artifact) {
+				case "spec":
+					return "(/afx-spec review to check quality, /afx-spec approve when ready)"
+				case "design":
+					return "(/afx-design review to validate, /afx-design approve to unlock tasks)"
+				case "tasks":
+					return "(/afx-task pick to start work, /afx-task status for progress)"
+				case "journal":
+					return "(/afx-session note to capture, /afx-session recap to review)"
+				case "research":
+					return "(/afx-research compare to analyze, /afx-research finalize --to adr)"
+				case "adr":
+					return "(/afx-adr review to check, /afx-adr list for all decisions)"
+				default:
+					return defaultHelperText
+			}
+		}, [groundedFeature, defaultHelperText])
+
+		const placeholderBottomText = `\n${contextAwareHelperText}`
 
 		// ── Focus Track state ──
 		// @see docs/specs/31-vscode-agenticflowx-focus-track/design.md [DES-UI]
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-DATA]
 		const [track, setTrack] = useState<"general" | "focus">("general")
 		const [fileContextHint, setFileContextHint] = useState<
 			{ feature?: string; artifact?: string; suggestedMode?: string } | undefined
 		>(undefined)
+		const [hintDismissed, setHintDismissed] = useState(false)
+		const [autoSwitchFired, setAutoSwitchFired] = useState(false)
+		const [agentHintSignal, setAgentHintSignal] = useState<HintSignal | null>(null)
+
+		// Listen for agent hint signals (specMatch/specCapture from agent response)
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-27] [FR-28]
+		useEffect(() => {
+			const handler = (event: MessageEvent) => {
+				const message = event.data
+				if (message.type === "hintSignal") {
+					if (message.signal?.type === "specMatch") {
+						setAgentHintSignal({ type: "specMatch", feature: message.signal.feature })
+						setHintDismissed(false)
+					} else if (message.signal?.type === "specCapture") {
+						setAgentHintSignal({ type: "specCapture" })
+						setHintDismissed(false)
+					}
+				}
+			}
+			window.addEventListener("message", handler)
+			return () => window.removeEventListener("message", handler)
+		}, [])
 
 		// Listen for fileContext messages from extension
 		useEffect(() => {
 			const handler = (event: MessageEvent) => {
 				const message = event.data
 				if (message.type === "fileContext") {
+					// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
 					if (message.switchTrack) {
+						// Auto mode: track switches, mode follows
 						setTrack(message.switchTrack)
-					}
-					if (message.suggestedMode) {
-						setMode(message.suggestedMode)
-						vscode.postMessage({ type: "mode", text: message.suggestedMode })
+						setAutoSwitchFired(true)
+						if (message.suggestedMode) {
+							setMode(message.suggestedMode)
+							vscode.postMessage({ type: "mode", text: message.suggestedMode })
+						}
+					} else {
+						setAutoSwitchFired(false)
+						// Already in Focus track: update mode to match artifact (rows 7-8, 16-17)
+						// Manual mode + General track: do NOT change mode (rows 10-15)
+						if (track === "focus" && message.suggestedMode) {
+							setMode(message.suggestedMode)
+							vscode.postMessage({ type: "mode", text: message.suggestedMode })
+						}
 					}
 					setFileContextHint({
 						feature: message.feature,
 						artifact: message.artifact,
 						suggestedMode: message.suggestedMode,
 					})
+					// Update grounded feature when a feature is detected
+					if (message.feature) {
+						setGroundedFeature({
+							name: message.feature,
+							artifact: message.artifact,
+							completed: message.completed,
+							total: message.total,
+						})
+					}
+					// Reset hint dismissed on new file context
+					setHintDismissed(false)
 				}
 			}
 			window.addEventListener("message", handler)
 			return () => window.removeEventListener("message", handler)
-		}, [setMode])
+		}, [setMode, setGroundedFeature, track])
 
 		// Common mode selector handler
 		const handleModeChange = useCallback(
@@ -991,6 +1071,73 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			vscode.postMessage({ type: "track", text: newTrack })
 		}, [])
 
+		// Compute hint signal from file context or agent hints (priority order)
+		const hintSignal: HintSignal | null = useMemo(() => {
+			// Priority 1: file detection signal
+			if (fileContextHint?.feature && fileContextHint.suggestedMode) {
+				return {
+					type: "fileDetection" as const,
+					feature: fileContextHint.feature,
+					artifact: fileContextHint.artifact,
+					suggestedMode: fileContextHint.suggestedMode,
+				}
+			}
+			// Priority 2-3: agent hint signals (specMatch > specCapture)
+			if (agentHintSignal) return agentHintSignal
+			return null
+		}, [fileContextHint, agentHintSignal])
+
+		// Visibility logic for hint strip
+		const showHintStrip =
+			hintSignal !== null &&
+			!hintDismissed &&
+			!(hintSignal.type === "fileDetection" && smartSwitchMode === "auto" && autoSwitchFired)
+
+		// Hint strip action handler
+		const handleHintAction = useCallback(
+			(action: "switch" | "viewSpec" | "ground" | "capture" | "undo") => {
+				switch (action) {
+					case "switch":
+						if (fileContextHint?.suggestedMode) {
+							setTrack("focus")
+							setMode(fileContextHint.suggestedMode)
+							vscode.postMessage({ type: "mode", text: fileContextHint.suggestedMode })
+							vscode.postMessage({ type: "track", text: "focus" })
+						}
+						break
+					case "undo":
+						setTrack("general")
+						vscode.postMessage({ type: "track", text: "general" })
+						break
+					case "viewSpec":
+						if (hintSignal?.type === "specMatch") {
+							vscode.postMessage({
+								type: "openFeatureFiles",
+								feature: hintSignal.feature,
+								filesOnly: ["spec"],
+							})
+						}
+						break
+					case "ground":
+						if (hintSignal?.type === "specMatch") {
+							vscode.postMessage({
+								type: "openFeatureFiles",
+								feature: hintSignal.feature,
+							})
+						}
+						break
+					case "capture":
+						vscode.postMessage({
+							type: "newTask",
+							text: "/afx-scaffold spec help me create my first spec",
+						})
+						break
+				}
+				setHintDismissed(true)
+			},
+			[fileContextHint, hintSignal, setMode],
+		)
+
 		// Helper function to handle API config change
 		const handleApiConfigChange = useCallback((value: string) => {
 			vscode.postMessage({ type: "loadApiConfigurationById", text: value })
@@ -1004,7 +1151,7 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		return (
 			<div
 				className={cn(
-					"flex flex-col gap-1 bg-editor-background outline-none border border-none box-border",
+					"@container flex flex-col gap-1 bg-editor-background outline-none border border-none box-border",
 					isEditMode ? "p-2 w-full" : "relative px-1.5 pb-1 w-[calc(100%-16px)] ml-auto mr-auto",
 				)}>
 				<div className={cn(!isEditMode && "relative")}>
@@ -1063,6 +1210,16 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									commands={commands}
 								/>
 							</div>
+						)}
+
+						{showHintStrip && hintSignal && (
+							<ContextHintStrip
+								signal={hintSignal}
+								isAutoMode={smartSwitchMode === "auto"}
+								autoSwitchFired={autoSwitchFired}
+								onAction={handleHintAction}
+								onDismiss={() => setHintDismissed(true)}
+							/>
 						)}
 
 						<div
@@ -1327,7 +1484,8 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							{!inputValue && (
 								<div
 									className={cn(
-										"absolute left-2 z-30 flex items-center h-8 font-vscode-font-family text-vscode-editor-font-size leading-vscode-editor-line-height",
+										"absolute left-2 z-30 items-center h-8 font-vscode-font-family text-vscode-editor-font-size leading-vscode-editor-line-height",
+										"hidden @[200px]:flex",
 										isEditMode ? "pr-20" : "pr-9",
 									)}
 									style={{
@@ -1338,6 +1496,15 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 									}}>
 									{placeholderBottomText}
 								</div>
+							)}
+							{/* @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI] */}
+							{!inputValue && groundedFeature && (
+								<FeatureContextBar
+									feature={groundedFeature.name}
+									artifact={groundedFeature.artifact}
+									completed={groundedFeature.completed}
+									total={groundedFeature.total}
+								/>
 							)}
 						</div>
 					</div>
@@ -1390,6 +1557,20 @@ export const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 						/>
 						<div className="w-px h-3.5 bg-vscode-panel-border/60 flex-shrink-0" />
 						<AutoApproveDropdown triggerClassName="min-w-[28px] text-ellipsis overflow-hidden flex-shrink" />
+						<div className="w-px h-3.5 bg-vscode-panel-border/60 flex-shrink-0" />
+						<SmartSwitchChip
+							mode={smartSwitchMode}
+							onModeChange={(newMode) => {
+								setSmartSwitchMode(newMode)
+								// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-UI]
+								setHintDismissed(true)
+								setAutoSwitchFired(false)
+								vscode.postMessage({
+									type: "persistTrackState",
+									smartSwitchMode: newMode,
+								})
+							}}
+						/>
 					</div>
 					<div className="flex flex-shrink-0 items-center gap-1 pl-1 border-l border-vscode-panel-border/40">
 						{!isEditMode ? <IndexingStatusBadge /> : null}

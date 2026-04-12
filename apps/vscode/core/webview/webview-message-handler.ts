@@ -604,6 +604,7 @@ export const webviewMessageHandler = async (
 
 	switch (message.type) {
 		case "webviewDidLaunch":
+			provider.debugLog("webviewDidLaunch received — React app mounted, sending initial state")
 			// Load custom modes first
 			const customModes = await provider.customModesManager.getCustomModes()
 			await updateGlobalState("customModes", customModes)
@@ -1480,6 +1481,40 @@ export const webviewMessageHandler = async (
 		case "track":
 			await updateGlobalState("track", message.text as "general" | "focus")
 			break
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-24] [FR-20] [FR-21]
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-API]
+		case "persistTrackState":
+			if (message.smartSwitchMode) {
+				provider.context.workspaceState.update("afx.smartSwitchMode", message.smartSwitchMode)
+			}
+			if (message.track) {
+				await updateGlobalState("track", message.track as "general" | "focus")
+			}
+			if (message.groundedFeature !== undefined) {
+				provider.context.workspaceState.update("afx.groundedFeature", message.groundedFeature)
+			}
+			break
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/spec.md [FR-25]
+		// @see docs/specs/36-vscode-agenticflowx-focus-track-autopilot/design.md [DES-API]
+		case "openFeatureFiles": {
+			if (message.feature) {
+				const featurePath = path.join(provider.cwd, "docs/specs", message.feature)
+				const filesToOpen = message.filesOnly || ["spec", "design", "tasks"]
+				for (const file of filesToOpen) {
+					const filePath = path.join(featurePath, `${file}.md`)
+					try {
+						await fs.access(filePath)
+						await vscode.window.showTextDocument(vscode.Uri.file(filePath), {
+							viewColumn: vscode.ViewColumn.One,
+							preview: false,
+						})
+					} catch {
+						// File doesn't exist — skip silently
+					}
+				}
+			}
+			break
+		}
 		case "updatePrompt":
 			if (message.promptMode && message.customPrompt !== undefined) {
 				const existingPrompts = getGlobalState("customModePrompts") ?? {}
