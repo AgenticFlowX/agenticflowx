@@ -33,7 +33,7 @@
 		"p-limit": "^6.2.0",
 		"p-wait-for": "^5.0.2",
 		"reconnecting-eventsource": "^1.6.4",
-		"serialize-error": "^12.0.0",
+		"serialize-error": "^13.0.1",
 		"simple-git": "^3.27.0",
 		"uuid": "^11.1.0",
 		"web-tree-sitter": "^0.25.6",
