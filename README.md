@@ -86,19 +86,59 @@ Specs are plain markdown. Run any agent on any feature — in parallel, same blu
 
 ---
 
-## Quick start
+## Installation
 
-### Option A — Start with a blank repo
+Two parts — the VS Code extension and the AFX skills (both required).
 
-**1. Install the extension** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx).
+### 1. Install the AgenticFlowX extension
 
-**2. Add the AFX toolchain to your repo:**
+Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx). On first launch, open **Settings → Provider**, pick OpenAI or Claude, and save.
 
-```bash
-curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash -s -- .
+### 2. Install AFX skills
+
+> [!IMPORTANT]
+> Skills are required. Without them the spec workflow, slash-commands (`/afx-scaffold`, `/afx-next`, `/afx-check`, …), and the bottom panel all stay locked.
+
+> [!TIP] > **Too lazy to type? Tell your AI to do it.**
+> Copy the block below and paste it into any AI coding agent you use
+> (Claude Code, Codex, Copilot Chat). The agent installs
+> AFX and tells you what was added. You run `/afx-hello` in the AFX chat
+> afterwards to verify.
+>
+> _Installs AFX skills to `.claude/skills/` and `.agents/skills/` — nothing outside your repo._
+
+```text
+Install AFX (AgenticFlowX) in this project. Source: github.com/AgenticFlowX/afx
+(Apache 2.0, open source).
+
+Run these commands IN ORDER:
+  1. curl -o /tmp/afx-install.sh -sL https://raw.githubusercontent.com/AgenticFlowX/afx/main/afx-cli
+  2. bash /tmp/afx-install.sh .
+
+After step 2, read the installer output and tell me which skills were installed.
+
+Do NOT run /afx-hello or any /afx-* command — those only work inside the
+AFX chat panel, which I'll open myself.
+
+If you can't execute bash, show me the commands so I can run them.
 ```
 
-**3. Scaffold your first spec from the AFX chat:**
+<details>
+<summary>Prefer to run it yourself? Here's the raw command.</summary>
+
+```bash
+curl -sL https://raw.githubusercontent.com/AgenticFlowX/afx/main/afx-cli | bash -s -- .
+```
+
+</details>
+
+---
+
+## Scaffolding
+
+### Start fresh — scaffold a spec from the AFX chat
+
+With the extension and skills installed, open the AFX chat and run:
 
 ```
 /afx-scaffold spec my-first-feature
@@ -106,23 +146,15 @@ curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash 
 
 Focus mode drafts a spec, a design, and tasks — pinned to your Workbench.
 
-### Option B — Try a working example
+### Try a working example — pull RoomLedger into a folder
 
-**1. Install the extension** (same as above).
-
-**2. Pull the RoomLedger example into a folder** — a real project with spec, design, and tasks already wired up, ready to build:
+A real project with spec, design, and tasks already wired up — ready to build:
 
 ```bash
 curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash -s -- example full .
 ```
 
-**3. Open the folder in VS Code, launch the AFX chat, and resume:**
-
-```
-/afx-next
-```
-
-AFX picks up the in-progress ticket and tells you what to do.
+Open the folder in VS Code, launch the AFX chat, and ask `/afx-next` — AFX picks up the in-progress ticket.
 
 > Three flavors ship with AFX: `starter` (spec only), `basic` (one feature ready to build), `full` (four features). List them with `afx-cli example list`.
 
