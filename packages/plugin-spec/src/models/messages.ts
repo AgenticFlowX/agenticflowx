@@ -6,6 +6,7 @@
  * Kept local until stable — will move to packages/types/ later.
  *
  * @see docs/specs/16-vscode-agenticflowx-core/design.md [DES-MODELS]
+ * @see docs/specs/bottom-panel-enhancements/bottom-panel-enhancements.md [FR-13] [DES-IPC]
  */
 
 import type {
@@ -45,6 +46,10 @@ export interface AfxOpenFileMessage {
 	type: "afxOpenFile"
 	path: string
 	line?: number
+	// "editor" opens a regular editor tab (preview: false).
+	// "preview" opens a single-click preview tab (preview: true).
+	// Omitted → defaults to "editor" for backward compatibility.
+	mode?: "editor" | "preview"
 }
 
 export interface AfxToggleTaskMessage {

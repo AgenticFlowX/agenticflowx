@@ -2,7 +2,9 @@
 
 > The spec-driven AI coding environment.
 
-Write the spec. Let agents build it. Every function traces back to a requirement — if it doesn't, it's a defect.
+**Forked from Roo Code v3.51.1** — fully standalone, no cloud, no login, BYO API key.
+
+Chat that remembers why. A workbench that tracks what's shipped. All inside VS Code — so your agents and your specs live in the same room.
 
 [![Alpha Release](https://img.shields.io/badge/status-alpha%20release-907aa9)](https://agenticflowx.github.io)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
@@ -11,7 +13,7 @@ Write the spec. Let agents build it. Every function traces back to a requirement
 
 ---
 
-## What's inside
+## Why spec-driven
 
 ![AgenticFlowX in VS Code](https://agenticflowx.github.io/assets/screenshot.webp)
 
@@ -19,21 +21,51 @@ Most AI coding agents start from a prompt. AgenticFlowX starts from a spec.
 
 Specs are first-class in this editor. You write the requirements. The agent builds to them. The extension reads them, injects them, validates against them. Code without a spec link is flagged. Spec requirements without code are flagged too.
 
-28+ providers, MCP support, custom modes, checkpoints, codebase indexing. BYO API key, no vendor lock-in.
+Every function traces back to a requirement. If it doesn't, it's a defect.
 
-Same engine, different discipline:
-
-- **CodeLens & traceability** — `@see` annotations link code to specs. Hover to preview, click to jump. Orphan code and ghost requirements surface in the Problems panel.
-- **Spec injection** — the active spec, next task, and prior decisions are injected into every agent prompt automatically. The agent always knows the context.
-- **Focus Track** — select a spec and the extension auto-loads the right skill based on its frontmatter metadata.
-- **Agent tools** — spec-aware tools the agent can call to read specs, track tasks, check traceability, and log decisions.
-- **Right-click dispatch** — send tasks to Copilot, Claude Code, Codex, or Gemini directly from `tasks.md`.
-- **Hook engine** — event-driven automation: refresh the panel on file changes, auto-log sessions.
-- **Bottom Panel** — a dedicated dashboard that no other coding agent has. 7 tabs: Pipeline to track feature progress across specs, Workbench to edit specs side-by-side, Board for kanban, Journal for session history, Documents to browse all spec artifacts, Notes for quick capture, and Analytics for health metrics.
+**7 panels · 28+ providers · 23 tools · 0 accounts · Apache 2.0 — always free.**
 
 ---
 
-## The Workflow
+## Two surfaces, one loop
+
+**Side panel — Chat.** An agent that reads your specs, not just your cursor. Dual-track modes: **General** when you're coding; **Focus** for spec, design, tasks, research, or discovery — lean prompts tuned for one job at a time.
+
+**Bottom panel — Workbench.** The bird's-eye view your chat has been missing. Seven tabs across the bottom, each a different lens on the same project: what's in flight, what's specced, what's shipped, what's still thinking.
+
+---
+
+## Inside the Workbench
+
+![AFX Workbench — spec, design, and tasks side by side](https://agenticflowx.github.io/assets/workbench.webp)
+
+| Tab           | What it does                                                                                                |
+| ------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Workbench** | Spec, design, and tasks side-by-side. Toggle which columns are open, edit inline, live progress & freshness |
+| **Pipeline**  | Every feature — filterable, sortable. Timeline by stage, Grid of cards, or Kanban by next action            |
+| **Documents** | Markdown, PDFs, images — one filterable tree. Inline markdown render, content search across the repo        |
+| **Analytics** | Health %, velocity, shipped count, weekly heatmap, attention cards, traceability coverage (7D/30D/90D/All)  |
+| **Journal**   | Dated timeline of discussions, decisions, and summaries. Every entry links back to the source markdown      |
+| **Board**     | Markdown-backed kanban. Drag cards, reorder columns, edit inline — flip to raw markdown any time            |
+| **Notes**     | Quick capture — type, Enter, done. Filter by Today / Week / Month / All. Stored in `.afx/notes.md`          |
+
+---
+
+## What AFX adds on top
+
+- **@see CodeLens** — Hover any `@see` annotation to preview the linked spec inline. Jump to the requirement without leaving your code.
+- **Focus Track** — Select a spec, the right skill auto-loads based on its frontmatter. Context strips follow you across files and chats.
+- **Spec injection** — The active spec, next task, and prior decisions are injected into every agent prompt. The agent always knows the context.
+- **Bidirectional traceability** — Every function links to a requirement; every requirement maps to code. `/afx-check trace` enforces it across the repo.
+- **Quality gates** — Structural, path, link, and trace checks via `/afx-check`. Ship with confidence, not vibes.
+- **Session continuity** — Every session appends a `journal.md` entry. Pick up where you (or another agent) left off — with the decisions intact.
+- **Agent tools** — Spec-aware tools the agent can call to read specs, track tasks, check traceability, and log decisions.
+- **Hook engine** — Event-driven automation: refresh the panel on file changes, auto-log sessions, and more.
+- **No login. BYO API.** — No account, no cloud, no proxy. 28+ providers — your keys, your data, your call.
+
+---
+
+## The AFX Workflow
 
 ![AFX Workflow](https://agenticflowx.github.io/assets/workflow-mindmap.webp)
 
@@ -50,19 +82,51 @@ Every feature lives in four files:
 | `tasks.md`   | The WHEN — implementation checklist, ordered, checkable   |
 | `journal.md` | Memory — session logs, decisions, discussion captures     |
 
-Works with any AI coding agent: Claude Code, Copilot, Codex, Gemini.
+Specs are plain markdown. Run any agent on any feature — in parallel, same blueprint, zero conflict.
 
 ---
 
 ## Quick start
 
+### Option A — Start with a blank repo
+
 **1. Install the extension** from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx).
 
-**2. Add the workflow:**
+**2. Add the AFX toolchain to your repo:**
 
 ```bash
-curl -sL https://raw.githubusercontent.com/AgenticFlowX/afx/main/afx-cli | bash -s -- .
+curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash -s -- .
 ```
+
+**3. Scaffold your first spec from the AFX chat:**
+
+```
+/afx-scaffold spec my-first-feature
+```
+
+Focus mode drafts a spec, a design, and tasks — pinned to your Workbench.
+
+### Option B — Try a working example
+
+**1. Install the extension** (same as above).
+
+**2. Pull the RoomLedger example into a folder** — a real project with spec, design, and tasks already wired up, ready to build:
+
+```bash
+curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash -s -- example full .
+```
+
+**3. Open the folder in VS Code, launch the AFX chat, and resume:**
+
+```
+/afx-next
+```
+
+AFX picks up the in-progress ticket and tells you what to do.
+
+> Three flavors ship with AFX: `starter` (spec only), `basic` (one feature ready to build), `full` (four features). List them with `afx-cli example list`.
+
+For the full command list, run `/afx-help` once the skills are installed.
 
 ---
 

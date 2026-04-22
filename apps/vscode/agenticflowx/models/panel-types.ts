@@ -33,6 +33,10 @@ export interface DocumentRow {
 	isAfx?: boolean
 	kind?: string
 	size?: number
+	/** ISO timestamp — prefer frontmatter.updated_at, fallback to fs.stat.mtime. */
+	updatedAt?: string
+	/** First ~80 chars of body, frontmatter + headings stripped. */
+	excerpt?: string
 }
 
 export interface TaskItemRow {

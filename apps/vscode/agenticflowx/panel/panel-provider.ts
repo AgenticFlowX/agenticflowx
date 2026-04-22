@@ -26,6 +26,10 @@ import { readNotes, appendNote, deleteNote, getNotesFilePath } from "../services
 import { suppressPath } from "../watchers/file-watcher"
 import type { AfxPanelToExtensionMessage, AfxUpdateMessage } from "../models/messages"
 import { getAfxPanelHtml, getAfxPanelHMRHtml } from "./panel-html"
+import { runDocsSearch } from "./run-docs-search"
+
+/** Commands the webview is allowed to trigger via `afxRunCommand`. */
+const ALLOWED_COMMANDS = new Set<string>(["/afx-check links", "/afx-check trace", "/afx-scaffold spec"])
 
 export interface AfxPanelProvider extends vscode.WebviewViewProvider, vscode.Disposable {
 	refresh(): void
@@ -109,9 +113,19 @@ export function createAfxPanelProvider(
 
 		switch (msg.type) {
 			case "afxOpenFile": {
+				// @see docs/specs/bottom-panel-enhancements/bottom-panel-enhancements.md [FR-13] [DES-IPC]
 				const uri = vscode.Uri.file(msg.path)
+				const isMarkdown = msg.path.toLowerCase().endsWith(".md")
+				if (msg.mode === "preview" && isMarkdown) {
+					// Render the rendered-HTML markdown preview via VSCode's built-in command.
+					// For non-markdown files, fall through to showTextDocument below.
+					await vscode.commands.executeCommand("markdown.showPreview", uri)
+					break
+				}
 				const doc = await vscode.workspace.openTextDocument(uri)
-				const editor = await vscode.window.showTextDocument(doc, { preview: false })
+				// For "editor" mode (or omitted), open a regular pinned tab (preview: false).
+				// For "preview" mode on non-markdown files, use the single-click preview tab (preview: true).
+				const editor = await vscode.window.showTextDocument(doc, { preview: msg.mode === "preview" })
 				if (msg.line !== undefined) {
 					const pos = new vscode.Position(msg.line, 0)
 					editor.selection = new vscode.Selection(pos, pos)
@@ -259,6 +273,45 @@ export function createAfxPanelProvider(
 
 			case "afxSelectFeature": {
 				// Will be used for workbench tab feature selection
+				break
+			}
+
+			case "afxDocsSearch": {
+				try {
+					const hits = await runDocsSearch(root, msg.query, msg.scope)
+					webviewView?.webview.postMessage({
+						type: "afxDocsSearchResult",
+						query: msg.query.trim(),
+						hits,
+					})
+				} catch (err) {
+					log.appendLine(`[AFX] ERROR in afxDocsSearch: ${err instanceof Error ? err.message : String(err)}`)
+					webviewView?.webview.postMessage({
+						type: "afxDocsSearchResult",
+						query: msg.query.trim(),
+						hits: [],
+					})
+				}
+				break
+			}
+
+			case "afxRunCommand": {
+				const cmd = msg.cmd?.trim() ?? ""
+				// Match by prefix so "/afx-scaffold spec my-feature" is allowed when
+				// "/afx-scaffold spec" is whitelisted.
+				const allowed = [...ALLOWED_COMMANDS].some((prefix) => cmd === prefix || cmd.startsWith(`${prefix} `))
+				if (!allowed) {
+					log.appendLine(`[AFX] afxRunCommand rejected (not whitelisted): ${cmd}`)
+					break
+				}
+				try {
+					const terminal =
+						vscode.window.activeTerminal ?? vscode.window.createTerminal({ name: "AFX", cwd: root })
+					terminal.show(true)
+					terminal.sendText(cmd, true)
+				} catch (err) {
+					log.appendLine(`[AFX] ERROR in afxRunCommand: ${err instanceof Error ? err.message : String(err)}`)
+				}
 				break
 			}
 		}

@@ -10,6 +10,7 @@
 import * as path from "path"
 import { readFile, stat } from "fs/promises"
 import * as vscode from "vscode"
+import matter from "gray-matter"
 import type { AfxConfig } from "../../models/config"
 import type { Feature } from "../../models/feature"
 import { buildFeatures } from "../../models/feature"
@@ -142,6 +143,8 @@ export async function scanAllDocs(root: string): Promise<DocumentRow[]> {
 			let type = ext.replace(".", "").toUpperCase()
 			let status = ""
 			let owner = ""
+			let updatedAt: string | undefined
+			let excerpt: string | undefined
 
 			if (ext === ".md") {
 				try {
@@ -153,10 +156,18 @@ export async function scanAllDocs(root: string): Promise<DocumentRow[]> {
 						status = fm.status ?? ""
 						owner = fm.owner ?? ""
 					}
+					// Pull updated_at + body directly from gray-matter so we don't
+					// extend the shared Frontmatter type for these two fields.
+					const parsed = matter(content)
+					const raw = parsed.data as Record<string, unknown>
+					if (typeof raw.updated_at === "string") updatedAt = raw.updated_at
+					excerpt = extractExcerpt(parsed.content)
 				} catch {
 					// skip
 				}
 			}
+
+			if (!updatedAt) updatedAt = fileStat.mtime.toISOString()
 
 			rows.push({
 				type,
@@ -167,6 +178,8 @@ export async function scanAllDocs(root: string): Promise<DocumentRow[]> {
 				isAfx,
 				kind: ext.replace(".", ""),
 				size: fileStat.size,
+				updatedAt,
+				excerpt,
 			})
 		} catch {
 			// skip unreadable
@@ -174,6 +187,73 @@ export async function scanAllDocs(root: string): Promise<DocumentRow[]> {
 	}
 
 	return rows
+}
+
+function extractExcerpt(body: string): string | undefined {
+	// Walk lines, skipping markdown noise (headings, HTML comments, code fences,
+	// blockquotes, table rules, list markers, bare links). Strip inline markdown
+	// from the first surviving prose line, collapse whitespace, cap at 120 chars.
+	const lines = body.split(/\r?\n/)
+	let inFence = false
+	let inHtmlComment = false
+	for (const raw of lines) {
+		let line = raw.trim()
+		if (!line) continue
+
+		// HTML comments can span lines.
+		if (inHtmlComment) {
+			const close = line.indexOf("-->")
+			if (close === -1) continue
+			line = line.slice(close + 3).trim()
+			inHtmlComment = false
+			if (!line) continue
+		}
+		if (line.startsWith("<!--")) {
+			const close = line.indexOf("-->")
+			if (close === -1) {
+				inHtmlComment = true
+				continue
+			}
+			line = (line.slice(0, 0) + line.slice(close + 3)).trim()
+			if (!line) continue
+		}
+
+		// Code fences.
+		if (line.startsWith("```") || line.startsWith("~~~")) {
+			inFence = !inFence
+			continue
+		}
+		if (inFence) continue
+
+		// Skip non-prose structural lines.
+		if (line.startsWith("#")) continue
+		if (line.startsWith(">")) continue
+		if (line.startsWith("---") || line.startsWith("===")) continue
+		if (line.startsWith("|")) continue // markdown tables
+		// Section-number prefixes like "1.x - Something" or "2.1. Something" are
+		// typically sub-headings in an unheaded context; skip them.
+		if (/^\d+(?:\.\w+)+\s*[-–]/.test(line)) continue
+		if (/^\d+\.\s*[A-Z]/.test(line)) continue
+		if (/^[-*+]\s/.test(line)) line = line.replace(/^[-*+]\s+/, "")
+		if (/^\d+\.\s/.test(line)) line = line.replace(/^\d+\.\s+/, "")
+		if (!line) continue
+
+		// Strip inline markdown: backticks, bold/italic, links → text only.
+		const clean = line
+			.replace(/`([^`]+)`/g, "$1")
+			.replace(/\*\*([^*]+)\*\*/g, "$1")
+			.replace(/__([^_]+)__/g, "$1")
+			.replace(/\*([^*]+)\*/g, "$1")
+			.replace(/_([^_]+)_/g, "$1")
+			.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+			.replace(/!\[[^\]]*\]\([^)]+\)/g, "")
+			.replace(/<[^>]+>/g, "")
+			.replace(/\s+/g, " ")
+			.trim()
+		if (!clean) continue
+		return clean.length > 120 ? clean.slice(0, 120).trimEnd() + "…" : clean
+	}
+	return undefined
 }
 
 // Ghost tasks (broken @see references)
