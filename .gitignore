@@ -59,3 +59,4 @@ apps/vscode/resources/webviews/workbench/dist/
 apps/chat/e2e/*.png
 apps/workbench/screenshots/*.png
 apps/workbench/test-results/*
+apps/chat/test-results/*
