@@ -23,6 +23,7 @@ import {
   Brain,
   ChevronDown,
   ChevronRight,
+  CornerDownLeft,
   Cpu,
   ExternalLink,
   Info,
@@ -74,6 +75,7 @@ import { cn } from "@afx/ui/lib/utils";
 
 import { AfxLogoIcon, AfxLogoMark } from "../components/afx-logo";
 import type { AgentRecoveryActions } from "../components/agent-recovery-card";
+import { ComposerStrip } from "../components/composer-strip";
 import { MarkdownMessage } from "../components/markdown-message";
 import { MentionPopup } from "../components/mention-popup";
 import { ModelCombobox } from "../components/model-combobox";
@@ -223,9 +225,9 @@ export default function Chat({
   const runtimeUnavailable = agentStatus.phase === "disconnected" || agentStatus.phase === "error";
   const runtimeUnconfigured = agentStatus.runtimeConfigured === false;
   const rpcEnabled = runtime.rpcEnabled === true || agentStatus.rpcEnabled === true;
-  // Show whatever the user has queued locally during streaming; the dismiss
-  // and clear-all controls handle stale items if the engine drains them.
-  const visibleQueued = isStreaming ? queued : [];
+  // The strip stays visible whenever the user has anything queued locally; the
+  // dismiss / clear-all controls handle stale items if the engine drains them.
+  const visibleQueued = queued;
   const selectedModel =
     agentStatus.model == null
       ? undefined
@@ -604,8 +606,8 @@ export default function Chat({
     setQueued((q) => q.filter((m) => m.id !== id));
   }
 
-  function clearQueuedMode(mode: "steer" | "followUp") {
-    setQueued((q) => q.filter((m) => m.mode !== mode));
+  function clearAllQueued() {
+    setQueued([]);
   }
 
   function abort() {
@@ -879,7 +881,7 @@ export default function Chat({
           <QueueStrip
             queued={visibleQueued}
             onDismiss={dismissQueued}
-            onClearMode={clearQueuedMode}
+            onClearAll={clearAllQueued}
           />
           <InputGroup className="afx-surface-composer @container h-auto flex-col items-stretch">
             <InputGroupTextarea
@@ -1384,119 +1386,72 @@ function ThinkingLevelToggle({
 function QueueStrip({
   queued,
   onDismiss,
-  onClearMode,
+  onClearAll,
 }: {
   queued: readonly QueuedMessage[];
   onDismiss: (id: string) => void;
-  onClearMode: (mode: "steer" | "followUp") => void;
+  onClearAll: () => void;
 }) {
-  const [followsExpanded, setFollowsExpanded] = useState(true);
   if (queued.length === 0) return null;
 
   const steers = queued.filter((q) => q.mode === "steer");
   const follows = queued.filter((q) => q.mode === "followUp");
-  // Auto-collapse the follow-up list once it grows past a comfortable count.
-  const autoCollapse = follows.length > 3;
-  const showFollows = !autoCollapse || followsExpanded;
 
   return (
-    <div className="mb-1.5 flex flex-col gap-1.5">
-      {steers.length > 0 && (
-        <section
-          aria-label="Pending steers"
-          className="rounded-md border border-afx-brand-soft/60 bg-afx-brand-soft/10 shadow-sm"
-        >
-          <header className="flex items-center gap-2 px-2 py-1">
-            <Zap className="size-3 shrink-0 text-afx-brand-soft" />
-            <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-afx-brand-soft">
-              Steering this turn
-            </span>
-            <span className="font-mono text-[10px] text-muted-foreground">({steers.length})</span>
-            {steers.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => onClearMode("steer")}
-                className="ml-auto inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-                title="Clear all queued steers"
-              >
-                <Trash2 size={10} />
-                Clear
-              </button>
-            )}
-          </header>
-          <ul className="flex flex-col gap-0.5 px-2 pb-1.5">
-            {steers.map((q, index) => (
-              <QueueRow
-                key={q.id}
-                item={q}
-                marker={steers.length > 1 ? `${index + 1}.` : "→"}
-                onDismiss={onDismiss}
-              />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {follows.length > 0 && (
-        <section
-          aria-label="Queued follow-ups"
-          className="rounded-md border border-border bg-muted/60 shadow-sm"
-        >
-          <header className="flex items-center gap-2 px-2 py-1">
-            <button
-              type="button"
-              onClick={() => setFollowsExpanded((v) => !v)}
-              className="inline-flex items-center gap-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted-foreground hover:text-foreground"
-              aria-expanded={showFollows}
-              title={showFollows ? "Collapse" : "Expand"}
-            >
-              {showFollows ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-              Queued after this turn
-            </button>
-            <span className="font-mono text-[9px] text-muted-foreground">({follows.length})</span>
-            {follows.length >= 2 && (
-              <button
-                type="button"
-                onClick={() => onClearMode("followUp")}
-                className="ml-auto inline-flex items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-                title="Clear all queued follow-ups"
-              >
-                <Trash2 size={10} />
-                Clear
-              </button>
-            )}
-          </header>
-          {showFollows && (
-            <ul className="flex flex-col gap-0.5 px-2 pb-1.5">
-              {follows.map((q, index) => (
-                <QueueRow key={q.id} item={q} marker={`${index + 1}.`} onDismiss={onDismiss} />
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-    </div>
+    <ComposerStrip
+      title="Queued"
+      count={queued.length}
+      action={{
+        label: "Clear all",
+        icon: <Trash2 size={10} />,
+        onClick: onClearAll,
+      }}
+    >
+      <ul className="flex flex-col gap-0.5">
+        {steers.map((q, index) => (
+          <QueueRow
+            key={q.id}
+            item={q}
+            marker={steers.length > 1 ? `${index + 1}.` : "→"}
+            kindIcon={<Zap size={10} className="text-afx-brand-soft" />}
+            onDismiss={onDismiss}
+          />
+        ))}
+        {follows.map((q, index) => (
+          <QueueRow
+            key={q.id}
+            item={q}
+            marker={`${index + 1}.`}
+            kindIcon={<CornerDownLeft size={10} className="text-muted-foreground/70" />}
+            onDismiss={onDismiss}
+          />
+        ))}
+      </ul>
+    </ComposerStrip>
   );
 }
 
 function QueueRow({
   item,
   marker,
+  kindIcon,
   onDismiss,
 }: {
   item: QueuedMessage;
   marker: string;
+  kindIcon: React.ReactNode;
   onDismiss: (id: string) => void;
 }) {
   return (
     <li
-      className="group/queue-item flex items-start gap-2 rounded-sm py-0.5 pl-1 pr-0.5 hover:bg-muted/60"
+      className="group/queue-item flex items-start gap-1.5 rounded-sm py-0.5 pl-1 pr-0.5 hover:bg-muted/60"
       title={
         item.mode === "steer"
           ? "Steers the active turn at the next agent step"
           : "Runs after the active turn completes"
       }
     >
+      <span className="mt-[2px] shrink-0">{kindIcon}</span>
       <span
         className={cn(
           "mt-[1px] shrink-0 font-mono text-[10px] tabular-nums",
