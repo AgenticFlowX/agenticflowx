@@ -1,0 +1,39 @@
+# <type>(<scope>): <description>
+#
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-29]
+# @see docs/specs/400-dx-conventions/spec.md [FR-5]
+#
+# Setup once: git config commit.template .gitmessage
+#
+
+#
+
+# Types: build | chore | ci | docs | feat | fix | perf | refactor | revert | style | test
+
+#
+
+# Scopes (required): chat | workbench | vscode | shared | parsers | ui |
+
+# transport | pi | pi-sdk | workbench/notes | workbench/journal |
+
+# workbench/board | workbench/pipeline | bottom-panel |
+
+# deps | ci | release | docs | infra | dx | repo | spec
+
+#
+
+# Breaking change: add ! after scope, or add BREAKING CHANGE: footer
+
+#
+
+# Body (optional — blank line before):
+
+#
+
+#
+
+# Footer (optional — blank line before):
+
+# Co-Authored-By: Name <email>
+
+# BREAKING CHANGE: description

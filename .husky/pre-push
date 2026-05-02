@@ -1,0 +1,4 @@
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-3] [DES-ARCH]
+# Fast-path verification before push: types + lint + format + md + knip + unit tests.
+# E2E and build run in CI, not here — keeping the hook under ~90s for iterative push.
+pnpm run verify

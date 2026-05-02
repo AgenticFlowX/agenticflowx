@@ -1,0 +1,48 @@
+# build-vsix — triggered by GitHub Release published (v* tags).
+# Builds all packages, packages VSIX, and attaches to the GitHub Release.
+# Marketplace upload is manual — download the VSIX from the release assets.
+#
+# @see docs/specs/520-ci-publish/spec.md [FR-1] [FR-2] [FR-3]
+# @see docs/specs/520-ci-publish/design.md [DES-ARCH]
+
+name: build-vsix
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build-vsix:
+    name: Build and attach VSIX
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.release.tag_name, 'v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Package VSIX
+        run: |
+          mkdir -p ../../bin
+          pnpm exec vsce package --no-dependencies --out ../../bin/
+        working-directory: apps/vscode
+
+      - name: Attach VSIX to GitHub Release
+        run: gh release upload "${{ github.event.release.tag_name }}" bin/*.vsix
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

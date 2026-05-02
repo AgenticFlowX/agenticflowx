@@ -1,0 +1,8 @@
+# CODEOWNERS — path-based required reviewers.
+# Expand to team handles when contributors join.
+#
+# @see docs/specs/01-agenticflowx-overview/01-agenticflowx-overview.md [FR-20] [DES-GOV]
+
+* @rixrix
+apps/vscode/* @rixrix
+docs/specs/* @rixrix

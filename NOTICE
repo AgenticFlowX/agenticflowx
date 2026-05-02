@@ -1,0 +1,52 @@
+AgenticFlowX
+Copyright 2026 AgenticFlowX Contributors
+
+This product is licensed under the Apache License, Version 2.0 (the "License").
+You may obtain a copy of the License at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+================================================================================
+Bundled third-party software
+================================================================================
+
+This product bundles software from the following third-party projects.
+Each listed component retains its own license, which governs its use,
+reproduction, and distribution. See the upstream project's LICENSE file
+for the full terms.
+
+--------------------------------------------------------------------------------
+Pi (https://github.com/mariozechner/pi)
+--------------------------------------------------------------------------------
+
+The bundled Pi SDK is built from these npm packages:
+
+    @mariozechner/pi-agent-core
+    @mariozechner/pi-ai
+    @mariozechner/pi-coding-agent
+    @mariozechner/pi-tui
+
+The compiled bundle is shipped at:
+
+    apps/vscode/resources/pi-sdk/bootstrap.js
+
+Build artifacts are produced by `packages/agent/pi-sdk/build.bootstrap.mjs`
+from the upstream Pi packages at the version declared in
+`packages/agent/pi-sdk/package.json`.
+
+================================================================================
+Runtime dependencies
+================================================================================
+
+Runtime dependencies installed via pnpm are gated through the
+`pnpm check:security` script, which validates each dependency against an
+allow-list of permissive licenses:
+
+    MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, CC-BY-4.0,
+    0BSD, Unlicense, Python-2.0, BlueOak-1.0.0
+
+To regenerate a full attribution list of installed dependencies, run:
+
+    pnpm exec license-checker-rseidelsohn --production --csv
+
+================================================================================

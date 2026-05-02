@@ -1,0 +1,130 @@
+/**
+ * Chat webview smoke test.
+ * Verifies the React app mounts and renders the root element.
+ *
+ * @see docs/specs/420-dx-testing/spec.md [FR-1]
+ * @see docs/specs/210-app-chat/design.md [DES-TEST]
+ */
+import { expect, test } from "@playwright/test";
+
+test("chat root mounts", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#root")).toBeVisible();
+});
+
+test("chat has no console errors on load", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") errors.push(msg.text());
+  });
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  expect(errors).toHaveLength(0);
+});
+
+test("renders all three primary tabs", async ({ page }) => {
+  await page.goto("/");
+  for (const label of ["Chat", "History", "Settings"]) {
+    await expect(page.getByRole("tab", { name: label })).toBeVisible();
+  }
+  await expect(page.getByRole("tab", { name: "Explorer" })).toHaveCount(0);
+});
+
+test("Chat tab is selected by default", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("can switch to Settings tab", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await expect(page.getByRole("tab", { name: "Settings" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+test("Settings exposes runtime choice and direct key/RPC actions", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+
+  await expect(page.getByText("Runtime Setup")).toBeVisible();
+  await expect(page.getByRole("button", { name: /paste api key|manage keys/i })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Enable Pi RPC" })).toBeVisible();
+  await expect(page.getByText("Advanced paths and defaults")).toBeVisible();
+  await expect(page.getByText("SDK runtime", { exact: true })).toBeHidden();
+
+  await page.getByText("Advanced paths and defaults").click();
+  await expect(page.getByText("SDK runtime", { exact: true })).toBeVisible();
+  await expect(page.getByText("Bundled skills", { exact: true })).toBeVisible();
+});
+
+test("active tab has visible ::after strip indicator", async ({ page }) => {
+  await page.goto("/");
+
+  // Wait for ::after opacity to settle (transition-opacity is on the base element).
+  async function waitForStripOpacity(tabName: string, expected: "visible" | "hidden") {
+    const tab = page.getByRole("tab", { name: tabName });
+    await page.waitForFunction(
+      ([name, exp]: [string, string]) => {
+        const el = [...document.querySelectorAll('[role="tab"]')].find(
+          (t) => t.textContent?.trim() === name,
+        );
+        if (!el) return false;
+        const opacity = parseFloat(window.getComputedStyle(el, "::after").opacity);
+        return exp === "visible" ? opacity > 0.99 : opacity < 0.01;
+      },
+      [tabName, expected] as [string, string],
+      { timeout: 2000 },
+    );
+    return tab.evaluate((el) => {
+      const styles = window.getComputedStyle(el, "::after");
+      return { opacity: styles.opacity, background: styles.backgroundColor };
+    });
+  }
+
+  // Chat active by default — strip should be visible (non-transparent background)
+  const chatAfter = await waitForStripOpacity("Chat", "visible");
+  expect(chatAfter.background, `Chat (active) ::after background`).not.toBe("rgba(0, 0, 0, 0)");
+
+  // History inactive — strip hidden
+  await waitForStripOpacity("History", "hidden");
+
+  // Switch to Settings and wait for transition to finish
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await expect(page.getByRole("tab", { name: "Settings" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+
+  // Settings now active — strip should be visible
+  const settingsAfter = await waitForStripOpacity("Settings", "visible");
+  expect(settingsAfter.background, `Settings (active) ::after background`).not.toBe(
+    "rgba(0, 0, 0, 0)",
+  );
+
+  // Chat now inactive — strip hidden
+  await waitForStripOpacity("Chat", "hidden");
+});
+
+test("context recovery scenario renders compaction then resumed answer", async ({ page }) => {
+  await page.goto("/");
+
+  const composer = page.locator("#afx-chat-composer");
+  await composer.fill("/afx-session recap");
+  await expect(composer).toHaveValue("/afx-session recap");
+  const send = page.getByRole("button", { name: "Send" });
+  await expect(send).toBeEnabled();
+  await send.click();
+
+  const compacted = page.getByRole("button", { name: /compacted/i }).first();
+  await expect(compacted).toBeVisible({ timeout: 10_000 });
+  await compacted.click();
+  await expect(
+    page.getByText(/Mock compaction kept the latest implementation context/).first(),
+  ).toBeVisible();
+  await expect(page.getByText(/Recovered after automatic compaction/).first()).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.getByText(/exceeds the context window/i)).toHaveCount(0);
+});

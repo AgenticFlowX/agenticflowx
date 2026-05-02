@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "types": ["react", "vite/client", "vitest/globals", "@testing-library/jest-dom"],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@afx/ui/*": ["../../packages/ui/src/*"],
+      "@afx/shared": ["../../packages/shared/src/index.ts"],
+      "@afx/shared/*": ["../../packages/shared/src/*"],
+      "@afx/transport": ["../../packages/transport/src/index.ts"],
+      "@afx/transport/*": ["../../packages/transport/src/*"]
+    }
+  },
+  "include": ["src"]
+}

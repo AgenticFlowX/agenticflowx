@@ -1,0 +1,50 @@
+# Weekly security scans — runs Monday 06:00 UTC and on-demand.
+# Complements the per-PR jobs in code-qa.yml with broader history scans
+# and link-rot detection that don't make sense to run on every PR.
+#
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [FR-27] [DES-SECRETS] [DES-DOCS]
+
+name: security-scheduled
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch: # allow manual trigger
+
+permissions:
+  contents: read
+
+jobs:
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [DES-SECRETS]
+  trufflehog:
+    name: trufflehog (full-history secret scan)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: trufflesecurity/trufflehog@v3.83.7
+        with:
+          path: ./
+          base: ""
+          head: HEAD
+          extra_args: --only-verified
+
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-27] [DES-DOCS]
+  links:
+    name: lychee (markdown link check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: |-
+            --no-progress
+            --exclude-mail
+            --exclude '^https?://localhost'
+            --exclude '^https?://127\.0\.0\.1'
+            './**/*.md'
+            '!./node_modules/**'
+            '!./docs/design-system/**'
+            '!./.turbo/**'
+          fail: true

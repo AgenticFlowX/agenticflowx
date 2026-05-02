@@ -1,0 +1,30 @@
+# release-please — triggered manually via workflow_dispatch.
+# Opens/updates a release PR (CHANGELOG + version bump) from Conventional Commits.
+# On release PR merge, tags the commit — which triggers build-vsix.yml.
+#
+# To enable full automation: change trigger to `push: branches: [main]`
+#
+# Uses v4 config-file driven approach (NOT v3 release-type/package-name YAML params).
+# Config lives in release-please-config.json + .release-please-manifest.json
+#
+# @see docs/specs/510-ci-release/spec.md [FR-1] [FR-2] [FR-3] [FR-4]
+# @see docs/specs/510-ci-release/design.md [DES-ARCH]
+
+name: release-please
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

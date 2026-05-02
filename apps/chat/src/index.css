@@ -1,0 +1,173 @@
+@import "@afx/ui/styles/globals.css";
+
+html,
+body,
+#root {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.afx-surface-subtle {
+  background: color-mix(in srgb, var(--background) 92%, var(--muted) 8%);
+}
+
+.afx-surface-composer {
+  background: color-mix(in srgb, var(--card) 92%, var(--background) 8%);
+  border-color: color-mix(in srgb, var(--foreground) 24%, var(--border) 76%);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--afx-brand-soft) 24%, transparent);
+}
+
+.afx-surface-composer:focus-within {
+  border-color: color-mix(in srgb, var(--ring) 68%, var(--afx-brand-soft) 32%);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--ring) 55%, transparent);
+}
+
+.afx-surface-composer textarea::placeholder {
+  color: color-mix(in srgb, var(--foreground) 52%, transparent);
+}
+
+.afx-surface-composer:has(:disabled) {
+  box-shadow: none;
+}
+
+.afx-surface-card {
+  background: var(--card);
+}
+
+.afx-surface-toolbar {
+  background: color-mix(in srgb, var(--card) 86%, var(--muted) 14%);
+}
+
+.afx-field-surface {
+  background: color-mix(in srgb, var(--card) 84%, var(--muted) 16%);
+  border-color: color-mix(in srgb, var(--border) 82%, transparent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.afx-thinking-word {
+  background-size: 220% 100%;
+  animation: afx-thinking-gradient 1.8s ease-in-out infinite;
+}
+
+.afx-thinking-dot {
+  animation: afx-thinking-dot 1.15s ease-in-out infinite;
+}
+
+.afx-thinking-dot:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.afx-thinking-dot:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@keyframes afx-thinking-gradient {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes afx-thinking-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-0.12rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .afx-thinking-word,
+  .afx-thinking-dot {
+    animation: none;
+  }
+}
+
+.vscode-light,
+.vscode-high-contrast-light {
+  color-scheme: light;
+}
+
+.vscode-dark,
+.vscode-high-contrast {
+  color-scheme: dark;
+}
+
+button:not(:disabled),
+a[href],
+label[for],
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[data-slot="select-trigger"]:not([aria-disabled="true"]),
+[data-slot="command-item"]:not([aria-disabled="true"]),
+.cn-select-trigger:not([aria-disabled="true"]),
+.cn-command-item:not([aria-disabled="true"]),
+.cn-native-select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+[data-disabled],
+.cn-native-select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+/* Command item list defaults - container cursor */
+.cn-command,
+.cn-command-list {
+  cursor: default;
+}
+
+/* Individual command items show pointer on hover */
+.cn-command-item {
+  cursor: pointer;
+}
+
+button.afx-surface-card,
+button.afx-field-surface,
+.cn-input,
+.cn-textarea,
+.cn-native-select,
+.cn-select-trigger {
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Popover content container - default cursor */
+[data-slot="popover-content"] {
+  cursor: default;
+}
+
+/* Command list container - default cursor */
+[data-slot="command-list"],
+.cn-command {
+  cursor: default;
+}
+
+/* Command items - pointer cursor */
+[data-slot="command-item"],
+.cn-command-item {
+  cursor: pointer !important;
+}

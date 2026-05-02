@@ -1,0 +1,10 @@
+# Secret scan on staged files (430-dx-enforcement FR-15).
+# Soft-fail when gitleaks isn't installed — CI is the hard gate.
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [DES-SECRETS] [DES-ERR]
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner || exit 1
+else
+  echo "[pre-commit] gitleaks not installed locally; skipping secret scan (CI will catch). Install: brew install gitleaks"
+fi
+
+pnpm exec lint-staged

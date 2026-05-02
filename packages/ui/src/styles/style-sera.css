@@ -1,0 +1,21 @@
+/*
+ * Sera runtime treatment — pill-forward controls and soft panels.
+ * T1 fidelity: variable treatment over the Lyra-generated primitive baseline.
+ *
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4]
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-SHADCN]
+ */
+
+.style-sera {
+  --afx-control-radius: 999px;
+  --afx-panel-radius: 1rem;
+  --afx-pill-radius: 999px;
+  --afx-border-width: 1px;
+  --afx-focus-ring-width: 2px;
+  --afx-control-height-xs: 1.625rem;
+  --afx-control-height-sm: 1.875rem;
+  --afx-control-height-default: 2.25rem;
+  --afx-control-height-lg: 2.625rem;
+  --afx-density-gap: 0.5rem;
+  --afx-treatment-shadow: 0 12px 32px color-mix(in oklab, var(--foreground), transparent 94%);
+}

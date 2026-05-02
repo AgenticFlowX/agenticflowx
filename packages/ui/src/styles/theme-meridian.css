@@ -1,0 +1,107 @@
+/*
+ * Meridian theme — AFX editorial identity.
+ *
+ * Base surface/text/border colors derive from VSCode's --vscode-* variables
+ * so the UI blends with whatever editor theme the user has active.
+ * Meridian layers its brass accent, signal colors, and typography on top.
+ *
+ * Active when: no .theme-* class (default), or .theme-meridian.
+ *
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1] [FR-3]
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-HOST] [DES-TOKENS]
+ */
+
+:root,
+.theme-meridian {
+  /* ── Surfaces — follow VSCode ──────────────────────────────── */
+  --background: var(--vscode-sideBar-background, var(--meridian-ink-0));
+  --foreground: var(--vscode-editor-foreground, var(--meridian-bone-0));
+  --card: var(--vscode-editorWidget-background, var(--meridian-ink-1));
+  --card-foreground: var(--vscode-editor-foreground, var(--meridian-bone-0));
+  --popover: var(--vscode-editorWidget-background, var(--meridian-ink-1));
+  --popover-foreground: var(--vscode-editor-foreground, var(--meridian-bone-0));
+
+  /* ── Text — follow VSCode ──────────────────────────────────── */
+  --muted: var(--vscode-editorGroupHeader-tabsBackground, var(--meridian-ink-2));
+  --muted-foreground: var(--vscode-descriptionForeground, var(--meridian-bone-2));
+  --secondary: var(--vscode-editor-background, var(--meridian-ink-2));
+  --secondary-foreground: var(--vscode-editor-foreground, var(--meridian-bone-1));
+  --accent: var(--vscode-list-hoverBackground, var(--meridian-ink-3));
+  --accent-foreground: var(--vscode-editor-foreground, var(--meridian-bone-0));
+
+  /* ── Borders — follow VSCode ───────────────────────────────── */
+  --border: var(--vscode-panel-border, var(--meridian-alpha-border-strong));
+  --input: var(
+    --vscode-input-background,
+    var(--vscode-editorWidget-background, var(--meridian-ink-1))
+  );
+  --afx-input-border: var(--vscode-input-border, var(--meridian-alpha-border-strong));
+
+  /* ── Destructive — follow VSCode ───────────────────────────── */
+  --destructive: var(--vscode-errorForeground, var(--meridian-ember-1));
+
+  /* ── Meridian accent identity (brass thread) ───────────────── */
+  --primary: var(--meridian-brass-1);
+  --primary-foreground: var(--vscode-sideBar-background, var(--meridian-ink-0));
+  --ring: var(--vscode-focusBorder, var(--meridian-brass-1));
+  --radius: var(--meridian-radius-sm);
+
+  /* ── Sidebar — follow VSCode ───────────────────────────────── */
+  --sidebar: var(--vscode-sideBar-background, var(--meridian-ink-1));
+  --sidebar-foreground: var(--vscode-sideBar-foreground, var(--meridian-bone-1));
+  --sidebar-primary: var(--meridian-brass-1);
+  --sidebar-primary-foreground: var(--vscode-sideBar-background, var(--meridian-ink-0));
+  --sidebar-accent: var(--vscode-list-hoverBackground, var(--meridian-ink-2));
+  --sidebar-accent-foreground: var(--vscode-editor-foreground, var(--meridian-bone-0));
+  --sidebar-border: var(--vscode-sideBar-border, var(--meridian-alpha-border));
+  --sidebar-ring: var(--vscode-focusBorder, var(--meridian-brass-2));
+
+  /* ── Charts ─────────────────────────────────────────────────── */
+  --chart-1: var(--meridian-brass-0);
+  --chart-2: var(--meridian-moss-1);
+  --chart-3: var(--meridian-ember-0);
+  --chart-4: var(--meridian-plum-0);
+  --chart-5: var(--meridian-bone-2);
+
+  /* ── AFX signal colors (Meridian identity) ──────────────────── */
+  --afx-brand: var(--meridian-brass-0);
+  --afx-brand-soft: var(--meridian-brass-1);
+  --afx-brand-deep: var(--meridian-brass-2);
+  --afx-signal-success: var(--meridian-moss-1);
+  --afx-signal-warning: var(--meridian-ember-1);
+  --afx-signal-info: var(--meridian-plum-0);
+  --afx-dot-active: var(--meridian-brass-0);
+  --afx-dot-active-glow: var(--meridian-alpha-glow-brass);
+  --afx-selection: var(--vscode-editor-selectionBackground, var(--meridian-alpha-selection));
+}
+
+/*
+ * Light host fallbacks — used in browser dev mode when no VSCode CSS variables
+ * are available. In real VSCode, the --vscode-* variables take priority, so
+ * this block is a no-op there. We swap bone (light parchment) onto surfaces
+ * and ink (dark blue) onto text so the UI actually renders light.
+ */
+.vscode-light {
+  --background: var(--vscode-sideBar-background, var(--meridian-bone-0));
+  --foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
+  --card: var(--vscode-editorWidget-background, var(--meridian-bone-1));
+  --card-foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
+  --popover: var(--vscode-editorWidget-background, var(--meridian-bone-1));
+  --popover-foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
+  --muted: var(--vscode-editorGroupHeader-tabsBackground, var(--meridian-bone-2));
+  --muted-foreground: var(--vscode-descriptionForeground, var(--meridian-ink-2));
+  --secondary: var(--vscode-editor-background, var(--meridian-bone-2));
+  --secondary-foreground: var(--vscode-editor-foreground, var(--meridian-ink-1));
+  --accent: var(--vscode-list-hoverBackground, var(--meridian-bone-3));
+  --accent-foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
+  --input: var(
+    --vscode-input-background,
+    var(--vscode-editorWidget-background, var(--meridian-bone-1))
+  );
+  --primary-foreground: var(--vscode-sideBar-background, var(--meridian-bone-0));
+  --sidebar: var(--vscode-sideBar-background, var(--meridian-bone-1));
+  --sidebar-foreground: var(--vscode-sideBar-foreground, var(--meridian-ink-1));
+  --sidebar-primary-foreground: var(--vscode-sideBar-background, var(--meridian-bone-0));
+  --sidebar-accent: var(--vscode-list-hoverBackground, var(--meridian-bone-2));
+  --sidebar-accent-foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
+}
