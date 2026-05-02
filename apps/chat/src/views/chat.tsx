@@ -29,6 +29,7 @@ import {
   Layers,
   LoaderCircle,
   MessageSquarePlus,
+  PenLine,
   Plus,
   RefreshCw,
   Scissors,
@@ -199,6 +200,10 @@ export default function Chat({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [activeTrigger, setActiveTrigger] = useState<ComposerTrigger | null>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
+  // Ephemeral note events (Cmd+Enter saves) — not persisted across reloads.
+  const [noteEvents, setNoteEvents] = useState<
+    Array<{ id: string; content: string; savedAt: number }>
+  >([]);
 
   // ── composer state — lifted to App for persistence across tab switches ──
   // draft and onDraftChange are passed from App
@@ -609,6 +614,16 @@ export default function Chat({
     getTextarea()?.focus();
   }
 
+  function saveAsNote() {
+    const trimmed = draft.trim();
+    if (trimmed.length === 0) return;
+    onDraftChange("");
+    setSlashOpen(false);
+    setMentionOpen(false);
+    bridgeSend({ type: "chat/saveNote", content: trimmed });
+    setNoteEvents((prev) => [...prev, { id: uid(), content: trimmed, savedAt: Date.now() }]);
+  }
+
   /**
    * Routes keyboard events for the composer textarea.
    * When a slash/mention popup is open, delegates navigation to cmdk.
@@ -651,9 +666,16 @@ export default function Chat({
       e.preventDefault();
       return;
     }
+    // Cmd/Ctrl+Shift+Enter saves draft as a note (no agent send).
     // Idle:      Enter sends; Shift+Enter inserts newline; Cmd/Ctrl+Enter also sends (compat).
     // Streaming: Enter queues a follow-up (polite); Cmd/Ctrl+Enter steers (interrupts).
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter") {
+      if (e.shiftKey && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        saveAsNote();
+        return;
+      }
+      if (e.shiftKey) return; // newline — let the textarea handle it
       e.preventDefault();
       const isInterrupt = e.metaKey || e.ctrlKey;
       submit({ followUp: isStreaming && !isInterrupt });
@@ -809,7 +831,7 @@ export default function Chat({
               }}
             />
           ) : (
-            <Timeline messages={messages} />
+            <Timeline messages={messages} noteEvents={noteEvents} />
           )}
           <div ref={bottomRef} className="h-3 shrink-0" />
         </div>
@@ -876,9 +898,7 @@ export default function Chat({
                       ? "Reconnect the agent runtime to continue…"
                       : isStreaming
                         ? "Queue a follow-up… (⌘⏎ to steer this turn)"
-                        : draft.length === 0 && commands.length > 0
-                          ? "Try /afx-hello, /afx-scaffold, /afx-task…"
-                          : "Ask AFX about this workspace…"
+                        : "Ask AFX about this workspace — ⌘⇧⏎ saves a note"
               }
               disabled={isCheckingAgent || runtimeUnavailable}
               rows={1}
@@ -910,46 +930,45 @@ export default function Chat({
                 )}
               </div>
               <div className="ml-auto flex shrink-0 items-center gap-1">
-                {isStreaming && (
-                  <Button
-                    size="icon-sm"
-                    variant="ghost"
-                    onClick={abort}
-                    onMouseDown={(e) => e.preventDefault()}
-                    aria-label="Stop"
-                    title="Stop the active turn"
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    <Square />
-                  </Button>
-                )}
                 {isStreaming ? (
                   <>
+                    {canSend && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => submit({ followUp: true })}
+                          onMouseDown={(e) => e.preventDefault()}
+                          aria-label="Queue follow-up"
+                          title="Queue this message to run after the active turn (⏎)"
+                          className="h-7 gap-1 px-2 text-[11px]"
+                        >
+                          <Plus className="size-3.5" />
+                          Queue
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => submit({ followUp: false })}
+                          onMouseDown={(e) => e.preventDefault()}
+                          aria-label="Steer turn"
+                          title="Interrupt the active turn and redirect with this message (⌘⏎)"
+                          className="h-7 gap-1 px-2 text-[11px]"
+                        >
+                          <Zap className="size-3.5" />
+                          Steer
+                        </Button>
+                      </>
+                    )}
                     <Button
-                      size="sm"
-                      variant={canSend ? "secondary" : "ghost"}
-                      onClick={() => submit({ followUp: true })}
+                      size="icon-sm"
+                      variant="destructive"
+                      onClick={abort}
                       onMouseDown={(e) => e.preventDefault()}
-                      disabled={!canSend}
-                      aria-label="Queue follow-up"
-                      title="Queue this message to run after the active turn (⏎)"
-                      className="h-7 gap-1 px-2 text-[11px]"
+                      aria-label="Stop"
+                      title="Stop the active turn"
                     >
-                      <Plus className="size-3.5" />
-                      Queue
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={canSend ? "default" : "ghost"}
-                      onClick={() => submit({ followUp: false })}
-                      onMouseDown={(e) => e.preventDefault()}
-                      disabled={!canSend}
-                      aria-label="Steer turn"
-                      title="Interrupt the active turn and redirect with this message (⌘⏎)"
-                      className="h-7 gap-1 px-2 text-[11px]"
-                    >
-                      <Zap className="size-3.5" />
-                      Steer
+                      <Square />
                     </Button>
                   </>
                 ) : (
@@ -1072,8 +1091,8 @@ function FooterStrip({
       : runtimeUnavailable
         ? "Connection recovery is required before sending."
         : isStreaming
-          ? "⏎ queues · ⌘⏎ steers · ⇧⏎ newline"
-          : "⏎ sends · ↑ history";
+          ? "⌘⇧⏎ note · ⌘⏎ steer · ⏎ queue · ↑ history"
+          : "⌘⇧⏎ note · ⏎ send · ↑ history";
 
   const statsText = usage
     ? [
@@ -1676,13 +1695,23 @@ type TimelineEvent =
   | { id: string; kind: "info"; message: ChatMessageView }
   | { id: string; kind: "tool"; tool: ChatToolView }
   | { id: string; kind: "thinking"; preview: string }
-  | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number };
+  | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number }
+  | { id: string; kind: "note"; content: string; savedAt: number };
 
 /**
  * Converts a flat message list into a timeline of events.
  * Tools are placed before their parent assistant message.
+ * Note events (Cmd+Enter saves) are appended after messages.
+ *
+ * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-1] [FR-2] [DES-TIMELINE] [DES-NOTES-CHAT]
  */
-function Timeline({ messages }: { messages: ChatTimelineItem[] }) {
+function Timeline({
+  messages,
+  noteEvents,
+}: {
+  messages: ChatTimelineItem[];
+  noteEvents: Array<{ id: string; content: string; savedAt: number }>;
+}) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
     if (m.role === "user") {
@@ -1718,11 +1747,19 @@ function Timeline({ messages }: { messages: ChatTimelineItem[] }) {
       message: m,
     });
   }
+  for (const n of noteEvents) {
+    events.push({ id: n.id, kind: "note", content: n.content, savedAt: n.savedAt });
+  }
 
   return (
     <ol className="relative flex flex-col">
       {events.map((event, i) => (
-        <TimelineRow key={event.id} event={event} isLast={i === events.length - 1} />
+        <TimelineRow
+          key={event.id}
+          event={event}
+          isLast={i === events.length - 1}
+          isReply={event.kind !== "user"}
+        />
       ))}
     </ol>
   );
@@ -1731,10 +1768,24 @@ function Timeline({ messages }: { messages: ChatTimelineItem[] }) {
 /**
  * Renders a single timeline row with a rail marker, event header, and event body.
  * The rail line is hidden for the last row to avoid dangling at the bottom.
+ * Reply rows (non-user) are indented by 28px to visually nest under the user turn.
  */
-function TimelineRow({ event, isLast }: { event: TimelineEvent; isLast: boolean }) {
+function TimelineRow({
+  event,
+  isLast,
+  isReply,
+}: {
+  event: TimelineEvent;
+  isLast: boolean;
+  isReply: boolean;
+}) {
   return (
-    <li className="relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5 pb-3 last:pb-0">
+    <li
+      className={cn(
+        "relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5 pb-3 last:pb-0",
+        isReply && "pl-[28px]",
+      )}
+    >
       {/* Rail line — centered behind the marker; hidden for the last row */}
       {!isLast && (
         <span
@@ -1824,6 +1875,14 @@ function Marker({ event }: { event: TimelineEvent }) {
     );
   }
 
+  if (event.kind === "note") {
+    return (
+      <span aria-hidden className={cn(MARKER_PLAIN, "text-muted-foreground/60")}>
+        <PenLine size={12} className="shrink-0" strokeWidth={2.25} />
+      </span>
+    );
+  }
+
   // thinking — pulsing indicator during live streaming.
   return (
     <span aria-hidden className={cn(MARKER_PLAIN, "animate-pulse text-afx-brand-soft")}>
@@ -1868,6 +1927,18 @@ function EventHeader({ event }: { event: TimelineEvent }) {
   }
   if (event.kind === "compaction") {
     return <Eyebrow tone="brand" label="Session compacted" timestamp={event.createdAt} />;
+  }
+  if (event.kind === "note") {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px]">
+        <span className="font-mono font-medium uppercase tracking-[0.14em] text-muted-foreground/60">
+          Note
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground/60">
+          {formatTimeMeta(event.savedAt)}
+        </span>
+      </div>
+    );
   }
   // tool events render via ToolEvent (table-style). EventHeader is unused for them.
   return null;
@@ -2003,6 +2074,15 @@ function EventBody({ event }: { event: TimelineEvent }) {
   }
   if (event.kind === "compaction") {
     return <CompactionCard summary={event.summary} tokensBefore={event.tokensBefore} />;
+  }
+  if (event.kind === "note") {
+    return (
+      <div className="mt-0.5 py-0.5">
+        <p className="whitespace-pre-wrap break-words font-serif text-[12px] italic leading-relaxed text-muted-foreground/60">
+          {event.content}
+        </p>
+      </div>
+    );
   }
   // tool events are rendered by ToolEvent (table layout) — EventBody is unused.
   return null;

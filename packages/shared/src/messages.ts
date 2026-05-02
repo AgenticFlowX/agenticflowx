@@ -299,7 +299,13 @@ export type ChatToAgent =
   /**
    * Queue a message for after the active turn completes.
    */
-  | { type: "chat/followUp"; requestId: string; content: string; mentions?: string[] };
+  | { type: "chat/followUp"; requestId: string; content: string; mentions?: string[] }
+  /**
+   * User saved the composer draft as a note (Cmd+Enter). Host writes to .afx/notes.md.
+   *
+   * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-2] [NFR-2] [DES-NOTES-CHAT]
+   */
+  | { type: "chat/saveNote"; content: string };
 
 // ---------------------------------------------------------------------------
 // Agent → Chat (inbound: events from the engine to the chat UI)

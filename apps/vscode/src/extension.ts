@@ -46,6 +46,7 @@ import { SecretStore } from "./secret-store";
 import { createSpecsDataProvider } from "./services/specs-data";
 import { createSprintContextSync } from "./services/sprint-context";
 import { resolveAfxSessionDir } from "./session-dir";
+import { appendNoteToWorkspace } from "./utils/notes-utils";
 
 const TRACE_LANGUAGES: vscode.DocumentSelector = [
   { language: "typescript" },
@@ -400,6 +401,9 @@ export async function activate(
       appendDraft: async (content) => {
         await vscode.commands.executeCommand("afx.openSidebar");
         await sidebarProvider.appendToDraft(content);
+      },
+      saveNote: async (content) => {
+        await appendNoteToWorkspace(content);
       },
     });
     for (const d of disposables) context.subscriptions.push(d);

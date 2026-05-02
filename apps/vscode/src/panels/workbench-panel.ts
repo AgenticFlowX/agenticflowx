@@ -15,6 +15,7 @@ import { type Logger, type WorkbenchInbound, type WorkbenchOutbound } from "@afx
 
 import { type SpecsDataProvider } from "../services/specs-data";
 import { parseSprintPath, sliceSprintSection } from "../services/sprint";
+import { appendNoteToWorkspace } from "../utils/notes-utils";
 import { getAppDistPath, getAppearanceClass, loadWebviewHtml } from "./webview-html";
 
 export const WORKBENCH_VIEW_TYPE = "afx-workbench";
@@ -406,20 +407,7 @@ async function handleMessage(
         return;
       }
       case "afxAppendNote": {
-        const uri = await resolvePath(".afx/notes.md", true);
-        let existing = "";
-        try {
-          existing = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
-        } catch {
-          existing = "---\nafx: true\ntype: NOTES\n---\n";
-        }
-        const now = new Date();
-        const date = formatLocalDate(now);
-        const time = formatLocalNoteTime(now);
-        const sanitized = msg.text.trim();
-        const next = insertNoteAtTop(existing, date, time, sanitized);
-        await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, ".."));
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await appendNoteToWorkspace(msg.text.trim());
         await refreshAndPost();
         return;
       }
@@ -520,49 +508,4 @@ function mutateNote(existing: string, timestamp: string, newText: string | null)
   const after = lines.slice(endIdx);
   const body = newText.split("\n");
   return [...before, ...body, "", ...after].join("\n").replace(/\n{3,}/g, "\n\n");
-}
-
-/**
- * Insert a new note entry at the top of the body — newest first.
- * If today's `## YYYY-MM-DD` heading already exists, prepend the new
- * `### HH:MM:SS.mmm` block right under it. Otherwise prepend a fresh
- * day section at the top of the body.
- */
-function insertNoteAtTop(existing: string, date: string, time: string, text: string): string {
-  const fmMatch = existing.match(/^---\n[\s\S]*?\n---\n?/);
-  const frontmatter = fmMatch?.[0] ?? "";
-  const body = existing.slice(frontmatter.length).replace(/^\s+/, "");
-
-  const newEntry = `### ${time}\n${text}`;
-  const todayHeading = `## ${date}`;
-  const todayIdx = body.search(new RegExp(`^##\\s+${date}\\s*$`, "m"));
-
-  let nextBody: string;
-  if (todayIdx === -1) {
-    nextBody = `${todayHeading}\n\n${newEntry}\n${body ? `\n${body}` : ""}`;
-  } else {
-    const before = body.slice(0, todayIdx);
-    const afterHeadingStart = todayIdx + todayHeading.length;
-    const after = body.slice(afterHeadingStart).replace(/^\n+/, "");
-    nextBody = `${before}${todayHeading}\n\n${newEntry}\n\n${after}`;
-  }
-
-  const fmTail = frontmatter && !frontmatter.endsWith("\n") ? "\n" : "";
-  return `${frontmatter}${fmTail}${frontmatter ? "\n" : ""}${nextBody.trimEnd()}\n`;
-}
-
-function formatLocalDate(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function formatLocalNoteTime(date: Date): string {
-  return `${[
-    String(date.getHours()).padStart(2, "0"),
-    String(date.getMinutes()).padStart(2, "0"),
-    String(date.getSeconds()).padStart(2, "0"),
-  ].join(":")}.${String(date.getMilliseconds()).padStart(3, "0")}`;
 }

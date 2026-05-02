@@ -188,7 +188,10 @@ describe("chat App", () => {
       });
     });
 
-    await user.type(screen.getByPlaceholderText("Ask AFX about this workspace…"), "keep me");
+    await user.type(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+      "keep me",
+    );
     expect(transport.state).toEqual(expect.objectContaining({ draft: "keep me" }));
 
     firstRender.unmount();
@@ -207,7 +210,9 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByPlaceholderText("Ask AFX about this workspace…")).toHaveValue("keep me");
+    expect(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+    ).toHaveValue("keep me");
   });
 
   it("shows readiness affordances across Chat, History, and Settings until the agent responds", async () => {
@@ -267,7 +272,9 @@ describe("chat App", () => {
     });
 
     expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Ask AFX about this workspace…")).toBeEnabled();
+    expect(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+    ).toBeEnabled();
 
     // Tab switch should not flash the empty state — thread content is preserved.
     await user.click(screen.getByRole("tab", { name: "Settings" }));
@@ -561,9 +568,11 @@ describe("chat App", () => {
     });
 
     expect(
-      screen.getByPlaceholderText("Ask AFX about this workspace…").closest(".afx-surface-composer"),
+      screen
+        .getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note")
+        .closest(".afx-surface-composer"),
     ).toBeInTheDocument();
-    expect(screen.getByText("⏎ sends · ↑ history")).toBeInTheDocument();
+    expect(screen.getByText("⌘⇧⏎ note · ⏎ send · ↑ history")).toBeInTheDocument();
     expect(screen.queryByText(/AFX may make mistakes/)).not.toBeInTheDocument();
 
     act(() => {
@@ -576,7 +585,7 @@ describe("chat App", () => {
     });
 
     expect(screen.getByText("3.5k tokens · ctx 2% · $0.0012")).toBeInTheDocument();
-    expect(screen.getByText("⏎ sends · ↑ history")).toBeInTheDocument();
+    expect(screen.getByText("⌘⇧⏎ note · ⏎ send · ↑ history")).toBeInTheDocument();
   });
 
   it("shows tool arguments immediately while a file tool is running", () => {
@@ -762,7 +771,7 @@ describe("chat App", () => {
       });
     });
 
-    const input = screen.getByPlaceholderText("Ask AFX about this workspace…");
+    const input = screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note");
     await user.type(input, "first prompt");
     await user.click(screen.getByRole("button", { name: "Send" }));
     await user.type(input, "second prompt");
@@ -821,7 +830,7 @@ describe("chat App", () => {
       transport.emit({ type: "agent/models", requestId: "models", models: [piModel, sdkModel] });
     });
 
-    const input = screen.getByPlaceholderText("Ask AFX about this workspace…");
+    const input = screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note");
     await user.type(input, "prompt before switch");
     await user.click(screen.getByRole("button", { name: "Send" }));
     expect(transport.send).toHaveBeenCalledWith(

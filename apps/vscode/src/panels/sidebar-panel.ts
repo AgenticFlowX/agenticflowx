@@ -47,6 +47,7 @@ import type {
 
 import { type AgentRuntimeMonitor, createAgentRuntimeMonitor } from "../agent-runtime-monitor";
 import type { SecretStore } from "../secret-store";
+import { appendNoteToWorkspace } from "../utils/notes-utils";
 import { getAppDistPath, loadWebviewHtml } from "./webview-html";
 
 export const SIDEBAR_VIEW_TYPE = "afx-sidebar";
@@ -1161,6 +1162,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       case "chat/setAutoRetry": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setAutoRetry(msg.enabled));
+        return;
+      }
+      case "chat/saveNote": {
+        void appendNoteToWorkspace(msg.content);
         return;
       }
       default: {

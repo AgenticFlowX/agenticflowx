@@ -41,9 +41,11 @@ describe("createAfxCodeActionProvider", () => {
 
     const sendPrompt = vi.fn(async () => {});
     const appendDraft = vi.fn(async () => {});
+    const saveNote = vi.fn(async () => {});
     createAfxCodeActionProvider(createMockLogger().logger, createMockAgentManager(), {
       sendPrompt,
       appendDraft,
+      saveNote,
     });
 
     await registered.get("afx.action.addToContext")?.();

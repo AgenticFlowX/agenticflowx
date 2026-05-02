@@ -3,6 +3,7 @@
  *
  * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
  * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-3] [DES-NOTES-EDITOR]
  */
 import * as vscode from "vscode";
 
@@ -16,6 +17,8 @@ export interface AfxCodeActionDispatch {
   sendPrompt(prompt: string): Promise<void>;
   /** Append into the composer draft (no send). */
   appendDraft(content: string): Promise<void>;
+  /** Save directly to .afx/notes.md without sending to the agent. */
+  saveNote(content: string): Promise<void>;
 }
 
 /**
@@ -27,7 +30,7 @@ export interface AfxCodeActionDispatch {
  */
 type ActionScope = "any" | "code" | "spec" | "design" | "tasks";
 
-type DispatchKind = "send" | "draft";
+type DispatchKind = "send" | "draft" | "note";
 
 interface AfxAction {
   command: string;
@@ -73,6 +76,14 @@ function formatSelection(ctx: EditorContext): string {
 }
 
 const ACTIONS: AfxAction[] = [
+  {
+    command: "afx.action.saveToNotes",
+    title: "AgenticFlowX: Save to Notes",
+    menuTitle: "Save to Notes",
+    scope: "any",
+    dispatch: "note",
+    prompt: (c) => formatSelection(c),
+  },
   {
     command: "afx.action.addToContext",
     title: "AgenticFlowX: Insert into Composer",
@@ -302,7 +313,17 @@ export function createAfxCodeActionProvider(
         }
         try {
           const prompt = action.prompt(ctx);
-          if (dispatch) {
+          if (action.dispatch === "note") {
+            if (dispatch) {
+              await dispatch.saveNote(prompt);
+            } else {
+              vscode.window.showWarningMessage(
+                "AgenticFlowX: open the sidebar first to save notes",
+              );
+              return;
+            }
+            vscode.window.showInformationMessage("AgenticFlowX: Saved to notes");
+          } else if (dispatch) {
             if (action.dispatch === "draft") {
               await dispatch.appendDraft(prompt);
             } else {

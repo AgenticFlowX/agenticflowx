@@ -2,7 +2,7 @@
   "name": "agenticflowx",
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",
@@ -212,6 +212,11 @@
         "title": "AgenticFlowX: Auto-detect Pi CLI Binary"
       },
       {
+        "command": "afx.action.saveToNotes",
+        "title": "Save to Notes",
+        "category": "AgenticFlowX"
+      },
+      {
         "command": "afx.action.addToContext",
         "title": "Insert into Composer",
         "category": "AgenticFlowX"
@@ -318,6 +323,10 @@
         }
       ],
       "afx.editorContext": [
+        {
+          "command": "afx.action.saveToNotes",
+          "group": "0_notes@1"
+        },
         {
           "command": "afx.action.addToContext",
           "group": "1_chat@1"
