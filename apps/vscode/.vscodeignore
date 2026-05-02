@@ -1,0 +1,13 @@
+.turbo/
+src/
+tsconfig.json
+esbuild.mjs
+node_modules/
+.vscode/
+**/*.map
+!LICENSE
+**/e2e/
+**/test-results/
+**/*.test.ts
+**/*.spec.ts
+**/screenshots/

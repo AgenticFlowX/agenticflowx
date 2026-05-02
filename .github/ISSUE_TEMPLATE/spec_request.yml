@@ -1,0 +1,34 @@
+name: Spec request
+description: Request a new feature spec using the AFX sprint workflow
+labels: [spec, enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **First step**: Run `/afx-sprint new <feature>` in your workspace to scaffold a sprint brief.
+        Then link the resulting `docs/specs/<feature>/<feature>.md` below.
+
+  - type: input
+    id: feature
+    attributes:
+      label: Feature slug
+      placeholder: e.g. dark-mode-toggle
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user pain point or business need does this feature address?
+    validations:
+      required: true
+
+  - type: input
+    id: sprint_link
+    attributes:
+      label: Sprint brief link (optional)
+      description: Link to the `<feature>.md` once scaffolded
+      placeholder: docs/specs/<feature>/<feature>.md
+    validations:
+      required: false

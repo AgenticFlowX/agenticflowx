@@ -1,0 +1,71 @@
+/*
+ * Lyra theme — shadcn utilitarian monochrome.
+ *
+ * Same approach: surface/text/border from --vscode-*, monochrome accent on top.
+ * Legacy compatibility identity. New runtime switching should use
+ * `.theme-meridian style-lyra`; `theme-lyra` remains accepted so older
+ * `afx.theme=lyra` settings do not render without variables.
+ *
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-3] [FR-4]
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-HOST] [DES-VSCODE]
+ */
+
+.theme-lyra {
+  /* ── Surfaces — follow VSCode ──────────────────────────────── */
+  --background: var(--vscode-sideBar-background, oklch(0.145 0 0));
+  --foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+  --card: var(--vscode-editorWidget-background, oklch(0.205 0 0));
+  --card-foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+  --popover: var(--vscode-editorWidget-background, oklch(0.205 0 0));
+  --popover-foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+
+  /* ── Text — follow VSCode ──────────────────────────────────── */
+  --muted: var(--vscode-editorGroupHeader-tabsBackground, oklch(0.269 0 0));
+  --muted-foreground: var(--vscode-descriptionForeground, oklch(0.708 0 0));
+  --secondary: var(--vscode-editor-background, oklch(0.269 0 0));
+  --secondary-foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+  --accent: var(--vscode-list-hoverBackground, oklch(0.269 0 0));
+  --accent-foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+
+  /* ── Borders — follow VSCode ───────────────────────────────── */
+  --border: var(--vscode-panel-border, oklch(1 0 0 / 10%));
+  --input: var(--vscode-input-background, var(--vscode-editorWidget-background, oklch(0.205 0 0)));
+  --afx-input-border: var(--vscode-input-border, oklch(1 0 0 / 15%));
+
+  /* ── Destructive — follow VSCode ───────────────────────────── */
+  --destructive: var(--vscode-errorForeground, oklch(0.704 0.191 22.216));
+
+  /* ── Lyra accent identity (monochrome) ─────────────────────── */
+  --primary: var(--vscode-button-background, oklch(0.922 0 0));
+  --primary-foreground: var(--vscode-button-foreground, oklch(0.205 0 0));
+  --ring: var(--vscode-focusBorder, oklch(0.556 0 0));
+  --radius: 0.625rem;
+
+  /* ── Sidebar — follow VSCode ───────────────────────────────── */
+  --sidebar: var(--vscode-sideBar-background, oklch(0.205 0 0));
+  --sidebar-foreground: var(--vscode-sideBar-foreground, oklch(0.985 0 0));
+  --sidebar-primary: var(--vscode-button-background, oklch(0.488 0.243 264.376));
+  --sidebar-primary-foreground: var(--vscode-button-foreground, oklch(0.985 0 0));
+  --sidebar-accent: var(--vscode-list-hoverBackground, oklch(0.269 0 0));
+  --sidebar-accent-foreground: var(--vscode-editor-foreground, oklch(0.985 0 0));
+  --sidebar-border: var(--vscode-sideBar-border, oklch(1 0 0 / 10%));
+  --sidebar-ring: var(--vscode-focusBorder, oklch(0.556 0 0));
+
+  /* ── Charts ─────────────────────────────────────────────────── */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  /* ── AFX signal colors (neutral) ────────────────────────────── */
+  --afx-brand: var(--vscode-button-background, oklch(0.922 0 0));
+  --afx-brand-soft: var(--vscode-descriptionForeground, oklch(0.708 0 0));
+  --afx-brand-deep: oklch(0.556 0 0);
+  --afx-signal-success: var(--vscode-charts-green, oklch(0.65 0.15 150));
+  --afx-signal-warning: var(--vscode-charts-yellow, oklch(0.7 0.15 50));
+  --afx-signal-info: var(--vscode-charts-blue, oklch(0.65 0.15 270));
+  --afx-dot-active: var(--vscode-button-background, oklch(0.922 0 0));
+  --afx-dot-active-glow: oklch(0.922 0 0 / 25%);
+  --afx-selection: var(--vscode-editor-selectionBackground, oklch(0.922 0 0 / 15%));
+}

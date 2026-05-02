@@ -1,0 +1,23 @@
+[
+  {
+    "name": "vscode extension",
+    "path": "apps/vscode/out/extension.js",
+    "limit": "1 MB",
+    "brotli": false,
+    "gzip": false
+  },
+  {
+    "name": "chat webview",
+    "path": "apps/chat/dist/assets/*.js",
+    "limit": "1 MB",
+    "brotli": false,
+    "gzip": false
+  },
+  {
+    "name": "workbench webview",
+    "path": "apps/workbench/dist/assets/*.js",
+    "limit": "1 MB",
+    "brotli": false,
+    "gzip": false
+  }
+]

@@ -1,0 +1,143 @@
+/*
+ * AFX global stylesheet.
+ *
+ * Structure:
+ *   globals.css          ← this file: base imports, resets, @theme inline
+ *   theme-meridian.css   ← Meridian (AFX identity) variable values
+ *   theme-lyra.css       ← Legacy Lyra identity compatibility values
+ *   style-*.css          ← Runtime shadcn treatment variables and cn hooks
+ *   meridian.tokens.css  ← raw Meridian primitives
+ *
+ * Theme switching:
+ *   Default identity = Meridian. Add `.theme-meridian` on <body> explicitly.
+ *   Runtime treatment = `.style-lyra`, `.style-luma`, etc.
+ *   VSCode webview body classes `.vscode-dark` / `.vscode-light`
+ *   are used for dark/light auto-switching within each theme.
+ *
+ * The extension injects `theme-meridian style-*` classes from `afx.theme`
+ * and `afx.style`.
+ *
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1] [FR-2] [FR-4]
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-TOKENS] [DES-SHADCN]
+ */
+
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/jetbrains-mono";
+@import "./meridian.tokens.css";
+@import "./theme-meridian.css";
+@import "./theme-lyra.css";
+@import "./style-lyra.css";
+@import "./style-luma.css";
+@import "./style-maia.css";
+@import "./style-nova.css";
+@import "./style-vega.css";
+@import "./style-mira.css";
+@import "./style-sera.css";
+
+@source "../../../../apps/chat/src";
+@source "../../../../apps/workbench/src";
+@source "../components";
+
+/* VSCode webviews use body classes, not a .dark class. */
+@custom-variant dark (&:is(.vscode-dark *));
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--vscode-font-family, var(--meridian-font-sans));
+    font-size: var(--vscode-font-size, var(--meridian-text-sm));
+    font-weight: var(--vscode-font-weight, var(--meridian-weight-regular));
+    line-height: var(--meridian-leading-relaxed);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--afx-selection);
+    color: var(--foreground);
+  }
+  .vscode-high-contrast *,
+  .vscode-high-contrast-light * {
+    outline-color: var(--vscode-focusBorder, var(--ring));
+  }
+  .vscode-high-contrast,
+  .vscode-high-contrast-light {
+    --border: var(--vscode-contrastBorder, var(--vscode-panel-border, var(--border)));
+    --input: var(--vscode-input-background, var(--background));
+    --ring: var(--vscode-focusBorder, var(--ring));
+    --afx-selection: var(
+      --vscode-editor-selectionBackground,
+      color-mix(in oklab, var(--ring), transparent 70%)
+    );
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * Tailwind v4 @theme inline — register variables as utilities.
+ * These reference the CSS variables set by whichever theme is active.
+ * ═══════════════════════════════════════════════════════════════ */
+
+@theme inline {
+  --font-sans: var(--meridian-font-sans);
+  --font-mono: var(--meridian-font-mono);
+  --font-serif: var(--meridian-font-serif);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-afx-brand: var(--afx-brand);
+  --color-afx-brand-soft: var(--afx-brand-soft);
+  --color-afx-brand-deep: var(--afx-brand-deep);
+  --color-afx-success: var(--afx-signal-success);
+  --color-afx-warning: var(--afx-signal-warning);
+  --color-afx-info: var(--afx-signal-info);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}

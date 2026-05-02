@@ -1,0 +1,109 @@
+{
+  "name": "agenticflowx",
+  "version": "2.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": {
+    "name": "AgenticFlowX"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgenticFlowX/agenticflowx"
+  },
+  "homepage": "https://agenticflowx.github.io",
+  "bugs": {
+    "url": "https://github.com/AgenticFlowX/agenticflowx/issues"
+  },
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "-build": "BUILD ──────────────────────────────────────────",
+    "build": "turbo build",
+    "build:chat": "pnpm --filter apps/chat build",
+    "build:workbench": "pnpm --filter apps/workbench build",
+    "build:vscode": "pnpm --filter agenticflowx build",
+    "build:vsix": "pnpm --filter agenticflowx package",
+    "-dev": "DEV ────────────────────────────────────────────",
+    "dev": "turbo dev",
+    "dev:chat": "pnpm --filter apps/chat dev",
+    "dev:workbench": "pnpm --filter apps/workbench dev",
+    "dev:vscode": "pnpm --filter agenticflowx dev",
+    "-check": "CHECK ──────────────────────────────────────────",
+    "check:types": "turbo check-types",
+    "check:lint": "eslint . --max-warnings 0",
+    "check:lint:fix": "eslint . --fix",
+    "check:format": "prettier --check .",
+    "check:format:fix": "prettier --write .",
+    "check:md": "markdownlint-cli2 \"**/*.md\" \"!**/node_modules/**\" \"!**/.turbo/**\" \"!**/.vscode-test/**\" \"!**/.claude/**\" \"!**/docs/agenticflowx/**\" \"!**/docs/design-system/**\" \"!**/docs/archive/**\" \"!**/docs/specs/chat-ui-theme-foundation/**\" \"!**/.agents/**\" \"!**/.afx/**\" \"!**/apps/*/test-results/**\" \"!**/apps/vscode/resources/skills/**\"",
+    "check:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"!**/node_modules/**\" \"!**/.turbo/**\" \"!**/.vscode-test/**\" \"!**/.claude/**\" \"!**/docs/agenticflowx/**\" \"!**/docs/design-system/**\" \"!**/docs/archive/**\" \"!**/docs/specs/chat-ui-theme-foundation/**\" \"!**/.agents/**\" \"!**/.afx/**\" \"!**/apps/*/test-results/**\" \"!**/apps/vscode/resources/skills/**\"",
+    "check:knip": "knip",
+    "check:syncpack": "syncpack lint --source 'package.json' --source 'apps/*/package.json' --source 'packages/*/package.json' --source 'packages/agent/*/package.json'",
+    "check:security": "pnpm audit --audit-level=high --prod && pnpm exec license-checker-rseidelsohn --production --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0;BlueOak-1.0.0'",
+    "-test": "TEST ───────────────────────────────────────────",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "pnpm --filter apps/chat test:e2e",
+    "test:e2e:vscode": "pnpm --filter apps/vscode-e2e test",
+    "test:e2e:all": "pnpm run test:e2e && pnpm run test:e2e:vscode",
+    "test:naming-guard": "vitest run --project conventions",
+    "setup:e2e": "pnpm --filter apps/chat exec playwright install chromium",
+    "-verify": "VERIFY ─────────────────────────────────────────",
+    "verify": "turbo run check-types //#check:lint //#check:format //#check:md //#check:knip test --continue",
+    "verify:full": "pnpm run verify && pnpm run build && size-limit && pnpm run test:coverage && pnpm run test:e2e:all && pnpm run check:security",
+    "fix": "pnpm run check:format:fix && pnpm run check:md:fix && pnpm run check:lint:fix",
+    "-release": "RELEASE ────────────────────────────────────────",
+    "changelog": "changelogen --dry --noAuthors",
+    "-util": "UTIL ───────────────────────────────────────────",
+    "clean": "turbo clean && rm -rf node_modules",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,mjs}": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{json,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.md": "node ./scripts/lint-staged-markdown.mjs"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@eslint/js": "^10.0.1",
+    "@size-limit/file": "^12.1.0",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@vitest/coverage-v8": "^2.1.9",
+    "changelogen": "^0.6.2",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-check-file": "3.3.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-no-secrets": "2.3.3",
+    "eslint-plugin-no-unsanitized": "4.1.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-security": "4.0.0",
+    "eslint-plugin-unicorn": "^64.0.0",
+    "eslint-plugin-vitest": "^0.5.4",
+    "husky": "^9.1.7",
+    "js-yaml": "^4.1.1",
+    "knip": "^5.50.5",
+    "license-checker-rseidelsohn": "4.4.2",
+    "lint-staged": "^16.4.0",
+    "markdownlint-cli2": "^0.22.1",
+    "prettier": "^3.5.3",
+    "size-limit": "^12.1.0",
+    "syncpack": "14.3.1",
+    "turbo": "2.9.6",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.59.0",
+    "vitest": "^2.1.9",
+    "vitest-fail-on-console": "^0.10.1"
+  }
+}

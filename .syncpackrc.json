@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/JamieMason/syncpack/master/syncpack.schema.json",
+  "source": [
+    "package.json",
+    "apps/*/package.json",
+    "packages/*/package.json",
+    "packages/agent/*/package.json"
+  ],
+  "semverGroups": [
+    {
+      "label": "Internal workspace packages use workspace:*",
+      "dependencies": ["@afx/**"],
+      "range": "workspace:*"
+    },
+    {
+      "label": "Catch-all: prefer caret range",
+      "dependencies": ["**"],
+      "range": "^"
+    }
+  ],
+  "versionGroups": [
+    {
+      "label": "Internal workspace packages — pinned to current source",
+      "dependencies": ["@afx/**"],
+      "policy": "sameRange"
+    }
+  ]
+}

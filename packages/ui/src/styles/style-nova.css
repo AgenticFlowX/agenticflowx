@@ -1,0 +1,21 @@
+/*
+ * Nova runtime treatment — crisp, high-density controls with subtle elevation.
+ * T1 fidelity: variable treatment over the Lyra-generated primitive baseline.
+ *
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4]
+ * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-SHADCN]
+ */
+
+.style-nova {
+  --afx-control-radius: 0.25rem;
+  --afx-panel-radius: 0.375rem;
+  --afx-pill-radius: 999px;
+  --afx-border-width: 1px;
+  --afx-focus-ring-width: 1px;
+  --afx-control-height-xs: 1.5rem;
+  --afx-control-height-sm: 1.75rem;
+  --afx-control-height-default: 2rem;
+  --afx-control-height-lg: 2.375rem;
+  --afx-density-gap: 0.25rem;
+  --afx-treatment-shadow: 0 1px 2px color-mix(in oklab, var(--foreground), transparent 90%);
+}

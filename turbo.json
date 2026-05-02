@@ -1,0 +1,69 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**", "out/**"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "cache": false
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"]
+    },
+    "knip": {
+      "cache": false
+    },
+    "clean": {
+      "cache": false
+    },
+    "//#check:lint": {
+      "inputs": [
+        "**/*.{ts,tsx,js,mjs}",
+        "eslint.config.mjs",
+        "!**/dist/**",
+        "!**/out/**",
+        "!**/node_modules/**"
+      ],
+      "outputs": []
+    },
+    "//#check:format": {
+      "inputs": ["**/*", "!**/dist/**", "!**/out/**", "!**/node_modules/**", "!**/.turbo/**"],
+      "outputs": []
+    },
+    "//#check:md": {
+      "inputs": ["**/*.md", "!**/node_modules/**", "!**/.turbo/**"],
+      "outputs": []
+    },
+    "//#check:knip": {
+      "cache": false
+    },
+    "//#test:coverage": {
+      "inputs": [
+        "**/*.{ts,tsx}",
+        "vitest.workspace.ts",
+        "**/vitest.config*.ts",
+        "**/vitest.setup.ts",
+        "!**/dist/**",
+        "!**/out/**",
+        "!**/node_modules/**"
+      ],
+      "outputs": ["coverage/**"]
+    },
+    "//#test:e2e": {
+      "cache": false
+    }
+  }
+}

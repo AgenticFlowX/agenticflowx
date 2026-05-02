@@ -1,0 +1,32 @@
+{
+  "name": "@afx/agent-pi-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "description": "AFX-bundled Pi API-provider runtime adapter.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node ./build.bootstrap.mjs",
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@afx/agent-pi": "workspace:*",
+    "@afx/shared": "workspace:*",
+    "@mariozechner/pi-agent-core": "^0.70.2",
+    "@mariozechner/pi-ai": "^0.70.2",
+    "@mariozechner/pi-coding-agent": "^0.70.2",
+    "@mariozechner/pi-tui": "^0.70.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.27.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9"
+  }
+}

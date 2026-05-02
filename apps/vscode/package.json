@@ -1,0 +1,473 @@
+{
+  "name": "agenticflowx",
+  "displayName": "AgenticFlowX",
+  "description": "A VS Code workflow layer around pi.dev.",
+  "version": "2.0.1",
+  "private": true,
+  "publisher": "agenticflowx",
+  "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#617A91",
+    "theme": "dark"
+  },
+  "author": {
+    "name": "AgenticFlowX"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AgenticFlowX/agenticflowx"
+  },
+  "homepage": "https://agenticflowx.github.io",
+  "bugs": {
+    "url": "https://github.com/AgenticFlowX/agenticflowx/issues"
+  },
+  "telemetry": {
+    "url": "https://clarity.ms"
+  },
+  "license": "Apache-2.0",
+  "main": "./out/extension.js",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Programming Languages",
+    "Snippets",
+    "Machine Learning",
+    "Other"
+  ],
+  "keywords": [
+    "agenticflowx",
+    "afx",
+    "spec",
+    "ai-coding",
+    "spec-driven",
+    "traceability",
+    "multi-agent",
+    "ai-agent",
+    "code-quality",
+    "development-workflow",
+    "copilot",
+    "ai-assistant",
+    "automation",
+    "project-management",
+    "requirements",
+    "code-tracing",
+    "agentic",
+    "prompt-engineering",
+    "chat-participant",
+    "agents",
+    "ai",
+    "ai agents",
+    "artificial intelligence",
+    "assistant",
+    "autocomplete",
+    "c#",
+    "c++",
+    "chat",
+    "code completion",
+    "coding assistant",
+    "css",
+    "go",
+    "html",
+    "intellisense",
+    "java",
+    "javascript",
+    "keybindings",
+    "mcp",
+    "node.js",
+    "pair programming",
+    "php",
+    "python",
+    "react",
+    "remote agents",
+    "ruby",
+    "rust",
+    "swift",
+    "typescript"
+  ],
+  "activationEvents": [],
+  "contributes": {
+    "configuration": {
+      "title": "AgenticFlowX",
+      "properties": {
+        "afx.rpc.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the Pi CLI RPC runtime. Disabled by default so API Providers can run without spawning a local Pi process."
+        },
+        "afx.agentBinaryPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the configured agent CLI binary. Leave empty to use the adapter default."
+        },
+        "afx.agentEphemeralSession": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run the configured agent with --no-session (ephemeral). Leave disabled to enable session continuity across runtimes."
+        },
+        "afx.sessionDir": {
+          "type": "string",
+          "default": "",
+          "description": "Directory for persisted agent sessions. Leave empty to use extension-managed storage."
+        },
+        "afx.sdk.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use API Providers when an API key is configured."
+        },
+        "afx.sdk.defaultModel": {
+          "type": "string",
+          "default": "anthropic:claude-opus-4-5",
+          "description": "Default model for API Providers. Format: <provider>:<modelId>."
+        },
+        "afx.sdk.ollamaBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Base URL for a local Ollama server. Leave empty to disable."
+        },
+        "afx.debugPerf": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show streaming performance diagnostics in the chat status bar."
+        },
+        "afx.theme": {
+          "type": "string",
+          "enum": [
+            "meridian"
+          ],
+          "default": "meridian",
+          "description": "UI identity/accent theme for the AgenticFlowX sidebar and workbench panels. Meridian is the AgenticFlowX identity."
+        },
+        "afx.style": {
+          "type": "string",
+          "enum": [
+            "lyra",
+            "luma",
+            "maia",
+            "nova",
+            "vega",
+            "mira",
+            "sera"
+          ],
+          "default": "lyra",
+          "description": "UI style treatment for the AgenticFlowX sidebar and workbench panels. Lyra is the compact baseline."
+        },
+        "afx.logLevel": {
+          "type": "string",
+          "enum": [
+            "silent",
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "info",
+          "description": "AgenticFlowX log verbosity for the AgenticFlowX output channel. Override at runtime with the AFX_LOG_LEVEL environment variable."
+        },
+        "afx.telemetry.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable anonymous UI analytics (Microsoft Clarity) for AgenticFlowX webviews. Respects VS Code telemetry enablement and Do Not Track.",
+          "tags": [
+            "telemetry",
+            "usesOnlineServices"
+          ]
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "afx.openSidebar",
+        "title": "AgenticFlowX: Open Sidebar"
+      },
+      {
+        "command": "afx.openWorkbench",
+        "title": "AgenticFlowX: Open Workbench"
+      },
+      {
+        "command": "afx.showLogs",
+        "title": "AgenticFlowX: Show Logs (Output Panel)"
+      },
+      {
+        "command": "afx.agentSmokeTest",
+        "title": "AgenticFlowX: Agent Smoke Test"
+      },
+      {
+        "command": "afx.agentRestart",
+        "title": "AgenticFlowX: Restart Agent Process"
+      },
+      {
+        "command": "afx.setProviderApiKey",
+        "title": "AgenticFlowX: Set Provider API Key"
+      },
+      {
+        "command": "afx.clearProviderApiKey",
+        "title": "AgenticFlowX: Clear Provider API Key"
+      },
+      {
+        "command": "afx.detectPiBinary",
+        "title": "AgenticFlowX: Auto-detect Pi CLI Binary"
+      },
+      {
+        "command": "afx.action.addToContext",
+        "title": "Insert into Composer",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.sendSelection",
+        "title": "Send Selection",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.explain",
+        "title": "Explain",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.review",
+        "title": "Review",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.improveCode",
+        "title": "Improve",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.generateTests",
+        "title": "Generate Tests",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.addSeeLink",
+        "title": "Add @see Link",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.verifyTrace",
+        "title": "Verify Traceability",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.specValidate",
+        "title": "Spec — Validate",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.specReview",
+        "title": "Spec — Review",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.specApprove",
+        "title": "Spec — Approve",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.designValidate",
+        "title": "Design — Validate",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.designReview",
+        "title": "Design — Review",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.designApprove",
+        "title": "Design — Approve",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.taskCode",
+        "title": "Task — Code",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.taskVerify",
+        "title": "Task — Verify",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.taskPick",
+        "title": "Task — Pick Next",
+        "category": "AgenticFlowX"
+      }
+    ],
+    "submenus": [
+      {
+        "id": "afx.editorContext",
+        "label": "AgenticFlowX"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "submenu": "afx.editorContext",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/title": [
+        {
+          "submenu": "afx.editorContext",
+          "group": "navigation@9",
+          "when": "afx.isSprint || resourceFilename == spec.md || resourceFilename == design.md || resourceFilename == tasks.md"
+        }
+      ],
+      "afx.editorContext": [
+        {
+          "command": "afx.action.addToContext",
+          "group": "1_chat@1"
+        },
+        {
+          "command": "afx.action.sendSelection",
+          "group": "1_chat@2"
+        },
+        {
+          "command": "afx.action.explain",
+          "group": "1_chat@3"
+        },
+        {
+          "command": "afx.action.review",
+          "group": "1_chat@4"
+        },
+        {
+          "command": "afx.action.improveCode",
+          "group": "1_chat@5",
+          "when": "editorLangId != markdown"
+        },
+        {
+          "command": "afx.action.generateTests",
+          "group": "1_chat@6",
+          "when": "editorLangId != markdown"
+        },
+        {
+          "command": "afx.action.addSeeLink",
+          "group": "2_trace@1",
+          "when": "editorLangId != markdown"
+        },
+        {
+          "command": "afx.action.verifyTrace",
+          "group": "2_trace@2"
+        },
+        {
+          "command": "afx.action.specValidate",
+          "group": "3_spec@1",
+          "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
+        },
+        {
+          "command": "afx.action.specReview",
+          "group": "3_spec@2",
+          "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
+        },
+        {
+          "command": "afx.action.specApprove",
+          "group": "3_spec@3",
+          "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
+        },
+        {
+          "command": "afx.action.designValidate",
+          "group": "4_design@1",
+          "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
+        },
+        {
+          "command": "afx.action.designReview",
+          "group": "4_design@2",
+          "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
+        },
+        {
+          "command": "afx.action.designApprove",
+          "group": "4_design@3",
+          "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
+        },
+        {
+          "command": "afx.action.taskCode",
+          "group": "5_tasks@1",
+          "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        },
+        {
+          "command": "afx.action.taskVerify",
+          "group": "5_tasks@2",
+          "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        },
+        {
+          "command": "afx.action.taskPick",
+          "group": "5_tasks@3",
+          "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "afx",
+          "title": "AgenticFlowX",
+          "icon": "resources/activity-icon.svg"
+        }
+      ],
+      "panel": [
+        {
+          "id": "afx-workbench-container",
+          "title": "AgenticFlowX",
+          "icon": "resources/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "afx": [
+        {
+          "id": "afx-sidebar",
+          "name": "AgenticFlowX",
+          "type": "webview"
+        }
+      ],
+      "afx-workbench-container": [
+        {
+          "id": "afx-workbench",
+          "name": "Workbench",
+          "type": "webview"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "afx.openSidebar",
+        "key": "ctrl+alt+a",
+        "mac": "cmd+alt+a",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "dev": "node esbuild.mjs --watch",
+    "sync:skills": "node ./scripts/sync-skills.mjs",
+    "prepare:webviews": "node ./scripts/prepare-webviews.mjs",
+    "prepare:pi-sdk": "pnpm --filter @afx/agent-pi-sdk build && node ./scripts/prepare-pi-sdk.mjs",
+    "prepackage": "cp ../../README.md ./README.md && cp ../../CHANGELOG.md ./CHANGELOG.md && pnpm --filter apps/chat build && pnpm --filter apps/workbench build && pnpm run prepare:webviews && pnpm run prepare:pi-sdk && pnpm run build",
+    "check-types": "tsc --noEmit",
+    "watch:tsc": "tsc --noEmit --watch",
+    "pretest": "pnpm run prepare:pi-sdk",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "pnpm vsce package --out ../../bin/ --no-dependencies"
+  },
+  "dependencies": {
+    "@afx/shared": "workspace:*",
+    "@afx/parsers": "workspace:*",
+    "@afx/agent-pi": "workspace:*",
+    "@afx/agent-pi-sdk": "workspace:*",
+    "@types/vscode": "^1.96.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@vscode/vsce": "^3.9.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.9",
+    "@vitest/coverage-v8": "^2.1.9"
+  }
+}

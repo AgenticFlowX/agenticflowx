@@ -1,0 +1,543 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════
+ *  MERIDIAN · Design Tokens
+ *  Design system for AgenticFlowX
+ *  ───────────────────────────────────────────────────────────────
+ *  Revision · 01
+ *  Updated  · 2026.04
+ *
+ *  THREE-LAYER ARCHITECTURE
+ *  ────────────────────────
+ *  Layer 1 — Primitives      Raw values. Stable. Never reference in components.
+ *  Layer 2 — Semantics       Purpose-based aliases. This is what components use.
+ *  Layer 3 — Component       Specific roles for specific components.
+ *
+ *  Rule of thumb: if you find yourself writing var(--meridian-brass-0)
+ *  inside a component, you've skipped a layer. Add a semantic alias first.
+ *
+ *  FONT DEPENDENCIES
+ *  ─────────────────
+ *  Load these fonts before using Meridian:
+ *
+ *    @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..900,0..100;1,9..144,300..900,0..100&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+ *
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════
+   *  LAYER 1 · PRIMITIVES
+   *  Raw values. These are what semantics reference.
+   * ═══════════════════════════════════════════════════════════════ */
+
+  /* ── Color · Ink (surfaces) ──────────────────────────────────── */
+  --meridian-ink-0: #080c1a; /* page / canvas */
+  --meridian-ink-1: #0d1326; /* surface */
+  --meridian-ink-2: #141b35; /* raised panel */
+  --meridian-ink-3: #1d2547; /* hover / border-strong */
+  --meridian-ink-4: #2a3560; /* selected / active */
+
+  /* ── Color · Bone (text) ─────────────────────────────────────── */
+  --meridian-bone-0: #f4eedd; /* high-contrast parchment */
+  --meridian-bone-1: #e3dac3; /* body text */
+  --meridian-bone-2: #a89e85; /* secondary text */
+  --meridian-bone-3: #6b6450; /* tertiary / muted */
+  --meridian-bone-4: #423e32; /* disabled */
+
+  /* ── Color · Brass (the golden thread) ───────────────────────── */
+  --meridian-brass-0: #f4c97e; /* lantern / bright */
+  --meridian-brass-1: #d4a656; /* brass / primary */
+  --meridian-brass-2: #a07e39; /* antique / deep */
+  --meridian-brass-3: #6e5724; /* deepest — shadow */
+
+  /* ── Color · Moss (verified / success) ───────────────────────── */
+  --meridian-moss-0: #8bac98;
+  --meridian-moss-1: #6b9478;
+  --meridian-moss-2: #4a6e5a;
+
+  /* ── Color · Ember (active / warning) ────────────────────────── */
+  --meridian-ember-0: #e88a6f;
+  --meridian-ember-1: #d9674a;
+  --meridian-ember-2: #a84c30;
+
+  /* ── Color · Plum (info / optional) ──────────────────────────── */
+  --meridian-plum-0: #a37ca5;
+  --meridian-plum-1: #8b5f8c;
+  --meridian-plum-2: #6a4069;
+
+  /* ── Color · Alpha utilities ─────────────────────────────────── */
+  --meridian-alpha-border: rgba(244, 238, 221, 0.08);
+  --meridian-alpha-border-strong: rgba(244, 238, 221, 0.16);
+  --meridian-alpha-border-brass: rgba(212, 166, 86, 0.3);
+  --meridian-alpha-glow-brass: rgba(244, 201, 126, 0.35);
+  --meridian-alpha-grid: rgba(212, 166, 86, 0.08);
+  --meridian-alpha-selection: rgba(212, 166, 86, 0.2);
+  --meridian-alpha-hover: rgba(244, 238, 221, 0.04);
+  --meridian-alpha-scrim: rgba(8, 12, 26, 0.7);
+
+  /* ── Gradients · The thread ──────────────────────────────────── */
+  --meridian-thread-h: linear-gradient(90deg, #a07e39 0%, #f4c97e 50%, #a07e39 100%);
+  --meridian-thread-v: linear-gradient(
+    180deg,
+    transparent,
+    #d4a656 20%,
+    #f4c97e 50%,
+    #d4a656 80%,
+    transparent
+  );
+  --meridian-thread-subtle: linear-gradient(90deg, transparent, #d4a656 50%, transparent);
+  --meridian-glow-radial: radial-gradient(circle, rgba(244, 201, 126, 0.35), transparent 70%);
+
+  /* ── Typography · Families ───────────────────────────────────── */
+  --meridian-font-serif: "Fraunces", "Iowan Old Style", "Palatino", Georgia, serif;
+  --meridian-font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --meridian-font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  /* ── Typography · Sizes (fixed) ──────────────────────────────── */
+  --meridian-text-2xs: 10px;
+  --meridian-text-xs: 11px;
+  --meridian-text-sm: 12px;
+  --meridian-text-base: 13px;
+  --meridian-text-md: 14px;
+  --meridian-text-lg: 15px;
+  --meridian-text-xl: 17px;
+  --meridian-text-2xl: 20px;
+  --meridian-text-3xl: 24px;
+  --meridian-text-4xl: 32px;
+  --meridian-text-5xl: 40px;
+  --meridian-text-6xl: 56px;
+  --meridian-text-7xl: 72px;
+  --meridian-text-8xl: 96px;
+
+  /* ── Typography · Sizes (fluid display) ──────────────────────── */
+  --meridian-text-display-sm: clamp(36px, 5vw, 64px);
+  --meridian-text-display-md: clamp(48px, 7vw, 88px);
+  --meridian-text-display-lg: clamp(72px, 11vw, 172px);
+
+  /* ── Typography · Weights ────────────────────────────────────── */
+  --meridian-weight-light: 300;
+  --meridian-weight-book: 350;
+  --meridian-weight-regular: 400;
+  --meridian-weight-medium: 500;
+  --meridian-weight-semibold: 600;
+  --meridian-weight-bold: 700;
+
+  /* ── Typography · Tracking ───────────────────────────────────── */
+  --meridian-tracking-tighter: -0.04em; /* hero display */
+  --meridian-tracking-tight: -0.03em; /* large display */
+  --meridian-tracking-snug: -0.01em; /* body serif */
+  --meridian-tracking-normal: 0;
+  --meridian-tracking-wide: 0.05em; /* mono default */
+  --meridian-tracking-wider: 0.14em; /* mono uppercase */
+  --meridian-tracking-widest: 0.2em; /* eyebrows, badges */
+
+  /* ── Typography · Line heights ───────────────────────────────── */
+  --meridian-leading-none: 1;
+  --meridian-leading-tight: 1.1;
+  --meridian-leading-snug: 1.25;
+  --meridian-leading-normal: 1.5;
+  --meridian-leading-relaxed: 1.6;
+  --meridian-leading-loose: 1.75;
+
+  /* ── Typography · Fraunces variable axes ─────────────────────── */
+  --meridian-opsz-text: 24;
+  --meridian-opsz-display: 96;
+  --meridian-opsz-hero: 144;
+  --meridian-soft-roman: 30;
+  --meridian-soft-italic: 100;
+
+  /* ── Space (4px scale) ───────────────────────────────────────── */
+  --meridian-space-0: 0;
+  --meridian-space-1: 4px;
+  --meridian-space-2: 8px;
+  --meridian-space-3: 12px;
+  --meridian-space-4: 16px;
+  --meridian-space-5: 20px;
+  --meridian-space-6: 24px;
+  --meridian-space-7: 32px;
+  --meridian-space-8: 40px;
+  --meridian-space-9: 48px;
+  --meridian-space-10: 56px;
+  --meridian-space-11: 64px;
+  --meridian-space-12: 80px;
+  --meridian-space-13: 96px;
+  --meridian-space-14: 120px;
+
+  /* ── Radius · Sharp by default (drafting aesthetic) ──────────── */
+  --meridian-radius-0: 0;
+  --meridian-radius-xs: 2px;
+  --meridian-radius-sm: 4px;
+  --meridian-radius-md: 6px;
+  --meridian-radius-lg: 8px;
+  --meridian-radius-full: 9999px;
+
+  /* ── Border widths ───────────────────────────────────────────── */
+  --meridian-border-0: 0;
+  --meridian-border-1: 1px;
+  --meridian-border-2: 2px;
+  --meridian-border-3: 3px;
+
+  /* ── Shadow · Paper on desk, not floating ────────────────────── */
+  --meridian-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --meridian-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --meridian-shadow-lg: 0 20px 40px -20px rgba(0, 0, 0, 0.4);
+  --meridian-shadow-xl: 0 60px 120px -40px rgba(0, 0, 0, 0.6);
+  --meridian-shadow-brass-glow: 0 0 16px rgba(244, 201, 126, 0.35);
+  --meridian-shadow-brass-soft: 0 0 8px rgba(244, 201, 126, 0.2);
+  --meridian-shadow-focus-ring: 0 0 0 2px rgba(244, 201, 126, 0.35);
+
+  /* ── Motion · Duration ───────────────────────────────────────── */
+  --meridian-duration-instant: 75ms;
+  --meridian-duration-fast: 150ms;
+  --meridian-duration-base: 250ms;
+  --meridian-duration-slow: 450ms;
+  --meridian-duration-slower: 700ms;
+  --meridian-duration-thread: 20s; /* golden thread flow loop */
+
+  /* ── Motion · Easing ─────────────────────────────────────────── */
+  --meridian-ease-linear: linear;
+  --meridian-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --meridian-ease-in: cubic-bezier(0.64, 0, 0.78, 0);
+  --meridian-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --meridian-ease-deliberate: cubic-bezier(0.4, 0, 0.2, 1); /* default for Meridian */
+
+  /* ── Z-index ─────────────────────────────────────────────────── */
+  --meridian-z-base: 0;
+  --meridian-z-raised: 10;
+  --meridian-z-dropdown: 100;
+  --meridian-z-sticky: 200;
+  --meridian-z-overlay: 300;
+  --meridian-z-modal: 400;
+  --meridian-z-toast: 500;
+  --meridian-z-tooltip: 600;
+
+  /* ── Blueprint grid ──────────────────────────────────────────── */
+  --meridian-grid-size: 56px;
+  --meridian-grid-line: var(--meridian-alpha-grid);
+
+  /* ═══════════════════════════════════════════════════════════════
+   *  LAYER 2 · SEMANTICS
+   *  Purpose-based aliases. Components use these.
+   * ═══════════════════════════════════════════════════════════════ */
+
+  /* ── Background surfaces ─────────────────────────────────────── */
+  --bg-canvas: var(--meridian-ink-0);
+  --bg-surface: var(--meridian-ink-1);
+  --bg-raised: var(--meridian-ink-2);
+  --bg-overlay: var(--meridian-ink-3);
+  --bg-inverse: var(--meridian-bone-0);
+  --bg-selected: var(--meridian-alpha-selection);
+  --bg-scrim: var(--meridian-alpha-scrim);
+
+  /* ── Text ────────────────────────────────────────────────────── */
+  --text-primary: var(--meridian-bone-0);
+  --text-body: var(--meridian-bone-1);
+  --text-muted: var(--meridian-bone-2);
+  --text-subtle: var(--meridian-bone-3);
+  --text-disabled: var(--meridian-bone-4);
+  --text-inverse: var(--meridian-ink-0);
+  --text-on-brass: var(--meridian-ink-0);
+  --text-accent: var(--meridian-brass-0);
+  --text-link: var(--meridian-brass-0);
+  --text-link-hover: var(--meridian-bone-0);
+
+  /* ── Borders ─────────────────────────────────────────────────── */
+  --border-subtle: var(--meridian-alpha-border);
+  --border-default: var(--meridian-alpha-border-strong);
+  --border-strong: var(--meridian-brass-2);
+  --border-focus: var(--meridian-brass-1);
+  --border-brass: var(--meridian-brass-1);
+
+  /* ── Brand signal (the thread) ───────────────────────────────── */
+  --signal-brand: var(--meridian-brass-0);
+  --signal-brand-soft: var(--meridian-brass-1);
+  --signal-brand-deep: var(--meridian-brass-2);
+  --signal-brand-glow: var(--meridian-alpha-glow-brass);
+
+  /* ── Status (functional) ─────────────────────────────────────── */
+  --signal-success: var(--meridian-moss-1);
+  --signal-success-soft: var(--meridian-moss-0);
+  --signal-active: var(--meridian-brass-0);
+  --signal-warning: var(--meridian-ember-1);
+  --signal-warning-soft: var(--meridian-ember-0);
+  --signal-info: var(--meridian-plum-1);
+  --signal-info-soft: var(--meridian-plum-0);
+
+  /* ── Interactive ─────────────────────────────────────────────── */
+  --interactive-bg: transparent;
+  --interactive-bg-hover: var(--meridian-alpha-hover);
+  --interactive-bg-active: var(--meridian-ink-3);
+  --interactive-text: var(--text-body);
+  --interactive-text-hover: var(--text-primary);
+
+  /* ═══════════════════════════════════════════════════════════════
+   *  LAYER 3 · COMPONENT
+   *  Specific roles. Override these to retheme a single component.
+   * ═══════════════════════════════════════════════════════════════ */
+
+  /* ── Button · Primary ────────────────────────────────────────── */
+  --btn-primary-bg: var(--meridian-brass-0);
+  --btn-primary-bg-hover: var(--meridian-bone-0);
+  --btn-primary-text: var(--meridian-ink-0);
+  --btn-primary-border: transparent;
+
+  /* ── Button · Secondary ──────────────────────────────────────── */
+  --btn-secondary-bg: transparent;
+  --btn-secondary-bg-hover: var(--meridian-alpha-hover);
+  --btn-secondary-text: var(--meridian-bone-0);
+  --btn-secondary-border: var(--meridian-alpha-border-strong);
+  --btn-secondary-border-hover: var(--meridian-brass-1);
+
+  /* ── Button · Ghost ──────────────────────────────────────────── */
+  --btn-ghost-bg: transparent;
+  --btn-ghost-bg-hover: var(--meridian-alpha-hover);
+  --btn-ghost-text: var(--meridian-bone-2);
+  --btn-ghost-text-hover: var(--meridian-bone-0);
+
+  /* ── Badge ───────────────────────────────────────────────────── */
+  --badge-default-bg: transparent;
+  --badge-default-border: var(--meridian-alpha-border-strong);
+  --badge-default-text: var(--meridian-bone-2);
+  --badge-active-border: var(--meridian-brass-2);
+  --badge-active-text: var(--meridian-brass-0);
+  --badge-done-border: rgba(107, 148, 120, 0.4);
+  --badge-done-text: var(--meridian-moss-1);
+  --badge-warn-border: rgba(217, 103, 74, 0.4);
+  --badge-warn-text: var(--meridian-ember-1);
+  --badge-info-border: rgba(139, 95, 140, 0.4);
+  --badge-info-text: var(--meridian-plum-0);
+
+  /* ── Input ───────────────────────────────────────────────────── */
+  --input-bg: var(--meridian-ink-1);
+  --input-bg-hover: var(--meridian-ink-2);
+  --input-border: var(--meridian-alpha-border-strong);
+  --input-border-hover: var(--meridian-alpha-border-brass);
+  --input-border-focus: var(--meridian-brass-1);
+  --input-text: var(--meridian-bone-0);
+  --input-placeholder: var(--meridian-bone-3);
+
+  /* ── Tree item ───────────────────────────────────────────────── */
+  --tree-item-bg: transparent;
+  --tree-item-bg-hover: var(--meridian-ink-2);
+  --tree-item-bg-active: var(--meridian-ink-2);
+  --tree-item-border-active: var(--meridian-brass-1);
+  --tree-item-text: var(--meridian-bone-1);
+  --tree-item-text-active: var(--meridian-bone-0);
+  --tree-item-text-muted: var(--meridian-bone-3);
+  --tree-item-icon: var(--meridian-brass-1);
+  --tree-item-chev: var(--meridian-bone-3);
+
+  /* ── Status dot ──────────────────────────────────────────────── */
+  --dot-idle: var(--meridian-bone-3);
+  --dot-active: var(--meridian-brass-0);
+  --dot-active-glow: var(--meridian-alpha-glow-brass);
+  --dot-done: var(--meridian-moss-1);
+  --dot-warn: var(--meridian-ember-1);
+  --dot-info: var(--meridian-plum-1);
+
+  /* ── Progress bar ────────────────────────────────────────────── */
+  --progress-track: var(--meridian-ink-2);
+  --progress-fill: var(--meridian-thread-h);
+  --progress-head: var(--meridian-brass-0);
+  --progress-head-glow: var(--meridian-alpha-glow-brass);
+
+  /* ── Tab ─────────────────────────────────────────────────────── */
+  --tab-bg: var(--meridian-ink-1);
+  --tab-bg-hover: var(--meridian-ink-2);
+  --tab-bg-active: var(--meridian-ink-0);
+  --tab-text: var(--meridian-bone-3);
+  --tab-text-active: var(--meridian-bone-0);
+  --tab-border-active: var(--meridian-brass-1);
+  --tab-border-subtle: var(--meridian-alpha-border);
+
+  /* ── Status bar ──────────────────────────────────────────────── */
+  --statusbar-bg: var(--meridian-ink-2);
+  --statusbar-text: var(--meridian-bone-2);
+  --statusbar-text-primary: var(--meridian-brass-0);
+  --statusbar-border: var(--meridian-alpha-border);
+
+  /* ── Card ────────────────────────────────────────────────────── */
+  --card-bg: var(--meridian-ink-1);
+  --card-bg-hover: var(--meridian-ink-2);
+  --card-border: var(--meridian-alpha-border);
+  --card-border-hover: var(--meridian-brass-2);
+  --card-shadow: var(--meridian-shadow-md);
+
+  /* ── Dialog / modal ──────────────────────────────────────────── */
+  --dialog-bg: var(--meridian-ink-1);
+  --dialog-border: var(--meridian-alpha-border-strong);
+  --dialog-shadow: var(--meridian-shadow-xl);
+  --dialog-scrim: var(--meridian-alpha-scrim);
+
+  /* ── Toast / notification ────────────────────────────────────── */
+  --toast-bg: var(--meridian-ink-2);
+  --toast-border: var(--meridian-alpha-border-strong);
+  --toast-text: var(--meridian-bone-0);
+  --toast-shadow: var(--meridian-shadow-lg);
+
+  /* ── Tooltip ─────────────────────────────────────────────────── */
+  --tooltip-bg: var(--meridian-bone-0);
+  --tooltip-text: var(--meridian-ink-0);
+  --tooltip-shadow: var(--meridian-shadow-md);
+
+  /* ── Code block (in markdown / spec docs) ────────────────────── */
+  --code-bg: var(--meridian-ink-1);
+  --code-text: var(--meridian-bone-1);
+  --code-border: var(--meridian-alpha-border);
+  --code-keyword: var(--meridian-brass-0);
+  --code-string: var(--meridian-moss-1);
+  --code-number: var(--meridian-ember-0);
+  --code-comment: var(--meridian-bone-3);
+  --code-function: var(--meridian-bone-0);
+  --code-variable: var(--meridian-bone-1);
+  --code-type: var(--meridian-plum-0);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  UTILITY CLASSES
+ *  Optional. Use these in markup or reference their rules in CSS.
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Blueprint grid background ───────────────────────────────────── */
+.meridian-grid-bg {
+  background-image:
+    linear-gradient(var(--meridian-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--meridian-grid-line) 1px, transparent 1px);
+  background-size: var(--meridian-grid-size) var(--meridian-grid-size);
+}
+
+.meridian-grid-bg--masked {
+  background-image:
+    linear-gradient(var(--meridian-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--meridian-grid-line) 1px, transparent 1px);
+  background-size: var(--meridian-grid-size) var(--meridian-grid-size);
+  mask-image: radial-gradient(ellipse at center, black 20%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 20%, transparent 85%);
+}
+
+/* ── Golden thread divider ───────────────────────────────────────── */
+.meridian-thread-divider {
+  height: 1px;
+  background: var(--meridian-thread-h);
+  border: 0;
+}
+
+.meridian-thread-divider--subtle {
+  height: 1px;
+  background: var(--meridian-thread-subtle);
+  border: 0;
+}
+
+/* ── Typographic helpers ─────────────────────────────────────────── */
+.meridian-serif {
+  font-family: var(--meridian-font-serif);
+  font-variation-settings:
+    "opsz" var(--meridian-opsz-display),
+    "SOFT" var(--meridian-soft-roman);
+}
+
+.meridian-serif-italic {
+  font-family: var(--meridian-font-serif);
+  font-style: italic;
+  font-variation-settings:
+    "opsz" var(--meridian-opsz-display),
+    "SOFT" var(--meridian-soft-italic);
+  color: var(--text-accent);
+}
+
+.meridian-eyebrow {
+  font-family: var(--meridian-font-mono);
+  font-size: var(--meridian-text-xs);
+  font-weight: var(--meridian-weight-medium);
+  letter-spacing: var(--meridian-tracking-widest);
+  text-transform: uppercase;
+  color: var(--signal-brand-soft);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--meridian-space-3);
+}
+.meridian-eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--signal-brand-soft);
+}
+
+.meridian-mono-meta {
+  font-family: var(--meridian-font-mono);
+  font-size: var(--meridian-text-2xs);
+  letter-spacing: var(--meridian-tracking-wider);
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+/* ── Focus ring ──────────────────────────────────────────────────── */
+.meridian-focus-ring:focus-visible {
+  outline: none;
+  box-shadow: var(--meridian-shadow-focus-ring);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  MOTION
+ * ═══════════════════════════════════════════════════════════════════ */
+
+@keyframes meridian-thread-flow {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes meridian-thread-pulse {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes meridian-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.meridian-thread-animated {
+  stroke-dasharray: 8 4;
+  animation: meridian-thread-flow var(--meridian-duration-thread) linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meridian-thread-animated {
+    animation: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ *  BASE RESETS (optional — apply at body level)
+ * ═══════════════════════════════════════════════════════════════════ */
+
+.meridian-root {
+  background: var(--bg-canvas);
+  color: var(--text-body);
+  font-family: var(--meridian-font-sans);
+  font-weight: var(--meridian-weight-regular);
+  line-height: var(--meridian-leading-relaxed);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
+}
+
+.meridian-root ::selection {
+  background: var(--bg-selected);
+  color: var(--text-primary);
+}

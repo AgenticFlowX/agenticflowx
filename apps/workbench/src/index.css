@@ -1,0 +1,54 @@
+@import "@afx/ui/styles/globals.css";
+
+button:not(:disabled),
+a[href],
+label[for],
+summary,
+[role="button"]:not([aria-disabled="true"]),
+[role="menuitem"]:not([aria-disabled="true"]),
+[role="option"]:not([aria-disabled="true"]),
+[role="tab"]:not([aria-disabled="true"]),
+[data-slot="select-trigger"]:not([aria-disabled="true"]),
+[data-slot="command-item"]:not([aria-disabled="true"]),
+.cn-select-trigger:not([aria-disabled="true"]),
+.cn-command-item:not([aria-disabled="true"]),
+.cn-native-select:not(:disabled),
+input[type="checkbox"]:not(:disabled),
+input[type="radio"]:not(:disabled),
+input[type="file"]:not(:disabled) {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+[data-disabled],
+.cn-native-select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
+.afx-surface-subtle {
+  background: color-mix(in srgb, var(--background) 84%, var(--muted) 16%);
+}
+
+.afx-surface-card {
+  background: color-mix(in srgb, var(--card) 94%, var(--foreground) 6%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.afx-surface-toolbar {
+  background: color-mix(in srgb, var(--card) 76%, var(--muted) 24%);
+}
+
+.afx-field-surface {
+  background: color-mix(in srgb, var(--card) 78%, var(--muted) 22%);
+  border-color: color-mix(in srgb, var(--foreground) 16%, var(--border));
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.afx-notes-capture-input,
+.afx-notes-capture-save {
+  border-radius: 0 !important;
+}

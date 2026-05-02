@@ -1,0 +1,48 @@
+# Dependabot configuration.
+# Weekly grouped updates per ecosystem (one PR for all minor/patch bumps).
+# Security updates fire in real-time (not subject to weekly schedule).
+# PR titles follow Conventional Commits for commitlint compatibility.
+# Also keeps GitHub Actions action versions current — pairs with the (future) commit-SHA pinning
+# practice from FR-19; until then, version-tag refs are auto-PR'd here.
+#
+# @see docs/specs/410-dx-quality/spec.md [FR-1]
+# @see docs/specs/500-ci-code-qa/design.md [DES-OVR]
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-28] [DES-SUPPLY]
+
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      all-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: scope
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      all-minor-patch:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: "chore"
+      include: scope
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - ci

@@ -1,0 +1,143 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "watch:extension-dev",
+      "dependsOn": ["watch:webview-chat", "watch:webview-workbench", "watch:bundle", "watch:tsc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "prepare:pi-sdk",
+      "type": "shell",
+      "command": "pnpm --filter ./apps/vscode run prepare:pi-sdk",
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "group": "watch",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "watch:webview-chat",
+      "type": "shell",
+      "command": "pnpm --filter apps/chat build && pnpm --filter apps/chat dev",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "vite-chat",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*VITE.*",
+          "endsPattern": ".*Local:.*"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "group": "watch",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "watch:webview-workbench",
+      "type": "shell",
+      "command": "pnpm --filter apps/workbench build && pnpm --filter apps/workbench dev",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "vite-workbench",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*VITE.*",
+          "endsPattern": ".*Local:.*"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "group": "watch",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "watch:bundle",
+      "type": "shell",
+      "command": "pnpm --filter ./apps/vscode run prepare:pi-sdk && pnpm --filter ./apps/vscode build && pnpm --filter ./apps/vscode dev",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "esbuild",
+        "pattern": { "regexp": "^$" },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "esbuild-problem-matcher#onStart",
+          "endsPattern": "esbuild-problem-matcher#onEnd"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "group": "watch",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "watch:tsc",
+      "type": "shell",
+      "command": "pnpm --filter ./apps/vscode run watch:tsc",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "tsc-watch",
+        "pattern": {
+          "regexp": "^(.+)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(TS\\d+):\\s+(.+)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Starting compilation.*|.*File change detected.*",
+          "endsPattern": ".*Found \\d+ error.*|.*Watching for file changes.*"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "group": "watch",
+        "reveal": "always"
+      }
+    },
+    {
+      "label": "build:extension-dev",
+      "dependsOrder": "sequence",
+      "dependsOn": ["prepare:pi-sdk", "build:chat", "build:workbench", "build:vscode"],
+      "problemMatcher": []
+    },
+    {
+      "label": "build:chat",
+      "type": "shell",
+      "command": "pnpm --filter apps/chat build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "build:workbench",
+      "type": "shell",
+      "command": "pnpm --filter apps/workbench build",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "build:vscode",
+      "type": "shell",
+      "command": "pnpm --filter ./apps/vscode build",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

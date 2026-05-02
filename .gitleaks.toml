@@ -1,0 +1,22 @@
+# Gitleaks config — secret scanning for AFX repos.
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [DES-SECRETS]
+
+# Inherit gitleaks default ruleset (covers AWS keys, GH tokens, Slack tokens, generic API keys, etc.).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "AFX-specific allowlist for false positives"
+# Add path patterns or regexes here as you discover false positives.
+# Each entry must include a one-line rationale comment so future reviewers can audit.
+paths = [
+  # Allow test fixtures with intentionally-fake credentials (no real secrets, used by unit tests).
+  '''(.*?)__fixtures__(.*?)''',
+  # Skip pnpm-lock — package integrity hashes look like high-entropy strings to gitleaks.
+  '''pnpm-lock\.yaml''',
+]
+regexes = [
+  # Common test placeholder patterns — not real secrets.
+  '''sk-test-[a-zA-Z0-9]{8,}''',
+  '''(xxx|XXX|<token>|<api-key>|REPLACE_ME)''',
+]

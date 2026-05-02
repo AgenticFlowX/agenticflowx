@@ -1,0 +1,227 @@
+# PR quality gate — runs on every pull request targeting main.
+# Jobs: lint → types → skills-drift → unit+coverage → bundle-size → e2e-webview → e2e-vscode → pr-title
+# All jobs must pass before merge (enforced via branch protection rules).
+#
+# Conceptually, the per-job step list across this workflow == `pnpm verify:full` from the root.
+# CI keeps the split (parallelism + per-job failure attribution); local devs and agents run
+# `pnpm verify` (fast lifecycle) and `pnpm verify:full` (CI equivalent) — see AGENTS.md § Verification.
+#
+# @see docs/specs/500-ci-code-qa/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [FR-8] [FR-9]
+# @see docs/specs/500-ci-code-qa/design.md [DES-ARCH]
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-1] [FR-2] [DES-ARCH]
+
+name: code-qa
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:lint
+      - run: pnpm check:format
+      - run: pnpm check:md
+
+  types:
+    name: Type check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:types
+
+  skills-drift:
+    name: Skills drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter "./apps/vscode" sync:skills
+      - run: git diff --quiet -- apps/vscode/resources/skills
+
+  unit:
+    name: Unit tests + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run unit tests via vitest workspace (excludes vscode-e2e)
+        run: pnpm test:coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: "**/coverage/"
+
+  bundle-size:
+    name: Bundle size
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Enforce bundle-size budgets (FR-30)
+        uses: andresz1/size-limit-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          skip_step: build
+
+  e2e-webview:
+    name: E2E — Sidebar webview (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --filter apps/chat exec playwright install --with-deps chromium
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+
+  e2e-vscode:
+    name: E2E — Extension host
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build extension
+        run: pnpm build:vscode
+      - name: Run vscode-e2e
+        uses: coactions/setup-xvfb@v1
+        with:
+          run: pnpm test:e2e:vscode
+        if: runner.os == 'Linux'
+      - name: Run vscode-e2e (Windows)
+        run: pnpm test:e2e:vscode
+        if: runner.os == 'Windows'
+
+  pr-title:
+    name: PR title lint (Conventional Commit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          requireScope: true
+          validateSingleCommit: false
+
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [DES-SECRETS]
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for diff scan
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITLEAKS_LICENSE only required for org-owned private repos with > $25/seat plan.
+          # For solo/public repos, leave unset; the action runs in OSS mode.
+
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-16] [FR-18] [DES-SUPPLY] [DES-SEC]
+  security:
+    name: Supply chain (audit + licenses)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm audit (high+ on production deps)
+        run: pnpm audit --audit-level=high --prod
+      - name: License allowlist check
+        run: pnpm exec license-checker-rseidelsohn --production --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0;BlueOak-1.0.0'
+
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-17] [DES-SUPPLY]
+  osv-scan:
+    name: OSV-Scanner (lockfile vulnerabilities)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google/osv-scanner-action/osv-scanner-action@v1.9.2
+        with:
+          scan-args: |-
+            --lockfile=pnpm-lock.yaml
+
+  # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-20] [DES-SUPPLY]
+  actionlint:
+    name: actionlint (workflow YAML)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-pr-review
+          fail_level: error
+          level: error

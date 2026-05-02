@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@afx/shared": ["packages/shared/src/index.ts"],
+      "@afx/shared/*": ["packages/shared/src/*"]
+    }
+  },
+  "include": ["src", "../shared/src"]
+}
