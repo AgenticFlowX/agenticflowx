@@ -14,7 +14,6 @@ depends_on: ["210-app-chat", "220-app-workbench"]
 
 ## References
 
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 - **Routing Spec**: [Project Overview](../001-overview/spec.md)
 
 ---

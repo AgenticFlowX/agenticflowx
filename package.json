@@ -30,6 +30,7 @@
     "dev:chat": "pnpm --filter apps/chat dev",
     "dev:workbench": "pnpm --filter apps/workbench dev",
     "dev:vscode": "pnpm --filter agenticflowx dev",
+    "sync:skills": "pnpm --filter agenticflowx sync:skills",
     "-check": "CHECK ──────────────────────────────────────────",
     "check:types": "turbo check-types",
     "check:lint": "eslint . --max-warnings 0",

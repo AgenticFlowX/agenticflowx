@@ -14,7 +14,6 @@ depends_on: ["100-package-shared", "200-app-vscode"]
 
 ## References
 
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 - **Pi Adapter**: [Agent Pi](../351-agent-pi/spec.md)
 
 ---

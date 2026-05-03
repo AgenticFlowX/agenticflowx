@@ -22,7 +22,6 @@ depends_on:
 ## References
 
 - **Parent Spec**: [App Chat](../210-app-chat/spec.md)
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 
 ---
 

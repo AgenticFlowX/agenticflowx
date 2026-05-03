@@ -15,7 +15,6 @@ depends_on: ["130-package-ui"]
 ## References
 
 - **Parent Spec**: [Package UI](../130-package-ui/spec.md)
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 
 ---
 

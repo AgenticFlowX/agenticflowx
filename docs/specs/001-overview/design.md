@@ -676,7 +676,6 @@ When migrating old annotations:
 | `docs/specs/XXX-name/spec.md`   | Requirements                                              |
 | `docs/specs/XXX-name/design.md` | Architecture and decisions                                |
 | `docs/specs/XXX-name/tasks.md`  | Implementation log (Work Sessions table)                  |
-| `docs/specs/specs-refactor.md`  | Temporary migration blueprint                             |
 | `docs/adr/ADR-XXXX-*.md`        | Cross-cutting architecture decisions                      |
 | `docs/research/<domain>/*.md`   | Investigation and analysis documents                      |
 | `packages/ui/src/components/**` | Managed shadcn primitives; no manual trace churn          |
@@ -686,12 +685,11 @@ When migrating old annotations:
 
 ## [DES-DEPS] Dependencies
 
-| Dependency                     | Purpose                                            |
-| ------------------------------ | -------------------------------------------------- |
-| `docs/specs/specs-refactor.md` | Temporary migration plan while zones are created   |
-| `@afx/parsers`                 | Frontmatter and spec parser compatibility          |
-| `/afx-check trace`             | Source-to-spec traceability validation             |
-| `docs/adr/`                    | Point-in-time decisions that affect spec structure |
+| Dependency         | Purpose                                            |
+| ------------------ | -------------------------------------------------- |
+| `@afx/parsers`     | Front matter and spec parser compatibility         |
+| `/afx-check trace` | Source-to-spec traceability validation             |
+| `docs/adr/`        | Point-in-time decisions that affect spec structure |
 
 ---
 
@@ -732,8 +730,7 @@ When migrating old annotations:
 ### Phase 1: Canonical Routing Update
 
 1. Keep numbering and routing rules in `001-overview`
-2. Keep `specs-refactor.md` as the temporary migration blueprint
-3. Update parent specs to route to child zones as those zones become active
+2. Update parent specs to route to child zones as those zones become active
 
 ### Phase 2: Highest-Pain Child Zones
 

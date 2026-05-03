@@ -16,7 +16,6 @@ depends_on: ["100-package-shared", "300-infra-pi", "350-agent-manager"]
 
 - **Previous Parent**: [Infra Pi](../300-infra-pi/spec.md)
 - **Agent Manager**: [Agent Manager](../350-agent-manager/spec.md)
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 
 ---
 

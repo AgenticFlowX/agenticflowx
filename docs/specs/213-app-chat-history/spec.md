@@ -15,7 +15,6 @@ depends_on: ["100-package-shared", "110-package-transport", "210-app-chat", "212
 ## References
 
 - **Parent Spec**: [App Chat](../210-app-chat/spec.md)
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
 
 ---
 

@@ -172,9 +172,8 @@ Developers and AI coding agents working in the AFX repo.
 
 ## Dependencies
 
-- `docs/specs/specs-refactor.md` during the active migration window
 - `/afx-check trace` for source-to-spec verification
-- `@afx/parsers` for spec/frontmatter parsing in the workbench
+- `@afx/parsers` for spec/front matter parsing in the workbench
 
 ---
 

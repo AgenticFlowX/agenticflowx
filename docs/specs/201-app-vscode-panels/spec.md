@@ -15,8 +15,6 @@ depends_on: ["100-package-shared", "110-package-transport", "200-app-vscode"]
 ## References
 
 - **Parent Spec**: [App VSCode](../200-app-vscode/spec.md)
-- **Migration Blueprint**: [Spec Restructuring Migration Blueprint](../specs-refactor.md)
-- **Audit**: [Spec Restructure - Deep Traceability Audit](../specs-refactor-audit.md)
 
 ---
 
