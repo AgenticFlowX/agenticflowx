@@ -44,7 +44,7 @@ const HEADING_ONLY_BODY = [
   "## Specification", // 7
   "spec body", // 8
   "",
-  "## Plan", // 10
+  "## Design", // 10
   "design body", // 11
   "",
   "## Tasks", // 13

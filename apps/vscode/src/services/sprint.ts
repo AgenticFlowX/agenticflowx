@@ -27,7 +27,7 @@ const markerEndRe = (s: SprintSection): RegExp =>
 
 const HEADING_FALLBACK: Record<SprintSection, RegExp> = {
   SPEC: /^##\s+(?:\d+\.\s+)?(?:Spec|Specification)\b/i,
-  DESIGN: /^##\s+(?:\d+\.\s+)?(?:Plan|Design)\b/i,
+  DESIGN: /^##\s+(?:\d+\.\s+)?(?:Design|Plan)\b/i,
   TASKS: /^##\s+(?:\d+\.\s+)?Tasks?\b/i,
   SESSIONS: /^##\s+(?:\d+\.\s+)?(?:Work\s+Sessions?|Sessions)\b/i,
 };
