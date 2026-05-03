@@ -5,8 +5,8 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:34:22.000Z"
-tags: ["agent", "pi", "rpc", "sdk"]
+updated_at: "2026-05-03T09:00:31.000Z"
+tags: ["agent", "pi", "rpc", "sdk", "skills"]
 spec: spec.md
 ---
 
@@ -16,7 +16,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-The Pi adapter implements the agent manager contract through a Node subprocess RPC layer and bundled SDK/bootstrap assets.
+The Pi adapter implements the agent manager contract through a Node subprocess RPC layer, bundled SDK/bootstrap assets, and the host-side `sync:skills` utility that refreshes the vendored AFX skill pack from upstream before packaging.
 
 ---
 
@@ -123,13 +123,13 @@ Failures: if the subprocess exits before completing a turn, `rpc-manager` emits 
 
 ## [DES-FILES] File Structure
 
-| File                                    | Purpose                          |
-| --------------------------------------- | -------------------------------- |
-| `packages/agent/pi/src/rpc-client.ts`   | JSONL subprocess transport       |
-| `packages/agent/pi/src/rpc-manager.ts`  | Pi `AgentManager` implementation |
-| `packages/agent/pi-sdk/src/index.ts`    | SDK bundle/bootstrap surface     |
-| `apps/vscode/src/pi-sdk-bundle.test.ts` | Host bundle verification         |
-| `apps/vscode/scripts/sync-skills.mjs`   | Skills sync utility              |
+| File                                    | Purpose                                                                                                     |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `packages/agent/pi/src/rpc-client.ts`   | JSONL subprocess transport                                                                                  |
+| `packages/agent/pi/src/rpc-manager.ts`  | Pi `AgentManager` implementation                                                                            |
+| `packages/agent/pi-sdk/src/index.ts`    | SDK bundle/bootstrap surface                                                                                |
+| `apps/vscode/src/pi-sdk-bundle.test.ts` | Host bundle verification                                                                                    |
+| `apps/vscode/scripts/sync-skills.mjs`   | Skills sync utility (`pnpm sync:skills`) that fetches upstream AFX skills and refreshes the vendored bundle |
 
 ---
 
@@ -166,7 +166,8 @@ Run Pi RPC manager/client tests, SDK bundle tests, no-VSCode-import tests, and h
 
 1. Move Pi-specific `@see` refs from retired chat/Pi plan docs to this spec.
 2. Keep runtime-neutral refs on `350-agent-manager`.
-3. Decide whether `300-infra-pi` becomes retired after migration.
+3. Use `pnpm sync:skills` whenever upstream AFX skills change, then commit the refreshed vendored bundle.
+4. Decide whether `300-infra-pi` becomes retired after migration.
 
 ### Rollback Plan
 
@@ -184,15 +185,15 @@ If adapter split is rejected, keep `300-infra-pi` as the parent while preserving
 
 ## Code Locator Map
 
-| Map ID                     | Code anchor                                                           | Messages/settings/commands                                  | Tests                                               |
-| -------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------- |
-| `[AgentPi.FactoryInput]`   | `apps/vscode/src/agent-factory.ts`, `apps/vscode/src/extension.ts`    | `afx.rpc.enabled`, `afx.agentBinaryPath`, `afx.sdk.*`       | `agent-factory.test.ts`, `pi-sdk-bundle.test.ts`    |
-| `[AgentPi.RpcManager]`     | `packages/agent/pi/src/rpc-manager.ts` `createAgentManager`           | `send`, `steer`, `followUp`, `compact`, runtime settings    | `rpc-manager*.test.ts`                              |
-| `[AgentPi.Lifecycle]`      | `rpc-manager.ts` `ensureStarted`, `stop`, start retry state           | lazy start, restart-required status, shutdown               | `rpc-manager.test.ts`                               |
-| `[AgentPi.RpcJsonl]`       | `packages/agent/pi/src/rpc-client.ts` `createPiClient`                | `prompt`, `abort`, `set_model`, `get_state`, JSONL frames   | `rpc-client.test.ts`                                |
-| `[AgentPi.EventNormalize]` | `rpc-manager.ts` `normalizePiEvent`, `normalizeUiRequest`             | Pi event stream, `extension_ui_request`, tool/status events | `rpc-manager-unwrap.test.ts`                        |
-| `[AgentPi.SdkBootstrap]`   | `packages/agent/pi-sdk/src/index.ts`, `bootstrap/*.ts`                | SDK provider runtime bootstrap                              | `packages/agent/pi-sdk/src/sdk-rpc-manager.test.ts` |
-| `[AgentPi.SkillBundle]`    | `apps/vscode/scripts/sync-skills.mjs`, `apps/vscode/resources/pi-sdk` | bundled AFX skills and bootstrap assets                     | `apps/vscode-e2e/src/skills.test.ts`                |
+| Map ID                     | Code anchor                                                           | Messages/settings/commands                                           | Tests                                               |
+| -------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------- |
+| `[AgentPi.FactoryInput]`   | `apps/vscode/src/agent-factory.ts`, `apps/vscode/src/extension.ts`    | `afx.rpc.enabled`, `afx.agentBinaryPath`, `afx.sdk.*`                | `agent-factory.test.ts`, `pi-sdk-bundle.test.ts`    |
+| `[AgentPi.RpcManager]`     | `packages/agent/pi/src/rpc-manager.ts` `createAgentManager`           | `send`, `steer`, `followUp`, `compact`, runtime settings             | `rpc-manager*.test.ts`                              |
+| `[AgentPi.Lifecycle]`      | `rpc-manager.ts` `ensureStarted`, `stop`, start retry state           | lazy start, restart-required status, shutdown                        | `rpc-manager.test.ts`                               |
+| `[AgentPi.RpcJsonl]`       | `packages/agent/pi/src/rpc-client.ts` `createPiClient`                | `prompt`, `abort`, `set_model`, `get_state`, JSONL frames            | `rpc-client.test.ts`                                |
+| `[AgentPi.EventNormalize]` | `rpc-manager.ts` `normalizePiEvent`, `normalizeUiRequest`             | Pi event stream, `extension_ui_request`, tool/status events          | `rpc-manager-unwrap.test.ts`                        |
+| `[AgentPi.SdkBootstrap]`   | `packages/agent/pi-sdk/src/index.ts`, `bootstrap/*.ts`                | SDK provider runtime bootstrap                                       | `packages/agent/pi-sdk/src/sdk-rpc-manager.test.ts` |
+| `[AgentPi.SkillBundle]`    | `apps/vscode/scripts/sync-skills.mjs`, `apps/vscode/resources/pi-sdk` | bundled AFX skills refresh (`pnpm sync:skills`) and bootstrap assets | `apps/vscode-e2e/src/skills.test.ts`                |
 
 ---
 
