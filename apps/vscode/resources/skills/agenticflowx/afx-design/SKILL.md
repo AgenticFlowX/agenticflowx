@@ -207,18 +207,18 @@ When the agent detects a lifecycle gate is actionable after completing work, use
 
 ## Template Format Rules (CRITICAL)
 
-The VSCode extension parses `design.md` to extract sections and node IDs. If the generated file deviates from these rules, the extension **silently fails** to display sections. These rules define the canonical format — custom sections are allowed but required ones must not be omitted.
+The AFX `design.md` format is strict by design. Downstream consumers — the CLI, the AgenticFlowX VS Code extension, and any other AFX-aware tool — parse it to extract sections and node IDs. Deviations cause **silent failures** in tools that render designs (e.g., the VS Code extension fails to display sections). These rules define the canonical format — custom sections are allowed but required ones must not be omitted.
 
 **Template reference:** `assets/design-template.md`
 
 ### Section Headings
 
-Heading levels determine what the extension can see:
+Heading levels determine what AFX parsers can see:
 
 - `#` (h1): Document title only — `# {Feature Name} — Design`
-- `##` (h2): Major design sections — **captured by the extension**, MUST include `[DES-ID]` node ID
-- `###` (h3): Sub-sections — **captured by the extension**
-- `####` and deeper: **NOT captured** — do not use for sections that need to be visible in the extension
+- `##` (h2): Major design sections — **captured by AFX parsers**, MUST include `[DES-ID]` node ID
+- `###` (h3): Sub-sections — **captured by AFX parsers**
+- `####` and deeper: **NOT captured** — do not use for sections that need to be visible to AFX tools
 
 ### Required Sections with Node IDs
 

@@ -70,7 +70,7 @@ After modifying `journal.md`, you MUST (see `assets/journal-template.md` for can
 /afx-session capture [feature] [--trigger <kind>] [--links <anchors>] [--agent <name>] [--model <id>] [...context]  # Verbatim prompt + agent-reply excerpt at a pivotal moment
 ```
 
-> **Note:** Discussion browsing, search, and status filtering are available in the VSCode AFX extension (Journal Tab). These subcommands focus on operations that require agent reasoning or file mutation.
+> **Display Rule:** Don't dump full discussion lists, search results, or status filters into chat unless the user explicitly asks. The user can browse `journal.md` directly, or use a UI host such as the AgenticFlowX VS Code extension (Journal Tab) if installed. These subcommands focus on operations that require agent reasoning or file mutation, not raw display.
 
 ## Purpose
 
@@ -200,7 +200,7 @@ Determine action from first argument:
 
 ## Template Format Rules (CRITICAL)
 
-The VSCode extension parses `journal.md` to display discussions, statuses, and notes. If the generated file deviates from these rules, the extension **silently fails** to display entries. These rules define the canonical format — custom sections are allowed but mandatory ones must not be omitted.
+The AFX `journal.md` format is strict by design. Downstream consumers — the CLI, the AgenticFlowX VS Code extension, and any other AFX-aware tool — parse it to display discussions, statuses, and notes. Deviations cause **silent failures** in tools that render journals (e.g., the VS Code extension fails to display entries). These rules define the canonical format — custom sections are allowed but mandatory ones must not be omitted.
 
 **Template reference:** `assets/journal-template.md`
 
@@ -791,7 +791,7 @@ Capture discarded. No changes written.
 
 > **Note**: Work Sessions table lives in `tasks.md`, not `journal.md`. It is updated by `/afx-task` and `/afx-dev` commands, NOT by `/afx-session`.
 > **Two-stage verification**: Agent marks `[x]` after checks pass, Human marks `[x]` after code review.
-> See [agenticflowx.md#work-sessions](../../docs/agenticflowx/agenticflowx.md#work-sessions) for update rules.
+> See [agenticflowx.md#work-sessions](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md#work-sessions) for update rules.
 
 ---
 

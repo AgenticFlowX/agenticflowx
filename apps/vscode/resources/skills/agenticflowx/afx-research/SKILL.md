@@ -51,7 +51,6 @@ Run discovery and analysis work **without coding**. This command is for research
   - `docs/research/**`
   - `docs/specs/**`
   - `docs/adr/**`
-  - `docs/agenticflowx/**`
 - Include illustrative code snippets inside markdown documents
 
 ### Forbidden

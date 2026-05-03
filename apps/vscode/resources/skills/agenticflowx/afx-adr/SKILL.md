@@ -229,7 +229,7 @@ Overall: 3/4 checks passed. Address warnings before accepting.
 
 ## 3. list
 
-> **UI Delegation Rule (MANDATORY):** Prefer instructing the user to view the ADR list in the VSCode extension UI instead of dumping the full list into chat, unless explicitly requested.
+> **Display Rule:** Don't dump the full ADR list into chat unless the user explicitly asks. Point them to `docs/adr/` for direct file browsing, or to a UI host such as the AgenticFlowX VS Code extension if installed.
 
 List all ADRs grouped by status.
 

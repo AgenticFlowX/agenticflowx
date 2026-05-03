@@ -20,7 +20,7 @@ Single-document spec-driven development for fast, surgical feature work.
 
 One file. Three sections. Full AFX traceability.
 
-Instead of the standard 4-file flow (`spec.md` → `design.md` → `tasks.md` → `journal.md`), `/afx-sprint` produces **one unified `{feature}.md`** carrying Spec + Plan + Tasks — plus a companion `journal.md` so session continuity still works. When scope outgrows the single doc, `/afx-sprint graduate` splits it into the standard 4-file structure with FR/DES/task IDs preserved and `@see` paths retargeted to the canonical split-doc files.
+Instead of the standard 4-file flow (`spec.md` → `design.md` → `tasks.md` → `journal.md`), `/afx-sprint` produces **one unified `{feature}.md`** carrying Spec + Design + Tasks — plus a companion `journal.md` so session continuity still works. When scope outgrows the single doc, `/afx-sprint graduate` splits it into the standard 4-file structure with FR/DES/task IDs preserved and `@see` paths retargeted to the canonical split-doc files.
 
 **When to use**: small projects, surgical changes, fast prototyping, solo features with tight scope.
 **When NOT to use**: large cross-cutting features, multi-team work, anything that needs formal approval gates at each artifact boundary — use the full `/afx-spec → /afx-design → /afx-task` flow instead.
@@ -41,7 +41,7 @@ Every subcommand accepts optional trailing **`[...context]`** — natural-langua
 /afx-sprint new <feature> [...context]                  # Scaffold; context seeds initial Spec content
 /afx-sprint spec [feature] [...context]                 # Refine Spec section with context as the ask
 /afx-sprint spec [feature] --approve [...context]       # Approve Spec; context captured as approval note
-/afx-sprint design [feature] [...context]               # Refine Plan section (gated on spec Approved)
+/afx-sprint design [feature] [...context]               # Refine Design section (gated on spec Approved)
 /afx-sprint design [feature] --approve [...context]     # Approve Design
 /afx-sprint task [feature] [...context]                 # Refine Tasks section (gated on design Approved)
 /afx-sprint task [feature] --approve [...context]       # Approve Tasks (unlocks code)
@@ -242,7 +242,7 @@ Scaffold a new sprint-format feature directory.
 
 ```text
 Sprint scaffolded:
-  docs/specs/<feature>/<feature>.md   (Spec + Plan + Tasks in one file)
+  docs/specs/<feature>/<feature>.md   (Spec + Design + Tasks in one file)
   docs/specs/<feature>/journal.md      (session continuity)
 
 Next: /afx-sprint spec <feature>   # Fill out the Spec section
@@ -288,7 +288,7 @@ Refine the **Spec** section of `<feature>.md` (Problem, User Stories, FR/NFR, Ac
 ### Refinement Loop (when called without `--approve`)
 
 1. **Locate file**: `docs/specs/<feature>/<feature>.md`. Error if missing.
-2. **Read current Spec section** (`## 1. Spec` through the line before `## 2. Plan`) using the Read tool.
+2. **Read current Spec section** (`## 1. Spec` through the line before `## 2. Design`) using the Read tool.
 3. **Understand the ask**:
    - If `[...context]` provided → treat as the refinement request.
    - If not → display the current section content and ask: _"What do you want to change? (add/remove/tighten a requirement, clarify acceptance, update a user story, …)"_
@@ -339,14 +339,14 @@ Next: /afx-sprint spec <feature> --approve   # When Spec is ready for design
 Spec section approved for <feature>.
 Approval state: spec=Approved, design=Draft, tasks=Draft
 
-Next: /afx-sprint design <feature>   # Start the Plan section
+Next: /afx-sprint design <feature>   # Start the Design section
 ```
 
 ---
 
 ## 3. design
 
-Refine the **Plan** section (Overview, Architecture, Key Decisions, Data Model, API, Risks), or approve it.
+Refine the **Design** section (Overview, Architecture, Key Decisions, Data Model, API, Risks), or approve it.
 
 ### Usage
 
@@ -369,9 +369,9 @@ Refine the **Plan** section (Overview, Architecture, Key Decisions, Data Model, 
 
 ### Refinement Loop (when called without `--approve`)
 
-Same pattern as `/afx-sprint spec` but scoped to `## 2. Plan`:
+Same pattern as `/afx-sprint spec` but scoped to `## 2. Design`:
 
-1. **Read Plan section** (`## 2. Plan` through the line before `## 3. Tasks`).
+1. **Read Design section** (`## 2. Design` through the line before `## 3. Tasks`).
 2. **Understand the ask** — accept `[...context]` or prompt for focus (architecture sketch, add a key decision, flesh out data model, add a risk, …).
 3. **Propose diff** with specific Edit operations.
 4. **Confirm** with user.
@@ -384,7 +384,7 @@ Same pattern as `/afx-sprint spec` but scoped to `## 2. Plan`:
 ### Approval Path (when called with `--approve`)
 
 1. **Check gate**: `approval.spec == Approved` (else stop as above).
-2. **Read Plan section**.
+2. **Read Design section**.
 3. **Run mini-audit**: at least one `[DES-X]` section present, Key Decisions table filled (or explicit `N/A` note).
 4. **If audit fails**: report gaps.
 5. **If audit passes**: Edit `approval.design` → `Approved`. Update `updated_at`. Capture to journal.
@@ -392,7 +392,7 @@ Same pattern as `/afx-sprint spec` but scoped to `## 2. Plan`:
 ### Output (refinement)
 
 ```text
-Plan section updated for <feature>.
+Design section updated for <feature>.
 Changes:
   + [DES-CACHE]: Redis layer for hot reads
   ~ [DES-ARCH]: updated diagram to show new cache tier
@@ -584,7 +584,7 @@ Trailing context narrows focus. Examples:
 1. **Frontmatter**: required fields present, timestamps ISO 8601 with milliseconds, `type: SPRINT`, `approval` block present.
 2. **Approval state**: report each section's approval status; flag any Draft section blocking forward progress.
 3. **Spec section**: at least one FR, non-empty Acceptance Criteria, no Open Question row with `Blocking = Yes` unless it is already `Resolved`.
-4. **Plan section**: at least one `[DES-X]` section, Key Decisions table is filled (or explicitly marked N/A).
+4. **Design section**: at least one `[DES-X]` section, Key Decisions table is filled (or explicitly marked N/A).
 5. **Tasks section**: every task group has an `@see` comment using `docs/specs/<feature>/<feature>.md`, and every `[FR-X]` / `[NFR-X]` / `[DES-X]` anchor from sections 1–2 appears in at least one `@see`.
 6. **Anchor integrity**: `[FR-X]` IDs are unique, `[DES-X]` IDs are unique, task numbers `[X.Y]` are unique.
 7. **Task parseability**: every task item is a valid `- [ ]` or `- [x]` checkbox.
@@ -658,7 +658,7 @@ Trailing context is captured as the rationale in the graduation journal entry (e
 
    This will CREATE:
      docs/specs/<feature>/spec.md      (from Spec section)
-     docs/specs/<feature>/design.md    (from Plan section)
+     docs/specs/<feature>/design.md    (from Design section)
      docs/specs/<feature>/tasks.md     (from Tasks section)
 
    And RENAME:
@@ -671,7 +671,7 @@ Trailing context is captured as the rationale in the graduation journal entry (e
 
 5. **Split content by section markers**: the sprint template uses `<!-- SPRINT-SECTION-START: <NAME> ... -->` / `<!-- SPRINT-SECTION-END: <NAME> -->` boundary comments. Extract content between them:
    - **SPEC** block → `spec.md` body. Drop the `## 1. Spec` wrapper heading and its blockquote. Keep `## References` as-is (it was already at h2). Promote inner headings: `###` → `##`, `####` → `###`. Use `afx-spec/assets/spec-template.md` frontmatter with `approval.spec`'s state mapped to top-level `status`.
-   - **DESIGN** block → `design.md` body. Drop the `## 2. Plan` wrapper. Promote `###` → `##`, `####` → `###`. `[DES-X]` anchors become `## [DES-X]` section headings. Use `afx-design/assets/design-template.md` frontmatter; set `spec: spec.md`, `status` ← `approval.design`.
+   - **DESIGN** block → `design.md` body. Drop the `## 2. Design` wrapper. Promote `###` → `##`, `####` → `###`. `[DES-X]` anchors become `## [DES-X]` section headings. Use `afx-design/assets/design-template.md` frontmatter; set `spec: spec.md`, `status` ← `approval.design`.
    - **TASKS** block → `tasks.md` body. Drop the `## 3. Tasks` wrapper. Promote `###` → `##`, `####` → `###`. Phase headings become `## Phase N:`, task groups become `### N.Y`. Use `afx-task/assets/tasks-template.md` frontmatter; set `spec: spec.md`, `design: design.md`, `status` ← `approval.tasks`.
    - **SESSIONS** block → appended to the bottom of `tasks.md` as the `## Work Sessions` section (matches tasks-template.md's mandatory last-section rule).
 6. **Rewrite `@see` comments** inside tasks.md: change `docs/specs/<feature>/<feature>.md` references to canonical split-doc paths based on anchor type:

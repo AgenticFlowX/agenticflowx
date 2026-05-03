@@ -98,7 +98,7 @@ approval:
 
 <!-- SPRINT-SECTION-START: DESIGN (maps to design.md on graduation; promote ### → ##) -->
 
-## 2. Plan
+## 2. Design
 
 > The HOW — architecture, decisions, data model. Mirrors `afx-design/assets/design-template.md`. Use `[DES-X]` anchors on section headings so code `@see` links can be retargeted cleanly after graduation.
 
@@ -213,7 +213,7 @@ export interface {EntityName} {
 - **2.x** — Phase 2
 - **n.x** — Continue as needed
 
-References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan section), `[X.Y]` (this Tasks section).
+References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design section), `[X.Y]` (this Tasks section).
 
 ### Phase 1: {Phase Name}
 

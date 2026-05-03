@@ -52,7 +52,7 @@ If neither file exists, use defaults.
 /afx-task sync [spec] [issue]              # Bidirectional GitHub sync
 ```
 
-> **Note:** Task listing and phase progress are available in the VSCode AFX extension (Tasks Tab, Pipeline Tab). These subcommands focus on operations that require agent reasoning.
+> **Display Rule:** Don't dump full task lists or phase breakdowns into chat unless the user explicitly asks. The user can read `tasks.md` directly, or use a UI host such as the AgenticFlowX VS Code extension (Tasks Tab, Pipeline Tab) if installed. These subcommands focus on operations that require agent reasoning, not raw display.
 
 ## Purpose
 
@@ -334,7 +334,7 @@ When the agent detects a lifecycle gate is actionable after completing work, use
 
 ## Template Format Rules (CRITICAL)
 
-The VSCode extension parses `tasks.md` using strict regex patterns. If the generated file deviates from these rules, the extension **silently fails** — showing 0 phases and 0 tasks. These rules are **non-negotiable**.
+The AFX `tasks.md` format is strict by design. Downstream consumers — the CLI, the AgenticFlowX VS Code extension, and any other AFX-aware tool — parse it with strict regex patterns. Deviations cause **silent failures** in tools that render tasks (e.g., the VS Code extension shows 0 phases and 0 tasks). These rules are **non-negotiable**.
 
 ### Phase Headers
 
@@ -353,7 +353,7 @@ The VSCode extension parses `tasks.md` using strict regex patterns. If the gener
 
 - MUST start at the beginning of the line (column 0) — NO indentation
 - MUST use `- [ ] ` (incomplete) or `- [x] ` / `- [X] ` (complete)
-- **Each checkbox = one task** in the extension UI. Do NOT use checkboxes for acceptance criteria sub-items
+- **Each checkbox = one task** when rendered by AFX tools. Do NOT use checkboxes for acceptance criteria sub-items
 - File scope, `@see` links, and acceptance criteria go in HTML comments or indented text BELOW the checkbox
 - **NOT**: `  - [ ] indented`, `* [ ] asterisk`, `- [ ] **1.1** bold-prefixed`
 - Parser regex: `/^-\s+\[([ xX])\]\s+(.*)$/`
@@ -414,10 +414,10 @@ After frontmatter, the parser expects this order:
 
 3. **Generate Task Breakdown** using the tasks template (`assets/tasks-template.md`):
 
-   **FORMAT ENFORCEMENT** — the VSCode extension parser will silently break if these are violated. See **Template Format Rules (CRITICAL)** section above for the full regex reference.
+   **FORMAT ENFORCEMENT** — AFX parsers (CLI, the VS Code extension, and any other AFX-aware tool) will silently break if these are violated. See **Template Format Rules (CRITICAL)** section above for the full regex reference.
    - Phase headers MUST be `## Phase N: {Name}` (h2, the word "Phase", a digit, colon, name)
    - Task checkboxes MUST be `- [ ] {text}` at column 0 — NO indentation, NO bold task ID prefix
-   - Each `- [ ]` line = one task in the extension UI. Do NOT use checkboxes for acceptance criteria sub-items
+   - Each `- [ ]` line = one task when rendered by AFX tools. Do NOT use checkboxes for acceptance criteria sub-items
    - Section order: Phases first, then Cross-Reference Index, then Work Sessions (last)
    - Cross-Reference Index MUST come AFTER all Phase sections, never before
 

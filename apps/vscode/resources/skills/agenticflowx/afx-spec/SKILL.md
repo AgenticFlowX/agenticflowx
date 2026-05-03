@@ -44,7 +44,7 @@ If neither file exists, use defaults.
 /afx-spec approve <name> [--reviewer "@handle"]  # Lifecycle gate + optional human sign-off
 ```
 
-> **UI Delegation Rule (MANDATORY):** Spec listing, status, phase breakdown, and discussion browsing MUST be delegated to the VSCode AFX extension (Specs Tree, Pipeline Tab, Tasks Tab, Journal Tab). Never output raw tables of spec lists or task states in chat unless explicitly requested. Focus on agent reasoning over raw display.
+> **Display Rule:** Don't dump full spec lists, status tables, phase breakdowns, or discussion logs into chat unless the user explicitly asks. The user can browse the files directly, or use a UI host such as the AgenticFlowX VS Code extension (Specs Tree, Pipeline Tab, Tasks Tab, Journal Tab) if installed. Focus skill output on agent reasoning, not raw display.
 
 ## Purpose
 
@@ -269,18 +269,18 @@ When the agent detects a lifecycle gate is actionable after completing work, use
 
 ## Template Format Rules (CRITICAL)
 
-The VSCode extension parses `spec.md` to extract sections, requirements, and status. If the generated file deviates from these rules, the extension **silently fails** to display sections. These rules define the canonical format — custom sections are allowed but required ones must not be omitted.
+The AFX `spec.md` format is strict by design. Downstream consumers — the CLI, the AgenticFlowX VS Code extension, and any other AFX-aware tool — parse it to extract sections, requirements, and status. Deviations cause **silent failures** in tools that render specs (e.g., the VS Code extension fails to display sections). These rules define the canonical format — custom sections are allowed but required ones must not be omitted.
 
 **Template reference:** `assets/spec-template.md`
 
 ### Section Headings
 
-Heading levels determine what the extension can see:
+Heading levels determine what AFX parsers can see:
 
 - `#` (h1): Document title only — `# {Feature Name}`
-- `##` (h2): Major sections — **captured by the extension**
-- `###` (h3): Sub-sections — **captured by the extension**
-- `####` and deeper: **NOT captured** — do not use for requirements or sections that need to be visible in the extension
+- `##` (h2): Major sections — **captured by AFX parsers**
+- `###` (h3): Sub-sections — **captured by AFX parsers**
+- `####` and deeper: **NOT captured** — do not use for requirements or sections that need to be visible to AFX tools
 
 ### Required Sections
 
@@ -826,7 +826,7 @@ Status: FAILED (6 issues)
 
    Available subcommands: create, validate, discuss, review, approve
 
-   Tip: Spec listing and status are available in the VSCode AFX extension (Specs Tree sidebar).
+   Tip: For spec listing and status, browse `docs/specs/` directly, or use a UI host such as the AgenticFlowX VS Code extension (Specs Tree sidebar) if installed.
    ```
 
 ---
@@ -850,7 +850,7 @@ Status: FAILED (6 issues)
 
 ## Notes
 
-- Focuses on operations requiring agent reasoning — display-only operations are handled by the VSCode AFX extension
+- Focuses on operations requiring agent reasoning — display-only operations are best handled by file browsing or a UI host such as the AgenticFlowX VS Code extension
 - Follows AFX patterns: YAML frontmatter, subcommand structure, agent instructions
 - Delegates scaffolding to `/afx-scaffold` (create)
 - Interactive `discuss` and automated `review` ensure spec quality before approval

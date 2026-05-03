@@ -165,11 +165,11 @@ These artifacts serve as your "save game" - enabling any agent to resume exactly
 
 ### References
 
-- [Traceability & Annotation Standard](../../docs/agenticflowx/agenticflowx.md#traceability--annotation-standard) - `@see` format and rules
-- [AFX Manual](../../docs/agenticflowx/agenticflowx.md) - Full AFX documentation
-- [Agent Resumption Workflow](../../docs/agenticflowx/agenticflowx.md#agent-resumption-workflow) - How to resume after disconnect
-- [GitHub Ticket Template](../../docs/agenticflowx/agenticflowx.md#github-ticket-template) - Session Log format
-- [Session Log Format](../../docs/agenticflowx/agenticflowx.md#session-log-format) - Entry format
+- [Traceability & Annotation Standard](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md#traceability--annotation-standard) - `@see` format and rules
+- [AFX Manual](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md) - Full AFX documentation
+- [Agent Resumption Workflow](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md#agent-resumption-workflow) - How to resume after disconnect
+- [GitHub Ticket Template](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md#github-ticket-template) - Session Log format
+- [Session Log Format](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md#session-log-format) - Entry format
 
 ---
 

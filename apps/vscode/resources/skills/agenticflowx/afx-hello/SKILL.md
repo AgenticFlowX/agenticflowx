@@ -78,7 +78,6 @@ When invoked, perform these checks and report results:
    - `.claude/skills/` directory exists with skill files
    - `.agents/skills/` directory exists (if multi-agent)
    - `CLAUDE.md` exists and references AFX
-   - `docs/agenticflowx/` directory exists with framework docs
 
 3. **Skill Availability**
    - List all installed AFX skills (scan skill directories)
@@ -106,7 +105,6 @@ When invoked, perform these checks and report results:
 | Skills (Claude) | ✓      | .claude/skills/ (14 skills) |
 | Skills (Agents) | ✓      | .agents/skills/ (14 skills) |
 | Templates       | ✓      | Bundled in skill assets/    |
-| Framework Docs  | ✓      | docs/agenticflowx/          |
 
 ### Project Health
 

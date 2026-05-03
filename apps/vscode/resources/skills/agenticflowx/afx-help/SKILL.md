@@ -115,7 +115,7 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 ```bash
 /afx-sprint new <feature>                  # Scaffold <feature>.md + journal.md (single-doc)
 /afx-sprint spec <feature> [--approve]     # Refine or approve the Spec section
-/afx-sprint design <feature> [--approve]   # Refine or approve the Plan section (gated)
+/afx-sprint design <feature> [--approve]   # Refine or approve the Design section (gated)
 /afx-sprint task <feature> [--approve]     # Refine or approve the Tasks section (gated)
 /afx-sprint verify <feature>               # Sanity-check before coding
 /afx-sprint code <feature> [task-id]       # Implement (delegates to /afx-task code)
@@ -185,7 +185,7 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 
 ## Quick Reference
 
-> **Human Cheatsheet**: [cheatsheet.md](../../docs/agenticflowx/cheatsheet.md)
+> **Human Cheatsheet**: [cheatsheet.md](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/cheatsheet.md)
 
 | Command             | Purpose                    |
 | ------------------- | -------------------------- |
@@ -341,5 +341,5 @@ gh issue create --label "bug" --title "Fix login timeout"
 
 ## See Also
 
-- [AFX Manual](../../docs/agenticflowx/agenticflowx.md) - Full AFX documentation
+- [AFX Manual](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md) - Full AFX documentation
 - [CLAUDE.md](../../CLAUDE.md) - Project coding standards
