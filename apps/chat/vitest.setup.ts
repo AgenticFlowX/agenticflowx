@@ -9,7 +9,10 @@ failOnConsole({
   shouldFailOnWarn: true,
   // Silence React 18 "not wrapped in act(...)" warnings emitted by Radix
   // primitives during transition state updates — known noise pattern.
-  silenceMessage: (message) => /not wrapped in act\(/.test(message),
+  silenceMessage: (message) =>
+    /not wrapped in act\(/.test(message) ||
+    // Silence React StrictMode double-render warnings for simple component tests
+    /Warning: An update to/.test(message),
 });
 
 // jsdom doesn't implement layout/scroll/observer APIs; stub the ones our components

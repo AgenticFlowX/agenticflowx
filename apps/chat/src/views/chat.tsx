@@ -38,6 +38,7 @@ import {
   RefreshCw,
   Scissors,
   Square,
+  Terminal,
   Trash2,
   UserRound,
   X,
@@ -82,12 +83,14 @@ import { ComposerStrip } from "../components/composer-strip";
 import { MarkdownMessage } from "../components/markdown-message";
 import { MentionPopup } from "../components/mention-popup";
 import { ModelCombobox } from "../components/model-combobox";
+import { OutputCard } from "../components/output-card";
 import { SlashPopup } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
 import type { ComposerTrigger } from "../lib/composer-detect";
 import { detectComposerTrigger } from "../lib/composer-detect";
 import { extractMentions } from "../lib/mentions";
+import { analyzeDanger } from "../lib/system-command";
 import { toolDescriptor } from "../lib/tool-descriptor";
 
 // ---------------------------------------------------------------------------
@@ -210,6 +213,20 @@ export default function Chat({
     Array<{ id: string; content: string; savedAt: number }>
   >([]);
 
+  // ── command output state ─────────────────────────────────────────────────
+  /** Completed + active command outputs rendered in the timeline. */
+  const [commandOutputs, setCommandOutputs] = useState<
+    Array<{
+      requestId: string;
+      command: string;
+      stdout: string;
+      stderr: string;
+      exitCode?: number;
+      error?: string;
+      createdAt: number;
+    }>
+  >([]);
+
   // ── composer state — lifted to App for persistence across tab switches ──
   // draft and onDraftChange are passed from App
 
@@ -221,6 +238,10 @@ export default function Chat({
   const insertedCommandRef = useRef<string | null>(null);
   const historyCursorRef = useRef<number | null>(null);
   const draftBeforeHistoryRef = useRef("");
+  /** RequestId of a dangerous command awaiting user confirmation. */
+  const pendingDangerousRef = useRef<{ requestId: string; command: string } | null>(null);
+  /** Tracks the command string for the active runCommand so output cards can show it. */
+  const activeCommandRef = useRef<{ requestId: string; command: string } | null>(null);
 
   // ── derived state ────────────────────────────────────────────────────────
   const agentStatus = externalAgentStatus ?? internalAgentStatus;
@@ -246,6 +267,8 @@ export default function Chat({
   const showThinkingToggle = Boolean(
     agentStatus.model && (modelSupportsThinking || isApiProviderRuntime),
   );
+  /** True when the draft starts with "!" — shows the shell badge and warning footer. */
+  const isSystemCommand = draft.startsWith("!");
 
   // ── scroll ────────────────────────────────────────────────────────────────
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -506,6 +529,59 @@ export default function Chat({
           msg.result.summary ? msg.result.summary : "History compacted into a summary.",
         );
       }),
+
+      // Command output — accumulates streaming stdout/stderr from shell commands.
+      bridgeOn("agent/commandOutput", (msg) => {
+        setCommandOutputs((prev) => {
+          const idx = prev.findIndex((o) => o.requestId === msg.requestId);
+          if (idx === -1) {
+            // First event for this request (or done-only for silent commands)
+            const cmd =
+              activeCommandRef.current?.requestId === msg.requestId
+                ? activeCommandRef.current.command
+                : "";
+            return [
+              ...prev,
+              {
+                requestId: msg.requestId,
+                command: cmd,
+                stdout: msg.kind !== "stderr" && !msg.done ? (msg.delta ?? "") : "",
+                stderr: msg.kind === "stderr" ? (msg.delta ?? "") : "",
+                error: msg.error,
+                exitCode: msg.done ? msg.exitCode : undefined,
+                createdAt: Date.now(),
+              },
+            ];
+          }
+          const next = [...prev];
+          const existing = next[idx];
+          next[idx] = {
+            ...existing,
+            stdout:
+              !msg.done && msg.kind !== "stderr"
+                ? existing.stdout + (msg.delta ?? "")
+                : existing.stdout,
+            stderr:
+              !msg.done && msg.kind === "stderr"
+                ? existing.stderr + (msg.delta ?? "")
+                : existing.stderr,
+            error: msg.error ?? existing.error,
+            exitCode: msg.done ? msg.exitCode : existing.exitCode,
+          };
+          return next;
+        });
+      }),
+
+      // Dangerous command confirmation — executes the pending command if user confirmed.
+      bridgeOn("agent/dangerousConfirmed", (msg) => {
+        if (pendingDangerousRef.current?.requestId === msg.requestId) {
+          const { command } = pendingDangerousRef.current;
+          pendingDangerousRef.current = null;
+          if (msg.confirmed) {
+            bridgeSend({ type: "chat/runCommand", requestId: msg.requestId, command });
+          }
+        }
+      }),
     ];
 
     // Re-hydrate from the host on mount (e.g., tab switch).
@@ -538,7 +614,7 @@ export default function Chat({
   // ── actions ────────────────────────────────────────────────────────────────
   /** Returns true if the composer has content and the agent is ready to receive input. */
   const hasDraft = draft.trim().length > 0;
-  const canSend = !isCheckingAgent && !runtimeUnavailable && hasDraft;
+  const canSend = !isCheckingAgent && (!runtimeUnavailable || isSystemCommand) && hasDraft;
 
   /**
    * Handles draft changes and triggers slash/mention popups.
@@ -564,22 +640,51 @@ export default function Chat({
 
   /**
    * Submits the draft. If idle, sends a new turn. If streaming, queues as steer or follow-up.
+   * System commands (!prefix) bypass the LLM and execute locally.
    *
-   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4] [FR-8]
-   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4] [FR-8] [FR-9]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE] [DES-COMPOSER-SYSTEM-COMMAND]
    */
   function submit(opts?: { followUp?: boolean }) {
     const trimmed = draft.trim();
-    if (trimmed.length === 0 || isCheckingAgent || runtimeUnavailable) return;
+    const isSystemCommand = trimmed.startsWith("!");
+    if (trimmed.length === 0 || (!isSystemCommand && (isCheckingAgent || runtimeUnavailable)))
+      return;
     onDraftChange("");
     setSlashOpen(false);
     setMentionOpen(false);
     setUserScrolledUp(false);
+    historyCursorRef.current = null;
+    draftBeforeHistoryRef.current = "";
+
+    // System command: bypass LLM entirely
+    if (trimmed.startsWith("!")) {
+      const command = trimmed.slice(1).trimStart();
+      if (command.length === 0) return;
+      // New command: add empty slot that will be filled by streaming events
+
+      // Dangerous pattern guard — request confirmation before executing
+      const danger = analyzeDanger(command);
+      if (danger.isDangerous) {
+        const requestId = uid();
+        pendingDangerousRef.current = { requestId, command };
+        activeCommandRef.current = { requestId, command };
+        bridgeSend({ type: "chat/confirmDangerous", requestId, command, reason: danger.reason });
+        getTextarea()?.focus();
+        return;
+      }
+
+      const requestId = uid();
+      activeCommandRef.current = { requestId, command };
+      bridgeSend({ type: "chat/runCommand", requestId, command });
+      getTextarea()?.focus();
+      return;
+    }
+
+    // Normal message path
     const mentions = extractMentions(trimmed);
     const mentionsArg = mentions.length > 0 ? mentions : undefined;
     onPromptHistoryAppend(trimmed);
-    historyCursorRef.current = null;
-    draftBeforeHistoryRef.current = "";
 
     if (!isStreaming) {
       bridgeSend({
@@ -793,6 +898,7 @@ export default function Chat({
     bridgeSend({ type: "chat/newSession" });
     onDraftChange("");
     setQueued([]);
+    setCommandOutputs([]);
     setUserScrolledUp(false);
     toast.success("New session started");
   }
@@ -857,7 +963,7 @@ export default function Chat({
         <div className="px-2 py-3">
           {isCheckingAgent ? (
             <AgentSetupState />
-          ) : messages.length === 0 ? (
+          ) : messages.length === 0 && commandOutputs.length === 0 ? (
             <EmptyState
               runtimeUnconfigured={runtimeUnconfigured}
               rpcEnabled={rpcEnabled}
@@ -868,7 +974,7 @@ export default function Chat({
               }}
             />
           ) : (
-            <Timeline messages={messages} noteEvents={noteEvents} />
+            <Timeline messages={messages} noteEvents={noteEvents} commandOutputs={commandOutputs} />
           )}
           <div ref={bottomRef} className="h-3 shrink-0" />
         </div>
@@ -895,7 +1001,11 @@ export default function Chat({
       )}
 
       {/* Surface: [Composer.Activity] — always-on status strip above the composer */}
-      <ActivityBar thinking={thinking} isStreaming={isStreaming} />
+      <ActivityBar
+        thinking={thinking}
+        isStreaming={isStreaming}
+        isSystemCommand={isSystemCommand}
+      />
 
       {/* Surface: [Composer.Root] — textarea, helpers, model selector, send/abort, footer */}
       <div className="shrink-0 px-2 pb-3 pt-2">
@@ -940,29 +1050,40 @@ export default function Chat({
                         ? "Queue a follow-up… (⌘⏎ to steer this turn)"
                         : "Ask AFX about this workspace — ⌘⇧⏎ saves a note"
               }
-              disabled={isCheckingAgent || runtimeUnavailable}
+              disabled={isCheckingAgent || (!isSystemCommand && runtimeUnavailable)}
               rows={1}
               className="min-h-14 max-h-56"
             />
+            {isSystemCommand && (
+              <div className="px-3 py-1 text-[10px] text-amber-500/80">
+                ⚠ Shell · output is local only
+              </div>
+            )}
             <InputGroupAddon align="block-end" className="flex-wrap justify-between gap-1">
               {/* Surface: [Composer.Toolbar] */}
               <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant="ghost"
-                  className="shrink-0"
-                  onClick={openMentionPicker}
-                  disabled={isCheckingAgent || runtimeUnavailable}
-                  aria-label="Mention file"
-                  title="Mention file"
-                >
-                  <AtSign />
-                </Button>
+                {isSystemCommand ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-amber-500">
+                    Shell
+                  </span>
+                ) : (
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    onClick={openMentionPicker}
+                    disabled={isCheckingAgent || runtimeUnavailable}
+                    aria-label="Mention file"
+                    title="Mention file"
+                  >
+                    <AtSign />
+                  </Button>
+                )}
                 <ModelCombobox
                   models={models}
                   value={agentStatus.model}
-                  disabled={isCheckingAgent || runtimeUnavailable}
+                  disabled={isCheckingAgent || (!isSystemCommand && runtimeUnavailable)}
                   onSelect={selectModel}
                   onOpenSettings={onOpenSettings}
                 />
@@ -1040,6 +1161,7 @@ export default function Chat({
           rpcEnabled={rpcEnabled}
           agentPhase={agentStatus.phase}
           onPiWarningClick={recoveryActions?.onOpenSettings}
+          isSystemCommand={isSystemCommand}
         />
       </div>
     </div>
@@ -1055,6 +1177,7 @@ export default function Chat({
 interface ActivityBarProps {
   thinking: string | null;
   isStreaming: boolean;
+  isSystemCommand: boolean;
 }
 
 /**
@@ -1063,7 +1186,7 @@ interface ActivityBarProps {
  * @see docs/specs/211-app-chat-composer/spec.md [FR-7]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]
  */
-function ActivityBar({ thinking, isStreaming }: ActivityBarProps) {
+function ActivityBar({ thinking, isStreaming, isSystemCommand }: ActivityBarProps) {
   // Show first 120 chars so user sees what Pi is thinking *about*, not raw tail.
   const preview =
     isStreaming && thinking
@@ -1075,26 +1198,36 @@ function ActivityBar({ thinking, isStreaming }: ActivityBarProps) {
   return (
     <div className="shrink-0 border-t bg-muted/30 px-3 py-1.5">
       <div className="flex items-center gap-1.5">
-        {isStreaming ? (
-          <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-afx-brand" />
-        ) : (
-          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/30" />
-        )}
-        {isStreaming ? (
-          <span className="inline-flex items-baseline font-mono text-[10px] uppercase tracking-[0.14em]">
-            <span className="afx-thinking-word bg-gradient-to-r from-afx-brand via-afx-brand-soft to-foreground bg-clip-text text-transparent">
-              thinking
+        {isSystemCommand ? (
+          <>
+            <span className="inline-flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-amber-500">
+              Shell
             </span>
-            <span aria-hidden className="ml-0.5 inline-flex w-3 text-afx-brand-soft">
-              <span className="afx-thinking-dot">.</span>
-              <span className="afx-thinking-dot">.</span>
-              <span className="afx-thinking-dot">.</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50">
+              local execution
             </span>
-          </span>
+          </>
+        ) : isStreaming ? (
+          <>
+            <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-afx-brand" />
+            <span className="inline-flex items-baseline font-mono text-[10px] uppercase tracking-[0.14em]">
+              <span className="afx-thinking-word bg-gradient-to-r from-afx-brand via-afx-brand-soft to-foreground bg-clip-text text-transparent">
+                thinking
+              </span>
+              <span aria-hidden className="ml-0.5 inline-flex w-3 text-afx-brand-soft">
+                <span className="afx-thinking-dot">.</span>
+                <span className="afx-thinking-dot">.</span>
+                <span className="afx-thinking-dot">.</span>
+              </span>
+            </span>
+          </>
         ) : (
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50">
-            idle
-          </span>
+          <>
+            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/30" />
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50">
+              idle
+            </span>
+          </>
         )}
       </div>
       {preview && (
@@ -1129,6 +1262,7 @@ function FooterStrip({
   rpcEnabled,
   agentPhase,
   onPiWarningClick,
+  isSystemCommand,
 }: {
   usage: UsageStats | null;
   isCheckingAgent: boolean;
@@ -1138,18 +1272,21 @@ function FooterStrip({
   rpcEnabled: boolean;
   agentPhase: AgentRuntimePhase;
   onPiWarningClick?: () => void;
+  isSystemCommand?: boolean;
 }) {
-  const hint = isCheckingAgent
-    ? "Checking agent runtime readiness…"
-    : runtimeUnconfigured
-      ? rpcEnabled
-        ? "Configure a provider or fix Pi RPC in Settings."
-        : "Configure an API provider or enable Pi RPC in Settings."
-      : runtimeUnavailable
-        ? "Connection recovery is required before sending."
-        : isStreaming
-          ? "⌘⇧⏎ note · ⌘⏎ steer · ⏎ queue · ↑ history"
-          : "⌘⇧⏎ note · ⏎ send · ↑ history";
+  const hint = isSystemCommand
+    ? "⚠ Shell · output is local only"
+    : isCheckingAgent
+      ? "Checking agent runtime readiness…"
+      : runtimeUnconfigured
+        ? rpcEnabled
+          ? "Configure a provider or fix Pi RPC in Settings."
+          : "Configure an API provider or enable Pi RPC in Settings."
+        : runtimeUnavailable
+          ? "Connection recovery is required before sending."
+          : isStreaming
+            ? "⌘⇧⏎ note · ⌘⏎ steer · ⏎ queue · ↑ history"
+            : "⌘⇧⏎ note · ⏎ send · ↑ history";
 
   const statsText = usage
     ? [
@@ -1726,7 +1863,17 @@ type TimelineEvent =
   | { id: string; kind: "tool"; tool: ChatToolView }
   | { id: string; kind: "thinking"; preview: string }
   | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number }
-  | { id: string; kind: "note"; content: string; savedAt: number };
+  | { id: string; kind: "note"; content: string; savedAt: number }
+  | {
+      id: string;
+      kind: "shell";
+      command: string;
+      stdout: string;
+      stderr: string;
+      exitCode?: number;
+      error?: string;
+      createdAt: number;
+    };
 
 /**
  * Converts a flat message list into a timeline of events.
@@ -1741,9 +1888,19 @@ type TimelineEvent =
 function Timeline({
   messages,
   noteEvents,
+  commandOutputs,
 }: {
   messages: ChatTimelineItem[];
   noteEvents: Array<{ id: string; content: string; savedAt: number }>;
+  commandOutputs: Array<{
+    requestId: string;
+    command: string;
+    stdout: string;
+    stderr: string;
+    exitCode?: number;
+    error?: string;
+    createdAt: number;
+  }>;
 }) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
@@ -1783,6 +1940,39 @@ function Timeline({
   for (const n of noteEvents) {
     events.push({ id: n.id, kind: "note", content: n.content, savedAt: n.savedAt });
   }
+  for (const cmd of commandOutputs) {
+    events.push({
+      id: cmd.requestId,
+      kind: "shell",
+      command: cmd.command,
+      stdout: cmd.stdout,
+      stderr: cmd.stderr,
+      exitCode: cmd.exitCode,
+      error: cmd.error,
+      createdAt: cmd.createdAt,
+    });
+  }
+
+  // Sort all events by createdAt so shell outputs interleave with chat history.
+  function getEventTime(event: TimelineEvent): number {
+    switch (event.kind) {
+      case "user":
+      case "assistant":
+      case "error":
+      case "info":
+        return event.message.createdAt;
+      case "note":
+        return event.savedAt;
+      case "compaction":
+        return event.createdAt;
+      case "shell":
+        return event.createdAt;
+      case "thinking":
+      case "tool":
+        return 0;
+    }
+  }
+  events.sort((a, b) => getEventTime(a) - getEventTime(b));
 
   return (
     <ol className="relative flex flex-col">
@@ -1924,6 +2114,14 @@ function Marker({ event }: { event: TimelineEvent }) {
     );
   }
 
+  if (event.kind === "shell") {
+    return (
+      <span aria-hidden className={cn(MARKER_PLAIN, "text-amber-500/70")}>
+        <Terminal size={12} className="shrink-0" strokeWidth={2.25} />
+      </span>
+    );
+  }
+
   // thinking — pulsing indicator during live streaming.
   return (
     <span aria-hidden className={cn(MARKER_PLAIN, "animate-pulse text-afx-brand-soft")}>
@@ -1985,6 +2183,9 @@ function EventHeader({ event }: { event: TimelineEvent }) {
         </span>
       </div>
     );
+  }
+  if (event.kind === "shell") {
+    return <Eyebrow tone="brand" label="Shell" />;
   }
   // tool events render via ToolEvent (table-style). EventHeader is unused for them.
   return null;
@@ -2135,6 +2336,19 @@ function EventBody({ event }: { event: TimelineEvent }) {
         <p className="whitespace-pre-wrap break-words font-serif text-[12px] italic leading-relaxed text-muted-foreground/60">
           {event.content}
         </p>
+      </div>
+    );
+  }
+  if (event.kind === "shell") {
+    return (
+      <div className="mt-1">
+        <OutputCard
+          command={event.command}
+          stdout={event.stdout}
+          stderr={event.stderr}
+          exitCode={event.exitCode}
+          error={event.error}
+        />
       </div>
     );
   }

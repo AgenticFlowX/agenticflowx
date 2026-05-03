@@ -11,6 +11,7 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  */
+import { EventEmitter } from "events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
@@ -28,6 +29,11 @@ import { createSidebarPanel } from "./sidebar-panel";
 vi.mock("./webview-html", () => ({
   getAppDistPath: () => "/tmp/agenticflowx/chat/dist",
   loadWebviewHtml: () => "<html></html>",
+}));
+
+const mockSpawn = vi.fn();
+vi.mock("child_process", () => ({
+  spawn: (...args: unknown[]) => mockSpawn(...args),
 }));
 
 interface InboundCapture {
@@ -73,6 +79,7 @@ describe("sidebar-panel host bridge", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    mockSpawn.mockClear();
   });
 
   function setupWithView(): {
@@ -1128,6 +1135,157 @@ describe("sidebar-panel host bridge", () => {
     setup();
     expect(agent.onEvent).toHaveBeenCalledOnce();
     expect(agent.onStderr).toHaveBeenCalledOnce();
+  });
+
+  describe("runCommand", () => {
+    it("emits commandOutput with error when no workspace folder is open", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue(undefined);
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-1", command: "ls" });
+
+      expect(postMessage).toHaveBeenCalledWith({
+        type: "agent/commandOutput",
+        requestId: "cmd-1",
+        error: "No workspace folder open",
+      });
+    });
+
+    it("streams stdout with kind: stdout", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-2", command: "echo hello" });
+
+      stdout.emit("data", Buffer.from("hello\n"));
+      proc.emit("close", 0, null);
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-2",
+          delta: "hello\n",
+          kind: "stdout",
+        }),
+      );
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-2",
+          done: true,
+          exitCode: 0,
+        }),
+      );
+    });
+
+    it("streams stderr with kind: stderr", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({
+        type: "chat/runCommand",
+        requestId: "cmd-3",
+        command: "node -e 'console.error(\"err\")'",
+      });
+
+      stderr.emit("data", Buffer.from("err\n"));
+      proc.emit("close", 0, null);
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-3",
+          delta: "err\n",
+          kind: "stderr",
+        }),
+      );
+    });
+
+    it("emits non-zero exit code", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-4", command: "exit 1" });
+      proc.emit("close", 1, null);
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-4",
+          done: true,
+          exitCode: 1,
+        }),
+      );
+    });
+
+    it("emits error on spawn failure", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-5", command: "unknown-cmd" });
+      proc.emit("error", new Error("ENOENT: unknown-cmd"));
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-5",
+          error: "ENOENT: unknown-cmd",
+        }),
+      );
+    });
+
+    it("emits timeout error on SIGTERM", () => {
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-6", command: "sleep 60" });
+      proc.emit("close", null, "SIGTERM");
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-6",
+          done: true,
+          exitCode: -1,
+          error: "Command timed out after 30s",
+        }),
+      );
+    });
   });
 
   it("ignores raw messages that are not objects with a string `type`", () => {

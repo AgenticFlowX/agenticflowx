@@ -1,14 +1,17 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T02:54:23.000Z"
+updated_at: "2026-05-03T11:43:38.000Z"
+approved_at: "2026-05-03T11:43:38.000Z"
 tags: ["app", "chat", "composer", "webview"]
 spec: spec.md
 ---
+
+<!-- APPROVED: 2026-05-03 - Do not edit without version bump -->
 
 # App Chat Composer - Technical Design
 
@@ -17,6 +20,8 @@ spec: spec.md
 ## [DES-OVR] Overview
 
 The composer is the bottom interaction surface of the chat webview. It coordinates local input state, runtime readiness, queued content, helper popups, and bridge-driven send/steer/abort actions.
+
+System commands (FR-9) extend the composer with local shell execution: typing `!ls` and pressing Enter dispatches `chat/runCommand` instead of `chat/send`, executes the command in the extension host via `child_process.spawn`, and streams output back via `agent/commandOutput` events. UX uses an amber "Shell" badge and persistent footer warning (not blocking); a dangerous-pattern guard prompts confirmation for `rm -rf`, `del /f /s`, `format`, `mkfs`, `dd`.
 
 ---
 
@@ -29,9 +34,10 @@ Chat view state
   ├─ controls: model, thinking, send, steer, abort
   ├─ queue/footer/activity rendering
   └─ transport bridge messages to VSCode host
+  └─ system command execution (! prefix → child_process.spawn)
 ```
 
-Composer logic stays in the chat webview. The VSCode extension host owns command execution and runtime services.
+Composer logic stays in the chat webview. The VSCode extension host owns command execution and runtime services. Shell commands are executed in a separate context from the LLM stream, enabling concurrent execution.
 
 ## [DES-COMPOSER-FLOW] Composer Event And Bridge Flow
 
@@ -57,6 +63,7 @@ Composer logic stays in the chat webview. The VSCode extension host owns command
 | Slash picker        | mount hydration                                   | `chat/getCommands`              | Host lists agent/extension commands    | `agent/commands`                                                            |
 | Model picker        | `selectModel()`                                   | `chat/setModel`                 | Runtime default/model changes          | `agent/modelChanged`                                                        |
 | Thinking picker     | `setThinkingLevel()`                              | `chat/setThinkingLevel`         | Runtime effort changes                 | `agent/runtimeSettings`                                                     |
+| System command      | `submit()` when draft starts with `!`             | `chat/runCommand`               | Spawns shell in workspace root         | `agent/commandOutput` (delta / done / error)                                |
 
 ---
 
@@ -118,6 +125,37 @@ The unavailable state disables composer input/actions and uses placeholder/foote
 +--------------------------------------------------------------------+
 ```
 
+### [DES-COMPOSER-MOCKUP-SYSTEM-COMMAND] System Command Active State
+
+The "Shell" amber pill badge replaces the `@` mention button and the model/thinking labels shift to accommodate it. The footer shows a persistent warning `"⚠ Shell · output is local only"`. These cues are visible while the draft starts with `!` and do not block execution.
+
+```text
++--------------------------------------------------------------------+
+| [Composer.Activity]  dot idle  AFX ready                           |
++--------------------------------------------------------------------+
+| [Composer.InputGroup]                                              |
+|  [Shell] [!] [Composer.Input: pnpm build]                     [^]   |
+|      ⚠ Shell · output is local only                               |
+|      [Composer.Model: Anthropic . Claude] [Thinking: Medium]       |
++--------------------------------------------------------------------+
+| [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
++--------------------------------------------------------------------+
+```
+
+### [DES-COMPOSER-MOCKUP-DANGEROUS-GUARD] Dangerous Pattern Confirm Dialog
+
+Triggered when the command matches known destructive patterns (`rm -rf`, `del /f /s`, `format`, `mkfs`, `dd`). Requires explicit user acknowledgment before execution. Not shown for safe commands.
+
+```text
++--------------------------------------------------------------------+
+|  ⚠  Destructive command detected                                  |
++--------------------------------------------------------------------+
+|  "rm -rf" will delete files in the workspace.                     |
+|                                                                     |
+|                                    [Cancel]  [Run anyway]          |
++--------------------------------------------------------------------+
+```
+
 ## [DES-COMPOSER-COMPONENTS] Composer Component And Control Anatomy
 
 ```text
@@ -154,6 +192,146 @@ Chat
 | `[Composer.Toolbar]`  | Mention button, model selector, thinking level selector                    | Provider setup forms                  |
 | `[Composer.Actions]`  | Send/queue/steer/stop affordances                                          | Agent implementation                  |
 | `[Composer.Footer]`   | Compact runtime readiness, Pi state, usage hints                           | Full settings diagnostics             |
+
+## [DES-COMPOSER-SYSTEM-COMMAND] System Command Execution
+
+<!-- @see spec.md [FR-9] [NFR-6] -->
+
+This section details the end-to-end system command flow: client-side prefix detection, bridge dispatch, extension-host execution via `child_process.spawn`, output streaming back to the webview, and rendering as a timeline card.
+
+### Flow: Prefix Detection → Bridge → Host → Spawn → Stream → Render
+
+```text
+[Composer.Input] "!ls -la src/"
+  -> onKeyDown Enter
+  -> submit()
+  -> draft.startsWith("!") detected
+  -> bridgeSend({ type: "chat/runCommand", requestId, command: "ls -la src/" })
+  -> @afx/transport webview bridge
+  -> VSCode SidebarPanel.dispatchInbound: case "chat/runCommand"
+  -> handleRunCommand(requestId, "ls -la src/")
+  -> child_process.spawn(shell, ["-c", "ls -la src/"], { cwd: workspaceRoot, timeout: 30000 })
+  -> stdout "drwxr-xr-x ...\n" -> emit({ type: "agent/commandOutput", streamId, delta: "..." })
+  -> stderr "" -> emit done
+  -> exitCode 0 -> emit({ type: "agent/commandOutput", done: true, exitCode: 0 })
+  -> chat.tsx bridgeOn("agent/commandOutput")
+  -> <OutputCard> rendered in message timeline
+```
+
+### Step-by-step responsibilities
+
+| Step             | Who                                          | What                                                                                            |
+| ---------------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Draft input      | User                                         | Types `!ls -la src/` in composer                                                                |
+| Prefix detection | `chat.tsx` `submit()`                        | `draft.trim().startsWith("!")` — client-side, before any bridge call                            |
+| Bridge dispatch  | `chat.tsx` `bridgeSend()`                    | Sends `{ type: "chat/runCommand", requestId, command }`; **`!` is stripped**; never sent to LLM |
+| Bridge reception | `sidebar-panel.ts` `dispatchInbound`         | Switches on `"chat/runCommand"` case                                                            |
+| Shell execution  | `sidebar-panel.ts` `handleRunCommand()`      | `child_process.spawn()` with platform shell, workspace CWD, 30s timeout                         |
+| Output streaming | `sidebar-panel.ts` → `transport.emit()`      | Streams `agent/commandOutput { delta, done, exitCode, error }` back to webview                  |
+| Timeline render  | `chat.tsx` `bridgeOn("agent/commandOutput")` | `<OutputCard>` shows monospace stdout (muted), stderr (red), exit badge (amber)                 |
+
+### Client-side prefix detection (snippet)
+
+```typescript
+// apps/chat/src/views/chat.tsx — submit()
+function submit(opts?: { followUp?: boolean }) {
+  const trimmed = draft.trim();
+  if (trimmed.length === 0 || isCheckingAgent || runtimeUnavailable) return;
+
+  // System command: bypass LLM entirely
+  if (trimmed.startsWith("!")) {
+    const command = trimmed.slice(1).trimStart();
+    const dangerous = /^(rm\s+-rf|del\s+.*\/f|format\s|mkfs|dd\s)/i.test(command);
+    if (dangerous) {
+      // Show DangerousPatternGuard confirm dialog
+      return;
+    }
+    bridgeSend({ type: "chat/runCommand", requestId: uid(), command });
+    onDraftChange("");
+    return;
+  }
+
+  // Normal LLM path
+  bridgeSend({ type: "chat/send", requestId: uid(), content: trimmed, mentions: mentionsArg });
+  // ...
+}
+```
+
+### Extension host shell execution (snippet)
+
+```typescript
+// apps/vscode/src/panels/sidebar-panel.ts — handleRunCommand()
+import { spawn } from "child_process";
+import * as vscode from "vscode";
+
+async function handleRunCommand(requestId: string, command: string): Promise<void> {
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!workspaceRoot) {
+    bridgeSend({ type: "agent/commandOutput", requestId, error: "No workspace folder open" });
+    return;
+  }
+
+  const shell = process.platform === "win32" ? "cmd" : "/bin/bash";
+  const shellArgs = process.platform === "win32" ? ["/c", command] : ["-c", command];
+  const proc = spawn(shell, shellArgs, { cwd: workspaceRoot, timeout: 30_000 });
+
+  proc.stdout.on("data", (chunk: Buffer) => {
+    bridgeSend({
+      type: "agent/commandOutput",
+      requestId,
+      streamId: requestId,
+      delta: chunk.toString(),
+    });
+  });
+  proc.stderr.on("data", (chunk: Buffer) => {
+    bridgeSend({
+      type: "agent/commandOutput",
+      requestId,
+      streamId: requestId,
+      delta: chunk.toString(),
+    });
+  });
+
+  proc.on("close", (code: number | null) => {
+    bridgeSend({ type: "agent/commandOutput", requestId, done: true, exitCode: code ?? -1 });
+  });
+  proc.on("error", (err: Error) => {
+    bridgeSend({ type: "agent/commandOutput", requestId, error: err.message });
+  });
+}
+```
+
+### Output card rendering (snippet)
+
+```typescript
+// apps/chat/src/views/chat.tsx
+function OutputCard({ streamId, lines, exitCode, error }: OutputCardProps) {
+  return (
+    <div className="border border-afx-border rounded-md p-3 font-mono text-sm">
+      {error ? (
+        <p className="text-red-500">{error}</p>
+      ) : (
+        <>
+          {lines.map((l, i) => (
+            <p key={i} className={l.kind === "stderr" ? "text-red-500" : "text-afx-muted"}>
+              {l.text}
+            </p>
+          ))}
+          {exitCode != null && (
+            <span className="inline-block mt-2 px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-xs">
+              exit {exitCode}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+```
+
+### Bypass LLM guarantee
+
+System commands **never reach the LLM**. The `!` prefix is detected before any `bridgeSend({ type: "chat/send" })`. The client dispatches `chat/runCommand` instead, which the extension host handles entirely in the VSCode process without forwarding to the agent runtime.
 
 ### [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX] ModelCombobox
 
@@ -205,6 +383,7 @@ Chat
 | Streaming composer                         | `Cmd/Ctrl+Enter`           | `onKeyDown`, `submit({ followUp: false })`   | Steer active turn                                                                   |
 | Any composer                               | `Cmd/Ctrl+Shift+Enter`     | `saveAsNote`                                 | Send `chat/saveNote` and add local note event                                       |
 | Mention button                             | click                      | `openMentionPicker`                          | Open mention picker at draft end and request `chat/listFiles`                       |
+| Composer with `!` prefix                   | `Enter`                    | `submit()` → `chat/runCommand`               | Strip `!`, exec locally in extension host via `child_process.spawn`                 |
 
 ## [DES-COMPOSER-HELPERS] Slash And Mention Helper Anatomy
 
@@ -304,11 +483,15 @@ The composer transitions between five states. State transitions are driven by `a
 
 ## [DES-DEC] Key Decisions
 
-| Decision         | Options Considered                        | Choice     | Rationale                                                       |
-| ---------------- | ----------------------------------------- | ---------- | --------------------------------------------------------------- |
-| Composer split   | Keep in `210-app-chat`, create child spec | Child spec | Footer/input changes are frequent and surgical                  |
-| Footer ownership | Settings, runtime, composer               | Composer   | Footer copy appears in composer and depends on composer actions |
-| Helper ownership | Shared UI, messages, composer             | Composer   | Slash/mention helpers are input-driven                          |
+| Decision                | Options Considered                            | Choice                  | Rationale                                                                             |
+| ----------------------- | --------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| Composer split          | Keep in `210-app-chat`, create child spec     | Child spec              | Footer/input changes are frequent and surgical                                        |
+| Footer ownership        | Settings, runtime, composer                   | Composer                | Footer copy appears in composer and depends on composer actions                       |
+| Helper ownership        | Shared UI, messages, composer                 | Composer                | Slash/mention helpers are input-driven                                                |
+| System command routing  | Client detection, server detection            | Client detection        | Webview knows the draft text; extension host executes                                 |
+| Shell selection         | Hardcoded `bash`, detect `$SHELL`, prompt     | Platform-aware spawn    | `bash` on macOS/Linux, `cmd`/`powershell` on Windows                                  |
+| Concurrent execution    | Block while streaming, queue, allow           | Allow                   | Separate execution context from LLM stream; user can run `!top` while LLM writes code |
+| Dangerous-pattern guard | Block all, allow all, confirm for destructive | Confirm for destructive | Catches common accidents (`rm -rf`) without blocking safe commands                    |
 
 ---
 
@@ -332,22 +515,24 @@ Composer state includes input text, queued content metadata, selected model, thi
 
 Composer actions use the chat webview transport. Message payloads are defined in shared packages; this spec owns how those payloads are surfaced in the composer.
 
-| Direction       | Message/event                           | Composer owner                                          |
-| --------------- | --------------------------------------- | ------------------------------------------------------- |
-| Webview to host | `chat/send`                             | Idle send with content and extracted mentions           |
-| Webview to host | `chat/steer`                            | Streaming interrupt with content and extracted mentions |
-| Webview to host | `chat/followUp`                         | Streaming follow-up with content and extracted mentions |
-| Webview to host | `chat/abort`                            | Stop active turn                                        |
-| Webview to host | `chat/saveNote`                         | Save draft as note via note capture spec                |
-| Webview to host | `chat/getCommands`                      | Populate slash popup                                    |
-| Webview to host | `chat/listFiles`                        | Populate mention popup                                  |
-| Webview to host | `chat/setModel`                         | Update active runtime model                             |
-| Webview to host | `chat/setThinkingLevel`                 | Update runtime reasoning effort                         |
-| Host to webview | `agent/commands`                        | Slash popup candidates                                  |
-| Host to webview | `agent/files`                           | Mention popup candidates                                |
-| Host to webview | `agent/models`, `agent/modelChanged`    | Model picker candidates and active model                |
-| Host to webview | `agent/runtimeSettings`, `agent/status` | Thinking/footer/readiness state                         |
-| Host to webview | `chat/usage`                            | Footer usage tooltip state                              |
+| Direction       | Message/event                           | Composer owner                                                                                                                       |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Webview to host | `chat/send`                             | Idle send with content and extracted mentions                                                                                        |
+| Webview to host | `chat/steer`                            | Streaming interrupt with content and extracted mentions                                                                              |
+| Webview to host | `chat/followUp`                         | Streaming follow-up with content and extracted mentions                                                                              |
+| Webview to host | `chat/abort`                            | Stop active turn                                                                                                                     |
+| Webview to host | `chat/saveNote`                         | Save draft as note via note capture spec                                                                                             |
+| Webview to host | `chat/getCommands`                      | Populate slash popup                                                                                                                 |
+| Webview to host | `chat/listFiles`                        | Populate mention popup                                                                                                               |
+| Webview to host | `chat/setModel`                         | Update active runtime model                                                                                                          |
+| Webview to host | `chat/setThinkingLevel`                 | Update runtime reasoning effort                                                                                                      |
+| Webview to host | `chat/runCommand`                       | System command: stripped `!` prefix, shell command string, requestId                                                                 |
+| Host to webview | `agent/commandOutput`                   | Shell output stream: `requestId`, `streamId`, `delta` (partial line), `done` (final), `exitCode` (0–255), `error` (exception string) |
+| Host to webview | `agent/commands`                        | Slash popup candidates                                                                                                               |
+| Host to webview | `agent/files`                           | Mention popup candidates                                                                                                             |
+| Host to webview | `agent/models`, `agent/modelChanged`    | Model picker candidates and active model                                                                                             |
+| Host to webview | `agent/runtimeSettings`, `agent/status` | Thinking/footer/readiness state                                                                                                      |
+| Host to webview | `chat/usage`                            | Footer usage tooltip state                                                                                                           |
 
 ---
 
@@ -376,18 +561,30 @@ Composer actions use the chat webview transport. Message payloads are defined in
 
 ## [DES-SEC] Security Considerations
 
+<!-- @see spec.md [NFR-6] -->
+
 - Composer input is user content; do not log raw prompts unless an approved diagnostic spec allows it.
 - Webview code must not access filesystem/process APIs.
+- **Shell execution risk**: System commands execute arbitrary shell strings passed by the user. The extension host spawns a subprocess; the webview never directly calls `child_process`.
+- **Dangerous-pattern guard**: Commands matching `rm -rf`, `del /f /s`, `format`, `mkfs`, `dd` require user confirmation before execution. This guard is advisory — a knowledgeable user can still run destructive commands after confirming.
+- **CWD bounded to workspace**: All shell commands run in the VSCode workspace root directory (`vscode.workspace.workspaceFolders?.[0].uri.fsPath`). Commands cannot escape the workspace unless the user has symlinks or bind mounts outside it.
+- **Timeout enforcement**: Commands exceeding 30 seconds are terminated; the user receives an error with exit code `-1`.
+- **No LLM injection**: System commands are never sent to the LLM. The `!` prefix is detected client-side and routed to `chat/runCommand` before any model call.
 
 ---
 
 ## [DES-ERR] Error Handling
 
-| Scenario             | Handling                                                                      |
-| -------------------- | ----------------------------------------------------------------------------- |
-| Runtime unavailable  | Footer and send state explain configuration/readiness path                    |
-| Bridge send fails    | Composer returns to editable state and surfaces failure through chat error UI |
-| Helper parsing fails | Fall back to plain text input without blocking send                           |
+| Scenario                       | Handling                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| Runtime unavailable            | Footer and send state explain configuration/readiness path                                              |
+| Bridge send fails              | Composer returns to editable state and surfaces failure through chat error UI                           |
+| Helper parsing fails           | Fall back to plain text input without blocking send                                                     |
+| Shell command timeout (30s)    | Terminate subprocess; emit `agent/commandOutput { error: "Command timed out after 30s", exitCode: -1 }` |
+| Shell non-zero exit            | Emit `agent/commandOutput { done: true, exitCode }`; output card shows exit code badge in amber         |
+| Shell exception (ENOENT, etc.) | Emit `agent/commandOutput { error: <exception.message> }`; render error in red inline                   |
+| Dangerous pattern before guard | Show `DangerousPatternGuard` confirm dialog; do not execute until user confirms                         |
+| Workspace not open             | Show "No workspace folder open" error; disable system command input                                     |
 
 ---
 
@@ -437,21 +634,23 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 
 ## [DES-COMPOSER-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                                                                | Code anchors                                                                                                     | Verification                                                        |
-| ----------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS` | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                     | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage          |
-| FR-2        | `DES-COMPOSER-FOOTER`                                                                                       | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                  | `apps/chat/src/app.test.tsx`                                        |
-| FR-3        | `DES-COMPOSER-HELPERS`                                                                                      | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions` | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`       |
-| FR-4        | `DES-COMPOSER-QUEUE`                                                                                        | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                     | `apps/chat/src/app.test.tsx`                                        |
-| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                      | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                        | `app.test.tsx`; model-combobox tests when changed                   |
-| FR-6        | `DES-COMPOSER-KEYS`                                                                                         | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                             | `app.test.tsx`; future dedicated history recall test                |
-| FR-7        | `DES-COMPOSER-FOOTER`                                                                                       | `ActivityBar`, `chat/thinkingDelta` handler                                                                      | `app.test.tsx`                                                      |
-| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                              | `bridgeSend` calls only; no VSCode API imports in chat webview                                                   | architecture lint/no-restricted-imports                             |
-| NFR-1       | `DES-COMPOSER-KEYS`                                                                                         | `onKeyDown`                                                                                                      | e2e keyboard regression tests when changed                          |
-| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                       | `FooterStrip`                                                                                                    | focused copy snapshot/assertions when changed                       |
-| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-QUEUE`                                                                | stable bottom layout around `InputGroup`/`QueueStrip`                                                            | visual/e2e checks when layout changes                               |
-| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                      | `detectComposerTrigger`, `extractMentions`                                                                       | helper unit tests                                                   |
-| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                     | file/local `@see` anchors                                                                                        | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace` |
+| Requirement | Design nodes                                                                                                   | Code anchors                                                                                                                                                                  | Verification                                                                                                    |
+| ----------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`    | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                      |
+| FR-2        | `DES-COMPOSER-FOOTER`                                                                                          | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-3        | `DES-COMPOSER-HELPERS`                                                                                         | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                   |
+| FR-4        | `DES-COMPOSER-QUEUE`                                                                                           | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                         | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                                                                                     | `app.test.tsx`; model-combobox tests when changed                                                               |
+| FR-6        | `DES-COMPOSER-KEYS`                                                                                            | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                            |
+| FR-7        | `DES-COMPOSER-FOOTER`                                                                                          | `ActivityBar`, `chat/thinkingDelta` handler                                                                                                                                   | `app.test.tsx`                                                                                                  |
+| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                 | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
+| FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR` | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
+| NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                 | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
+| NFR-1       | `DES-COMPOSER-KEYS`                                                                                            | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
+| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                          | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
+| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-QUEUE`                                                                   | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |
+| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                         | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                               |
+| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                        | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                             |
 
 ---
 

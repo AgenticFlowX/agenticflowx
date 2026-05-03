@@ -1,11 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T02:36:13.000Z"
+updated_at: "2026-05-03T11:23:57.000Z"
+approved_at: "2026-05-03T11:23:57.000Z"
 tags: ["app", "chat", "composer", "webview"]
 depends_on:
   [
@@ -17,7 +18,7 @@ depends_on:
   ]
 ---
 
-# App Chat Composer - Product Specification
+<!-- APPROVED: 2026-05-03 - Do not edit without version bump -->
 
 ## References
 
@@ -63,16 +64,18 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | FR-6 | Own prompt-history recall from the composer textarea, including ArrowUp/ArrowDown cursor policy and draft restoration                                                  | Should Have |
 | FR-7 | Own composer-adjacent activity strip behavior that previews live thinking without becoming the message timeline                                                        | Should Have |
 | FR-8 | Preserve host/webview boundaries; composer UI sends bridge messages but does not call VSCode APIs directly                                                             | Must Have   |
+| FR-9 | Intercept system-command prefixes (`!`) in the composer and dispatch `chat/runCommand` instead of sending to the LLM; strip the `!` prefix before routing              | Must Have   |
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                     | Target                                                                          |
-| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------- |
-| NFR-1 | Composer remains keyboard-friendly              | Enter/modified-enter behavior is explicit and tested where possible             |
-| NFR-2 | Footer copy stays concise                       | Footer state can be understood without reading settings docs                    |
-| NFR-3 | Runtime state changes do not cause layout jumps | Queue/footer/control surfaces remain stable                                     |
-| NFR-4 | Composer helpers stay cheap                     | Trigger detection is string-local and avoids bridge calls unless a picker opens |
-| NFR-5 | Source/spec traceability is bidirectional       | Major composer zones have local source anchors and design node references       |
+| ID    | Requirement                                     | Target                                                                                                                                                                                                              |
+| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NFR-1 | Composer remains keyboard-friendly              | Enter/modified-enter behavior is explicit and tested where possible                                                                                                                                                 |
+| NFR-2 | Footer copy stays concise                       | Footer state can be understood without reading settings docs                                                                                                                                                        |
+| NFR-3 | Runtime state changes do not cause layout jumps | Queue/footer/control surfaces remain stable                                                                                                                                                                         |
+| NFR-4 | Composer helpers stay cheap                     | Trigger detection is string-local and avoids bridge calls unless a picker opens                                                                                                                                     |
+| NFR-5 | Source/spec traceability is bidirectional       | Major composer zones have local source anchors and design node references                                                                                                                                           |
+| NFR-6 | System command UX is persistent but unobtrusive | An amber "Shell" badge appears in the composer input group when `!` is active; footer shows `"⚠ Shell · output is local only"`; these cues are always visible while the prefix is active and do not block execution |
 
 ---
 
@@ -84,6 +87,18 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Footer hint changes can start from this spec without reading history/settings/message specs
 - [ ] Slash, mention, model, thinking, queue, send, steer, abort, and prompt-history behavior has a named owner
 - [ ] Composer design includes ASCII UI, component/control, code locator, and trace matrix sections that map to source anchors
+
+### System Commands
+
+- [ ] Typing `!ls` and pressing Enter dispatches `chat/runCommand` instead of `chat/send`
+- [ ] The `!` prefix is stripped before the command string is sent
+- [ ] System commands execute concurrently with LLM streaming (separate execution context)
+- [ ] Commands run in the VSCode workspace root directory
+- [ ] Output and errors render as a distinct message type in the timeline
+- [ ] Amber "Shell" badge visible in composer input group when `!` is active
+- [ ] Footer persistent warning: `"⚠ Shell · output is local only"`
+- [ ] Dangerous-pattern guard: commands containing `rm -rf`, `del /f /s`, `format`, `mkfs`, `dd` prompt a confirm dialog before execution (Cancel / Run anyway)
+- [ ] Output card: monospace block; stdout in muted text, stderr in red, exit code as badge
 
 ### Boundaries
 
@@ -125,8 +140,8 @@ None.
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Owned surface   | Chat composer input, footer, queue strip, activity bar, composer toolbar                                                                                                                                                                         |
 | Owned files     | `apps/chat/src/views/chat.tsx`, `apps/chat/src/components/model-combobox.tsx`, `apps/chat/src/components/slash-popup.tsx`, `apps/chat/src/components/mention-popup.tsx`, `apps/chat/src/lib/composer-detect.ts`, `apps/chat/src/lib/mentions.ts` |
-| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort handlers, helper popup components, model/thinking controls                                                                                            |
-| Bridge messages | Chat send/steer/abort/queue requests and runtime readiness payloads consumed by composer                                                                                                                                                         |
+| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort/command handlers, helper popup components, model/thinking controls                                                                                    |
+| Bridge messages | Chat send/steer/abort/queue/runCommand requests and runtime readiness payloads consumed by composer                                                                                                                                              |
 | Settings keys   | Composer-visible runtime/provider/model settings only as displayed state                                                                                                                                                                         |
 | Commands        | Slash commands and composer actions, not VSCode extension commands                                                                                                                                                                               |
 | Tests           | Chat view/composer tests, helper tests, future e2e keyboard tests                                                                                                                                                                                |
@@ -136,7 +151,9 @@ None.
 
 ### Glossary
 
-| Term        | Definition                                                                 |
-| ----------- | -------------------------------------------------------------------------- |
-| Composer    | The chat input surface and controls used to prepare or send a user request |
-| Queue strip | Composer-visible representation of queued or staged content                |
+| Term                    | Definition                                                                                                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Composer                | The chat input surface and controls used to prepare or send a user request                                                                                                       |
+| Queue strip             | Composer-visible representation of queued or staged content                                                                                                                      |
+| System command          | Any shell command prefixed with `!` in the composer; executed locally in the extension host, never sent to the LLM                                                               |
+| Dangerous-pattern guard | Confirm dialog triggered when a system command matches known destructive patterns (`rm -rf`, `del /f /s`, `format`, `mkfs`, `dd`); requires user acknowledgment before execution |

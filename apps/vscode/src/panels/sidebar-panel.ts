@@ -13,6 +13,7 @@
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
 
+import { spawn } from "child_process";
 import * as vscode from "vscode";
 
 import {
@@ -1211,6 +1212,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void appendNoteToWorkspace(msg.content);
         return;
       }
+      case "chat/runCommand": {
+        void handleRunCommand(msg.requestId, msg.command);
+        return;
+      }
+      case "chat/confirmDangerous": {
+        void handleConfirmDangerous(msg.requestId, msg.command, msg.reason);
+        return;
+      }
       default: {
         const _never: never = msg;
         inboundLog.warn("unknown inbound", { msg: _never });
@@ -1253,6 +1262,87 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       postedRestartRequiredInfo = message;
       await runtimeMonitor.check(requestId);
     }
+  }
+
+  /**
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-9]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-SYSTEM-COMMAND]
+   */
+  function handleRunCommand(requestId: string, command: string): void {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      post({ type: "agent/commandOutput", requestId, error: "No workspace folder open" });
+      return;
+    }
+
+    const isWin = process.platform === "win32";
+    const shell = isWin ? "cmd" : "/bin/bash";
+    const shellArgs = isWin ? ["/c", command] : ["-c", command];
+
+    const proc = spawn(shell, shellArgs, {
+      cwd: workspaceRoot,
+      timeout: 30_000,
+    });
+
+    proc.stdout?.on("data", (chunk: Buffer) => {
+      post({
+        type: "agent/commandOutput",
+        requestId,
+        delta: chunk.toString(),
+        kind: "stdout",
+      });
+    });
+
+    proc.stderr?.on("data", (chunk: Buffer) => {
+      post({
+        type: "agent/commandOutput",
+        requestId,
+        delta: chunk.toString(),
+        kind: "stderr",
+      });
+    });
+
+    proc.on("close", (code: number | null, signal: string | null) => {
+      if (signal === "SIGTERM") {
+        post({
+          type: "agent/commandOutput",
+          requestId,
+          done: true,
+          exitCode: -1,
+          error: "Command timed out after 30s",
+        });
+      } else {
+        post({ type: "agent/commandOutput", requestId, done: true, exitCode: code ?? -1 });
+      }
+    });
+
+    proc.on("error", (err: Error) => {
+      log.error("shell execution failed", err);
+      post({ type: "agent/commandOutput", requestId, error: err.message });
+    });
+  }
+
+  /**
+   * Shows a VSCode warning dialog for dangerous commands and sends confirmation back.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [NFR-6]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-ERR]
+   */
+  async function handleConfirmDangerous(
+    requestId: string,
+    command: string,
+    reason?: string,
+  ): Promise<void> {
+    const detail = reason
+      ? `${reason}\n\nThis action cannot be undone.`
+      : "This action cannot be undone.";
+    const confirmed = await vscode.window.showWarningMessage(
+      `⚠ Destructive command detected: "${command.slice(0, 50)}${command.length > 50 ? "…" : ""}"`,
+      { detail, modal: true },
+      "Run anyway",
+      "Cancel",
+    );
+    post({ type: "agent/dangerousConfirmed", requestId, confirmed: confirmed === "Run anyway" });
   }
 
   async function handleGetModels(requestId: string): Promise<void> {

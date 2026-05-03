@@ -440,6 +440,22 @@ export type ChatToAgent =
    */
   | { type: "chat/setThinkingLevel"; requestId: string; level: ThinkingLevel }
   /**
+   * User typed a system command prefixed with "!". Host executes it locally
+   * and streams the output back as a system message. Not sent to the LLM.
+   *
+   * @see docs/specs/210-app-chat/spec.md [FR-1]
+   * @see docs/specs/210-app-chat/design.md [DES-COMPOSER-FLOW]
+   */
+  | { type: "chat/runCommand"; requestId: string; command: string }
+  /**
+   * Request confirmation from the user before executing a potentially dangerous command.
+   * Host shows a VSCode warning dialog. Response is `agent/dangerousConfirmed`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [NFR-6]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-ERR]
+   */
+  | { type: "chat/confirmDangerous"; requestId: string; command: string; reason?: string }
+  /**
    * Settings runtime control: streaming-mode steer policy.
    *
    * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
@@ -746,7 +762,35 @@ export type AgentToChat =
    * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
    * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
    */
-  | { type: "agent/compacted"; requestId: string; result: CompactionResult };
+  | { type: "agent/compacted"; requestId: string; result: CompactionResult }
+  /**
+   * Streaming output from a system command execution.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-9]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-SYSTEM-COMMAND]
+   */
+  | {
+      type: "agent/commandOutput";
+      requestId: string;
+      streamId?: string;
+      /** Partial stdout or stderr text. */
+      delta?: string;
+      /** Which stream this delta came from. */
+      kind?: "stdout" | "stderr";
+      /** Set to true when the command finishes (after the last delta). */
+      done?: boolean;
+      /** Exit code of the process (0-255). Present when done === true. */
+      exitCode?: number;
+      /** Error message if the process could not start (e.g., ENOENT). */
+      error?: string;
+    }
+  /**
+   * Response to `chat/confirmDangerous` — whether the user confirmed or cancelled.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [NFR-6]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-ERR]
+   */
+  | { type: "agent/dangerousConfirmed"; requestId: string; confirmed: boolean };
 
 // ---------------------------------------------------------------------------
 // Workbench — placeholders, not yet used
