@@ -3,7 +3,7 @@
  * Implementations: createVscodeTransport() (postMessage) and createMockTransport() (scripted scenarios).
  *
  * @see docs/specs/110-package-transport/spec.md [FR-1] [FR-5]
- * @see docs/specs/110-package-transport/design.md [DES-API]
+ * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-INTERFACE] [DES-TRANSPORT-LOGGING]
  */
 import type { AgentToChat, ChatToAgent, MessageOf } from "@afx/shared";
 

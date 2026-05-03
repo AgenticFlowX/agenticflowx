@@ -97,3 +97,22 @@ Users who want visibility into tasks and spec progress without leaving VSCode.
 - `@afx/shared` (domain types, workbench protocol)
 - `@afx/ui` (component library)
 - `@afx/parsers` (frontmatter, tasks, journal parsers — host side)
+
+---
+
+## Appendix
+
+### Agent Entry Map (routing-only parent)
+
+This is a parent spec. It owns the workbench webview boundary (tab routing shell, transport bridge,
+context provider) and **does not** own per-zone functional requirements. The table below routes
+incoming requests to the right child zone before reading any source file.
+
+| Field           | Values                                                                                                                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Workbench webview shell, tab routing, context provider, bridge bootstrap; **routing only** for tab content                                                                                                                                                    |
+| Owned files     | `apps/workbench/src/index.tsx`, `apps/workbench/src/app.tsx` (tab routing only), `apps/workbench/src/context/workbench-context.tsx`, `apps/workbench/src/lib/bridge.ts`                                                                                       |
+| Children        | `221-board`, `222-documents`, `223-journal`, `224-notes`, `225-pipeline`, `226-analytics`, `227-shell`, `228-impact-lens`                                                                                                                                     |
+| Routing rules   | "kanban/board/task card" -> 221; "documents explorer/spec viewer" -> 222; "journal entries/timeline" -> 223; "notes view" -> 224; "pipeline/phase/progress" -> 225; "analytics/heatmap" -> 226; "tabs/shell/state" -> 227; "Impact Lens/reverse trace" -> 228 |
+| Out of scope    | Functional requirements for any specific tab; those live in the child specs                                                                                                                                                                                   |
+| Example prompts | "Board drag-drop bug" -> 221; "Add filter to documents" -> 222; "Journal time format" -> 223; "Notes edit-in-place" -> 224; "Pipeline next-action policy" -> 225; "Heatmap range" -> 226; "Tab persistence" -> 227; "Show ghost-node count" -> 228            |

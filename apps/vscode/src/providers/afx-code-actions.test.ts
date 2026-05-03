@@ -1,8 +1,8 @@
 /**
  * AFX editor actions — verify selected editor text is routed into the chat prompt path.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-TEST]
+ * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-1] [FR-2]
+ * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-TEST]
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";

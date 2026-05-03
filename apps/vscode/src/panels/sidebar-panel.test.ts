@@ -8,7 +8,8 @@
  *
  * @see docs/specs/200-app-vscode/spec.md [FR-7]
  * @see docs/specs/200-app-vscode/design.md [DES-ARCH] [DES-TEST]
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [FR-7] [DES-API] [8.2]
+ * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4]
+ * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";

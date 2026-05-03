@@ -3,8 +3,8 @@
  * `@see docs/...` and node ids (FR-X, NFR-X, DES-XXX, X.Y) after typing
  * `@see <path>.md [`.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-1]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -34,6 +34,7 @@ const NODE_KIND_ICON: Record<NodeIdEntry["kind"], vscode.CompletionItemKind> = {
 export function createSeeCompletionProvider(
   getRoot: () => string | undefined,
 ): vscode.CompletionItemProvider {
+  // Flow: [SeeNavigation.Completion]
   return {
     provideCompletionItems(document, position): vscode.CompletionItem[] | undefined {
       const root = getRoot();

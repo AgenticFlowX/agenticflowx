@@ -187,7 +187,7 @@ VS Code users running the AFX sidebar; developers iterating on AFX UI in browser
 
 <!-- SPRINT-SECTION-START: DESIGN (maps to design.md on graduation; promote ### → ##) -->
 
-## 2. Plan
+## 2. Design
 
 > The HOW — architecture, decisions, data model. Use `[DES-X]` anchors on section headings so code `@see` links can be retargeted cleanly after graduation.
 

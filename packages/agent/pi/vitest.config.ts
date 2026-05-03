@@ -2,7 +2,7 @@
  * Vitest config for the Pi adapter test project.
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1] [FR-4]
- * @see docs/specs/420-dx-testing/design.md [DES-ARCH]
+ * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
  */
 import { defineConfig } from "vitest/config";
 

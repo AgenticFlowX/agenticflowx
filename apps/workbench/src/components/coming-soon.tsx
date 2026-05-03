@@ -1,8 +1,8 @@
 /**
  * ComingSoon — placeholder card for workbench views not yet implemented.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-1] [FR-2]
- * @see docs/specs/220-app-workbench/design.md [DES-UI]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-5]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS]
  */
 import { Hourglass } from "lucide-react";
 

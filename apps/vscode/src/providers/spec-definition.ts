@@ -2,8 +2,8 @@
  * `@see` Definition provider — Cmd-click on a spec path opens the file at line 0;
  * Cmd-click on `[FR-X]` / `[DES-XXX]` / `[X.Y]` jumps to the matched line.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-1] [FR-2]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
  */
 import * as vscode from "vscode";
 
@@ -12,6 +12,7 @@ import { getSeeContextAt, resolveNode } from "./see-resolver";
 export function createSpecDefinitionProvider(
   getRoot: () => string | undefined,
 ): vscode.DefinitionProvider {
+  // Flow: [SeeNavigation.Definition]
   return {
     provideDefinition(document, position): vscode.Location | undefined {
       const root = getRoot();

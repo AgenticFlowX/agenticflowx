@@ -5,7 +5,9 @@
  * @see docs/specs/210-app-chat/spec.md [FR-1]
  * @see docs/specs/210-app-chat/design.md [DES-API]
  * @see docs/specs/110-package-transport/spec.md [FR-1]
- * @see docs/specs/110-package-transport/design.md [DES-ARCH]
+ * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-INTERFACE]
+ * @see docs/specs/350-agent-manager/spec.md [FR-4]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-MULTIPLEX-FLOW]
  */
 import {
   type AgentToChat,
@@ -25,7 +27,11 @@ export function initTransport(t: Transport): void {
   _transport = t;
 }
 
-/** Post a typed command to the agent engine. */
+/**
+ * Flow: [Bridge.ChatToAgent]
+ *
+ * Post a typed command to the agent engine.
+ */
 export function bridgeSend(msg: ChatToAgent): void {
   if (_transport) {
     _transport.send(msg);
@@ -34,7 +40,11 @@ export function bridgeSend(msg: ChatToAgent): void {
   }
 }
 
-/** Subscribe to a specific agent→chat event type. Returns unsubscribe fn. */
+/**
+ * Flow: [Bridge.ChatToAgent]
+ *
+ * Subscribe to a specific agent->chat event type. Returns unsubscribe fn.
+ */
 export function bridgeOn<T extends AgentToChat["type"]>(
   type: T,
   handler: (msg: MessageOf<AgentToChat, T>) => void,

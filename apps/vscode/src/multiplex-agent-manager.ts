@@ -1,7 +1,8 @@
 /**
  * Host-side router that presents many runtime instances as one AgentManager.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-MULTIPLEX-FLOW] [DES-AGENT-LIFECYCLE]
  */
 import type {
   AgentCommand,
@@ -30,6 +31,12 @@ export interface MultiplexedAgentManagerOptions {
   rpcEnabledGetter?: () => boolean;
 }
 
+/**
+ * Flow: [AgentManager.Multiplexer]
+ *
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-ARCH]
+ */
 export class MultiplexedAgentManager implements AgentManager {
   private active: AgentInstance | null;
   private readonly modelCache = new Map<string, AgentModel[]>();

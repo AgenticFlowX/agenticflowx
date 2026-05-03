@@ -166,7 +166,7 @@ VSCode extension users running AFX commands; AFX skill authors; developers itera
 
 <!-- SPRINT-SECTION-START: DESIGN (maps to design.md on graduation; promote ### → ##) -->
 
-## 2. Plan
+## 2. Design
 
 > The HOW — architecture, decisions, data model. Mirrors `afx-design/assets/design-template.md`. Use `[DES-X]` anchors on section headings so code `@see` links can be retargeted cleanly after graduation.
 
@@ -901,7 +901,7 @@ Each rule is enforced at PR time by a grep or a test-coverage gate. The intent: 
 - **7.x** — Phase 7: Settings tab content — depends on 2.x
 - **8.x** — Phase 8: Testability harness + abstraction guards — independent; can land first or last
 
-References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan section), `[X.Y]` (this Tasks section).
+References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design section), `[X.Y]` (this Tasks section).
 
 ### Phase 1: Skill bundling (`--skill` flag)
 

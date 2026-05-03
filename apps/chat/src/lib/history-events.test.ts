@@ -1,3 +1,9 @@
+/**
+ * Unit coverage for History event derivation.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-8] [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-TEST]
+ */
 import { describe, expect, it } from "vitest";
 
 import type { ChatMessageView } from "@afx/shared";

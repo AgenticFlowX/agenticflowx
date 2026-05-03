@@ -9,7 +9,9 @@
  *  - Auto-dismiss:  pass onDismiss + autoDismissMs → timer fires onDismiss.
  *  - Persistent:    omit both → no ✕, no timer; parent unmounts when its condition flips.
  *
- * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [DES-NOTES-CHAT]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP] [DES-COMPOSER-QUEUE]
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-1]
  */
 import { type ReactNode, useEffect, useState } from "react";
 
@@ -34,6 +36,12 @@ export interface ComposerStripProps {
   children: ReactNode;
 }
 
+/**
+ * Renders reusable collapsible strip chrome above the composer.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ */
 export function ComposerStrip({
   title,
   count,

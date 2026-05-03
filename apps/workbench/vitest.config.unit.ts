@@ -2,7 +2,7 @@
  * Vitest config for apps/workbench — React component unit tests (jsdom).
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1] [NFR-1]
- * @see docs/specs/220-app-workbench/design.md [DES-TEST]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-TEST]
  */
 import { resolve } from "node:path";
 

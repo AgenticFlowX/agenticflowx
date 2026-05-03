@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [package, shared, protocol, types, agent, logging]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
 ---
 
@@ -22,7 +22,7 @@ spec: spec.md
 
 ## [DES-ARCH] Architecture
 
-### System Context
+### [DES-SHARED-SYSTEM-CONTEXT] System Context
 
 ```text
 packages/shared/
@@ -51,7 +51,7 @@ packages/shared/
 
 ## [DES-DATA] Data Model
 
-### Message Protocol
+### [DES-SHARED-CHAT-PROTOCOL] Chat Message Protocol
 
 ```typescript
 // Chat → Extension host direction
@@ -89,7 +89,7 @@ type AgentToChat =
     };
 ```
 
-### View Types
+### [DES-SHARED-CHAT-VIEW-TYPES] Chat View Types
 
 ```typescript
 type ChatRole = "user" | "assistant";
@@ -121,7 +121,7 @@ interface ChatUsageView {
 }
 ```
 
-### Agent Contract
+### [DES-SHARED-AGENT-CONTRACT] Agent Contract
 
 ```typescript
 // Minimal structural interface — VSCode types satisfy this structurally
@@ -177,7 +177,7 @@ interface AgentManager {
 }
 ```
 
-### Domain Types
+### [DES-SHARED-DOMAIN-TYPES] Domain Types
 
 ```typescript
 type TaskStatus = "todo" | "in-progress" | "done" | "blocked";
@@ -226,6 +226,44 @@ interface Discussion {
   summary: string;
 }
 ```
+
+### [DES-SHARED-WORKBENCH-PROTOCOL] Workbench Protocol And Types
+
+`packages/shared/src/workbench-protocol.ts` owns the host/webview protocol for
+the Workbench bottom panel, while `packages/shared/src/workbench-types.ts` owns
+the durable row models rendered by Workbench views.
+
+```text
+apps/vscode/src/panels/workbench-panel.ts
+  -> WorkbenchInbound: afxUpdate | afxDocContent | afxAppearanceUpdated | afxTelemetryUpdated
+  -> apps/workbench/src/lib/bridge.ts
+  -> apps/workbench/src/context/workbench-context.tsx
+
+apps/workbench/src/views/*
+  -> WorkbenchOutbound: afxReady | afxOpenFile | afxFetchDocContent
+                      | afxSelectFeature | afxChangeStatus
+                      | afxToggleTask | afxToggleSession
+                      | afxSaveFile | afxAppendNote | afxDeleteNote
+```
+
+### [DES-SHARED-WORKBENCH-TYPES] Workbench Row Models
+
+| Type               | Source                                   | Consumers                                       |
+| ------------------ | ---------------------------------------- | ----------------------------------------------- |
+| `PipelineRow`      | `packages/shared/src/workbench-types.ts` | Pipeline, Analytics, Workbench feature selector |
+| `FeatureTasksData` | `packages/shared/src/workbench-types.ts` | Workbench tasks/sessions columns                |
+| `DocumentRow`      | `packages/shared/src/workbench-types.ts` | Documents browser and reader                    |
+| `JournalEntry`     | `packages/shared/src/workbench-types.ts` | Journal view and Analytics activity metrics     |
+| `KanbanData`       | `packages/shared/src/workbench-types.ts` | Board view                                      |
+| `QuickNote`        | `packages/shared/src/workbench-types.ts` | Notes view                                      |
+| `GhostTaskResult`  | `packages/shared/src/workbench-types.ts` | Analytics and Documents attention surfaces      |
+
+### [DES-SHARED-PROVIDER-CATALOG] Provider Catalog
+
+`packages/shared/src/provider-catalog.ts` is the shared provider registry used by
+host/runtime settings and webview provider cards. It keeps provider display
+metadata, default model IDs, and Pi-compatible environment variable aliases out
+of UI-specific code.
 
 ---
 
@@ -319,7 +357,7 @@ A faulty sink throws are caught and isolated; logging to other sinks continues.
 
 ## [DES-TEST] Testing Strategy
 
-### Unit Tests
+### [DES-SHARED-TEST-UNIT] Unit Tests
 
 - `constants.test.ts` covers exported constants
 - Types are structural — validated at compile time, not runtime
@@ -328,25 +366,61 @@ A faulty sink throws are caught and isolated; logging to other sinks continues.
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Initial Implementation
+### [DES-SHARED-ROLLOUT-INITIAL] Initial Implementation
 
 1. Define message discriminated unions in `messages.ts`
 2. Define domain types in `types.ts`
 3. Re-export all from `index.ts`
 
-### Rollback Plan
+### [DES-SHARED-ROLLOUT-ROLLBACK] Rollback Plan
 
 Revert `messages.ts` and `types.ts` to previous version; all consumers recompile.
 
 ---
 
-## File Reference Map
+## [DES-SHARED-LOC] Code Locator Map
 
-| Task | File                               | Required @see                                    |
-| ---- | ---------------------------------- | ------------------------------------------------ |
-| —    | `packages/shared/src/index.ts`     | `spec.md [FR-1]` + `design.md [DES-API]`         |
-| —    | `packages/shared/src/agent.ts`     | `spec.md [FR-5]` + `design.md [DES-DATA]`        |
-| —    | `packages/shared/src/logger.ts`    | `spec.md [FR-6]` + `design.md [DES-LOG]`         |
-| —    | `packages/shared/src/messages.ts`  | `spec.md [FR-1] [FR-4]` + `design.md [DES-DATA]` |
-| —    | `packages/shared/src/types.ts`     | `spec.md [FR-3]` + `design.md [DES-DATA]`        |
-| —    | `packages/shared/src/constants.ts` | `spec.md [FR-3]` + `design.md [DES-DATA]`        |
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] -->
+
+| Shared contract           | Source anchor                                                      | Design node                       | Downstream consumers                     |
+| ------------------------- | ------------------------------------------------------------------ | --------------------------------- | ---------------------------------------- |
+| Barrel exports            | `packages/shared/src/index.ts`                                     | `[DES-API]`                       | all apps/packages                        |
+| Chat protocol             | `packages/shared/src/messages.ts`                                  | `[DES-SHARED-CHAT-PROTOCOL]`      | chat bridge, sidebar panel, transport    |
+| Chat timeline view models | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`  | `[DES-SHARED-CHAT-VIEW-TYPES]`    | chat timeline, history, mock transport   |
+| Workbench protocol        | `packages/shared/src/workbench-protocol.ts`                        | `[DES-SHARED-WORKBENCH-PROTOCOL]` | workbench bridge, workbench panel        |
+| Workbench row models      | `packages/shared/src/workbench-types.ts`                           | `[DES-SHARED-WORKBENCH-TYPES]`    | workbench views, specs-data service      |
+| Agent contract            | `packages/shared/src/agent.ts`                                     | `[DES-SHARED-AGENT-CONTRACT]`     | agent managers, extension host           |
+| Domain constants/types    | `packages/shared/src/constants.ts`, `packages/shared/src/types.ts` | `[DES-SHARED-DOMAIN-TYPES]`       | commands, parser/feature surfaces        |
+| Provider catalog          | `packages/shared/src/provider-catalog.ts`                          | `[DES-SHARED-PROVIDER-CATALOG]`   | settings/provider cards, agent factory   |
+| Structured logger         | `packages/shared/src/logger.ts`                                    | `[DES-LOG]`                       | extension host, webviews, agent packages |
+
+---
+
+## [DES-SHARED-TRACE] 1:1 Code/Spec Matrix
+
+| Requirement | Design node                                                       | Source anchor                                                                         |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `[FR-1]`    | `[DES-SHARED-CHAT-PROTOCOL]`                                      | `packages/shared/src/messages.ts`                                                     |
+| `[FR-2]`    | `[DES-SHARED-CHAT-VIEW-TYPES]`                                    | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`                     |
+| `[FR-3]`    | `[DES-SHARED-DOMAIN-TYPES]`                                       | `packages/shared/src/types.ts`, `packages/shared/src/constants.ts`                    |
+| `[FR-4]`    | `[DES-SHARED-WORKBENCH-PROTOCOL]`, `[DES-SHARED-WORKBENCH-TYPES]` | `packages/shared/src/workbench-protocol.ts`, `packages/shared/src/workbench-types.ts` |
+| `[FR-5]`    | `[DES-SHARED-AGENT-CONTRACT]`                                     | `packages/shared/src/agent.ts`                                                        |
+| `[FR-6]`    | `[DES-LOG]`                                                       | `packages/shared/src/logger.ts`                                                       |
+| `[NFR-1]`   | `[DES-DEPS]`                                                      | `packages/shared/src/no-react.test.ts`                                                |
+| `[NFR-2]`   | `[DES-DEPS]`                                                      | `packages/shared/package.json`                                                        |
+
+---
+
+## [DES-SHARED-REFS] File Reference Map
+
+| Task | File                                        | Required @see                                                    |
+| ---- | ------------------------------------------- | ---------------------------------------------------------------- |
+| —    | `packages/shared/src/index.ts`              | `spec.md [FR-1]` + `design.md [DES-API]`                         |
+| —    | `packages/shared/src/agent.ts`              | `spec.md [FR-5]` + `design.md [DES-SHARED-AGENT-CONTRACT]`       |
+| —    | `packages/shared/src/logger.ts`             | `spec.md [FR-6]` + `design.md [DES-LOG]`                         |
+| —    | `packages/shared/src/messages.ts`           | `spec.md [FR-1] [FR-2]` + `design.md [DES-SHARED-CHAT-PROTOCOL]` |
+| —    | `packages/shared/src/workbench-protocol.ts` | `spec.md [FR-4]` + `design.md [DES-SHARED-WORKBENCH-PROTOCOL]`   |
+| —    | `packages/shared/src/workbench-types.ts`    | `spec.md [FR-4]` + `design.md [DES-SHARED-WORKBENCH-TYPES]`      |
+| —    | `packages/shared/src/provider-catalog.ts`   | `design.md [DES-SHARED-PROVIDER-CATALOG]`                        |
+| —    | `packages/shared/src/types.ts`              | `spec.md [FR-3]` + `design.md [DES-SHARED-DOMAIN-TYPES]`         |
+| —    | `packages/shared/src/constants.ts`          | `spec.md [FR-3]` + `design.md [DES-SHARED-DOMAIN-TYPES]`         |

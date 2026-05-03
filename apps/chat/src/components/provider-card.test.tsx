@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-TEST]
  */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";

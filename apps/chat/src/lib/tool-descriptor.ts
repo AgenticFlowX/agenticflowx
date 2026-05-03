@@ -1,8 +1,10 @@
 /**
  * Tool event descriptors for chat timeline and history work-log rows.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-10] [3.3]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-CHAT] [DES-TEST]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-4]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+ * @see docs/specs/213-app-chat-history/spec.md [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
  */
 import {
   CircleHelp,
@@ -17,6 +19,13 @@ import {
 
 import type { ChatToolView } from "@afx/shared";
 
+/**
+ * Derives the shared tool action/target labels used by message and History rows.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-4]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+ * @see docs/specs/213-app-chat-history/spec.md [FR-9]
+ */
 export function toolDescriptor(tool: ChatToolView): {
   icon: LucideIcon;
   action: string;

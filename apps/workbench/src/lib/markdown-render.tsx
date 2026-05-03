@@ -3,14 +3,21 @@
  * spec/design/tasks tables, task checkboxes, links, numbered lists render
  * correctly. Frontmatter is stripped before render.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-4] [FR-8] [FR-10]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS] [DES-NOTES]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MARKDOWN]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-5]
  */
 import { useMemo } from "react";
 
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+/**
+ * Remove AFX frontmatter before rendering markdown preview content.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MARKDOWN]
+ */
 function stripFrontmatter(raw: string): string {
   return raw.replace(/^---[\s\S]*?---\s*/m, "");
 }
@@ -143,8 +150,9 @@ const components: Components = {
 /**
  * Render markdown for Workbench panes (notes, journal, spec/design/tasks columns).
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-4] [FR-8] [FR-10]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS] [DES-NOTES]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MARKDOWN]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-5]
  */
 export function MinimalMarkdown({ content }: { content: string }) {
   const stripped = useMemo(() => stripFrontmatter(content), [content]);

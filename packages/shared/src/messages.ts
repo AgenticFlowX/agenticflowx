@@ -4,7 +4,7 @@
  * Transport-agnostic: works over VSCode postMessage, WebSocket, or any adapter.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-2] [FR-4]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL] [DES-SHARED-CHAT-VIEW-TYPES]
  */
 import type {
   AgentCommand,
@@ -23,8 +23,8 @@ import type {
 /**
  * Runtime appearance identities and treatment styles.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4] [FR-5]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-DATA] [DES-API]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-DATA] [DES-API]
  */
 export const AFX_THEME_IDS = ["meridian"] as const;
 export type AfxThemeId = (typeof AFX_THEME_IDS)[number];
@@ -55,7 +55,7 @@ export type ChatRole = "user" | "assistant" | "compactionSummary";
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-2]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export interface ChatUsageView {
   tokens: {
@@ -75,7 +75,7 @@ export interface ChatUsageView {
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-2]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export interface ChatMessageView {
   id: string;
@@ -98,7 +98,7 @@ export interface ChatMessageView {
  * Any item that can appear in the chat timeline — regular messages or special cards.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-2] [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export type ChatTimelineItem = ChatMessageView | ChatCompactionView;
 
@@ -107,7 +107,7 @@ export type ChatTimelineItem = ChatMessageView | ChatCompactionView;
  * Displayed as a distinct system message in the chat timeline.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export interface ChatCompactionView {
   id: string;
@@ -123,7 +123,7 @@ export interface ChatCompactionView {
  * Lightweight summary of a tool execution surfaced in the chat UI.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-2]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export interface ChatToolView {
   toolCallId: string;
@@ -135,7 +135,8 @@ export interface ChatToolView {
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-12] [DES-MENTION]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-DATA]
  */
 export interface AgentFileView {
   path: string;
@@ -145,15 +146,16 @@ export interface AgentFileView {
 /**
  * Provider credential/configuration state surfaced in Settings.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export type ProviderConnectionState = "empty" | "configured" | "invalid" | "no-key-needed";
 
 /**
  * API Provider settings snapshot for the Settings view.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export interface SettingsProviderSnapshot {
   id: string;
@@ -170,8 +172,8 @@ export interface SettingsProviderSnapshot {
 /**
  * External local-agent settings snapshot for the Settings view.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export interface SettingsExternalAgentSnapshot {
   id: string;
@@ -187,8 +189,8 @@ export interface SettingsExternalAgentSnapshot {
 /**
  * API Provider runtime configuration surfaced in Settings.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export interface SettingsSdkSnapshot {
   enabled: boolean;
@@ -198,7 +200,8 @@ export interface SettingsSdkSnapshot {
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export interface SettingsSnapshot {
   appearance: RuntimeAppearanceSnapshot;
@@ -226,24 +229,83 @@ export interface SettingsSnapshot {
 // ---------------------------------------------------------------------------
 
 /**
+ * Discriminated union of every webview-to-host message. Per-variant `@see`
+ * routes each shape to its owning zone — the source spec a developer should
+ * read first when changing that variant's payload or behavior.
+ *
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-4]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 export type ChatToAgent =
-  /** Webview finished mounting and is ready to receive state. */
+  /**
+   * Webview finished mounting and is ready to receive state.
+   *
+   * @see docs/specs/210-app-chat/spec.md [FR-1]
+   * @see docs/specs/210-app-chat/design.md [DES-API]
+   */
   | { type: "chat/ready" }
-  /** User submitted a message. `requestId` lets us correlate error back. */
+  /**
+   * User submitted a message. `requestId` lets us correlate error back.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
+   */
   | { type: "chat/send"; requestId: string; content: string; mentions?: string[] }
-  /** User pressed abort. */
+  /**
+   * User pressed abort.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/abort" }
-  /** User requested a fresh pi session. */
+  /**
+   * User requested a fresh pi session.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/newSession" }
-  /** Webview reconnecting / asking for the current state snapshot. */
+  /**
+   * Webview reconnecting / asking for the current state snapshot.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/getState" }
+  /**
+   * Probe runtime status (used by recovery flows and webview boot).
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "agent/checkStatus"; requestId: string }
+  /**
+   * User-triggered restart of the active agent runtime.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "agent/restart"; requestId: string }
+  /**
+   * Reload the agent runtime configuration without a full restart.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "agent/reload"; requestId: string }
+  /**
+   * Settings panel requests the current model list.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/getModels"; requestId: string }
+  /**
+   * Composer model picker selected a different model.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
+   */
   | {
       type: "chat/setModel";
       requestId: string;
@@ -251,16 +313,82 @@ export type ChatToAgent =
       modelId: string;
       instanceId?: string;
     }
+  /**
+   * Composer slash popup requests the available commands.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
+   */
   | { type: "chat/getCommands"; requestId: string }
+  /**
+   * Composer mention popup requests recent/workspace files.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
+   */
   | { type: "chat/listFiles"; requestId: string; query?: string; limit?: number }
+  /**
+   * Settings panel requests the full settings snapshot.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/getSettingsSnapshot"; requestId: string }
+  /**
+   * Settings panel sets a provider API key.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-2]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "provider/setApiKey"; requestId: string; provider: string; key: string }
+  /**
+   * Settings panel clears a provider API key.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-2]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "provider/clearApiKey"; requestId: string; provider: string }
+  /**
+   * Settings panel sets the default model for a provider.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-2]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "provider/setDefaultModel"; requestId: string; provider: string; modelId: string }
+  /**
+   * Settings recovery action: detect Pi binary on disk.
+   *
+   * @see docs/specs/351-agent-pi/spec.md [FR-1]
+   * @see docs/specs/351-agent-pi/design.md [DES-API]
+   */
   | { type: "external/detectPiBinary"; requestId: string }
+  /**
+   * Toggle Pi RPC runtime on/off.
+   *
+   * @see docs/specs/351-agent-pi/spec.md [FR-1]
+   * @see docs/specs/351-agent-pi/design.md [DES-API]
+   */
   | { type: "external/setRpcEnabled"; requestId: string; enabled: boolean }
+  /**
+   * Toggle Pi ephemeral session mode.
+   *
+   * @see docs/specs/351-agent-pi/spec.md [FR-1]
+   * @see docs/specs/351-agent-pi/design.md [DES-API]
+   */
   | { type: "external/setEphemeral"; requestId: string; enabled: boolean }
+  /**
+   * Settings diagnostics: pull recent agent stderr.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "chat/getStderr"; requestId: string; maxLines?: number }
+  /**
+   * Open a VSCode settings UI focused on a known AFX configuration key.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | {
       type: "chat/openSettings";
       requestId: string;
@@ -278,32 +406,87 @@ export type ChatToAgent =
         | "afx.style"
         | "afx.telemetry.enabled";
     }
+  /**
+   * Telemetry consent toggle.
+   *
+   * @see docs/specs/901-cross-telemetry/spec.md [FR-1]
+   * @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]
+   */
   | { type: "telemetry/setEnabled"; requestId: string; enabled: boolean }
+  /**
+   * Appearance change from the Settings appearance preview.
+   *
+   * @see docs/specs/131-package-ui-design-system/spec.md [FR-3]
+   * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
+   */
   | {
       type: "appearance/update";
       requestId: string;
       theme?: string;
       style?: string;
     }
+  /**
+   * Compact context (manual or auto trigger).
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/compact"; requestId: string; customInstructions?: string }
+  /**
+   * Composer thinking-level selector change.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
+   */
   | { type: "chat/setThinkingLevel"; requestId: string; level: ThinkingLevel }
+  /**
+   * Settings runtime control: streaming-mode steer policy.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/setSteeringMode"; requestId: string; mode: QueueMode }
+  /**
+   * Settings runtime control: streaming-mode follow-up policy.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/setFollowUpMode"; requestId: string; mode: QueueMode }
+  /**
+   * Settings runtime control: enable auto-compaction.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/setAutoCompaction"; requestId: string; enabled: boolean }
+  /**
+   * Settings runtime control: enable auto-retry.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "chat/setAutoRetry"; requestId: string; enabled: boolean }
   /**
    * Inject a message into the active turn (mid-stream). Webview should only
    * dispatch this while the runtime status reports `isStreaming === true`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/steer"; requestId: string; content: string; mentions?: string[] }
   /**
    * Queue a message for after the active turn completes.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/followUp"; requestId: string; content: string; mentions?: string[] }
   /**
    * User saved the composer draft as a note (Cmd+Enter). Host writes to .afx/notes.md.
    *
-   * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-2] [NFR-2] [DES-NOTES-CHAT]
+   * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
+   * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW]
    */
   | { type: "chat/saveNote"; content: string };
 
@@ -312,11 +495,20 @@ export type ChatToAgent =
 // ---------------------------------------------------------------------------
 
 /**
+ * Discriminated union of every host-to-webview message. Per-variant `@see`
+ * routes each shape to its owning zone — the source spec a developer should
+ * read first when changing that variant's payload or rendering behavior.
+ *
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-4]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 export type AgentToChat =
-  /** Full state snapshot. Sent on ready and on reconnect. */
+  /**
+   * Full state snapshot. Sent on ready and on reconnect.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | {
       type: "chat/state";
       isStreaming: boolean;
@@ -326,9 +518,17 @@ export type AgentToChat =
   /**
    * Append text into the chat composer draft (no send).
    * Used by host-side editor actions such as "Add to Context".
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/draftAppend"; content: string }
-  /** Lightweight toast notification surfaced by the host. */
+  /**
+   * Lightweight toast notification surfaced by the host.
+   *
+   * @see docs/specs/210-app-chat/spec.md [FR-1]
+   * @see docs/specs/210-app-chat/design.md [DES-API]
+   */
   | {
       type: "chat/toast";
       tone: "success" | "info" | "error";
@@ -336,13 +536,23 @@ export type AgentToChat =
       description?: string;
       durationMs?: number;
     }
-  /** Telemetry enablement snapshot for the webview (used by Clarity integration). */
+  /**
+   * Telemetry enablement snapshot for the webview (used by Clarity integration).
+   *
+   * @see docs/specs/901-cross-telemetry/spec.md [FR-1]
+   * @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]
+   */
   | {
       type: "agent/telemetryState";
       enabled: boolean;
       source: "enabled" | "disabledBySetting" | "disabledByVscodeTelemetry";
     }
-  /** New message started (user or assistant). */
+  /**
+   * New message started (user or assistant).
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | {
       type: "chat/messageStart";
       id: string;
@@ -351,20 +561,45 @@ export type AgentToChat =
       /** For user messages, the full content. Assistant content streams via deltas. */
       content?: string;
     }
-  /** Streaming text appended to an in-progress assistant message. */
+  /**
+   * Streaming text appended to an in-progress assistant message.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/messageDelta"; id: string; delta: string }
-  /** Thinking/reasoning text from the model. */
+  /**
+   * Thinking/reasoning text from the model.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-3]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MOCKUP-THINKING]
+   */
   | { type: "chat/thinkingDelta"; id: string; delta: string }
-  /** Message completed. */
+  /**
+   * Message completed.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/messageEnd"; id: string; stopReason?: string }
-  /** Tool execution started. */
+  /**
+   * Tool execution started.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-2]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+   */
   | {
       type: "chat/toolStart";
       toolCallId: string;
       toolName: string;
       args: unknown;
     }
-  /** Tool execution finished. */
+  /**
+   * Tool execution finished.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-2]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+   */
   | {
       type: "chat/toolEnd";
       toolCallId: string;
@@ -376,6 +611,9 @@ export type AgentToChat =
    * `displayInTranscript=false` means the host already made an explicit
    * transcript/no-transcript choice for the same error. `showToast=false`
    * lets tab-specific handlers render contextual settings/action feedback.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MOCKUP-SYSTEM]
    */
   | {
       type: "chat/error";
@@ -384,11 +622,26 @@ export type AgentToChat =
       displayInTranscript?: boolean;
       showToast?: boolean;
     }
-  /** User-initiated abort acknowledged. */
+  /**
+   * User-initiated abort acknowledged.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "chat/aborted" }
-  /** Generic runtime health status. */
+  /**
+   * Generic runtime health status.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "agent/status"; requestId?: string; status: AgentRuntimeStatus }
-  /** Token / cost / context usage after a turn. */
+  /**
+   * Token / cost / context usage after a turn.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-3]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-META]
+   */
   | {
       type: "chat/usage";
       /** Assistant message id this usage belongs to (when available). */
@@ -407,20 +660,65 @@ export type AgentToChat =
         percent: number | null;
       };
     }
+  /**
+   * Settings panel: full model list response.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "agent/models"; requestId: string; models: AgentModel[] }
+  /**
+   * Composer model picker: active model changed.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
+   */
   | { type: "agent/modelChanged"; requestId?: string; model: AgentModel }
+  /**
+   * Composer slash popup: command list response.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
+   */
   | { type: "agent/commands"; requestId: string; commands: AgentCommand[] }
+  /**
+   * Composer mention popup: file list response.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
+   */
   | { type: "agent/files"; requestId: string; files: AgentFileView[] }
+  /**
+   * Settings panel: full snapshot response.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   */
   | { type: "agent/settingsSnapshot"; requestId: string; snapshot: SettingsSnapshot }
+  /**
+   * Appearance change applied (echoed back so all webviews stay in sync).
+   *
+   * @see docs/specs/131-package-ui-design-system/spec.md [FR-3]
+   * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
+   */
   | {
       type: "agent/appearanceUpdated";
       requestId: string;
       appearance: RuntimeAppearanceSnapshot;
     }
+  /**
+   * Settings diagnostics: agent stderr buffer.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   */
   | { type: "agent/stderr"; requestId: string; content: string; truncated?: boolean }
   /**
    * Runtime settings snapshot. Broadcast after activation and after every
    * `chat/set*` mutation so the chat UI reflects the engine's authoritative state.
+   *
+   * @see docs/specs/350-agent-manager/spec.md [FR-1]
+   * @see docs/specs/350-agent-manager/design.md [DES-API]
    */
   | {
       type: "agent/runtimeSettings";
@@ -442,7 +740,12 @@ export type AgentToChat =
         | "runtimeConfigured"
       >;
     }
-  /** Result of a compaction request. */
+  /**
+   * Result of a compaction request.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
   | { type: "agent/compacted"; requestId: string; result: CompactionResult };
 
 // ---------------------------------------------------------------------------
@@ -451,13 +754,13 @@ export type AgentToChat =
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-4]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-PROTOCOL]
  */
 export type WorkbenchToHost = { type: "workbench/ready" };
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-4]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-PROTOCOL]
  */
 export type HostToWorkbench =
   | { type: "workbench/state"; data: unknown }
@@ -471,6 +774,6 @@ export type HostToWorkbench =
  * Extract message variants by their `type` discriminator.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-1]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 export type MessageOf<U extends { type: string }, T extends U["type"]> = Extract<U, { type: T }>;

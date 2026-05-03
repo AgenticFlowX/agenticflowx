@@ -1,12 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [package, ui, design-system, shadcn, tailwind]
+updated_at: "2026-05-03T00:16:19.000Z"
+tags: [package, ui, design-system, shadcn, tailwind, storybook, routing]
 ---
 
 # @afx/ui — Product Specification
@@ -20,6 +20,19 @@ tags: [package, ui, design-system, shadcn, tailwind]
 ## Problem Statement
 
 `apps/chat` and `apps/workbench` need a shared component and design token library. Without it, each app duplicates primitives and diverges on visual style.
+
+This parent spec owns the package boundary. Surgical design-system, token, theme, component-contract, and Storybook work routes to `131-package-ui-design-system`.
+
+---
+
+## Child Zone Route Map
+
+| Spec                               | Start Here For                                                                    |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| `131-package-ui-design-system`     | Tokens, theme/style contracts, shared component contracts, Storybook stories/docs |
+| Future `132-package-ui-primitives` | Only if primitive component APIs grow beyond the design-system route map          |
+
+When a design-system change needs app-specific behavior, update the app child spec as well rather than moving app state into `packages/ui`.
 
 ---
 
@@ -68,6 +81,7 @@ tags: [package, ui, design-system, shadcn, tailwind]
 
 - [ ] All components exported from `src/index.ts` barrel via sub-path exports
 - [ ] Shadcn components regenerated via `shadcn` CLI without manual editing
+- [ ] Shared component/story work starts in `131-package-ui-design-system`
 
 ### Tokens
 
@@ -86,6 +100,7 @@ tags: [package, ui, design-system, shadcn, tailwind]
 - No VSCode webview-specific components (those belong in the app)
 - No app-specific state machines
 - No icon library (lucide-react is a direct dep of each app)
+- No app-specific composer, settings, history, or workbench layout behavior
 
 ---
 
@@ -94,3 +109,21 @@ tags: [package, ui, design-system, shadcn, tailwind]
 - `@base-ui/react`, `@radix-ui/*` (component primitives)
 - `tailwind-merge`, `clsx`, `class-variance-authority` (classname utilities)
 - `shadcn` (component codegen CLI)
+
+---
+
+## Appendix
+
+### Agent Entry Map (routing-only parent)
+
+This is a parent spec. It owns the package boundary. Surgical design-system, token, theme,
+component-contract, and Storybook work routes to `131-package-ui-design-system`.
+
+| Field           | Values                                                                                                                                                                           |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Package layout, barrel exports (`@afx/ui` barrel + subpath exports), helper exports (`cn`, `useMobile`); **routing only** for tokens/theme/Storybook/component-contract          |
+| Owned files     | `packages/ui/src/index.ts`, `packages/ui/src/lib/utils.ts`, `packages/ui/src/hooks/use-mobile.ts`, `packages/ui/src/components/**` (managed update surface — no spec churn here) |
+| Children        | `131-package-ui-design-system`                                                                                                                                                   |
+| Routing rules   | "tokens/theme/style/appearance" -> 131; "Storybook/component contract" -> 131; "shadcn primitive update" -> registry sync, not spec work; helper additions in `lib/` -> 131      |
+| Out of scope    | Specific token values, individual component implementations, theme/style enums (declared in `100-package-shared`, governed by 131)                                               |
+| Example prompts | "Add a token" -> 131; "New style id" -> 131; "Storybook story for Button" -> 131; "Update shadcn Button to latest" -> registry sync (no spec change)                             |

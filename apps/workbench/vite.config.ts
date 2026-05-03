@@ -1,3 +1,11 @@
+/**
+ * Workbench Vite config — browser-target webview build and dev-server port handoff.
+ *
+ * @see docs/specs/310-infra-build/spec.md [FR-3]
+ * @see docs/specs/310-infra-build/design.md [DES-INFRA-BUILD-SYSTEM-CONTEXT]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
+ */
 import { rmSync, writeFileSync } from "node:fs";
 import { pid } from "node:process";
 

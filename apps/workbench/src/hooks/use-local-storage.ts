@@ -1,8 +1,8 @@
 /**
  * useLocalStorage — typed wrapper with safe JSON parse fallback.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-PIPELINE]
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-2]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-FILTERS]
  */
 import { useCallback, useEffect, useState } from "react";
 

@@ -1,8 +1,8 @@
 /**
  * Workbench bridge — typed postMessage between workbench webview and extension host.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-3]
- * @see docs/specs/220-app-workbench/design.md [DES-API]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
  */
 import {
   type WorkbenchInbound,
@@ -28,6 +28,13 @@ interface WindowWithVscode extends Window {
   acquireVsCodeApi?: () => VscodeApi;
 }
 
+/**
+ * Initializes the [Workbench.Bridge] transport once and sends `afxReady` to the
+ * host when a real VSCode webview API is present.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
+ */
 export function initWorkbenchBridge(): void {
   if (_initialized) return;
   _initialized = true;
@@ -60,6 +67,14 @@ export function initWorkbenchBridge(): void {
   });
 }
 
+/**
+ * Sends typed Workbench outbound messages and supplies dev-only document
+ * content when no VSCode bridge is available.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-4]
+ */
 export function workbenchSend(msg: WorkbenchOutbound): void {
   if (
     !_hasVsCodeApi &&
@@ -82,6 +97,12 @@ export function workbenchSend(msg: WorkbenchOutbound): void {
   _send(msg);
 }
 
+/**
+ * Subscribes to one typed Workbench inbound message channel.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
+ */
 export function workbenchOn<T extends WorkbenchInbound["type"]>(
   type: T,
   handler: (msg: Extract<WorkbenchInbound, { type: T }>) => void,

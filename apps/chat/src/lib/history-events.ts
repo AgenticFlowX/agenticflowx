@@ -1,8 +1,8 @@
 /**
  * UI-local adapter from current chat transcript data to active-session work-log rows.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-11] [FR-12] [4.1]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-HISTORY] [DES-DATA]
+ * @see docs/specs/213-app-chat-history/spec.md [FR-8] [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
  */
 import type {
   ChatCompactionView,
@@ -29,6 +29,12 @@ export type ChatHistoryEventKind =
   | "failed"
   | "compaction";
 
+/**
+ * Render-ready row model consumed by the History view.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-7] [FR-8]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
+ */
 export interface ChatHistoryEvent {
   id: string;
   kind: ChatHistoryEventKind;
@@ -49,6 +55,9 @@ export interface ChatHistoryEvent {
 /**
  * Converts a timeline item list into history events for the History view.
  * Compaction summaries are shown as distinct "compaction" events.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-8]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
  */
 export function deriveHistoryEvents(messages: readonly ChatTimelineItem[]): ChatHistoryEvent[] {
   const events: ChatHistoryEvent[] = [];
@@ -123,6 +132,12 @@ export function deriveHistoryEvents(messages: readonly ChatTimelineItem[]): Chat
   return events.sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/**
+ * Converts a single tool call into a History event row.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-8] [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
+ */
 function toolEvent(message: ChatMessageView, tool: ChatToolView): ChatHistoryEvent {
   const descriptor = toolDescriptor(tool);
   const kind = classifyTool(tool);
@@ -141,6 +156,12 @@ function toolEvent(message: ChatMessageView, tool: ChatToolView): ChatHistoryEve
   };
 }
 
+/**
+ * Classifies tool names into the visible History row taxonomy.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
+ */
 function classifyTool(tool: ChatToolView): ChatHistoryEventKind {
   if (tool.status === "error") return "failed";
   const name = tool.toolName.toLowerCase();

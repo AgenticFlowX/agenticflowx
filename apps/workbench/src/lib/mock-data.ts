@@ -3,6 +3,9 @@
  * This data simulates what the extension would send via afxUpdate messages.
  *
  * Based on real data from a representative AFX-tracked project.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-3] [FR-5]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-STATE]
  */
 import type {
   DocumentRow,

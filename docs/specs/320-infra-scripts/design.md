@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [infra, scripts, commitlint, scope-enum]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["infra", "scripts", "commitlint", "scope-enum", "traceability"]
 spec: spec.md
 ---
 
@@ -34,7 +34,7 @@ commitlint.config.mjs
   → passes to @commitlint/config-conventional scope-enum rule
 ```
 
-### Data Flow
+### [DES-INFRA-SCRIPTS-SCOPE-FLOW] Data Flow
 
 ```text
 pnpm-workspace.yaml
@@ -110,11 +110,11 @@ pnpm-workspace.yaml
 
 ## [DES-TEST] Testing Strategy
 
-### Unit Tests
+### [DES-INFRA-SCRIPTS-TEST-UNIT] Unit Tests
 
 Not unit-tested. Correctness verified by running the script and inspecting `commitlint-scopes.mjs` output.
 
-### Manual Testing
+### [DES-INFRA-SCRIPTS-TEST-MANUAL] Manual Testing
 
 Run `node scripts/generate-scope-enum.mjs` after adding a new workspace package; confirm new scope appears in generated file.
 
@@ -122,20 +122,30 @@ Run `node scripts/generate-scope-enum.mjs` after adding a new workspace package;
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Add new workspace package
+### [DES-INFRA-SCRIPTS-ROLLOUT-SCOPE] Phase 1: Add new workspace package
 
 1. Add package to `apps/` or `packages/` with a `package.json`
 2. Run `node scripts/generate-scope-enum.mjs`
 3. Commit updated `scripts/commitlint-scopes.mjs`
 
-### Rollback Plan
+### [DES-INFRA-SCRIPTS-ROLLOUT-ROLLBACK] Rollback Plan
 
 Revert `commitlint-scopes.mjs` to prior version.
 
 ---
 
-## File Reference Map
+## [DES-INFRA-SCRIPTS-LOC] Code Locator Map
 
-| Task | File                              | Required @see                             |
-| ---- | --------------------------------- | ----------------------------------------- |
-| —    | `scripts/generate-scope-enum.mjs` | `spec.md [FR-1]` + `design.md [DES-ARCH]` |
+| Script surface       | Source anchor                     | Design node                      | Verification                           |
+| -------------------- | --------------------------------- | -------------------------------- | -------------------------------------- |
+| Scope generator      | `scripts/generate-scope-enum.mjs` | `[DES-INFRA-SCRIPTS-SCOPE-FLOW]` | `node scripts/generate-scope-enum.mjs` |
+| Generated scope enum | `scripts/commitlint-scopes.mjs`   | `[DES-API]`                      | commitlint config import               |
+| Commitlint consumer  | `commitlint.config.mjs`           | `[DES-ARCH]`                     | commit-msg hook / PR title CI          |
+
+---
+
+## [DES-INFRA-SCRIPTS-REFS] File Reference Map
+
+| Task | File                              | Required @see                                                 |
+| ---- | --------------------------------- | ------------------------------------------------------------- |
+| —    | `scripts/generate-scope-enum.mjs` | `spec.md [FR-1]` + `design.md [DES-INFRA-SCRIPTS-SCOPE-FLOW]` |

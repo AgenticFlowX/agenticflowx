@@ -2,10 +2,10 @@
  * WorkbenchPanel — webview view provider for the bottom-panel workbench.
  * Pushes initial data, watches docs/specs/, dispatches inbound messages.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-2] [FR-8]
+ * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]
  * @see docs/specs/220-app-workbench/spec.md [FR-3]
- * @see docs/specs/220-app-workbench/design.md [DES-API]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-HOST-PANEL] [DES-WORKBENCH-PROTOCOL]
  */
 import * as path from "node:path";
 

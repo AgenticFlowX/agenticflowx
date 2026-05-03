@@ -1,8 +1,8 @@
 /**
  * Notes view — quick note capture with deterministic timestamp display.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-4] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-NOTES]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-1] [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-CAPTURE] [DES-NOTES-TIMELINE] [DES-NOTES-ITEM] [DES-NOTES-TIME]
  */
 import { type KeyboardEvent, useMemo, useState } from "react";
 
@@ -51,6 +51,12 @@ const DATE_FILTERS: Array<{ value: DateFilter; label: string }> = [
   { value: "month", label: "Month" },
 ];
 
+/**
+ * Split-pane note capture and timeline surface.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-1] [FR-6]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-CAPTURE] [DES-NOTES-FILTERS]
+ */
 export default function Notes() {
   const { notes, isLoading, notesFilePath, send } = useWorkbench();
   const [text, setText] = useState("");
@@ -89,7 +95,10 @@ export default function Notes() {
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 overflow-hidden">
-      {/* Capture pane (left) */}
+      {/*
+        Surface: Workbench.Notes.Capture
+        @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-CAPTURE]
+      */}
       <ResizablePanel defaultSize="36%" minSize="320px" maxSize="58%">
         <aside className="afx-surface-subtle flex h-full min-h-0 min-w-[320px] flex-col border-r border-border">
           <div className="afx-surface-toolbar flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
@@ -136,7 +145,10 @@ Markdown supported — # heading, **bold**, - list, `code`."
         withHandle
         className="w-2 bg-border/60 transition-colors hover:bg-afx-brand/35 focus-visible:bg-afx-brand/35"
       />
-      {/* Timeline pane (right) */}
+      {/*
+        Surface: Workbench.Notes.Timeline
+        @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-FILTERS] [DES-NOTES-TIMELINE]
+      */}
       <ResizablePanel defaultSize="64%" minSize="360px">
         <section className="flex h-full min-h-0 flex-col overflow-hidden">
           <div className="afx-surface-toolbar flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
@@ -218,6 +230,12 @@ Markdown supported — # heading, **bold**, - list, `code`."
   );
 }
 
+/**
+ * Sticky day section in the notes timeline.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-4]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIMELINE]
+ */
 function DateSection({
   group,
   onDelete,
@@ -253,6 +271,12 @@ function DateSection({
   );
 }
 
+/**
+ * Single timeline note item with markdown preview and inline edit/delete.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-5] [FR-6] [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-ITEM] [DES-NOTES-TIME]
+ */
 function NoteItem({
   note,
   onDelete,
@@ -372,6 +396,12 @@ function NoteItem({
   );
 }
 
+/**
+ * Group notes into newest-first day sections.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-3] [FR-4]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-FILTERS] [DES-NOTES-TIMELINE]
+ */
 function groupByDate(notes: QuickNote[]): DateGroup[] {
   const groups = new Map<string, QuickNote[]>();
   for (const note of notes) {
@@ -392,6 +422,12 @@ function groupByDate(notes: QuickNote[]): DateGroup[] {
     });
 }
 
+/**
+ * Human-facing date header label for the note timeline.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function dayLabel(dateStr: string): string {
   const d = parseDate(dateStr);
   if (!d) return dateStr;
@@ -404,12 +440,24 @@ function dayLabel(dateStr: string): string {
   return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
+/**
+ * Compact absolute date label used beside sticky day headers.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function shortDateLabel(dateStr: string): string {
   const d = parseDate(dateStr);
   if (!d) return dateStr;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Convert the active date filter to a cutoff date.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-3]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-FILTERS]
+ */
 function getDateRange(filter: DateFilter): Date | null {
   if (filter === "all") return null;
   const now = new Date();
@@ -429,6 +477,12 @@ interface HumanTime {
   tooltip: string;
 }
 
+/**
+ * Build the primary/secondary/tooltip timestamp text for a note.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function humanizeTimestamp(timestamp: string, fallback?: string): HumanTime {
   const d = new Date(timestamp);
   if (Number.isNaN(d.getTime())) {
@@ -447,6 +501,12 @@ function humanizeTimestamp(timestamp: string, fallback?: string): HumanTime {
   return { primary: formatClock(d), secondary: relativeTimestamp(d), tooltip };
 }
 
+/**
+ * Best-effort relative label shown beside the exact note time.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function relativeTimestamp(d: Date): string | undefined {
   const now = Date.now();
   const diffMs = now - d.getTime();
@@ -461,6 +521,12 @@ function relativeTimestamp(d: Date): string | undefined {
   return undefined;
 }
 
+/**
+ * Exact 12-hour clock including seconds.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function formatClock(d: Date): string {
   return d.toLocaleTimeString(undefined, {
     hour: "numeric",
@@ -470,6 +536,12 @@ function formatClock(d: Date): string {
   });
 }
 
+/**
+ * Parse date-only and timestamp strings for note grouping.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function parseDate(value: string): Date | null {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     const [year, month, day] = value.split("-").map(Number) as [number, number, number];
@@ -479,6 +551,12 @@ function parseDate(value: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+/**
+ * Normalize a date to local-day midnight for range and relative calculations.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-TIME]
+ */
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }

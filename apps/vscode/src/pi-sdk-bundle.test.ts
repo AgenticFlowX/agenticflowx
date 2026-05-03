@@ -2,7 +2,8 @@
  * Guard the shipped API-provider bootstrap from depending on workspace
  * node_modules at runtime.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/351-agent-pi/spec.md [FR-2]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";

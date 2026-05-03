@@ -1,7 +1,8 @@
 /**
  * MultiplexedAgentManager routing and continuity behavior.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-TEST]
  */
 import { describe, expect, it, vi } from "vitest";
 

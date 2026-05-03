@@ -1,9 +1,10 @@
 /**
  * AFX context-menu code actions — send selected code to the agent with AFX prompts.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
- * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-3] [DES-NOTES-EDITOR]
+ * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-1] [FR-2]
+ * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-API]
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-3]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-MOCKUP-EDITOR] [DES-NOTES-FLOW]
  */
 import * as vscode from "vscode";
 
@@ -75,7 +76,15 @@ function formatSelection(ctx: EditorContext): string {
   return [header, `\`\`\`${lang}`, ctx.selectedText, "```"].join("\n");
 }
 
+/**
+ * Action registry: single source of truth for AFX editor actions. Each entry
+ * declares command id, title, scope, dispatch mode, and prompt builder.
+ *
+ * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+ */
 const ACTIONS: AfxAction[] = [
+  // @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW]
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-SAVE-TO-NOTES]
   {
     command: "afx.action.saveToNotes",
     title: "AgenticFlowX: Save to Notes",
@@ -84,6 +93,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "note",
     prompt: (c) => formatSelection(c),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-ADD-TO-CONTEXT]
   {
     command: "afx.action.addToContext",
     title: "AgenticFlowX: Insert into Composer",
@@ -92,6 +102,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "draft",
     prompt: (c) => formatSelection(c),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-SEND-SELECTION]
   {
     command: "afx.action.sendSelection",
     title: "AgenticFlowX: Send Selection",
@@ -100,6 +111,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => formatSelection(c),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-EXPLAIN]
   {
     command: "afx.action.explain",
     title: "AgenticFlowX: Explain",
@@ -115,6 +127,7 @@ const ACTIONS: AfxAction[] = [
         formatSelection(c),
       ].join("\n"),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REVIEW]
   {
     command: "afx.action.review",
     title: "AgenticFlowX: Review",
@@ -131,6 +144,7 @@ const ACTIONS: AfxAction[] = [
         formatSelection(c),
       ].join("\n"),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-IMPROVE-CODE]
   {
     command: "afx.action.improveCode",
     title: "AgenticFlowX: Improve",
@@ -146,6 +160,7 @@ const ACTIONS: AfxAction[] = [
         formatSelection(c),
       ].join("\n"),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-GENERATE-TESTS]
   {
     command: "afx.action.generateTests",
     title: "AgenticFlowX: Generate Tests",
@@ -161,6 +176,8 @@ const ACTIONS: AfxAction[] = [
         formatSelection(c),
       ].join("\n"),
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-ADD-SEE-LINK]
+  // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-COMMAND-ADD-LINK]
   {
     command: "afx.action.addSeeLink",
     title: "AgenticFlowX: Add @see Link",
@@ -177,6 +194,8 @@ const ACTIONS: AfxAction[] = [
       ].join("\n"),
   },
   {
+    // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-VERIFY-TRACE]
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-COMMAND-VERIFY]
     command: "afx.action.verifyTrace",
     title: "AgenticFlowX: Verify Traceability",
     menuTitle: "Verify Traceability",
@@ -190,6 +209,8 @@ const ACTIONS: AfxAction[] = [
       ].join("\n"),
   },
   // ---- spec.md ----
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-SPEC-COMMAND-VALIDATE]
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-SPEC-VALIDATE]
   {
     command: "afx.action.specValidate",
     title: "AgenticFlowX: Spec — Validate",
@@ -198,6 +219,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => `/afx-spec validate ${c.filePath}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-SPEC-COMMAND-REVIEW]
   {
     command: "afx.action.specReview",
     title: "AgenticFlowX: Spec — Review",
@@ -206,6 +228,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => `/afx-spec review ${c.filePath}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-SPEC-COMMAND-APPROVE]
   {
     command: "afx.action.specApprove",
     title: "AgenticFlowX: Spec — Approve",
@@ -215,6 +238,7 @@ const ACTIONS: AfxAction[] = [
     prompt: (c) => `/afx-spec approve ${c.filePath}`,
   },
   // ---- design.md ----
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-DESIGN-COMMAND-VALIDATE]
   {
     command: "afx.action.designValidate",
     title: "AgenticFlowX: Design — Validate",
@@ -223,6 +247,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => `/afx-design validate ${c.filePath}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-DESIGN-COMMAND-REVIEW]
   {
     command: "afx.action.designReview",
     title: "AgenticFlowX: Design — Review",
@@ -231,6 +256,7 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => `/afx-design review ${c.filePath}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-DESIGN-COMMAND-APPROVE]
   {
     command: "afx.action.designApprove",
     title: "AgenticFlowX: Design — Approve",
@@ -240,6 +266,7 @@ const ACTIONS: AfxAction[] = [
     prompt: (c) => `/afx-design approve ${c.filePath}`,
   },
   // ---- tasks.md ----
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-TASK-COMMAND-CODE]
   {
     command: "afx.action.taskCode",
     title: "AgenticFlowX: Task — Code",
@@ -249,6 +276,7 @@ const ACTIONS: AfxAction[] = [
     prompt: (c) =>
       `/afx-task code ${c.filePath}${c.selectedText.trim() ? `\n\n${formatSelection(c)}` : ""}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-TASK-COMMAND-VERIFY]
   {
     command: "afx.action.taskVerify",
     title: "AgenticFlowX: Task — Verify",
@@ -258,6 +286,7 @@ const ACTIONS: AfxAction[] = [
     prompt: (c) =>
       `/afx-task verify ${c.filePath}${c.selectedText.trim() ? `\n\n${formatSelection(c)}` : ""}`,
   },
+  // @see docs/specs/204-app-vscode-spec-services/design.md [DES-TASK-COMMAND-PICK]
   {
     command: "afx.action.taskPick",
     title: "AgenticFlowX: Task — Pick Next",
@@ -301,6 +330,7 @@ export function createAfxCodeActionProvider(
   agentManager: AgentManager,
   dispatch?: AfxCodeActionDispatch,
 ): { disposables: vscode.Disposable[] } {
+  // Flow: [EditorActions.Dispatch]
   const disposables: vscode.Disposable[] = [];
 
   for (const action of ACTIONS) {

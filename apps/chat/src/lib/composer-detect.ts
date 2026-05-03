@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [FR-12] [DES-TESTABILITY] [8.3]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
  */
 
 export interface ComposerTrigger {

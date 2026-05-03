@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [infra, build, turbo, esbuild, vite, tsconfig]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["infra", "build", "turbo", "esbuild", "vite", "tsconfig", "traceability"]
 spec: spec.md
 ---
 
@@ -22,7 +22,7 @@ Turbo orchestrates the task graph across all workspace packages and apps. The ex
 
 ## [DES-ARCH] Architecture
 
-### System Context
+### [DES-INFRA-BUILD-SYSTEM-CONTEXT] System Context
 
 ```text
 turbo.json                  ← task graph (build, dev, check-types, lint, clean)
@@ -40,7 +40,7 @@ apps/workbench/
   vite.config.ts            ← webview bundler (browser, react, @tailwindcss/vite)
 ```
 
-### Turbo Task Graph
+### [DES-INFRA-BUILD-TURBO-GRAPH] Turbo Task Graph
 
 ```text
 build
@@ -79,6 +79,46 @@ build
 
 ---
 
+## [DES-BUILD-TOPOLOGY] Bundle Topology
+
+What code goes into which bundle. With size-limit gates, this matters.
+
+```text
++--------------------------------------------------------------------+
+| Extension host bundle (apps/vscode/out/extension.js, esbuild)      |
+| - extension.ts entry                                               |
+| - panels/, providers/, services/, utils/                           |
+| - imports: @afx/shared, @afx/transport (vscode adapter),           |
+|            @afx/parsers, @afx/agent-pi, vscode API                 |
+| - excludes: React, browser-only code                               |
++--------------------------------------------------------------------+
+| Chat webview bundle (apps/chat/dist/, Vite)                        |
+| - index.tsx entry, app.tsx, views/, components/, lib/, hooks/      |
+| - imports: @afx/ui, @afx/shared, @afx/transport (mock+vscode),     |
+|            React, lucide-react                                     |
+| - excludes: vscode API, fs, process                                |
++--------------------------------------------------------------------+
+| Workbench webview bundle (apps/workbench/dist/, Vite)              |
+| - index.tsx entry, app.tsx, views/, lib/, context/                 |
+| - imports: @afx/ui, @afx/shared, @afx/transport (mock+vscode),     |
+|            React                                                   |
+| - excludes: vscode API, fs, process                                |
++--------------------------------------------------------------------+
+| Resources (apps/vscode/resources/, copied)                         |
+| - pi-sdk/ bundled SDK payload                                      |
+| - icons, themes                                                    |
++--------------------------------------------------------------------+
+```
+
+Architecture lints enforce the boundaries:
+
+- `apps/vscode/src/no-pi-imports.test.ts` (extension host)
+- `apps/chat/src/no-pi-imports.test.ts` (chat webview)
+- `apps/vscode/src/panels/no-pi-imports.test.ts` (panel layer)
+- ESLint `no-restricted-imports` rules in shared/ui packages forbid VSCode/Node APIs
+
+---
+
 ## [DES-DEPS] Dependencies
 
 | Package                | Purpose                        |
@@ -111,11 +151,11 @@ build
 
 ## [DES-TEST] Testing Strategy
 
-### Unit Tests
+### [DES-INFRA-BUILD-TEST-UNIT] Unit Tests
 
 Build system config is not unit-tested. Correctness verified by successful build output and CI green.
 
-### Integration Tests
+### [DES-INFRA-BUILD-TEST-INTEGRATION] Integration Tests
 
 `pnpm build` in CI serves as the integration test for the full build pipeline.
 
@@ -123,20 +163,33 @@ Build system config is not unit-tested. Correctness verified by successful build
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Config changes
+### [DES-INFRA-BUILD-ROLLOUT-CONFIG] Phase 1: Config changes
 
 1. Edit `turbo.json` task graph or `tsconfig.base.json`
 2. Run `pnpm check-types && pnpm build`
 3. Verify all app outputs under `out/` and `dist/`
 
-### Rollback Plan
+### [DES-INFRA-BUILD-ROLLOUT-ROLLBACK] Rollback Plan
 
 Revert config file. `turbo` caches prior successful builds — clean with `pnpm clean` if cache is stale.
 
 ---
 
-## File Reference Map
+## [DES-INFRA-BUILD-LOC] Code Locator Map
 
-| Task | File                      | Required @see                             |
-| ---- | ------------------------- | ----------------------------------------- |
-| —    | `apps/vscode/esbuild.mjs` | `spec.md [FR-2]` + `design.md [DES-ARCH]` |
+| Build surface            | Source anchor                   | Design node                        |
+| ------------------------ | ------------------------------- | ---------------------------------- |
+| Turbo task graph         | `turbo.json`                    | `[DES-INFRA-BUILD-TURBO-GRAPH]`    |
+| Workspace roots          | `pnpm-workspace.yaml`           | `[DES-INFRA-BUILD-SYSTEM-CONTEXT]` |
+| Shared TS config         | `tsconfig.base.json`            | `[DES-INFRA-BUILD-SYSTEM-CONTEXT]` |
+| Extension host bundle    | `apps/vscode/esbuild.mjs`       | `[DES-INFRA-BUILD-SYSTEM-CONTEXT]` |
+| Chat webview bundle      | `apps/chat/vite.config.ts`      | `[DES-INFRA-BUILD-SYSTEM-CONTEXT]` |
+| Workbench webview bundle | `apps/workbench/vite.config.ts` | `[DES-INFRA-BUILD-SYSTEM-CONTEXT]` |
+
+---
+
+## [DES-INFRA-BUILD-REFS] File Reference Map
+
+| Task | File                      | Required @see                                                   |
+| ---- | ------------------------- | --------------------------------------------------------------- |
+| —    | `apps/vscode/esbuild.mjs` | `spec.md [FR-2]` + `design.md [DES-INFRA-BUILD-SYSTEM-CONTEXT]` |

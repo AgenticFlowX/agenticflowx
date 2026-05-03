@@ -1,7 +1,8 @@
 /**
  * Generic runtime recovery card shared by Chat, History, and Settings.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-UI]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-RECOVERY-CARD] [DES-SETTINGS-MOCKUP-RECOVERY]
  */
 import { AlertTriangle, FileText, RefreshCw, RotateCcw, Settings, Zap } from "lucide-react";
 
@@ -13,7 +14,8 @@ import { cn } from "@afx/ui/lib/utils";
 /**
  * Recovery actions supplied by the host shell.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-UI]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-RECOVERY-CARD] [DES-SETTINGS-FLOW]
  */
 export interface AgentRecoveryActions {
   onRetryConnection?: () => void;
@@ -26,7 +28,8 @@ export interface AgentRecoveryActions {
 /**
  * Shared recovery state for confirmed long disconnects/errors.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-UI]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-RECOVERY-CARD] [DES-SETTINGS-MOCKUP-RECOVERY]
  */
 export function AgentRecoveryCard({
   status,

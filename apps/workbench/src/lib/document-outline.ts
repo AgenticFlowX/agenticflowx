@@ -1,8 +1,8 @@
 /**
  * Markdown outline extraction — flat list of headings with line numbers.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-8]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-HELPERS]
  */
 export interface OutlineItem {
   level: number;
@@ -13,6 +13,12 @@ export interface OutlineItem {
 
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*$/;
 
+/**
+ * Generate deterministic markdown heading slugs for outline rows.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -21,6 +27,12 @@ export function slugify(text: string): string {
     .replace(/\s+/g, "-");
 }
 
+/**
+ * Extract visible markdown headings while ignoring fenced code blocks.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-HELPERS]
+ */
 export function extractOutline(content: string): OutlineItem[] {
   const out: OutlineItem[] = [];
   const lines = content.split("\n");

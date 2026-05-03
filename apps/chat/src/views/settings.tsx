@@ -1,8 +1,8 @@
 /**
  * Settings view — runtime snapshot, diagnostics, and available skill discovery.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-10] [FR-13] [DES-SETTINGS] [7.2]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-13] [FR-14] [5.1] [5.2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW]
  */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -114,7 +114,8 @@ const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
 };
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
  */
 export interface SettingsProps {
   agentStatus?: AgentRuntimeStatus;
@@ -124,7 +125,8 @@ export interface SettingsProps {
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS] [7.2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW]
  */
 export default function Settings({
   agentStatus = createCheckingAgentRuntimeStatus(),
@@ -450,6 +452,7 @@ export default function Settings({
   return (
     <div className="afx-surface-subtle @container h-full overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
       <div className="flex min-w-0 flex-col gap-3 px-2 py-3">
+        {/* Surface: [ChatSettings.Nav] */}
         <div className="sticky top-0 z-20 -mx-2 -mt-3 border-b bg-background/95 px-2 py-3 backdrop-blur">
           <div className="mb-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -488,6 +491,7 @@ export default function Settings({
           </div>
         </div>
 
+        {/* Surface: [ChatSettings.Readiness] */}
         {isCheckingAgent ? <SettingsSetupCard /> : null}
         {runtimeUnconfigured ? (
           <RuntimeConfigurationNotice
@@ -503,6 +507,7 @@ export default function Settings({
           <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
         ) : null}
 
+        {/* Surface: [ChatSettings.RuntimeSetup] */}
         <SettingsCard
           id="runtime"
           icon={PlugZap}
@@ -685,6 +690,7 @@ export default function Settings({
           </div>
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.RuntimeControls] */}
         <SettingsCard
           icon={Cpu}
           title="Runtime"
@@ -741,6 +747,7 @@ export default function Settings({
           </div>
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.Appearance] */}
         <SettingsCard
           id="identity"
           icon={SwatchBook}
@@ -790,6 +797,7 @@ export default function Settings({
           <ConfigField label="VS Code setting" value="afx.style" settingKey="afx.style" />
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.Providers] */}
         <SettingsCard
           id="providers"
           icon={KeyRound}
@@ -816,6 +824,7 @@ export default function Settings({
                 title="API Provider SDK"
                 description="Default path for OpenAI, Anthropic, Google, Cerebras, Groq, and Ollama. Provider cards are expanded so you can paste or replace keys directly."
               />
+              {/* Surface: [ChatSettings.Providers.Api] */}
               <div className="rounded-md border bg-muted/20 p-2">
                 <div className="grid grid-cols-3 gap-1">
                   <ProviderStat label="Providers" value={providerStats.total} />
@@ -900,6 +909,7 @@ export default function Settings({
                 title="Pi RPC and local agents"
                 description="Pi RPC is off by default. Enable it when you want AFX to spawn a local Pi CLI process and use models reported over JSONL RPC."
               />
+              {/* Surface: [ChatSettings.Providers.External] */}
               {(snapshot?.externalAgents ?? []).map((agent) => (
                 <ExternalAgentCard
                   key={agent.id}
@@ -939,6 +949,7 @@ export default function Settings({
           </Tabs>
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.ChatSkills] */}
         <SettingsCard icon={Info} title="Chat" description="Composer behavior.">
           <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
             Switching the model from the chat composer updates the runtime default for future runs.
@@ -1000,6 +1011,7 @@ export default function Settings({
           </div>
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.Diagnostics] */}
         <SettingsCard
           id="diagnostics"
           icon={FileText}
@@ -1067,6 +1079,7 @@ export default function Settings({
           )}
         </SettingsCard>
 
+        {/* Surface: [ChatSettings.AboutTelemetry] */}
         <SettingsCard
           id="about"
           icon={Activity}
@@ -1342,7 +1355,8 @@ function SettingsHint({
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS] [DES-SETTINGS-SURFACE-MAP]
  */
 function SettingsCard({
   id,
@@ -1426,7 +1440,8 @@ function ProviderFilterButton({
  * sit on the same row (label flex-1, button shrink-0), and the value wraps below.
  * Works at VSCode sidebar minimum width (170px) without overflow or stretched controls.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS]
  */
 function ConfigField({
   label,
@@ -1486,7 +1501,8 @@ function ConfigField({
  * to allow text wrap), Switch on the right (shrink-0). Designed for VSCode sidebar
  * minimum width (170px).
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-15] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS] [DES-SETTINGS-SURFACE-RUNTIME]
  */
 function SwitchRow({
   id,
@@ -1528,7 +1544,8 @@ function SwitchRow({
  * Select row — vertical at all widths so the dropdown gets full width for long
  * option labels. Designed for VSCode sidebar minimum width (170px).
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-14] [FR-15] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS] [DES-SETTINGS-SURFACE-RUNTIME]
  */
 function SelectRow({
   id,
@@ -1581,7 +1598,8 @@ function SelectRow({
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
  */
 function CommandGroup({
   title,

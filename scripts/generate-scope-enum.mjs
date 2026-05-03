@@ -7,7 +7,7 @@
  * use `chore(deps):` and `chore(ci):` — those need to pass amannn/action-semantic-pull-request.
  *
  * @see docs/specs/320-infra-scripts/spec.md [FR-1] [FR-2] [FR-3]
- * @see docs/specs/320-infra-scripts/design.md [DES-ARCH]
+ * @see docs/specs/320-infra-scripts/design.md [DES-INFRA-SCRIPTS-SCOPE-FLOW]
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";

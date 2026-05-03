@@ -1,8 +1,12 @@
 /**
  * Workbench IPC protocol — discriminated unions for host ↔ webview messages.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-3]
- * @see docs/specs/220-app-workbench/design.md [DES-API]
+ * @see docs/specs/100-package-shared/spec.md [FR-4]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-PROTOCOL]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-API]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-2]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-6]
  */
 import type {
   DocumentRow,

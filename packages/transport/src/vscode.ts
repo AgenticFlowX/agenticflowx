@@ -3,7 +3,7 @@
  * The only file in the chat UI that touches the VSCode webview API.
  *
  * @see docs/specs/110-package-transport/spec.md [FR-2]
- * @see docs/specs/110-package-transport/design.md [DES-ARCH]
+ * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-VSCODE-ADAPTER] [DES-TRANSPORT-MOCKUP-VSCODE]
  * @see docs/specs/200-app-vscode/spec.md [FR-1]
  * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
  */

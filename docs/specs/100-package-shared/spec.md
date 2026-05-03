@@ -89,3 +89,21 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 ## Dependencies
 
 - None (zero external dependencies)
+
+---
+
+## Appendix
+
+### Agent Entry Map (routing-only parent)
+
+This is a parent spec. It owns the shared types/protocol/contracts package as a unit. Per-message
+and per-type ownership routes to the consuming zone via `@see` anchors in the source.
+
+| Field           | Values                                                                                                                                                                                                                                                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | `@afx/shared` package: type declarations, message protocol unions, `AgentManager` interface, structured logger contract                                                                                                                                                                                                            |
+| Owned files     | `packages/shared/src/index.ts`, `packages/shared/src/messages.ts` (declarations), `packages/shared/src/agent.ts`, `packages/shared/src/logger.ts`, `packages/shared/src/workbench-types.ts`, `packages/shared/src/workbench-protocol.ts`, `packages/shared/src/agent-runtime-status.ts`, `packages/shared/src/provider-catalog.ts` |
+| Routing rules   | Each `ChatToAgent`/`AgentToChat` variant carries a per-variant `@see` to its owning chat/composer/messages/history/settings/notes/agent zone. Each workbench type carries a per-type `@see` to its workbench zone. The package itself does not own message _semantics_; see the destination zone.                                  |
+| Children        | None (this package routes outward via `@see` anchors instead of child specs)                                                                                                                                                                                                                                                       |
+| Out of scope    | Message payload semantics (those belong to the message-owning zone), serialization/validation logic, React, VSCode API                                                                                                                                                                                                             |
+| Example prompts | "Add a new message type" -> add declaration here, then route per-variant `@see` to the owning zone; "Add a new shared workbench type" -> declare here + anchor to the consuming workbench zone                                                                                                                                     |

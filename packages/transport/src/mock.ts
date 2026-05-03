@@ -3,7 +3,7 @@
  * Never active in production; injected only when `acquireVsCodeApi` is unavailable.
  *
  * @see docs/specs/110-package-transport/spec.md [FR-3] [FR-4] [FR-6]
- * @see docs/specs/110-package-transport/design.md [DES-ARCH] [DES-SEC]
+ * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-MOCK-ADAPTER] [DES-TRANSPORT-MOCK-SCENARIOS]
  */
 import {
   AFX_STYLE_IDS,

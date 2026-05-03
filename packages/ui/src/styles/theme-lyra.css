@@ -6,8 +6,8 @@
  * `.theme-meridian style-lyra`; `theme-lyra` remains accepted so older
  * `afx.theme=lyra` settings do not render without variables.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-3] [FR-4]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-HOST] [DES-VSCODE]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 
 .theme-lyra {

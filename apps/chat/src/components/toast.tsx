@@ -2,7 +2,8 @@
  * Lightweight toast notifications used to confirm runtime mutations and host actions
  * without pulling sonner/next-themes into the webview bundle.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-13]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
  */
 import { useEffect, useState } from "react";
 

@@ -1,12 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
-tags: [app, vscode, extension, webview, commands, agent]
+updated_at: "2026-05-03T00:16:19.000Z"
+tags: [app, vscode, extension, webview, commands, agent, routing]
 depends_on: [100-package-shared, 110-package-transport, 300-infra-pi]
 ---
 
@@ -22,6 +22,19 @@ depends_on: [100-package-shared, 110-package-transport, 300-infra-pi]
 ## Problem Statement
 
 The VSCode extension is the host process that registers commands, manages webview panels, and bridges the chat UI to the configured coding agent. It must integrate with the VSCode API while keeping engine and UI code in their respective packages.
+
+This parent spec owns the extension-host boundary. Dense editor surfaces route to child specs so right-click menu, title menu, code action, and `@see` navigation work can start surgically.
+
+---
+
+## Child Zone Route Map
+
+| Spec                            | Start Here For                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `201-app-vscode-panels`         | Sidebar/workbench provider registration, panel HTML shells, webview lifecycle |
+| `202-app-vscode-editor-actions` | Editor context menu, editor title menu, code actions, command dispatch        |
+| `203-app-vscode-see-navigation` | `@see` completion, links, definition, hover, CodeLens, resolver behavior      |
+| `204-app-vscode-spec-services`  | Spec cache, sprint context, parser/document services                          |
 
 ---
 
@@ -79,13 +92,15 @@ VSCode users running the AgenticFlowX extension.
 
 - [x] `afx.agentSmokeTest` returns agent status without error
 - [x] `afx.agentRestart` stops and restarts the agent process
+- [ ] Editor action work routes to `202-app-vscode-editor-actions`
+- [ ] `@see` navigation work routes to `203-app-vscode-see-navigation`
 
 ---
 
 ## Non-Goals
 
 - No React or UI code in this app
-- No engine implementation — Pi RPC is in `300-infra-pi`
+- No engine implementation — runtime abstraction is in `350-agent-manager`; Pi adapter specifics are in `351-agent-pi`
 - No additional cloud/auth/telemetry outside dedicated specs
 
 ---
@@ -96,4 +111,26 @@ VSCode users running the AgenticFlowX extension.
 - `@afx/agent-pi` (Pi RPC adapter — `createAgentManager()`)
 - `@afx/agent-pi-sdk` (bundled API-provider runtime adapter)
 - `@afx/transport` (VSCode transport adapter — used by webview, not host)
-- `300-infra-pi` (Pi lifecycle management)
+- `300-infra-pi` (existing Pi migration source until adapter retargeting completes)
+- `350-agent-manager` (runtime abstraction and host manager behavior)
+- `351-agent-pi` (Pi adapter, SDK, bootstrap behavior)
+
+---
+
+## Appendix
+
+### Agent Entry Map (routing-only parent)
+
+This is a parent spec. It owns app-level boundaries (entry point, file layout, build config, the
+overall extension surface) and **does not** own per-zone functional requirements. The table below
+routes incoming requests to the right child zone before reading any source file.
+
+| Field           | Values                                                                                                                                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Extension entry point, agent factory, multiplex manager, status bar wiring; **routing only** for everything else                                                                                                                                                                         |
+| Owned files     | `apps/vscode/src/extension.ts`, `apps/vscode/src/agent-factory.ts`, `apps/vscode/src/multiplex-agent-manager.ts`, `apps/vscode/src/agent-runtime-monitor.ts`, `apps/vscode/src/secret-store.ts`, `apps/vscode/src/session-dir.ts`, `apps/vscode/esbuild.mjs`, `apps/vscode/package.json` |
+| Children        | `201-app-vscode-panels`, `202-app-vscode-editor-actions`, `203-app-vscode-see-navigation`, `204-app-vscode-spec-services`, `350-agent-manager`, `351-agent-pi`                                                                                                                           |
+| Routing rules   | "panel/webview/HTML/CSP" -> 201; "right-click/code-action/save-to-notes/explain/review" -> 202; "@see/CodeLens/hover/definition/completion" -> 203; "spec data/sprint context/specs cache" -> 204; "AgentManager/multiplex/runtime status" -> 350; "Pi binary/RPC/JSONL/SDK" -> 351      |
+| Catalogs        | `[DES-SETTINGS-CATALOG]`, `[DES-COMMAND-CATALOG]`, `[DES-KEYBINDING-CATALOG]` in `200-app-vscode/design.md` are the master indexes for every `afx.*` setting/command/keybinding                                                                                                          |
+| Out of scope    | Functional requirements for any specific zone; those live in the child specs                                                                                                                                                                                                             |
+| Example prompts | "Open AFX Chat command misbehaves" -> 201; "Add an editor right-click action" -> 202; "Why does CodeLens render here?" -> 203; "Spec scan misses a folder" -> 204                                                                                                                        |

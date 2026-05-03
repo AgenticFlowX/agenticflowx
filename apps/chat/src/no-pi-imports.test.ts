@@ -3,7 +3,8 @@
  * After Phase 3 file move (see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-6]),
  * this test lives at apps/chat/src/ — `dirname` IS the src/ root, so we walk it directly.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [NFR-1] [DES-ABSTRACTION] [8.4]
+ * @see docs/specs/210-app-chat/spec.md [NFR-1]
+ * @see docs/specs/210-app-chat/design.md [DES-DEPS]
  * @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-4] [FR-6]
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";

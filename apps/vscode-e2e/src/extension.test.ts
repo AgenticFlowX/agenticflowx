@@ -4,7 +4,7 @@
  *
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-4] [FR-6]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
- * @see docs/specs/420-dx-testing/design.md [DES-ARCH]
+ * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
  */
 import * as assert from "node:assert";
 

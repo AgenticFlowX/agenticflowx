@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/220-app-workbench/spec.md [FR-9]
- * @see docs/specs/220-app-workbench/design.md [DES-ANALYTICS]
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-TEST] [DES-ANALYTICS-SNAPSHOT]
  */
 import { describe, expect, it } from "vitest";
 

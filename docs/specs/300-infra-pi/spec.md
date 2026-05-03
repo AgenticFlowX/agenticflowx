@@ -1,12 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: ["infra", "pi", "rpc", "subprocess", "engine", "adapter"]
+updated_at: "2026-05-03T00:16:19.000Z"
+tags: ["infra", "pi", "rpc", "subprocess", "engine", "adapter", "routing"]
 depends_on: [100-package-shared]
 ---
 
@@ -23,6 +23,18 @@ depends_on: [100-package-shared]
 ## Problem Statement
 
 The extension host needs to spawn `pi --mode rpc` as a child process, communicate over JSONL, and manage the process lifecycle (lazy startup, restart on crash, disposal on deactivation).
+
+This spec remains the migration source for older Pi integration requirements. New generic runtime-manager work routes to `350-agent-manager`; new Pi adapter, SDK, bootstrap, RPC, and skills-sync work routes to `351-agent-pi`.
+
+---
+
+## Migration Route Map
+
+| Spec                | Start Here For                                                                    |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `350-agent-manager` | Runtime abstraction, provider/model contracts, multiplexing, runtime monitoring   |
+| `351-agent-pi`      | Pi RPC adapter, JSONL framing, SDK bootstrap, skills sync, auth/config injection  |
+| `300-infra-pi`      | Legacy Pi integration requirements until child specs fully supersede this content |
 
 ---
 
@@ -90,6 +102,7 @@ The extension host needs to spawn `pi --mode rpc` as a child process, communicat
 - No in-process Pi SDK calls (Pure RPC only — see ADR-0001)
 - No Pi binary bundling inside the VSIX
 - No VSCode API imports in `packages/agent/pi/` (VSCode concerns stay in `apps/vscode`)
+- No generic runtime/provider abstraction changes; those belong in `350-agent-manager`
 
 ---
 

@@ -1,8 +1,9 @@
 /**
  * Browser-side appearance class helper for Settings and DebugPanel preview.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-5] [FR-6]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-DEV] [DES-API]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-APPEARANCE]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-API]
  */
 import { AFX_STYLE_IDS, AFX_THEME_IDS, type AfxStyleId, type AfxThemeId } from "@afx/shared";
 

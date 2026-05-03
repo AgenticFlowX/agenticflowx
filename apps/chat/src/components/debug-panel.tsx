@@ -3,7 +3,8 @@
  *
  * @see docs/specs/210-app-chat/spec.md [FR-5]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-6] [6.2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]
  */
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 

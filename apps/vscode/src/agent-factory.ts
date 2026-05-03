@@ -1,11 +1,12 @@
 /**
  * Creates configured coding-agent instances for the VSCode host.
  * Returns configured runtime instances while keeping the host shape runtime-agnostic.
+ * The instances produced here become the inputs to MultiplexAgentManager.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-6] [FR-8]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
- * @see docs/specs/300-infra-pi/spec.md [FR-1] [FR-6] [FR-7]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-2] [FR-3]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-MULTIPLEX-FLOW]
+ * @see docs/specs/351-agent-pi/spec.md [FR-2] [FR-4]
+ * @see docs/specs/351-agent-pi/design.md [DES-API]
  */
 import { createAgentManager as createPiAgentManager } from "@afx/agent-pi";
 import { createPiSdkAgentManager } from "@afx/agent-pi-sdk";
@@ -45,6 +46,8 @@ export interface AgentFactoryOptions {
 export async function createConfiguredAgentInstances(
   opts: AgentFactoryOptions,
 ): Promise<AgentInstance[]> {
+  // Flow: [AgentManager.Factory]
+  // Flow: [AgentPi.FactoryInput]
   const instances: AgentInstance[] = [];
   if (opts.rpcEnabled === true && opts.piAvailable !== false) {
     instances.push({

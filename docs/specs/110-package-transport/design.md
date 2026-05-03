@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
-tags: [package, transport, vscode, mock, devoverlay]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["package", "transport", "vscode", "mock", "devoverlay", "traceability"]
 spec: spec.md
 ---
 
@@ -22,7 +22,7 @@ spec: spec.md
 
 ## [DES-ARCH] Architecture
 
-### System Context
+### [DES-TRANSPORT-SYSTEM-CONTEXT] System Context
 
 ```text
 packages/transport/
@@ -33,14 +33,14 @@ packages/transport/
     └── mock.ts      ← createMockTransport() with named scenarios
 ```
 
-### Transport Interface
+### [DES-TRANSPORT-INTERFACE] Transport Interface
 
 ```text
 apps/chat → Transport.send() → [VSCode adapter] → extension host
                                 [Mock adapter]   → simulated response
 ```
 
-### Mock Scenarios
+### [DES-TRANSPORT-MOCK-SCENARIOS] Mock Scenarios
 
 | Scenario family   | Behaviour                                                       |
 | ----------------- | --------------------------------------------------------------- |
@@ -49,6 +49,55 @@ apps/chat → Transport.send() → [VSCode adapter] → extension host
 | Runtime control   | Abort, steering, follow-up, compaction, settings, and recovery  |
 | Provider/settings | Provider configuration, model lists, settings snapshots, stderr |
 | UI state          | Appearance preview, startup/disconnect, and context-near-full   |
+
+---
+
+## [DES-TRANSPORT-MOCKUPS] ASCII Flow Mockups
+
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] -->
+
+### [DES-TRANSPORT-MOCKUP-VSCODE] Production VSCode Flow
+
+```text
+apps/chat/src/lib/bridge.ts
+  -> createVscodeTransport()
+  -> acquireVsCodeApi().postMessage(ChatToAgent)
+  -> apps/vscode SidebarPanel
+  -> AgentToChat message
+  -> window message listener
+  -> transport.on(type, handler)
+```
+
+### [DES-TRANSPORT-MOCKUP-MOCK] Browser Development Flow
+
+```text
+apps/chat/src/lib/bridge.ts
+  -> createMockTransport()
+  -> send(ChatToAgent)
+  -> scenario dispatcher / scripted async events
+  -> emit(AgentToChat)
+  -> onLog(direction, timestamp, payload)
+  -> DevOverlay scenario/log panes
+```
+
+### [DES-TRANSPORT-VSCODE-ADAPTER] VSCode Adapter
+
+`packages/transport/src/vscode.ts` is the only transport file that touches the
+webview `acquireVsCodeApi` global. It mirrors VSCode state helpers through
+optional `getState`/`setState` methods and logs listener failures without
+throwing across the bridge.
+
+### [DES-TRANSPORT-MOCK-ADAPTER] Mock Adapter
+
+`packages/transport/src/mock.ts` owns named scenarios, streaming timers, abort
+state, runtime/settings snapshots, and log replay. It must remain deterministic
+enough for tests and DevOverlay reproduction.
+
+### [DES-TRANSPORT-LOGGING] Transport Log Entries
+
+`LogEntry` records direction, timestamp, message type, and payload. Mock
+transport emits both outbound user messages and inbound simulated host messages
+so UI debugging can follow the exact sequence.
 
 ---
 
@@ -125,7 +174,7 @@ function createMockTransport(): MockTransport; // scenario selected via DevOverl
 
 ## [DES-TEST] Testing Strategy
 
-### Unit Tests
+### [DES-TRANSPORT-TEST-UNIT] Unit Tests
 
 - `mock.test.ts` covers scenario presence, abort, logging, stream speed, runtime/settings flows, and `dispose()`
 
@@ -133,13 +182,13 @@ function createMockTransport(): MockTransport; // scenario selected via DevOverl
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Interface + VSCode Adapter
+### [DES-TRANSPORT-ROLLOUT-INTERFACE] Phase 1: Interface + VSCode Adapter
 
 1. Define `Transport` interface in `types.ts`
 2. Implement `createVscodeTransport()` in `vscode.ts`
 3. Wire into `apps/chat/src/lib/bridge.ts`
 
-### Phase 2: Mock + Scenarios
+### [DES-TRANSPORT-ROLLOUT-MOCK] Phase 2: Mock + Scenarios
 
 1. Implement `createMockTransport()` in `mock.ts`
 2. Add named scenarios
@@ -147,11 +196,40 @@ function createMockTransport(): MockTransport; // scenario selected via DevOverl
 
 ---
 
-## File Reference Map
+## [DES-TRANSPORT-LOC] Code Locator Map
 
-| Task | File                               | Required @see                                          |
-| ---- | ---------------------------------- | ------------------------------------------------------ |
-| —    | `packages/transport/src/index.ts`  | `spec.md [FR-1]` + `design.md [DES-API]`               |
-| —    | `packages/transport/src/types.ts`  | `spec.md [FR-1] [FR-5] [FR-6]` + `design.md [DES-API]` |
-| —    | `packages/transport/src/vscode.ts` | `spec.md [FR-2]` + `design.md [DES-ARCH]`              |
-| —    | `packages/transport/src/mock.ts`   | `spec.md [FR-3] [FR-4]` + `design.md [DES-ARCH]`       |
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] -->
+
+| Surface / behavior        | Source anchor                      | Design node                                                       | Tests                                 |
+| ------------------------- | ---------------------------------- | ----------------------------------------------------------------- | ------------------------------------- |
+| Public exports            | `packages/transport/src/index.ts`  | `[DES-API]`, `[DES-TRANSPORT-INTERFACE]`                          | package typecheck                     |
+| Interface seam            | `packages/transport/src/types.ts`  | `[DES-TRANSPORT-INTERFACE]`, `[DES-TRANSPORT-LOGGING]`            | package typecheck                     |
+| VSCode webview adapter    | `packages/transport/src/vscode.ts` | `[DES-TRANSPORT-VSCODE-ADAPTER]`, `[DES-TRANSPORT-MOCKUP-VSCODE]` | package typecheck                     |
+| Browser/dev mock adapter  | `packages/transport/src/mock.ts`   | `[DES-TRANSPORT-MOCK-ADAPTER]`, `[DES-TRANSPORT-MOCK-SCENARIOS]`  | `packages/transport/src/mock.test.ts` |
+| Mock log and stream speed | `packages/transport/src/mock.ts`   | `[DES-TRANSPORT-LOGGING]`                                         | `packages/transport/src/mock.test.ts` |
+
+---
+
+## [DES-TRANSPORT-TRACE] 1:1 Code/Spec Matrix
+
+| Requirement | Design node                                                       | Source anchor                                                       |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `[FR-1]`    | `[DES-TRANSPORT-INTERFACE]`                                       | `packages/transport/src/types.ts`                                   |
+| `[FR-2]`    | `[DES-TRANSPORT-VSCODE-ADAPTER]`, `[DES-TRANSPORT-MOCKUP-VSCODE]` | `packages/transport/src/vscode.ts`                                  |
+| `[FR-3]`    | `[DES-TRANSPORT-MOCK-ADAPTER]`                                    | `packages/transport/src/mock.ts`                                    |
+| `[FR-4]`    | `[DES-TRANSPORT-MOCK-SCENARIOS]`                                  | `packages/transport/src/mock.ts`                                    |
+| `[FR-5]`    | `[DES-TRANSPORT-LOGGING]`                                         | `packages/transport/src/types.ts`, `packages/transport/src/mock.ts` |
+| `[FR-6]`    | `[DES-TRANSPORT-MOCK-ADAPTER]`                                    | `packages/transport/src/mock.ts`                                    |
+| `[NFR-1]`   | `[DES-SEC]`                                                       | chat app import boundary tests                                      |
+| `[NFR-2]`   | `[DES-DEPS]`                                                      | package typecheck                                                   |
+
+---
+
+## [DES-TRANSPORT-REFS] File Reference Map
+
+| Task | File                               | Required @see                                                                                     |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------- |
+| —    | `packages/transport/src/index.ts`  | `spec.md [FR-1]` + `design.md [DES-TRANSPORT-INTERFACE]`                                          |
+| —    | `packages/transport/src/types.ts`  | `spec.md [FR-1] [FR-5] [FR-6]` + `design.md [DES-TRANSPORT-INTERFACE] [DES-TRANSPORT-LOGGING]`    |
+| —    | `packages/transport/src/vscode.ts` | `spec.md [FR-2]` + `design.md [DES-TRANSPORT-VSCODE-ADAPTER]`                                     |
+| —    | `packages/transport/src/mock.ts`   | `spec.md [FR-3] [FR-4]` + `design.md [DES-TRANSPORT-MOCK-ADAPTER] [DES-TRANSPORT-MOCK-SCENARIOS]` |

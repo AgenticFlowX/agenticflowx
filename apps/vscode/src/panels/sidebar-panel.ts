@@ -3,11 +3,12 @@
  * Routes chat/send, chat/abort, chat/newSession from the webview to the agent; streams events back.
  * Deltas are coalesced per message id and flushed at ~16ms intervals.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4] [FR-7]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
- * @see docs/specs/300-infra-pi/spec.md [FR-5]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-5] [FR-14]
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-1] [FR-7]
+ * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]
+ * @see docs/specs/350-agent-manager/spec.md [FR-2] [FR-4]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -1020,6 +1021,8 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   // ---------------------------------------------------------------------------
+  // Flow: [AgentManager.HostBridge]
+  // Flow: [Bridge.ChatToAgent]
   // inbound from webview
   // ---------------------------------------------------------------------------
 
@@ -1035,8 +1038,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
   }
 
+  /**
+   * Inbound message dispatcher for the chat webview. Each `case` carries an
+   * `@see` to the spec/design that owns the message variant. Use those anchors
+   * as the entry point when changing a handler's behavior or contract.
+   *
+   * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
   function dispatchInbound(msg: ChatToAgent): void {
     switch (msg.type) {
+      // @see docs/specs/210-app-chat/design.md [DES-API]
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
       case "chat/ready":
       case "chat/getState": {
         markChatReady();
@@ -1046,124 +1059,154 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void broadcastRuntimeSettings();
         return;
       }
+      // @see docs/specs/350-agent-manager/design.md [DES-API]
       case "agent/checkStatus": {
         void runtimeMonitor.check(msg.requestId);
         return;
       }
+      // @see docs/specs/350-agent-manager/design.md [DES-API]
       case "agent/restart": {
         void runtimeMonitor.restart(msg.requestId);
         return;
       }
+      // @see docs/specs/350-agent-manager/design.md [DES-API]
       case "agent/reload": {
         void vscode.commands.executeCommand("workbench.action.reloadWindow");
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/send": {
         void handleSend(msg.requestId, msg.content, msg.mentions);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/getModels": {
         void handleGetModels(msg.requestId);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
       case "chat/setModel": {
         void handleSetModel(msg.requestId, msg.provider, msg.modelId, msg.instanceId);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
       case "chat/getCommands": {
         void handleGetCommands(msg.requestId);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
       case "chat/listFiles": {
         void handleListFiles(msg.requestId, msg.query, msg.limit);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/getSettingsSnapshot": {
         void handleGetSettingsSnapshot(msg.requestId);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "provider/setApiKey": {
         void handleSetProviderApiKey(msg.requestId, msg.provider, msg.key);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "provider/clearApiKey": {
         void handleClearProviderApiKey(msg.requestId, msg.provider);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "provider/setDefaultModel": {
         void handleSetProviderDefaultModel(msg.requestId, msg.provider, msg.modelId);
         return;
       }
+      // @see docs/specs/351-agent-pi/design.md [DES-API]
       case "external/detectPiBinary": {
         void handleDetectPiBinary(msg.requestId);
         return;
       }
+      // @see docs/specs/351-agent-pi/design.md [DES-API]
       case "external/setRpcEnabled": {
         void handleSetRpcEnabled(msg.requestId, msg.enabled);
         return;
       }
+      // @see docs/specs/351-agent-pi/design.md [DES-API]
       case "external/setEphemeral": {
         void handleSetEphemeralSession(msg.requestId, msg.enabled);
         return;
       }
+      // @see docs/specs/350-agent-manager/design.md [DES-API]
       case "chat/getStderr": {
         handleGetStderr(msg.requestId, msg.maxLines);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/openSettings": {
         void vscode.commands.executeCommand("workbench.action.openSettings", msg.key);
         return;
       }
+      // @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]
       case "telemetry/setEnabled": {
         void handleSetTelemetryEnabled(msg.requestId, msg.enabled);
         return;
       }
+      // @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
       case "appearance/update": {
         void handleUpdateAppearance(msg.requestId, msg.theme, msg.style);
         return;
       }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
       case "chat/abort": {
         void handleAbort();
         return;
       }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
       case "chat/newSession": {
         void handleNewSession();
         return;
       }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
       case "chat/compact": {
         void handleCompact(msg.requestId, msg.customInstructions);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/steer": {
         void handleSteer(msg.requestId, msg.content, msg.mentions);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/followUp": {
         void handleFollowUp(msg.requestId, msg.content, msg.mentions);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
       case "chat/setThinkingLevel": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setThinkingLevel(msg.level));
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/setSteeringMode": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setSteeringMode(msg.mode));
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/setFollowUpMode": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setFollowUpMode(msg.mode));
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/setAutoCompaction": {
         void handleSetRuntimeSetting(msg.requestId, () =>
           agentManager.setAutoCompaction(msg.enabled),
         );
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/setAutoRetry": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setAutoRetry(msg.enabled));
         return;
       }
+      // @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW]
       case "chat/saveNote": {
         void appendNoteToWorkspace(msg.content);
         return;

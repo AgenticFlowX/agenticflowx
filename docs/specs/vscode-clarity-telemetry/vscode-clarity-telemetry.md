@@ -99,7 +99,7 @@ AgenticFlowX needs a lightweight, privacy-respecting way to understand how devel
 
 <!-- SPRINT-SECTION-START: DESIGN (maps to design.md on graduation; promote ### → ##) -->
 
-## 2. Plan
+## 2. Design
 
 ### [DES-OVR] Overview
 

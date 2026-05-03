@@ -1,5 +1,5 @@
 // @see docs/specs/310-infra-build/spec.md [FR-2]
-// @see docs/specs/310-infra-build/design.md [DES-ARCH]
+// @see docs/specs/310-infra-build/design.md [DES-INFRA-BUILD-SYSTEM-CONTEXT]
 import console from "node:console";
 import process from "node:process";
 

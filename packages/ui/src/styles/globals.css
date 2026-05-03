@@ -17,8 +17,8 @@
  * The extension injects `theme-meridian style-*` classes from `afx.theme`
  * and `afx.style`.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1] [FR-2] [FR-4]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-TOKENS] [DES-SHADCN]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 
 @import "tailwindcss";

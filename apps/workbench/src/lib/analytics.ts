@@ -1,8 +1,8 @@
 /**
  * Analytics snapshot — pure pipeline → KPI transformation.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-9]
- * @see docs/specs/220-app-workbench/design.md [DES-ANALYTICS]
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-SNAPSHOT]
  */
 import type { FeatureTasksData, GhostTaskResult, JournalEntry, PipelineRow } from "@afx/shared";
 
@@ -10,6 +10,12 @@ export type Range = "7d" | "30d" | "90d" | "all";
 
 export type Stage = "done" | "build" | "design" | "specify" | "backlog";
 
+/**
+ * Classify a pipeline row into the stage buckets rendered by `StageBar`.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-4] [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-STAGE] [DES-ANALYTICS-SNAPSHOT]
+ */
 export function pipelineRowToStage(row: PipelineRow): Stage {
   if (row.total > 0 && row.completed === row.total) return "done";
   if (row.completed > 0) return "build";
@@ -19,7 +25,12 @@ export function pipelineRowToStage(row: PipelineRow): Stage {
   return "backlog";
 }
 
-/** YYYY-MM-DD bucket (UTC) — heatmap cells, streaks, active-day counts. */
+/**
+ * YYYY-MM-DD bucket (UTC) — heatmap cells, streaks, active-day counts.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-6] [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEATMAP] [DES-ANALYTICS-SNAPSHOT]
+ */
 export interface HeatmapCell {
   /** ISO date `YYYY-MM-DD`. */
   date: string;
@@ -83,7 +94,12 @@ function lastNDates(n: number, today = new Date()): string[] {
   return dates;
 }
 
-/** Walk back from `today` and count consecutive dates present in the set. */
+/**
+ * Walk back from `today` and count consecutive dates present in the set.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-SNAPSHOT]
+ */
 export function computeCurrentStreak(activeDates: Set<string>, today = new Date()): number {
   let streak = 0;
   for (let i = 0; i < 365; i++) {
@@ -94,7 +110,12 @@ export function computeCurrentStreak(activeDates: Set<string>, today = new Date(
   return streak;
 }
 
-/** Longest run of consecutive dates in the set (irrespective of "today"). */
+/**
+ * Longest run of consecutive dates in the set (irrespective of "today").
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-SNAPSHOT]
+ */
 export function computeLongestStreak(activeDates: Set<string>): number {
   if (activeDates.size === 0) return 0;
   const sorted = Array.from(activeDates).sort();
@@ -114,6 +135,12 @@ export function computeLongestStreak(activeDates: Set<string>): number {
   return longest;
 }
 
+/**
+ * Build the full dashboard view model from Workbench state.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-1] [FR-7]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-SNAPSHOT]
+ */
 export function buildSnapshot(
   pipeline: PipelineRow[],
   featureTasks: FeatureTasksData[],

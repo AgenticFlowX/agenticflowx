@@ -4,8 +4,8 @@
  * resolves them against the workspace, and locates the matching line inside the
  * referenced markdown file.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-1] [FR-2]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-DATA] [DES-API]
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -47,12 +47,15 @@ export interface ResolvedNode {
 /**
  * Inspect the line under the cursor and, if it carries an `@see docs/...` annotation,
  * report which token the cursor is currently on.
+ *
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-CONTEXT-EXTRACTION]
  */
 export function getSeeContextAt(
   document: vscode.TextDocument,
   position: vscode.Position,
   root: string,
 ): SeeContext | undefined {
+  // Flow: [SeeNavigation.Context]
   const line = document.lineAt(position.line);
   const lineText = line.text;
   const seeMatch = SEE_PATH_RE.exec(lineText);
@@ -119,8 +122,13 @@ export interface NodeIdEntry {
 /**
  * Scan a markdown file and return every node id we know how to address — table
  * rows for `FR-X`/`NFR-X` and headings for `DES-XXX` / `X.Y` task ids.
+ * Sub-section headings (`### [DES-X]` under `## [DES-Y]`) are indexed identically
+ * to top-level headings — heading depth is not significant.
+ *
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-ENUMERATION]
  */
 export function listNodeIds(absPath: string): NodeIdEntry[] {
+  // Flow: [SeeNavigation.Resolver]
   if (!existsSync(absPath)) return [];
   let raw: string;
   try {
@@ -171,8 +179,11 @@ export function listNodeIds(absPath: string): NodeIdEntry[] {
  * - `FR-X` / `NFR-X` → table row whose first cell matches the id.
  * - `DES-XXX` → first heading (any level) whose slug contains `des-xxx`.
  * - `X.Y` → first heading (any level) whose text starts with `X.Y`.
+ *
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-RESOLUTION] [DES-SEE-RESOLVER-FLOW]
  */
 export function resolveNode(absPath: string, nodeId: string): ResolvedNode | undefined {
+  // Flow: [SeeNavigation.Resolver]
   if (!existsSync(absPath)) return undefined;
   let content: string;
   try {
@@ -232,8 +243,10 @@ export function resolveNode(absPath: string, nodeId: string): ResolvedNode | und
 }
 
 /**
- * Extract a short preview of the file (first 40 lines, frontmatter skipped) for
+ * Extract a short preview of the file (first 40 lines, front matter skipped) for
  * path-target hover popups.
+ *
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-PATH-PREVIEW]
  */
 export function readPathPreview(
   absPath: string,
@@ -263,6 +276,7 @@ export function readPathPreview(
   return { content: slice, truncated: lines.length - start > max };
 }
 
+/** @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-TABLE-PARSING] */
 function findTableHeaders(lines: string[], rowIdx: number): string[] | undefined {
   // A markdown table is: header row | separator row | body rows. Walk back for the closest
   // header row that precedes the matched body row through a separator.
@@ -281,6 +295,7 @@ function findTableHeaders(lines: string[], rowIdx: number): string[] | undefined
   return undefined;
 }
 
+/** @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-TABLE-PARSING] */
 function splitTableRow(line: string): string[] {
   return line
     .replace(/^\s*\|/, "")
@@ -289,6 +304,7 @@ function splitTableRow(line: string): string[] {
     .map((cell) => cell.trim());
 }
 
+/** @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-TABLE-PARSING] */
 function extractHeadingBlock(lines: string[], startIdx: number, level: number): string {
   const out: string[] = [lines[startIdx] ?? ""];
   for (let i = startIdx + 1; i < lines.length; i++) {

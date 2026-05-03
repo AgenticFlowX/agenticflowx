@@ -3,7 +3,8 @@
  *
  * @see docs/specs/210-app-chat/spec.md [FR-6]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-11] [FR-12] [4.2]
+ * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-COMPONENT-OVERLAY]
  */
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 
@@ -62,6 +63,8 @@ type RuntimeSettings = Pick<
   | "pendingMessageCount"
 >;
 
+type HistorySectionModel = { label: string; items: ChatHistoryEvent[] };
+
 export interface HistoryProps {
   agentStatus?: AgentRuntimeStatus;
   recoveryActions?: AgentRecoveryActions;
@@ -69,6 +72,13 @@ export interface HistoryProps {
   onInsertCommand?: (commandText: string) => void;
 }
 
+/**
+ * Renders the active-session History surface, bridge subscriptions, and local
+ * filter state for the work log.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-2] [FR-5] [FR-6]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-SURFACE-MAP]
+ */
 export default function History({
   agentStatus = createCheckingAgentRuntimeStatus(),
   recoveryActions,
@@ -170,8 +180,10 @@ export default function History({
 
   const sections = useMemo(() => groupByDay(filtered), [filtered]);
 
+  // Surface: [History.Root]
   return (
     <div className="afx-surface-subtle flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+      {/* Surface: [History.Header] */}
       <div className="shrink-0 border-b bg-background/95 px-2 py-3">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
@@ -219,8 +231,10 @@ export default function History({
           </Button>
         </div>
 
+        {/* Surface: [History.Context] */}
         <ContextPreviewCard runtime={runtime} onInsertCommand={onInsertCommand} />
 
+        {/* Surface: [History.FilterBar] */}
         <div className="afx-field-surface rounded-lg border p-2">
           <div className="mb-2 flex flex-wrap items-center gap-1">
             {(["narrative", "trace", "audit"] as const).map((mode) => (
@@ -264,38 +278,19 @@ export default function History({
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
-        {isCheckingAgent ? (
-          <HistorySetupState />
-        ) : runtimeUnconfigured ? (
-          <div className="px-3 py-8 text-center">
-            <p className="text-xs text-muted-foreground">
-              No runtime configured yet. Connect a provider in Settings to build the work log.
-            </p>
-          </div>
-        ) : runtimeUnavailable ? (
-          <div className="px-1 py-1">
-            <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
-            {sections.length > 0 ? (
-              <div className="mt-3 space-y-2 opacity-70">
-                {sections.map((section) => (
-                  <HistorySection key={section.label} section={section} />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : sections.length === 0 ? (
-          <div className="px-3 py-8 text-center">
-            <p className="text-xs text-muted-foreground">
-              {events.length === 0
-                ? "No active-session events yet. Start chatting to build the work log."
-                : "No matching active-session events."}
-            </p>
-          </div>
-        ) : (
-          sections.map((section) => <HistorySection key={section.label} section={section} />)
-        )}
-      </div>
+      {/*
+        Surface: [History.Body]
+        @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-BODY]
+      */}
+      <HistoryBody
+        agentStatus={agentStatus}
+        eventCount={events.length}
+        isCheckingAgent={isCheckingAgent}
+        recoveryActions={recoveryActions}
+        runtimeUnavailable={runtimeUnavailable}
+        runtimeUnconfigured={runtimeUnconfigured}
+        sections={sections}
+      />
     </div>
   );
 }
@@ -304,6 +299,12 @@ export default function History({
 // ContextPreviewCard — two-section card explaining agent session vs workspace context.
 // ---------------------------------------------------------------------------
 
+/**
+ * Renders the [History.Context] card for session and workspace context actions.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-4]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-CONTEXT]
+ */
 function ContextPreviewCard({
   runtime,
   onInsertCommand,
@@ -363,6 +364,82 @@ function ContextPreviewCard({
   );
 }
 
+/**
+ * Renders the [History.Body] scroll region and its runtime/search/list state
+ * matrix.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-5] [FR-6] [FR-7]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-BODY]
+ */
+function HistoryBody({
+  agentStatus,
+  eventCount,
+  isCheckingAgent,
+  recoveryActions,
+  runtimeUnavailable,
+  runtimeUnconfigured,
+  sections,
+}: {
+  agentStatus: AgentRuntimeStatus;
+  eventCount: number;
+  isCheckingAgent: boolean;
+  recoveryActions?: AgentRecoveryActions;
+  runtimeUnavailable: boolean;
+  runtimeUnconfigured: boolean;
+  sections: HistorySectionModel[];
+}) {
+  let content: ReactNode;
+
+  if (isCheckingAgent) {
+    content = <HistorySetupState />;
+  } else if (runtimeUnconfigured) {
+    content = (
+      <div className="px-3 py-8 text-center">
+        <p className="text-xs text-muted-foreground">
+          No runtime configured yet. Connect a provider in Settings to build the work log.
+        </p>
+      </div>
+    );
+  } else if (runtimeUnavailable) {
+    content = (
+      <div className="px-1 py-1">
+        <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
+        {sections.length > 0 ? (
+          <div className="mt-3 space-y-2 opacity-70">
+            {sections.map((section) => (
+              <HistorySection key={section.label} section={section} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    );
+  } else if (sections.length === 0) {
+    content = (
+      <div className="px-3 py-8 text-center">
+        <p className="text-xs text-muted-foreground">
+          {eventCount === 0
+            ? "No active-session events yet. Start chatting to build the work log."
+            : "No matching active-session events."}
+        </p>
+      </div>
+    );
+  } else {
+    content = sections.map((section) => <HistorySection key={section.label} section={section} />);
+  }
+
+  return (
+    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-3 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+      {content}
+    </div>
+  );
+}
+
+/**
+ * Renders the [History.SetupState] loading card while the runtime is checked.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-6]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-MOCKUP-EMPTY] [DES-HISTORY-SURFACE-BODY]
+ */
 function HistorySetupState() {
   return (
     <div className="px-3 py-8 text-center" aria-live="polite">
@@ -381,11 +458,13 @@ function HistorySetupState() {
   );
 }
 
-function HistorySection({
-  section,
-}: {
-  section: { label: string; items: readonly ChatHistoryEvent[] };
-}) {
+/**
+ * Renders a [History.Section] sticky day group.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-7]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-SECTIONS]
+ */
+function HistorySection({ section }: { section: HistorySectionModel }) {
   return (
     <section className="mb-3 last:mb-0">
       <div className="sticky top-0 z-10 -mx-2 mb-1 border-y bg-muted/80 px-2 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground backdrop-blur-sm">
@@ -403,6 +482,12 @@ function HistorySection({
   );
 }
 
+/**
+ * Renders a single [History.Row] event item.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-7]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-SECTIONS]
+ */
 function HistoryEventRow({ event }: { event: ChatHistoryEvent }) {
   const statusClass =
     event.status === "error"
@@ -451,6 +536,12 @@ function HistoryEventRow({ event }: { event: ChatHistoryEvent }) {
   );
 }
 
+/**
+ * Renders the compact header metadata chips in [History.Header].
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-3]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-HEADER]
+ */
 function TraceChip({
   children,
   tone = "default",
@@ -476,6 +567,12 @@ function TraceChip({
   );
 }
 
+/**
+ * Mirrors `chat/toolStart` into the latest assistant timeline item.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-2]
+ * @see docs/specs/213-app-chat-history/design.md [DES-API]
+ */
 function attachTool(
   messages: ChatTimelineItem[],
   toolCallId: string,
@@ -501,9 +598,13 @@ function toolArgs(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function groupByDay(
-  events: ChatHistoryEvent[],
-): Array<{ label: string; items: ChatHistoryEvent[] }> {
+/**
+ * Groups filtered events into sticky day sections for [History.Section].
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-7]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-SECTIONS]
+ */
+function groupByDay(events: ChatHistoryEvent[]): HistorySectionModel[] {
   const map = new Map<string, ChatHistoryEvent[]>();
 
   for (const event of events) {
@@ -545,12 +646,24 @@ function formatCompact(n: number): string {
   return String(n);
 }
 
+/**
+ * Applies History search text across row action, target, detail, and kind.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-5]
+ * @see docs/specs/213-app-chat-history/design.md [DES-DATA]
+ */
 function eventMatches(event: ChatHistoryEvent, query: string): boolean {
   return `${event.action} ${event.target} ${event.detail ?? ""} ${event.kind}`
     .toLowerCase()
     .includes(query);
 }
 
+/**
+ * Chooses the row icon for each History event kind.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-7] [FR-9]
+ * @see docs/specs/213-app-chat-history/design.md [DES-HISTORY-SURFACE-SECTIONS]
+ */
 function renderEventIcon(event: ChatHistoryEvent, className: string) {
   switch (event.kind) {
     case "message.user":

@@ -3,7 +3,7 @@
 # Marketplace upload is manual — download the VSIX from the release assets.
 #
 # @see docs/specs/520-ci-publish/spec.md [FR-1] [FR-2] [FR-3]
-# @see docs/specs/520-ci-publish/design.md [DES-ARCH]
+# @see docs/specs/520-ci-publish/design.md [DES-CI-PUBLISH-DISTRIBUTION]
 
 name: build-vsix
 

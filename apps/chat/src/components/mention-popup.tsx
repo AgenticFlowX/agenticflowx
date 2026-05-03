@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-12] [NFR-6] [DES-MENTION] [6.2]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MENTION-POPUP] [DES-COMPOSER-HELPERS]
  */
 import { FileCode, FolderOpen } from "lucide-react";
 
@@ -21,6 +22,12 @@ export interface MentionPopupProps {
   onSelect: (path: string) => void;
 }
 
+/**
+ * Renders the composer file mention picker and splits recent/workspace candidates.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MENTION-POPUP]
+ */
 export function MentionPopup({ open, files, onOpenChange, onSelect }: MentionPopupProps) {
   const recent = files.filter((file) => file.recent);
   const workspace = files.filter((file) => !file.recent);
@@ -59,6 +66,12 @@ export function MentionPopup({ open, files, onOpenChange, onSelect }: MentionPop
   );
 }
 
+/**
+ * Renders one selectable mention candidate.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MENTION-POPUP]
+ */
 function FileRow({
   file,
   recent,

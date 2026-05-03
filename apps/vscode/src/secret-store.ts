@@ -1,7 +1,8 @@
 /**
  * Small VS Code SecretStorage wrapper for provider credentials.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/351-agent-pi/spec.md [FR-2]
+ * @see docs/specs/351-agent-pi/design.md [DES-SEC]
  */
 import type * as vscode from "vscode";
 

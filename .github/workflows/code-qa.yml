@@ -7,7 +7,7 @@
 # `pnpm verify` (fast lifecycle) and `pnpm verify:full` (CI equivalent) — see AGENTS.md § Verification.
 #
 # @see docs/specs/500-ci-code-qa/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [FR-8] [FR-9]
-# @see docs/specs/500-ci-code-qa/design.md [DES-ARCH]
+# @see docs/specs/500-ci-code-qa/design.md [DES-CI-CODE-QA-JOB-GRAPH]
 # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-1] [FR-2] [DES-ARCH]
 
 name: code-qa

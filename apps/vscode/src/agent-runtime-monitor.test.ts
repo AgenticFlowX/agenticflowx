@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API] [DES-TEST]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-API] [DES-TEST]
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 

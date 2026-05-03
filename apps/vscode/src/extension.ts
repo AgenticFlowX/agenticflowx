@@ -1,11 +1,15 @@
 /**
  * Extension entry point — activate/deactivate, panel registration, command wiring.
  * Reads VSCode config and injects into the active agent adapter; types agent as AgentManager.
+ * Per-command @see anchors live inline at each registerCommand call.
  *
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-6] [FR-7]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
- * @see docs/specs/300-infra-pi/spec.md [FR-1] [FR-6] [FR-7]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
+ * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG] [DES-SETTINGS-CATALOG] [DES-KEYBINDING-CATALOG]
+ * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
+ * @see docs/specs/350-agent-manager/spec.md [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
+ * @see docs/specs/351-agent-pi/spec.md [FR-2]
+ * @see docs/specs/351-agent-pi/design.md [DES-API]
  */
 import { existsSync } from "node:fs";
 import { delimiter, extname, isAbsolute, join } from "node:path";
@@ -269,22 +273,30 @@ export async function activate(
   context.subscriptions.push(
     runtimeMonitor,
     statusItem,
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
     vscode.window.registerWebviewViewProvider(SIDEBAR_VIEW_TYPE, sidebarProvider),
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
     vscode.window.registerWebviewViewProvider(WORKBENCH_VIEW_TYPE, workbenchProvider),
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-COMMAND-OPEN-SIDEBAR]
     vscode.commands.registerCommand("afx.openSidebar", async () => {
       await vscode.commands.executeCommand("workbench.view.extension.afx");
       await vscode.commands.executeCommand(`${SIDEBAR_VIEW_TYPE}.focus`);
     }),
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-COMMAND-OPEN-WORKBENCH]
     vscode.commands.registerCommand("afx.openWorkbench", async () => {
       await vscode.commands.executeCommand("workbench.view.extension.afx-workbench-container");
       await vscode.commands.executeCommand(`${WORKBENCH_VIEW_TYPE}.focus`);
     }),
+    // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
     vscode.commands.registerCommand("afx.showLogs", () => channel.show(true)),
+    // @see docs/specs/350-agent-manager/design.md [DES-AGENT-COMMAND-SMOKE-TEST]
     vscode.commands.registerCommand("afx.agentSmokeTest", () => agentSmokeTest(channel, logger)),
+    // @see docs/specs/350-agent-manager/design.md [DES-AGENT-COMMAND-RESTART]
     vscode.commands.registerCommand("afx.agentRestart", async () => {
       await runtimeMonitor.restart();
       vscode.window.showInformationMessage("AgenticFlowX: agent runtime restarted");
     }),
+    // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand(
       "afx.setProviderApiKey",
       async (provider?: string, key?: string) => {
@@ -319,6 +331,7 @@ export async function activate(
         );
       },
     ),
+    // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand("afx.clearProviderApiKey", async (provider?: string) => {
       const providerId =
         provider?.trim() ||
@@ -342,6 +355,7 @@ export async function activate(
         `AgenticFlowX: cleared API key for ${normalizedProviderId}`,
       );
     }),
+    // @see docs/specs/351-agent-pi/design.md [DES-PI-COMMAND-DETECT-BINARY]
     vscode.commands.registerCommand("afx.detectPiBinary", async () => {
       const detected = detectExecutableOnPath("pi");
       if (!detected) {
@@ -356,6 +370,7 @@ export async function activate(
         .update("rpc.enabled", true, vscode.ConfigurationTarget.Global);
       vscode.window.showInformationMessage(`AgenticFlowX: Pi CLI detected at ${detected}`);
     }),
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-COMMAND-OPEN-AT-LINE]
     vscode.commands.registerCommand(
       OPEN_SPEC_AT_LINE_COMMAND,
       async (arg: { path: string; line: number } | undefined) => {
@@ -372,17 +387,23 @@ export async function activate(
 
   const getRoot = (): string | undefined => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
+  // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
   context.subscriptions.push(
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-MOCKUP-CODELENS]
     vscode.languages.registerCodeLensProvider(TRACE_LANGUAGES, createSpecCodeLensProvider(getRoot)),
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-CONTEXT-EXTRACTION]
     vscode.languages.registerHoverProvider(TRACE_LANGUAGES, createSpecHoverProvider(getRoot)),
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-RESOLUTION]
     vscode.languages.registerDefinitionProvider(
       TRACE_LANGUAGES,
       createSpecDefinitionProvider(getRoot),
     ),
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-RESOLUTION]
     vscode.languages.registerDocumentLinkProvider(
       TRACE_LANGUAGES,
       createSeeDocumentLinkProvider(getRoot),
     ),
+    // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-ENUMERATION]
     vscode.languages.registerCompletionItemProvider(
       TRACE_LANGUAGES,
       createSeeCompletionProvider(getRoot),
@@ -393,6 +414,7 @@ export async function activate(
   );
 
   if (agentManager) {
+    // Flow: [EditorActions.Dispatch]
     const { disposables } = createAfxCodeActionProvider(logger, agentManager, {
       sendPrompt: async (prompt) => {
         await vscode.commands.executeCommand("afx.openSidebar");

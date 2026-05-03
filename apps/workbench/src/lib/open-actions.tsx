@@ -1,8 +1,9 @@
 /**
  * Tiny "Open in Editor / Open in Preview" affordance shown on markdown preview panes.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-UI]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-5]
  */
 import { Eye, Pencil } from "lucide-react";
 
@@ -10,6 +11,13 @@ import { Button } from "@afx/ui/components/button";
 
 import { workbenchSend } from "./bridge";
 
+/**
+ * Renders editor/preview buttons for markdown surfaces.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-5]
+ */
 export function OpenActions({
   filePath,
   line,

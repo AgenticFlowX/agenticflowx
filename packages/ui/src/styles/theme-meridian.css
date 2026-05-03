@@ -7,8 +7,8 @@
  *
  * Active when: no .theme-* class (default), or .theme-meridian.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1] [FR-3]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-HOST] [DES-TOKENS]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 
 :root,

@@ -9,8 +9,8 @@
  * - Sessions view with agent/human toggles
  * - Drift indicators in footer
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-10] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-VIEW]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-MOCKUP] [DES-SHELL-FEATURE-COLUMNS]
  */
 import { Fragment, useEffect, useMemo, useState } from "react";
 
@@ -67,7 +67,12 @@ const defaultVisible: Record<ColumnId, boolean> = {
   sessions: false,
 };
 
-// Column toggle button
+/**
+ * Renders one [Workbench.ColumnToggle] button in the feature toolbar.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
 function ColumnToggle({
   id,
   visible,
@@ -100,7 +105,12 @@ function ColumnToggle({
   );
 }
 
-// Column header
+/**
+ * Renders a shared column header with status and editor/preview actions.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
 function ColumnHeader({
   colId,
   status,
@@ -142,7 +152,12 @@ function ColumnHeader({
   );
 }
 
-// Tasks column
+/**
+ * Renders the [Workbench.TasksColumn] phase/task checklist.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
 function ColumnTasks({
   feature,
   onToggle,
@@ -216,7 +231,12 @@ function ColumnTasks({
   );
 }
 
-// Sessions column
+/**
+ * Renders the [Workbench.SessionsColumn] work-session verification table.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
 function ColumnSessions({
   feature,
   onToggle,
@@ -292,7 +312,13 @@ function ColumnSessions({
   );
 }
 
-// Document column
+/**
+ * Renders one markdown-backed document column for spec/design/tasks content.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MARKDOWN]
+ */
 function ColumnDoc({
   colId,
   content,
@@ -330,7 +356,12 @@ function ColumnDoc({
   );
 }
 
-// Drift indicator in footer
+/**
+ * Renders one [Workbench.DriftIndicator] status/staleness pill in the footer.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
 function DriftIndicator({
   label,
   status,
@@ -372,7 +403,12 @@ function DriftIndicator({
   );
 }
 
-// Main component
+/**
+ * Renders the feature-scoped four-column Workbench tab.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-5] [FR-6] [FR-7]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-MOCKUP] [DES-SHELL-FEATURE-COLUMNS]
+ */
 export default function Workbench() {
   const { pipeline, featureTasks, selectedFeature, selectFeature, send, isLoading } =
     useWorkbench();
@@ -483,7 +519,10 @@ export default function Workbench() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* Feature selector + toggles */}
+      {/*
+        Surface: [Workbench.FeatureToolbar]
+        @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+      */}
       <div className="afx-surface-toolbar flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
         <Select value={featureName ?? ""} onValueChange={(v) => selectFeature(v)}>
           <SelectTrigger className="h-7 w-[200px] text-xs">
@@ -548,7 +587,10 @@ export default function Workbench() {
         </div>
       </div>
 
-      {/* Column content */}
+      {/*
+        Surface: [Workbench.ColumnRegion]
+        @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+      */}
       {visibleColumns.length === 0 ? (
         <Empty className="flex-1">
           <EmptyHeader>
@@ -624,7 +666,10 @@ export default function Workbench() {
         </ResizablePanelGroup>
       )}
 
-      {/* Drift indicators footer */}
+      {/*
+        Surface: [Workbench.DriftFooter]
+        @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+      */}
       {row && (
         <div className="afx-surface-toolbar flex flex-wrap items-center gap-4 border-t border-border px-3 py-1.5 text-muted-foreground">
           <DriftIndicator

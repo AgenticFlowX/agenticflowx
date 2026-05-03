@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-12] [DES-MENTION] [6.4]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
  */
 
 const MENTION_RE = /(^|[^A-Za-z0-9\\])@([\w./_-]+)/g;

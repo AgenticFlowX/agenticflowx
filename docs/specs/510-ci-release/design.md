@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [ci, release, release-please, changelog, semver, changelogen]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["ci", "release", "release-please", "changelog", "semver", "changelogen", "traceability"]
 spec: spec.md
 ---
 
@@ -40,7 +40,7 @@ release-please-config.json
   → { ".": "0.0.1" }   ← current version; updated by release-please on each release
 ```
 
-### Release Flow (GHA)
+### [DES-CI-RELEASE-FLOW-GHA] Release Flow (GHA)
 
 ```text
 developer triggers workflow_dispatch on release-please.yml
@@ -54,7 +54,7 @@ merge release PR
   → triggers build-vsix.yml (on: release published)
 ```
 
-### Local Preview Flow
+### [DES-CI-RELEASE-FLOW-LOCAL] Local Preview Flow
 
 ```text
 developer runs: pnpm changelog
@@ -144,7 +144,7 @@ The release flow is validated by inspecting the release PR after a conventional 
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Cut a release
+### [DES-CI-RELEASE-ROLLOUT-CUT] Phase 1: Cut a release
 
 1. Write conventional commits and merge to `main`
 2. Run `pnpm changelog` locally to preview the CHANGELOG diff
@@ -152,14 +152,25 @@ The release flow is validated by inspecting the release PR after a conventional 
 4. Review CHANGELOG diff in the opened release PR
 5. Merge to create git tag + GitHub Release
 
-### Rollback Plan
+### [DES-CI-RELEASE-ROLLOUT-ROLLBACK] Rollback Plan
 
 If a bad release is tagged: delete the GitHub Release and the git tag manually, then revert the version bump commit. release-please will re-open a corrected PR on next push.
 
 ---
 
-## File Reference Map
+## [DES-CI-RELEASE-LOC] Code Locator Map
 
-| Task | File                                   | Required @see                             |
-| ---- | -------------------------------------- | ----------------------------------------- |
-| —    | `.github/workflows/release-please.yml` | `spec.md [FR-1]` + `design.md [DES-ARCH]` |
+| Release surface     | Source anchor                          | Design node                    |
+| ------------------- | -------------------------------------- | ------------------------------ |
+| Release PR workflow | `.github/workflows/release-please.yml` | `[DES-CI-RELEASE-FLOW-GHA]`    |
+| Release config      | `release-please-config.json`           | `[DES-CHANGELOG]`, `[DES-DEC]` |
+| Version manifest    | `.release-please-manifest.json`        | `[DES-ARCH]`                   |
+| Local preview       | `package.json` `changelog` script      | `[DES-CI-RELEASE-FLOW-LOCAL]`  |
+
+---
+
+## [DES-CI-RELEASE-REFS] File Reference Map
+
+| Task | File                                   | Required @see                                            |
+| ---- | -------------------------------------- | -------------------------------------------------------- |
+| —    | `.github/workflows/release-please.yml` | `spec.md [FR-1]` + `design.md [DES-CI-RELEASE-FLOW-GHA]` |

@@ -3,7 +3,7 @@
  * virtual SPEC / DESIGN / TASKS / SESSIONS sub-documents.
  *
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-DATA]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-SPRINT-SLICER]
  */
 import { parseFrontmatter } from "@afx/parsers";
 
@@ -91,7 +91,7 @@ export function sliceAllSprintSections(raw: string): Partial<Record<SprintSectio
  * Returns `undefined` for content above the first section (e.g., References).
  *
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-DATA]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-SPRINT-SLICER]
  */
 export function findSectionAt(raw: string, line: number): SprintSection | undefined {
   const lines = raw.split("\n");
@@ -128,7 +128,7 @@ export function findSectionAt(raw: string, line: number): SprintSection | undefi
  * Parse `<workspace-relative-path>#SECTION` into its parts.
  *
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-DATA]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-SPRINT-SLICER]
  */
 export function parseSprintPath(filePath: string): {
   path: string;

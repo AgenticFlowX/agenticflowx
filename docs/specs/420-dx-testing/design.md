@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [dx, testing, vitest, playwright, vscode-test]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["dx", "testing", "vitest", "playwright", "vscode-test", "traceability"]
 spec: spec.md
 ---
 
@@ -40,7 +40,7 @@ apps/vscode-e2e/
   .vscode-test.mjs              → electron test runner config
 ```
 
-### Runner Isolation
+### [DES-DX-TESTING-RUNNER-ISOLATION] Runner Isolation
 
 ```text
 vitest      → Node.js, in-process (per project config)
@@ -111,23 +111,35 @@ The test infrastructure itself is validated by running the full test suite in CI
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Add a new unit test
+### [DES-DX-TESTING-ROLLOUT-UNIT] Phase 1: Add a new unit test
 
 1. Create `*.test.ts` file in target package `src/`
 2. Run `pnpm test` — Vitest picks it up automatically
 
-### Phase 2: Add a new E2E test
+### [DES-DX-TESTING-ROLLOUT-E2E] Phase 2: Add a new E2E test
 
 1. Add `*.spec.ts` to `apps/chat/e2e/` (Playwright) **or** `*.test.ts` to `apps/vscode-e2e/src/` (vscode-test-electron has no `.spec` convention; see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-5])
 2. Run the appropriate runner (`pnpm --filter apps/chat test:e2e` or `pnpm --filter apps/vscode-e2e test`)
 
-### Rollback Plan
+### [DES-DX-TESTING-ROLLOUT-ROLLBACK] Rollback Plan
 
 Remove or skip the test file. The runner skips missing test files gracefully.
 
 ---
 
-## File Reference Map
+## [DES-DX-TESTING-LOC] Code Locator Map
+
+| Test surface               | Source anchor                                                           | Design node                                           |
+| -------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------- |
+| Vitest workspace           | `vitest.workspace.ts`, `vitest.config.ts`                               | `[DES-DX-TESTING-RUNNER-ISOLATION]`                   |
+| Package unit config        | `packages/*/vitest.config.ts`, `apps/*/vitest.config*.ts`               | `[DES-DX-TESTING-RUNNER-ISOLATION]`                   |
+| Chat/workbench browser E2E | `apps/chat/playwright.config.ts`, `apps/workbench/playwright.config.ts` | `[DES-DX-TESTING-RUNNER-ISOLATION]`                   |
+| VSCode extension E2E       | `apps/vscode-e2e/.vscode-test.mjs`, `apps/vscode-e2e/src/*.test.ts`     | `[DES-DX-TESTING-RUNNER-ISOLATION]`                   |
+| CI enforcement             | `.github/workflows/code-qa.yml`                                         | `500-ci-code-qa/design.md [DES-CI-CODE-QA-JOB-GRAPH]` |
+
+---
+
+## [DES-DX-TESTING-REFS] File Reference Map
 
 | Task | File                                    | Required @see                       |
 | ---- | --------------------------------------- | ----------------------------------- |

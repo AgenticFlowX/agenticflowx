@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [ci, publish, vsix]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["ci", "publish", "vsix", "traceability"]
 spec: spec.md
 ---
 
@@ -34,7 +34,7 @@ spec: spec.md
       4. gh release upload        ← attach VSIX to GitHub Release
 ```
 
-### Distribution
+### [DES-CI-PUBLISH-DISTRIBUTION] Distribution
 
 ```text
 GitHub Release       → github.com release assets    (via gh CLI, automated)
@@ -99,21 +99,32 @@ The publish workflow is validated by creating a test release and confirming the 
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: First VSIX build
+### [DES-CI-PUBLISH-ROLLOUT-FIRST-BUILD] Phase 1: First VSIX build
 
 1. Merge the release PR created by release-please
 2. Confirm the GitHub Release triggers `build-vsix.yml`
 3. Download the `.vsix` from the GitHub Release assets
 4. Upload to VS Code Marketplace and/or OpenVSX manually
 
-### Rollback Plan
+### [DES-CI-PUBLISH-ROLLOUT-ROLLBACK] Rollback Plan
 
 Delete the GitHub Release if the VSIX is incorrect. Re-tag and re-release with a patch version. Re-upload the corrected VSIX to the marketplace manually.
 
 ---
 
-## File Reference Map
+## [DES-CI-PUBLISH-LOC] Code Locator Map
 
-| Task | File                               | Required @see                             |
-| ---- | ---------------------------------- | ----------------------------------------- |
-| —    | `.github/workflows/build-vsix.yml` | `spec.md [FR-1]` + `design.md [DES-ARCH]` |
+| Publish surface             | Source anchor                                               | Design node                                   |
+| --------------------------- | ----------------------------------------------------------- | --------------------------------------------- |
+| VSIX workflow               | `.github/workflows/build-vsix.yml`                          | `[DES-ARCH]`, `[DES-CI-PUBLISH-DISTRIBUTION]` |
+| VSIX packaging command      | `.github/workflows/build-vsix.yml` `pnpm exec vsce package` | `[DES-ARCH]`                                  |
+| GitHub Release asset upload | `.github/workflows/build-vsix.yml` `gh release upload`      | `[DES-CI-PUBLISH-DISTRIBUTION]`               |
+| Manual marketplace upload   | release asset download step                                 | `[DES-CI-PUBLISH-DISTRIBUTION]`               |
+
+---
+
+## [DES-CI-PUBLISH-REFS] File Reference Map
+
+| Task | File                               | Required @see                                                |
+| ---- | ---------------------------------- | ------------------------------------------------------------ |
+| —    | `.github/workflows/build-vsix.yml` | `spec.md [FR-1]` + `design.md [DES-CI-PUBLISH-DISTRIBUTION]` |

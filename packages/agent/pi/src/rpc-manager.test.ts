@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-8] [DES-TEST] [3.2]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 import { describe, expect, it } from "vitest";
 

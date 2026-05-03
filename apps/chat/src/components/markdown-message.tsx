@@ -3,6 +3,8 @@
  *
  * @see docs/specs/210-app-chat/spec.md [FR-2]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-3]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENT-MARKDOWN] [DES-MESSAGES-MARKDOWN]
  */
 import { useMemo, useState } from "react";
 
@@ -69,6 +71,12 @@ export function MarkdownMessage({ content }: MarkdownMessageProps) {
   );
 }
 
+/**
+ * Renders fenced code blocks with a language label and copy affordance.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-3]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENT-MARKDOWN] [DES-MESSAGES-MARKDOWN]
+ */
 function CodeFence({ code, language }: { code: string; language: string }) {
   const [copied, setCopied] = useState(false);
 

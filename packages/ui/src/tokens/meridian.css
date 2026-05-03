@@ -1,7 +1,7 @@
 /*
  * Compatibility entrypoint for @afx/ui/tokens.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1] [FR-2]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-TOKENS] [DES-FILES]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-FILES]
  */
 @import "../styles/meridian.tokens.css";

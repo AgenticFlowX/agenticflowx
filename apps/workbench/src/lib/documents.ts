@@ -1,18 +1,30 @@
 /**
  * Documents view utilities — grouping + freshness helpers.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-8]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
  */
 import type { DocumentRow, GhostTaskResult } from "@afx/shared";
 
 const RENDERABLE_EXTS = new Set(["md", "mdx", "txt"]);
 
+/**
+ * Decide whether a document can be shown in the Workbench reader.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-5] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function isRenderable(doc: DocumentRow): boolean {
   const ext = doc.filePath.split(".").pop()?.toLowerCase() ?? "";
   return RENDERABLE_EXTS.has(ext);
 }
 
+/**
+ * Bucket documents by frontmatter/type label.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function groupByType(docs: DocumentRow[]): Record<string, DocumentRow[]> {
   const out: Record<string, DocumentRow[]> = {};
   for (const d of docs) {
@@ -30,6 +42,12 @@ export interface AttentionItem {
 
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
 
+/**
+ * Build attention rows for draft/stale docs and ghost task references.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function attentionFor(docs: DocumentRow[], ghostTasks: GhostTaskResult): AttentionItem[] {
   const items: AttentionItem[] = [];
   const now = Date.now();
@@ -59,6 +77,12 @@ export function attentionFor(docs: DocumentRow[], ghostTasks: GhostTaskResult): 
   return items;
 }
 
+/**
+ * Icon key for document path/type presentation.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function fileIconFor(filePath: string): string {
   const base = filePath.split("/").pop() ?? "";
   if (base === "spec.md") return "file-text";

@@ -14,7 +14,8 @@ const targetDir = join(extensionRoot, "resources", "skills", "agenticflowx");
 /**
  * Fetches the upstream AFX skill pack using the canonical afx-cli install pipe.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-1] [NFR-3] [DES-DEPS] [1.1]
+ * @see docs/specs/351-agent-pi/spec.md [FR-3]
+ * @see docs/specs/351-agent-pi/design.md [DES-DEPS]
  */
 function installSkillsToTemp(target) {
   const url = `https://raw.githubusercontent.com/AgenticFlowX/afx/${AFX_REF}/afx-cli`;
@@ -47,7 +48,8 @@ function installSkillsToTemp(target) {
 /**
  * Replaces only the extension-owned vendored bundle after the temp sync succeeds.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-1] [NFR-5] [DES-FILES] [1.1]
+ * @see docs/specs/351-agent-pi/spec.md [FR-3]
+ * @see docs/specs/351-agent-pi/design.md [DES-FILES]
  */
 function replaceVendoredBundle(sourceDir) {
   if (!existsSync(sourceDir)) {
@@ -62,7 +64,8 @@ function replaceVendoredBundle(sourceDir) {
 /**
  * Verifies the copied bundle shape without inspecting or executing skill content.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-1] [FR-3] [DES-FILES] [1.1]
+ * @see docs/specs/351-agent-pi/spec.md [FR-3]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 function validateVendoredBundle() {
   if (!existsSync(targetDir)) {

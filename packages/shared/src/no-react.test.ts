@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [NFR-1] [DES-ABSTRACTION] [8.4]
+ * @see docs/specs/100-package-shared/spec.md [NFR-1]
+ * @see docs/specs/100-package-shared/design.md [DES-DEPS]
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";

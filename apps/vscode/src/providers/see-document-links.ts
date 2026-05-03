@@ -3,8 +3,8 @@
  * brackets into clickable links. Path links use a plain file URI; bracket links use
  * the `afx.openSpecAtLine` command so they jump to the matching line in the file.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-2]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +22,7 @@ export const OPEN_SPEC_AT_LINE_COMMAND = "afx.openSpecAtLine";
 export function createSeeDocumentLinkProvider(
   getRoot: () => string | undefined,
 ): vscode.DocumentLinkProvider {
+  // Flow: [SeeNavigation.DocumentLink]
   return {
     provideDocumentLinks(document): vscode.DocumentLink[] | undefined {
       const root = getRoot();

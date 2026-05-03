@@ -1,7 +1,8 @@
 /**
  * API Provider settings card.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD] [DES-SETTINGS-MOCKUP-PROVIDERS]
  */
 import { useState } from "react";
 
@@ -30,6 +31,12 @@ export interface ProviderCardProps {
   onChangeDefault: (modelId: string) => Promise<void>;
 }
 
+/**
+ * Renders one API provider card with credential, default model, and help affordances.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD]
+ */
 export function ProviderCard({
   provider,
   displayName,
@@ -219,6 +226,12 @@ export function ProviderCard({
   );
 }
 
+/**
+ * Maps provider connection state to the compact status badge shown in ProviderCard.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD]
+ */
 function ProviderBadge({ state, count }: { state: ProviderConnectionState; count: number }) {
   const label =
     state === "configured"

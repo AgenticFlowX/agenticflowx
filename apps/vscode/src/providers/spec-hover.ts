@@ -2,8 +2,8 @@
  * `@see` hover provider — shows file preview when hovering the spec path,
  * and the matching FR row / DES section / task heading when hovering a [node id] bracket.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-1] [FR-2]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
  */
 import { existsSync, readFileSync } from "node:fs";
 
@@ -26,6 +26,7 @@ const SECTION_LABEL: Record<SprintSection, string> = {
 };
 
 export function createSpecHoverProvider(getRoot: () => string | undefined): vscode.HoverProvider {
+  // Flow: [SeeNavigation.Hover]
   return {
     provideHover(document, position): vscode.Hover | undefined {
       const root = getRoot();

@@ -4,7 +4,7 @@
  * The extension host and sidebar panel depend only on this interface.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT] [DES-SHARED-CHAT-VIEW-TYPES]
  */
 
 export interface Disposable {
@@ -39,8 +39,8 @@ export interface AgentModel {
 /**
  * Model fields safe to surface through runtime status updates.
  *
- * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/chat-foundation/chat-foundation.md [DES-DATA]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export type AgentRuntimeModel = Pick<
   AgentModel,
@@ -65,16 +65,16 @@ export interface AgentAction {
  * Reasoning effort for models that support it. `xhigh` is Pi's name for the
  * highest tier; cheaper models often clamp `xhigh` down to `high`.
  *
- * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/chat-foundation/chat-foundation.md [DES-DATA]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
 
 /**
  * Queue mode for steering / follow-up messages while a turn is in flight.
  *
- * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/chat-foundation/chat-foundation.md [DES-DATA]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export type QueueMode = "all" | "one-at-a-time";
 
@@ -94,7 +94,7 @@ export type CompactionReason = "manual" | "overflow" | "threshold" | (string & {
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export interface AgentStatus {
   running: boolean;
@@ -140,7 +140,8 @@ export interface AgentStatus {
 /**
  * Runtime health phase shared by every chat host shell.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export type AgentRuntimePhase =
   | "checking"
@@ -154,7 +155,8 @@ export type AgentRuntimePhase =
  * Host-owned runtime health snapshot. Chat, History, Settings, VS Code, and
  * future web/browser hosts consume this shape instead of runtime-specific state.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export interface AgentRuntimeStatus {
   phase: AgentRuntimePhase;
@@ -176,7 +178,8 @@ export interface AgentRuntimeStatus {
 /**
  * Phase derivation input used by host monitors and mock transports.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API] [DES-TEST]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API] [DES-TEST]
  */
 export interface AgentRuntimeStatusInput {
   status?: AgentStatus;
@@ -188,16 +191,17 @@ export interface AgentRuntimeStatusInput {
   failureThreshold?: number;
 }
 
-/** @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API] */
+/** @see docs/specs/350-agent-manager/spec.md [FR-1] */
 export const AGENT_RUNTIME_STARTUP_GRACE_MS = 30_000;
 
-/** @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API] */
+/** @see docs/specs/350-agent-manager/spec.md [FR-1] */
 export const AGENT_RUNTIME_FAILURE_THRESHOLD = 3;
 
 /**
  * Initial runtime state for mounted UIs before the host has answered.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export function createCheckingAgentRuntimeStatus(now = Date.now()): AgentRuntimeStatus {
   return {
@@ -212,7 +216,8 @@ export function createCheckingAgentRuntimeStatus(now = Date.now()): AgentRuntime
 /**
  * Convert low-level adapter status into the user-facing runtime health phase.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API] [DES-TEST]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API] [DES-TEST]
  */
 export function deriveAgentRuntimeStatus(input: AgentRuntimeStatusInput): AgentRuntimeStatus {
   const now = input.now ?? Date.now();
@@ -282,7 +287,7 @@ function formatRuntimeError(error: unknown): string | undefined {
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export interface AgentUsageStats {
   tokens: {
@@ -302,7 +307,7 @@ export interface AgentUsageStats {
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export type AgentUiRequest =
   | {
@@ -351,7 +356,7 @@ export type AgentUiRequest =
 
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export type AgentUiResponse =
   | { id: string; value: string }
@@ -362,7 +367,7 @@ export type AgentUiResponse =
  * Normalized event union — adapters translate native event shapes to this union.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export type AgentEvent =
   | { type: "agent_start" }
@@ -408,10 +413,14 @@ export type AgentEventListener = (event: AgentEvent) => void;
 export type AgentStderrListener = (chunk: string) => void;
 
 /**
+ * Flow: [AgentManager.AdapterContract]
+ *
  * Runtime-agnostic agent contract — implemented by every adapter.
  *
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  * @see docs/specs/100-package-shared/spec.md [FR-5]
- * @see docs/specs/100-package-shared/design.md [DES-API]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export interface AgentManager {
   send(message: string): Promise<void>;

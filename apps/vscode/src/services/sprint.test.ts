@@ -1,6 +1,6 @@
 /**
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-DATA]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-SPRINT-SLICER]
  */
 import { describe, expect, it } from "vitest";
 

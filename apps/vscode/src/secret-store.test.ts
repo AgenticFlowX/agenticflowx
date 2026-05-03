@@ -1,7 +1,8 @@
 /**
  * SecretStore credential persistence wrapper.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/351-agent-pi/spec.md [FR-2]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";

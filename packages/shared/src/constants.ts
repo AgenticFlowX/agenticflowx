@@ -2,7 +2,7 @@
  * Shared constants: AFX version, mode names, and VSCode command IDs.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-3]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-DOMAIN-TYPES]
  */
 
 export const AFX_VERSION = "2.5.4";

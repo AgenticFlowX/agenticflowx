@@ -3,7 +3,7 @@
  * Coverage filtering for the merged workspace report lives in the root vitest.config.ts.
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
- * @see docs/specs/420-dx-testing/design.md [DES-ARCH]
+ * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
  */
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vitest/config";

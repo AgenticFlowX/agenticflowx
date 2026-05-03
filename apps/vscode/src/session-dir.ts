@@ -1,7 +1,8 @@
 /**
  * Shared session directory resolution for runtimes that speak Pi sessions.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/351-agent-pi/spec.md [FR-2]
+ * @see docs/specs/351-agent-pi/design.md [DES-FILES]
  */
 import * as vscode from "vscode";
 

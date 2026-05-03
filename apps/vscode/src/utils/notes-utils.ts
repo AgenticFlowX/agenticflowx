@@ -1,8 +1,10 @@
 /**
  * Shared helpers for reading and writing `.afx/notes.md` from the VS Code host.
  * Used by both WorkbenchPanel (afxAppendNote) and SidebarPanel (chat/saveNote).
+ * This is the canonical write path that the cross-zone notes flow funnels through.
  *
- * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-2] [FR-3] [NFR-1] [NFR-4] [DES-NOTES-UTILS]
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2] [FR-3]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW] [DES-NOTES-STORAGE] [DES-NOTES-CROSS-ZONE-FLOW]
  */
 import * as vscode from "vscode";
 
@@ -11,6 +13,9 @@ import * as vscode from "vscode";
  * If today's `## YYYY-MM-DD` heading already exists, prepend the new
  * `### HH:MM:SS.mmm` block right under it. Otherwise prepend a fresh
  * day section at the top of the body.
+ *
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
  */
 export function insertNoteAtTop(
   existing: string,
@@ -40,6 +45,12 @@ export function insertNoteAtTop(
   return `${frontmatter}${fmTail}${frontmatter ? "\n" : ""}${nextBody.trimEnd()}\n`;
 }
 
+/**
+ * Formats the day heading used by `.afx/notes.md`.
+ *
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-2]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
+ */
 export function formatLocalDate(date: Date): string {
   return [
     date.getFullYear(),
@@ -48,6 +59,12 @@ export function formatLocalDate(date: Date): string {
   ].join("-");
 }
 
+/**
+ * Formats the per-note timestamp used under a day heading.
+ *
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-2]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
+ */
 export function formatLocalNoteTime(date: Date): string {
   return `${[
     String(date.getHours()).padStart(2, "0"),
@@ -56,7 +73,12 @@ export function formatLocalNoteTime(date: Date): string {
   ].join(":")}.${String(date.getMilliseconds()).padStart(3, "0")}`;
 }
 
-/** Append a note to `.afx/notes.md` in the first workspace folder. No-ops if no workspace is open. */
+/**
+ * Append a note to `.afx/notes.md` in the first workspace folder. No-ops if no workspace is open.
+ *
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2] [FR-3]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW] [DES-NOTES-STORAGE]
+ */
 export async function appendNoteToWorkspace(text: string): Promise<void> {
   const root = vscode.workspace.workspaceFolders?.[0]?.uri;
   if (!root) return;

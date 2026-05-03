@@ -2,7 +2,9 @@
  * API provider catalog shared by the host and webviews.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-4]
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-PROVIDER-CATALOG]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export interface ProviderCatalogDetails {
   displayName: string;
@@ -46,7 +48,8 @@ export const API_PROVIDER_IDS = Object.keys(
  * Pi's provider-default model ids used when AFX creates an API-provider runtime
  * for a provider that differs from the currently configured global default.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>> = {
   "amazon-bedrock": "us.anthropic.claude-opus-4-6-v1",
@@ -76,7 +79,8 @@ export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>>
 /**
  * Returns a Pi-compatible startup model for a known API provider.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export function getDefaultApiProviderModel(provider: string): string | undefined {
   return DEFAULT_API_PROVIDER_MODELS[provider as ApiProviderId];

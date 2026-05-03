@@ -3,8 +3,8 @@
  * Config is injected by the caller (apps/vscode/src/extension.ts reads VSCode settings).
  * No vscode import in this package.
  *
- * @see docs/specs/300-infra-pi/spec.md [FR-1] [FR-2] [FR-5] [FR-8] [FR-9]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-4]
+ * @see docs/specs/351-agent-pi/design.md [DES-PI-RPC-FLOW] [DES-API]
  */
 import type {
   AgentCommand,
@@ -60,8 +60,8 @@ const RETRYABLE_PROVIDER_ERROR_PATTERNS: readonly RegExp[] = [
 ];
 
 /**
- * @see docs/specs/300-infra-pi/spec.md [FR-1] [FR-7]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-4]
+ * @see docs/specs/351-agent-pi/design.md [DES-API]
  */
 export interface PiRpcManagerOptions {
   /** Caller-supplied logger. The manager scopes its own child as `{parent}:rpc-manager`. */
@@ -85,8 +85,10 @@ export interface PiRpcManagerOptions {
 /**
  * Pi-backed `AgentManager` factory. Lazy-spawns the Pi subprocess on first use.
  *
- * @see docs/specs/300-infra-pi/spec.md [FR-1] [FR-2] [FR-5] [FR-9]
- * @see docs/specs/300-infra-pi/design.md [DES-API]
+ * Flow: [AgentPi.RpcManager]
+ *
+ * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-4]
+ * @see docs/specs/351-agent-pi/design.md [DES-API]
  */
 export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   const {
@@ -114,6 +116,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   const stderrListeners = new Set<AgentStderrListener>();
 
   async function ensureStarted(): Promise<PiClient> {
+    // Flow: [AgentPi.Lifecycle]
     if (rpcClient?.isRunning) return rpcClient;
     if (startPromise) return startPromise;
     const retryError = getStartRetryError();
@@ -210,6 +213,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   }
 
   function normalizeAndEmit(raw: PiEvent): void {
+    // Flow: [AgentPi.EventNormalize]
     const evt = normalizePiEvent(raw);
     if (evt) emitEvent(evt);
   }
@@ -807,7 +811,8 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
 /**
  * Rewrites only leading AFX chat slash commands into Pi's skill command prefix.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-8] [NFR-4] [DES-DEC] [3.1]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-3]
+ * @see docs/specs/351-agent-pi/design.md [DES-DEC]
  */
 export function rewriteAfxCommandPrompt(message: string): string {
   return message.replace(/^(\s*)\/afx-(?=\S)/, "$1/skill:afx-");

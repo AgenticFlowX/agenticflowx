@@ -1,9 +1,10 @@
 /**
  * Webview HTML generator — supports dev (Vite HMR iframe) and prod (compiled dist) modes.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-5]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-5] [DES-VSCODE]
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-3]
+ * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-WEBVIEW-HTML] [DES-PANELS-BOOT-SEQUENCE]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-3]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -40,6 +41,12 @@ export function loadWebviewHtml(
   return prodHtml(webview, extensionUri, appName, appearanceClass);
 }
 
+/**
+ * Resolves the host-provided appearance class injected into chat/workbench webviews.
+ *
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-4]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-API]
+ */
 export function getAppearanceClass(): string {
   const cfg = vscode.workspace.getConfiguration("afx");
   const rawTheme = cfg.get<string>("theme", "meridian");
@@ -48,6 +55,12 @@ export function getAppearanceClass(): string {
   return `theme-meridian style-${style}`;
 }
 
+/**
+ * Finds the compiled webview bundle for the requested app.
+ *
+ * @see docs/specs/200-app-vscode/spec.md [FR-5]
+ * @see docs/specs/200-app-vscode/design.md [DES-FILES]
+ */
 export function getAppDistPath(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",

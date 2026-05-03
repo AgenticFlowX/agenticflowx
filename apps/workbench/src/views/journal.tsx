@@ -1,8 +1,8 @@
 /**
  * Journal view — session-by-session discussions with timeline and preview.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-6] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-JOURNAL]
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW] [DES-JOURNAL-TIME]
  */
 import { useEffect, useMemo, useState } from "react";
 
@@ -49,6 +49,12 @@ const TIME_OPTIONS: { value: TimeFilter; label: string }[] = [
   { value: "all", label: "All" },
 ];
 
+/**
+ * Check whether an entry date is inside the selected journal time filter.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-1]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-TIME]
+ */
 function isInTimeRange(dateStr: string, filter: TimeFilter): boolean {
   if (filter === "all") return true;
   const d = new Date(dateStr);
@@ -65,6 +71,12 @@ function isInTimeRange(dateStr: string, filter: TimeFilter): boolean {
   return d >= cutoff;
 }
 
+/**
+ * Human-facing sticky header label for journal entry groups.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-2]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-TIME]
+ */
 function formatDateHeader(dateStr: string): string {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
@@ -81,12 +93,24 @@ function formatDateHeader(dateStr: string): string {
   });
 }
 
+/**
+ * Compact absolute date label for journal group headers.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-2]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-TIME]
+ */
 function formatShortDate(dateStr: string): string {
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return dateStr;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Group journal entries by date newest-first.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-2]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-TIME]
+ */
 function groupByDate(entries: JournalEntry[]) {
   const groups = new Map<string, JournalEntry[]>();
   for (const entry of entries) {
@@ -99,6 +123,12 @@ function groupByDate(entries: JournalEntry[]) {
     .map(([date, entries]) => ({ date, entries }));
 }
 
+/**
+ * Timeline card for one journal entry.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-3]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-CARD]
+ */
 function JournalCard({
   entry,
   isSelected,
@@ -161,6 +191,12 @@ function JournalCard({
   );
 }
 
+/**
+ * Selected journal entry preview with fetched markdown content.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-5] [FR-6]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-PREVIEW]
+ */
 function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
   const { send } = useWorkbench();
   const [content, setContent] = useState<string | null>(null);
@@ -241,6 +277,12 @@ function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
   );
 }
 
+/**
+ * Remove duplicated captured title/date headers from the preview body.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-6]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-PREVIEW] [DES-JOURNAL-TIME]
+ */
 function trimRedundantHeader(content: string, title: string): string {
   const lines = content.split("\n");
   const titleLower = title.trim().toLowerCase();
@@ -268,6 +310,12 @@ function trimRedundantHeader(content: string, title: string): string {
   return lines.slice(i).join("\n").trim();
 }
 
+/**
+ * Workbench Journal tab surface: filters, timeline grouping, and preview.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW]
+ */
 export default function Journal() {
   const { journal } = useWorkbench();
   const [search, setSearch] = useState("");
@@ -332,7 +380,10 @@ export default function Journal() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* Toolbar */}
+      {/*
+        Surface: Workbench.Journal.Filters
+        @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS]
+      */}
       <div className="afx-surface-toolbar flex flex-col gap-1.5 border-b border-border px-3 py-2">
         {/* Row 1: time chips + search + status */}
         <div className="flex items-center gap-2">
@@ -401,7 +452,10 @@ export default function Journal() {
         </div>
       </div>
 
-      {/* Content */}
+      {/*
+        Surface: Workbench.Journal.TimelineAndPreview
+        @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW]
+      */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sidebar */}
         <div className="afx-surface-subtle flex w-80 shrink-0 flex-col border-r border-border">

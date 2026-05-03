@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/220-app-workbench/spec.md [FR-7]
- * @see docs/specs/220-app-workbench/design.md [DES-PIPELINE]
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-3]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-TEST] [DES-PIPELINE-SIMPLE]
  */
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";

@@ -2,7 +2,7 @@
  * tasks.md parser — extracts task items and phase groups from AFX tasks documents.
  *
  * @see docs/specs/120-package-parsers/spec.md [FR-3]
- * @see docs/specs/120-package-parsers/design.md [DES-API]
+ * @see docs/specs/120-package-parsers/design.md [DES-PARSERS-TASKS]
  */
 export interface TaskItem {
   id: string;

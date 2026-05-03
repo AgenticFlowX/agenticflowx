@@ -2,7 +2,7 @@
  * Shared domain types used by both the extension host and webviews.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-2] [FR-3]
- * @see docs/specs/100-package-shared/design.md [DES-DATA]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-DOMAIN-TYPES]
  */
 
 export type TaskStatus = "todo" | "in-progress" | "done" | "blocked";

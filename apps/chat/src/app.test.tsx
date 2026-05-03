@@ -64,6 +64,10 @@ describe("chat App", () => {
     expect(chatTab).toHaveAttribute("aria-selected", "true");
   });
 
+  /**
+   * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-3] [FR-5]
+   * @see docs/specs/213-app-chat-history/design.md [DES-TEST]
+   */
   it("keeps Chat, History, and Settings reachable at VS Code sidebar collapse width", async () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 205, configurable: true });
@@ -215,6 +219,10 @@ describe("chat App", () => {
     ).toHaveValue("keep me");
   });
 
+  /**
+   * @see docs/specs/213-app-chat-history/spec.md [FR-6]
+   * @see docs/specs/213-app-chat-history/design.md [DES-TEST]
+   */
   it("shows readiness affordances across Chat, History, and Settings until the agent responds", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();
@@ -321,6 +329,10 @@ describe("chat App", () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/reload" }));
   });
 
+  /**
+   * @see docs/specs/213-app-chat-history/spec.md [FR-6]
+   * @see docs/specs/213-app-chat-history/design.md [DES-TEST]
+   */
   it("keeps the chat empty state on disconnect; recovery lives in History/Settings", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();

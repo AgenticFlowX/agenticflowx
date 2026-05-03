@@ -2,7 +2,7 @@
  * spec.md parser — extracts frontmatter, functional requirements, and non-goals.
  *
  * @see docs/specs/120-package-parsers/spec.md [FR-2]
- * @see docs/specs/120-package-parsers/design.md [DES-API]
+ * @see docs/specs/120-package-parsers/design.md [DES-PARSERS-SPEC]
  */
 import { parseFrontmatter } from "./frontmatter";
 

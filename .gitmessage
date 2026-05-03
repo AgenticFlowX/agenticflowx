@@ -1,39 +1,46 @@
-# <type>(<scope>): <description>
+# <type>(<scope>): <imperative summary>
 #
-# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-29]
-# @see docs/specs/400-dx-conventions/spec.md [FR-5]
+# @see docs/specs/400-dx-conventions/spec.md [FR-5] [FR-7] [FR-11]
+# @see docs/specs/400-dx-conventions/design.md [DES-ARCH]
 #
 # Setup once: git config commit.template .gitmessage
 #
-
+# Types:
+#   build | chore | ci | docs | feat | fix | perf | refactor | revert | style | test
 #
-
-# Types: build | chore | ci | docs | feat | fix | perf | refactor | revert | style | test
-
+# Scopes are required and commitlint-enforced. Common scopes:
+#   agent | chat | docs | dx | infra | pi | pi-sdk | repo | shared | spec
+#   transport | ui | vscode | workbench | workbench/notes | workbench/pipeline
 #
-
-# Scopes (required): chat | workbench | vscode | shared | parsers | ui |
-
-# transport | pi | pi-sdk | workbench/notes | workbench/journal |
-
-# workbench/board | workbench/pipeline | bottom-panel |
-
-# deps | ci | release | docs | infra | dx | repo | spec
-
+# Header selection:
+#   feat(chat): user/runtime-visible feature
+#   fix(vscode): bug fix
+#   docs(spec): living spec/design/tasks only
+#   docs(dx): convention or documentation workflow change
+#   refactor(shared): behavior-preserving source change
+#   test(pi): tests only
+#   chore(deps): dependency/generated/vendor maintenance
 #
-
-# Breaking change: add ! after scope, or add BREAKING CHANGE: footer
-
+# Body for non-trivial commits:
 #
-
-# Body (optional — blank line before):
-
+# Why:
+# - What problem this solves.
 #
-
+# Changed:
+# - What changed, grouped by surface.
 #
-
-# Footer (optional — blank line before):
-
+# Spec:
+# - docs/specs/XXX-name/spec.md [FR-X]
+# - docs/specs/XXX-name/design.md [DES-X]
+#
+# Traceability:
+# - @see retargeting, map IDs, generated artifacts, or none.
+#
+# Verification:
+# - pnpm verify
+#
+# Footer:
 # Co-Authored-By: Name <email>
-
 # BREAKING CHANGE: description
+#
+# Breaking change: add ! after scope, or add BREAKING CHANGE: footer.

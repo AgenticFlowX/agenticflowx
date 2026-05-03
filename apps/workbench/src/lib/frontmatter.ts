@@ -1,8 +1,8 @@
 /**
  * Frontmatter helpers for Documents reader pane — extracts metadata chips.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-8]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-HELPERS]
  */
 export interface MetaChip {
   label: string;
@@ -12,6 +12,12 @@ export interface MetaChip {
 
 const FRONTMATTER_RE = /^---\s*\n([\s\S]*?)\n---/;
 
+/**
+ * Small browser-side frontmatter parser for metadata chips.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HELPERS]
+ */
 export function parseSimpleFrontmatter(source: string): Record<string, unknown> {
   const m = FRONTMATTER_RE.exec(source);
   if (!m) return {};
@@ -43,6 +49,12 @@ export function parseSimpleFrontmatter(source: string): Record<string, unknown> 
   return out;
 }
 
+/**
+ * Convert parsed frontmatter into reader chip rows.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-HELPERS]
+ */
 export function extractMetaChips(frontmatter: Record<string, unknown>): MetaChip[] {
   const out: MetaChip[] = [];
   if (typeof frontmatter.type === "string") {

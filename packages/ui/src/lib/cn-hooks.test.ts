@@ -1,8 +1,8 @@
 /**
  * Runtime style hook coverage checks for generated shadcn primitives.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4] [FR-17] [7.1]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-CN] [DES-TEST]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-TEST]
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";

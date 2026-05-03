@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [ci, code-qa, pr-gate, lint, types, e2e]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["ci", "code-qa", "pr-gate", "lint", "types", "e2e", "traceability"]
 spec: spec.md
 ---
 
@@ -39,7 +39,7 @@ spec: spec.md
     pr-title    → action: amannn/action-semantic-pull-request
 ```
 
-### Job Dependency Graph
+### [DES-CI-CODE-QA-JOB-GRAPH] Job Dependency Graph
 
 ```text
 build ──────► lint
@@ -109,20 +109,31 @@ The workflow itself is validated by the PR process — any syntax error in the Y
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Phase 1: Add a new CI job
+### [DES-CI-CODE-QA-ROLLOUT-JOB] Phase 1: Add a new CI job
 
 1. Add job definition to `code-qa.yml` with `needs: [build]`
 2. Test by opening a draft PR and observing the new job
 3. Add job name to branch protection required checks
 
-### Rollback Plan
+### [DES-CI-CODE-QA-ROLLOUT-ROLLBACK] Rollback Plan
 
 Remove the job from `code-qa.yml`. Branch protection required checks must be updated to remove the job reference — otherwise PRs will be permanently blocked.
 
 ---
 
-## File Reference Map
+## [DES-CI-CODE-QA-LOC] Code Locator Map
 
-| Task | File                            | Required @see                             |
-| ---- | ------------------------------- | ----------------------------------------- |
-| —    | `.github/workflows/code-qa.yml` | `spec.md [FR-1]` + `design.md [DES-ARCH]` |
+| CI surface           | Source anchor                                               | Design node                                |
+| -------------------- | ----------------------------------------------------------- | ------------------------------------------ |
+| PR gate workflow     | `.github/workflows/code-qa.yml`                             | `[DES-ARCH]`, `[DES-CI-CODE-QA-JOB-GRAPH]` |
+| Local equivalent     | `package.json` `verify:full`                                | `[DES-ARCH]`                               |
+| Commit/PR title rule | `.github/workflows/code-qa.yml` `pr-title` job              | `[DES-DEC]`                                |
+| Quality jobs         | `pnpm check:lint`, `check:format`, `check:md`, `check:knip` | `410-dx-quality/design.md`                 |
+
+---
+
+## [DES-CI-CODE-QA-REFS] File Reference Map
+
+| Task | File                            | Required @see                                             |
+| ---- | ------------------------------- | --------------------------------------------------------- |
+| —    | `.github/workflows/code-qa.yml` | `spec.md [FR-1]` + `design.md [DES-CI-CODE-QA-JOB-GRAPH]` |

@@ -1,8 +1,8 @@
 /**
  * Microsoft Clarity loader for the chat webview.
  *
- * @see docs/specs/vscode-clarity-telemetry/vscode-clarity-telemetry.md [FR-1] [FR-3] [FR-4]
- * @see docs/specs/vscode-clarity-telemetry/vscode-clarity-telemetry.md [DES-API]
+ * @see docs/specs/901-cross-telemetry/spec.md [FR-1] [FR-2]
+ * @see docs/specs/901-cross-telemetry/design.md [DES-API]
  */
 import { consoleSink, createLogger } from "@afx/shared";
 

@@ -5,8 +5,8 @@
  * and an activity heatmap. The Sessions card includes an inline SVG sparkline
  * built from the heatmap cells — no extra runtime cost.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-9] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-ANALYTICS]
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-1] [FR-8]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-RANGE] [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-HEATMAP]
  */
 import { useMemo } from "react";
 
@@ -35,6 +35,13 @@ const RANGES: Array<{ value: Range; label: string }> = [
   { value: "all", label: "All" },
 ];
 
+/**
+ * Workbench Analytics tab surface: owns range persistence, snapshot creation,
+ * headline widgets, stage row, top-feature badges, and heatmap.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-1] [FR-8]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-MOCKUP] [DES-ANALYTICS-RANGE]
+ */
 export default function Analytics() {
   const { pipeline, featureTasks, journal, ghostTasks } = useWorkbench();
   const [range, setRange] = useLocalStorage<Range>("afx-analytics-range", "30d");
@@ -64,6 +71,10 @@ export default function Analytics() {
 
   return (
     <div className="flex h-full flex-col">
+      {/*
+        Surface: Workbench.Analytics.Range
+        @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-RANGE]
+      */}
       <header className="afx-surface-toolbar flex items-center justify-between gap-3 border-b border-border px-3 py-2">
         <div className="flex items-center gap-2">
           <BarChart2 size={14} className="text-afx-brand" />
@@ -91,7 +102,10 @@ export default function Analytics() {
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-3 p-3">
-          {/* Headline cards — three big numbers above the fold */}
+          {/*
+            Surface: Workbench.Analytics.Headline
+            @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEADLINE]
+          */}
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             <HeadlineCard
               icon={CheckCircle2}
@@ -135,7 +149,10 @@ export default function Analytics() {
             />
           </div>
 
-          {/* Pipeline + Top feature row */}
+          {/*
+            Surface: Workbench.Analytics.StageAndTopFeature
+            @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-STAGE] [DES-ANALYTICS-TOP-FEATURE]
+          */}
           <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
             <div className="afx-surface-card md:col-span-2 flex flex-col gap-2 rounded-md border border-border p-3">
               <div className="flex items-center justify-between">
@@ -206,7 +223,10 @@ export default function Analytics() {
             </div>
           </div>
 
-          {/* Activity heatmap */}
+          {/*
+            Surface: Workbench.Analytics.Heatmap
+            @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEATMAP]
+          */}
           <div className="afx-surface-card flex flex-col gap-3 rounded-md border border-border p-3">
             <Heatmap cells={snap.heatmap} />
           </div>
@@ -216,6 +236,12 @@ export default function Analytics() {
   );
 }
 
+/**
+ * Dashboard KPI card. Renders either a progress bar or the sessions sparkline.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-2] [FR-3]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-SPARKLINE]
+ */
 function HeadlineCard({
   icon: Icon,
   label,
@@ -259,6 +285,12 @@ function HeadlineCard({
   );
 }
 
+/**
+ * Inline sessions trend built directly from heatmap cells.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-3]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-SPARKLINE]
+ */
 function Sparkline({ cells }: { cells: HeatmapCell[] }) {
   const counts = cells.map((c) => c.count);
   const max = Math.max(1, ...counts);
@@ -298,6 +330,12 @@ function Sparkline({ cells }: { cells: HeatmapCell[] }) {
   );
 }
 
+/**
+ * Pipeline stage distribution bar.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-4]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-STAGE]
+ */
 function StageBar({
   done,
   build,
@@ -332,6 +370,12 @@ function StageBar({
   );
 }
 
+/**
+ * Legend row item for the stage breakdown.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-4]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-STAGE]
+ */
 function StageDot({ color, label, value }: { color: string; label: string; value: number }) {
   return (
     <span className="flex items-center gap-1">
@@ -346,6 +390,9 @@ function StageDot({ color, label, value }: { color: string; label: string; value
  * 7-row × N-col heatmap. Rows are days of the week (Mon..Sun), columns are
  * weeks. Cell intensity scales with session count using the same brand color
  * at four opacities — same visual idiom as Claude/GitHub contribution graphs.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-6]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEATMAP]
  */
 function Heatmap({ cells }: { cells: HeatmapCell[] }) {
   if (cells.length === 0) return null;
@@ -391,7 +438,12 @@ function Heatmap({ cells }: { cells: HeatmapCell[] }) {
   );
 }
 
-/** Cell color by quartile of `count` against `max`; -1 indicates a placeholder slot. */
+/**
+ * Cell color by quartile of `count` against `max`; -1 indicates a placeholder slot.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-6]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEATMAP]
+ */
 function cellClass(count: number, max: number): string {
   if (count < 0) return "bg-transparent";
   if (count === 0 || max === 0) return "bg-muted/40";
@@ -406,6 +458,9 @@ function cellClass(count: number, max: number): string {
  * Pad to align day-of-week. Returns column-major weeks: each inner array is
  * one column (a week), 7 rows tall (Mon..Sun). Empty leading/trailing slots
  * are returned as `null` so the renderer can paint them transparent.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-6]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-HEATMAP]
  */
 function bucketIntoWeeks(cells: HeatmapCell[]): Array<Array<HeatmapCell | null>> {
   if (cells.length === 0) return [];

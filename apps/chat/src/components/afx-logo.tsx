@@ -2,7 +2,8 @@
  * AFX product mark — "AF" with a raised "x" superscript.
  * component so it can be tinted via currentColor.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 export interface AfxLogoIconProps {
   size?: number;

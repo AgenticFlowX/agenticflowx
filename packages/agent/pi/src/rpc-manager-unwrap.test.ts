@@ -8,8 +8,8 @@
  * pi shape — leading to an empty model selector and an empty slash-command popup.
  * These tests pin the unwrap behavior.
  *
- * @see docs/specs/300-infra-pi/spec.md [FR-9]
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [FR-7]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

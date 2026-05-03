@@ -2,8 +2,8 @@
  * Workbench context — single source of state for all views.
  * Subscribes to bridge "afxUpdate" and merges partial updates into state.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-3]
- * @see docs/specs/220-app-workbench/design.md [DES-API]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-3] [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-STATE] [DES-SHELL-BRIDGE]
  */
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useReducer } from "react";
 
@@ -55,6 +55,12 @@ type Action =
   | { type: "merge"; payload: Extract<WorkbenchInbound, { type: "afxUpdate" }> }
   | { type: "selectFeature"; name: string | null };
 
+/**
+ * Merges partial `afxUpdate` payloads into the durable Workbench view state.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-3]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-STATE]
+ */
 function reducer(state: WorkbenchState, action: Action): WorkbenchState {
   switch (action.type) {
     case "merge": {
@@ -95,6 +101,12 @@ interface ProviderProps {
   initialState?: Partial<WorkbenchState>;
 }
 
+/**
+ * Provides the [Workbench.State] bridge-backed state surface to every tab view.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-3] [FR-4]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-STATE] [DES-SHELL-BRIDGE]
+ */
 export function WorkbenchProvider({ children, initialState }: ProviderProps) {
   const [state, dispatch] = useReducer(reducer, { ...INITIAL_STATE, ...initialState });
 

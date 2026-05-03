@@ -1,8 +1,8 @@
 /**
  * @see CodeLens provider — surfaces "Open spec" / "Open design" lenses on @see lines.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/203-app-vscode-see-navigation/spec.md [FR-1] [FR-2]
+ * @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
  */
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -14,6 +14,7 @@ const SEE_RE = /@see\s+(docs\/specs\/[^\s]+\.md)(?:\s+(\[[A-Z0-9-]+\](?:\s*\[[A-
 export function createSpecCodeLensProvider(
   getRoot: () => string | undefined,
 ): vscode.CodeLensProvider {
+  // Flow: [SeeNavigation.CodeLens]
   return {
     provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] | undefined {
       const root = getRoot();

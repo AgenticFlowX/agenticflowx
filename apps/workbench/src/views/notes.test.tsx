@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/220-app-workbench/spec.md [FR-4]
- * @see docs/specs/220-app-workbench/design.md [DES-NOTES]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-3] [FR-7]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-TEST] [DES-NOTES-FILTERS] [DES-NOTES-TIME]
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

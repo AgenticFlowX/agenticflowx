@@ -4,9 +4,10 @@
  * discoverable through Pi `get_commands`, and sends one AFX skill command
  * through the adapter rewrite into a deterministic local provider.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-1] [FR-2] [FR-3] [FR-8]
+ * @see docs/specs/351-agent-pi/spec.md [FR-3]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  * @see docs/specs/420-dx-testing/spec.md [FR-3]
- * @see docs/specs/420-dx-testing/design.md [DES-ARCH] [DES-TEST]
+ * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION] [DES-TEST]
  */
 import * as assert from "node:assert";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";

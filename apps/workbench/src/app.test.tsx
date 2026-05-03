@@ -1,3 +1,9 @@
+/**
+ * Workbench shell smoke tests for bottom-panel tab routing.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-2] [FR-5]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-TEST] [DES-SHELL-TABS]
+ */
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 

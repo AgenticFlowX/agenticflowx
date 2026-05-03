@@ -1,8 +1,8 @@
 /**
  * Documents view — browse & preview spec/design/tasks/journal markdown files.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-8] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-DOCS]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-HOME] [DES-DOCS-READER]
  */
 import { useEffect, useMemo, useState } from "react";
 
@@ -87,6 +87,12 @@ interface TreeNode {
   doc?: DocumentRow;
 }
 
+/**
+ * Convert flat document rows into the expandable tree rendered in the left pane.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-HELPERS]
+ */
 function buildDocumentTree(docs: DocumentRow[]): TreeNode {
   const root: TreeNode = { name: "docs", path: "docs", children: new Map() };
   for (const doc of docs) {
@@ -107,6 +113,12 @@ function buildDocumentTree(docs: DocumentRow[]): TreeNode {
   return root;
 }
 
+/**
+ * Workbench Documents tab: filters, tree, selected content cache, and reader/home panes.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-5]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-READER]
+ */
 export default function Documents() {
   const { documents, send } = useWorkbench();
   const [typeFilter, setTypeFilter] = useState("all");
@@ -160,6 +172,10 @@ export default function Documents() {
 
   return (
     <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 overflow-hidden">
+      {/*
+        Surface: Workbench.Documents.Tree
+        @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE]
+      */}
       <ResizablePanel defaultSize="32%" minSize="20%">
         <div className="afx-surface-subtle flex h-full min-h-0 flex-col border-r border-border">
           <div className="afx-surface-toolbar flex flex-col gap-2 border-b border-border p-3">
@@ -200,6 +216,10 @@ export default function Documents() {
       </ResizablePanel>
       <ResizableHandle />
       <ResizablePanel defaultSize="68%" minSize="40%">
+        {/*
+          Surface: Workbench.Documents.ReaderOrHome
+          @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME] [DES-DOCS-READER]
+        */}
         {selected ? (
           <DocReader
             doc={selected}
@@ -218,6 +238,12 @@ export default function Documents() {
   );
 }
 
+/**
+ * Library landing page for document counts, type chips, and recent docs.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function DocumentsHome({
   documents,
   onSelect,
@@ -351,6 +377,12 @@ function DocumentsHome({
   );
 }
 
+/**
+ * Small stat tile in the Documents home footer.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function StatTile({
   label,
   value,
@@ -372,10 +404,22 @@ function StatTile({
   );
 }
 
+/**
+ * Map document type to its chip presentation contract.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function chipForType(type: string): TypeChip | undefined {
   return TYPE_CHIPS.find((c) => c.type === type);
 }
 
+/**
+ * Aggregate document library metrics for the home view.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME] [DES-DOCS-HELPERS]
+ */
 function computeStats(docs: DocumentRow[]): {
   total: number;
   afxCount: number;
@@ -410,6 +454,12 @@ function computeStats(docs: DocumentRow[]): {
   };
 }
 
+/**
+ * Pick the newest document rows for the home recent list.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function recentDocs(docs: DocumentRow[], n: number): DocumentRow[] {
   return [...docs]
     .filter((d) => !!d.updatedAt)
@@ -417,11 +467,23 @@ function recentDocs(docs: DocumentRow[], n: number): DocumentRow[] {
     .slice(0, n);
 }
 
+/**
+ * Extract feature folder slug from a docs/specs path.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2] [FR-6]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME] [DES-DOCS-HELPERS]
+ */
 function featureFromPath(filePath: string): string | null {
   const m = filePath.match(/^docs\/specs\/([^/]+)\//);
   return m?.[1] ?? null;
 }
 
+/**
+ * Human-friendly label for recent document rows.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function docDisplayName(doc: DocumentRow): string {
   const parts = doc.name.split("/");
   if (parts.length <= 1) return doc.name;
@@ -431,6 +493,12 @@ function docDisplayName(doc: DocumentRow): string {
   return `${parts[parts.length - 2]} / ${parts[parts.length - 1]}`;
 }
 
+/**
+ * Compact absolute date label for document rows.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function formatShortDate(iso: string | undefined): string | undefined {
   if (!iso) return undefined;
   const d = new Date(iso);
@@ -438,6 +506,12 @@ function formatShortDate(iso: string | undefined): string | undefined {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+/**
+ * Relative last-activity label for the Documents home summary.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
+ */
 function formatRelative(ms: number): string {
   const diff = Date.now() - ms;
   const min = Math.floor(diff / 60_000);
@@ -450,6 +524,12 @@ function formatRelative(ms: number): string {
   return new Date(ms).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+/**
+ * Recursive tree renderer for folders and document leaves.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-5]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE]
+ */
 function DocumentTree({
   node,
   selectedPath,
@@ -520,6 +600,12 @@ function DocumentTree({
   );
 }
 
+/**
+ * Reader pane for selected renderable documents.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-4]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER]
+ */
 function DocReader({
   doc,
   content,

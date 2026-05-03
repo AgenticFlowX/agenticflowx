@@ -5,8 +5,8 @@
  * runtime style families. Non-Lyra files override variables only; full
  * per-style primitive shape parity is intentionally deferred.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4] [FR-17]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-CN] [DES-SHADCN]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 
 .style-lyra {

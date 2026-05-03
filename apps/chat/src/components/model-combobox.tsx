@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-6] [NFR-6] [DES-UI] [4.1]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX] [DES-COMPOSER-RUNTIME]
  */
 import { useState } from "react";
 
@@ -33,6 +34,12 @@ export interface ModelComboboxProps {
   onOpenSettings?: () => void;
 }
 
+/**
+ * Renders the composer model selector with API-provider and external-agent groups.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX]
+ */
 export function ModelCombobox({
   models,
   value,
@@ -171,6 +178,12 @@ function renderModelItem(model: AgentModel) {
   );
 }
 
+/**
+ * Groups models by provider/runtime source so the picker mirrors Settings provider concepts.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX]
+ */
 function groupModels(models: readonly AgentModel[]): {
   api: Array<[string, AgentModel[]]>;
   external: Array<[string, AgentModel[]]>;

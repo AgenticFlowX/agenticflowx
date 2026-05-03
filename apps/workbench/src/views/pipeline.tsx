@@ -1,8 +1,8 @@
 /**
  * Pipeline view — features grouped by progress with simple / timeline / grid modes.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-7] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-PIPELINE]
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-1] [FR-7]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-FILTERS] [DES-PIPELINE-SIMPLE] [DES-PIPELINE-CARD]
  */
 import { useMemo, useState } from "react";
 
@@ -82,6 +82,12 @@ const GROUP_ORDER: GroupStatus[] = [
   "complete",
 ];
 
+/**
+ * Workbench Pipeline tab: filters, persisted view mode, and mode-specific body.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-1] [FR-4]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-FILTERS]
+ */
 export default function Pipeline() {
   const { pipeline, send } = useWorkbench();
   const [view, setView] = useLocalStorage<View>("afx-pipeline-view-v3", "simple");
@@ -100,6 +106,10 @@ export default function Pipeline() {
 
   return (
     <div className="flex h-full flex-col">
+      {/*
+        Surface: Workbench.Pipeline.Filters
+        @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-FILTERS]
+      */}
       <div className="afx-surface-toolbar flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <Input
           value={query}
@@ -178,6 +188,12 @@ export default function Pipeline() {
   );
 }
 
+/**
+ * Default simple read of feature health and next work.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-3] [FR-6]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-SIMPLE] [DES-PIPELINE-CARD]
+ */
 function SimplePipelineView({
   rows,
   send,
@@ -259,6 +275,12 @@ function SimplePipelineView({
   );
 }
 
+/**
+ * Timeline/grid grouped view of pipeline rows by status.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-4]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-GROUPED]
+ */
 function GroupedPipelineView({
   view,
   grouped,
@@ -295,6 +317,12 @@ function GroupedPipelineView({
   );
 }
 
+/**
+ * Pipeline feature card used in grouped modes.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-5] [FR-6]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-CARD]
+ */
 function PipelineCard({ row, send }: { row: PipelineRow; send: (msg: WorkbenchOutbound) => void }) {
   const next = getNextAction(row);
   const pct = healthPct(row);
@@ -332,6 +360,12 @@ function PipelineCard({ row, send }: { row: PipelineRow; send: (msg: WorkbenchOu
   );
 }
 
+/**
+ * Simple-mode action row for the next incomplete feature.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-5] [FR-6]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-CARD]
+ */
 function PipelineNextRow({
   row,
   send,
@@ -376,6 +410,12 @@ function PipelineNextRow({
   );
 }
 
+/**
+ * Small KPI tile in the simple overview card.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-3]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-SIMPLE]
+ */
 function SummaryTile({
   icon: Icon,
   label,
@@ -401,6 +441,12 @@ function SummaryTile({
   );
 }
 
+/**
+ * Available spec/design/tasks file indicators on a pipeline row.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-6]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-CARD]
+ */
 function FileBadges({ row }: { row: PipelineRow }) {
   return (
     <div className="flex gap-1">
@@ -423,6 +469,12 @@ function FileBadges({ row }: { row: PipelineRow }) {
   );
 }
 
+/**
+ * Reduce visible pipeline rows into simple-mode summary metrics.
+ *
+ * @see docs/specs/225-app-workbench-pipeline/spec.md [FR-3] [FR-5]
+ * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-SIMPLE] [DES-PIPELINE-HELPERS]
+ */
 function summarizeRows(rows: PipelineRow[]) {
   const stageCounts = GROUP_ORDER.reduce(
     (counts, status) => ({ ...counts, [status]: 0 }),

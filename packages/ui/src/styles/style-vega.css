@@ -2,8 +2,8 @@
  * Vega runtime treatment — compact controls with heavier borders.
  * T1 fidelity: variable treatment over the Lyra-generated primitive baseline.
  *
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-4]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [DES-SHADCN]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-UI]
  */
 
 .style-vega {

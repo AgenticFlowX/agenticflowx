@@ -1,8 +1,8 @@
 /**
  * Workbench app entry point — mounts React root for the bottom-panel workbench webview.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-1] [FR-2]
- * @see docs/specs/220-app-workbench/design.md [DES-ARCH]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE]
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";

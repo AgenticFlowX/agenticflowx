@@ -5,7 +5,7 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
  * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
  * @see docs/specs/220-app-workbench/spec.md [FR-7] [FR-8]
- * @see docs/specs/220-app-workbench/design.md [DES-DATA]
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-HOST-DATA]
  */
 import * as vscode from "vscode";
 

@@ -1,8 +1,9 @@
 /**
  * Workbench appearance helpers — keep runtime style classes in sync with Chat settings.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-11]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-5]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1]
+ * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-API]
  */
 import { AFX_STYLE_IDS, AFX_THEME_IDS } from "@afx/shared";
 

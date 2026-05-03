@@ -2,8 +2,8 @@
  * Board view — kanban board with markdown serialization.
  * Editable in workbench; saves markdown via host.
  *
- * @see docs/specs/220-app-workbench/spec.md [FR-5] [FR-11]
- * @see docs/specs/220-app-workbench/design.md [DES-BOARD]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-CARD] [DES-BOARD-COLUMN] [DES-BOARD-SAVE]
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -67,6 +67,12 @@ type EditTarget =
   | { kind: "card"; colIdx: number; cardIdx: number; text: string }
   | { kind: "column"; colIdx: number; text: string };
 
+/**
+ * Convert visual board state back into markdown while preserving preamble.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-5]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-SERIALIZATION]
+ */
 function serializeBoard(board: KanbanBoard): string {
   const title = board.meta?.title ?? board.name;
   const status = board.meta?.status ?? "active";
@@ -108,10 +114,22 @@ function serializeBoard(board: KanbanBoard): string {
     .trim()}\n`;
 }
 
+/**
+ * Escape board column titles before searching raw markdown headings.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-5]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-SERIALIZATION]
+ */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * Optimistically replace the selected board in local state by file path.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-2] [FR-5]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-SAVE]
+ */
 function replaceBoard(boards: KanbanBoard[], next: KanbanBoard): KanbanBoard[] {
   const idx = boards.findIndex((board) => board.filePath === next.filePath);
   if (idx === -1) return boards;
@@ -120,7 +138,12 @@ function replaceBoard(boards: KanbanBoard[], next: KanbanBoard): KanbanBoard[] {
   return updated;
 }
 
-// Kanban card — HTML5 draggable; edit/delete shown on hover only.
+/**
+ * Kanban card — HTML5 draggable; edit/delete shown on hover/focus only.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-3] [FR-4]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-CARD]
+ */
 function KanbanCard({
   text,
   isDragging,
@@ -171,7 +194,12 @@ function KanbanCard({
   );
 }
 
-// Kanban column - pre-computed icon
+/**
+ * Kanban column: draggable header, card list/drop target, and add-card footer.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-3] [FR-4] [FR-6]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-COLUMN]
+ */
 function KanbanColumn({
   title,
   cards,
@@ -363,6 +391,12 @@ function KanbanColumn({
   );
 }
 
+/**
+ * Workbench Board tab: board lifecycle, optimistic edits, dialogs, and saves.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-SAVE]
+ */
 export default function Board() {
   const { kanban, send } = useWorkbench();
   const remoteBoards = useMemo(() => kanban?.boards ?? [], [kanban]);
@@ -611,7 +645,10 @@ export default function Board() {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {/* Board selector + stats */}
+      {/*
+        Surface: Workbench.Board.Toolbar
+        @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR]
+      */}
       <div className="afx-surface-toolbar flex items-center gap-2 border-b border-border px-3 py-2">
         <Rows3 size={14} className="shrink-0 text-muted-foreground" />
         <Select value={selected?.filePath ?? ""} onValueChange={selectBoard}>
@@ -657,7 +694,10 @@ export default function Board() {
           </div>
         )}
 
-        {/* Latest-5 quick-pick chips */}
+        {/*
+          Surface: Workbench.Board.QuickPick
+          @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR]
+        */}
         {boards.length > 1 && (
           <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
             {boards.slice(0, 5).map((b) => {
@@ -755,7 +795,10 @@ export default function Board() {
         </div>
       </div>
 
-      {/* Kanban columns */}
+      {/*
+        Surface: Workbench.Board.Columns
+        @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-COLUMN] [DES-BOARD-CARD]
+      */}
       <div
         className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden"
         data-testid="board-scroll-container"

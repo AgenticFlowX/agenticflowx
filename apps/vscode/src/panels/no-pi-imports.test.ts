@@ -4,7 +4,8 @@
  * from `@afx/shared` and never reach into `@afx/agent-pi` or
  * `@mariozechner/*`. Covers the Phase 8.4 optional third guard.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [NFR-1] [DES-ABSTRACTION] [8.4]
+ * @see docs/specs/200-app-vscode/spec.md [NFR-1]
+ * @see docs/specs/200-app-vscode/design.md [DES-DEPS]
  * @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-4] [FR-6]
  */
 import { readFileSync, readdirSync, statSync } from "node:fs";

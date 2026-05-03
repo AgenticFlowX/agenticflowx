@@ -1,7 +1,8 @@
 /**
  * External local-agent settings card.
  *
- * @see docs/specs/000-plans/plan-pi-hybrid-runtime.md
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD] [DES-SETTINGS-MOCKUP-PROVIDERS]
  */
 import { CircleCheck, ExternalLink, Folder, PlugZap, Server } from "lucide-react";
 
@@ -28,6 +29,12 @@ export interface ExternalAgentCardProps {
   onToggleEphemeral?: (enabled: boolean) => void;
 }
 
+/**
+ * Renders one external/local-agent provider card for Pi RPC and future adapters.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD]
+ */
 export function ExternalAgentCard({
   id,
   name,

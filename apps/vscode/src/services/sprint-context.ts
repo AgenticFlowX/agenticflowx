@@ -6,8 +6,8 @@
  * actions in the right-click and editor-title menus so only the relevant
  * section's actions surface.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+ * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-3]
+ * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-DATA]
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
  */
 import * as vscode from "vscode";
@@ -23,10 +23,12 @@ const SECTION_KEY = "afx.sprintSection";
  * Wire context-key sync for sprint files. Returns disposables the caller pushes
  * onto `context.subscriptions`.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
+ * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-3]
+ * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-DATA]
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
  */
 export function createSprintContextSync(parentLog: Logger): { disposables: vscode.Disposable[] } {
+  // Surface: [EditorActions.ContextKeys]
   const log = parentLog.child("sprint-context");
   let currentSprint = false;
   let currentSection: SprintSection | undefined;

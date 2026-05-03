@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [app, chat, webview, streaming, devoverlay]
+updated_at: "2026-05-03T01:55:17.000Z"
+tags: ["app", "chat", "webview", "streaming", "devoverlay", "code-spec-alignment"]
 spec: spec.md
 ---
 
@@ -56,6 +56,14 @@ initTransport(transport);
 ### DevOverlay
 
 Rendered by `app.tsx` when `import.meta.env.DEV && transport instanceof MockTransport`.
+
+---
+
+## [DES-DEV] Development Server And Browser Harness
+
+The chat app supports a browser development loop through Vite while preserving the VSCode webview runtime path. `apps/chat/vite.config.ts` owns the browser-facing dev/build harness for this app: React plugin setup, Tailwind integration, aliases for workspace packages, and test/build configuration that keeps the webview source runnable outside VSCode.
+
+This section exists as a stable traceability node for app-level development harness code. UI behavior still routes to child specs such as `211-app-chat-composer`, `212-app-chat-messages`, `213-app-chat-history`, and `214-app-chat-settings`; shared design-system tokens and future Storybook work route to `131-package-ui-design-system`.
 
 ---
 
@@ -171,6 +179,7 @@ function getTransport(): Transport;
 | —    | `apps/chat/src/main.tsx`                        | `spec.md [FR-1]` + `design.md [DES-ARCH]`             |
 | —    | `apps/chat/src/app.tsx`                         | `spec.md [FR-5]` + `design.md [DES-ARCH]`             |
 | —    | `apps/chat/src/lib/bridge.ts`                   | `spec.md [FR-1]` + `design.md [DES-API]`              |
+| —    | `apps/chat/vite.config.ts`                      | `spec.md [FR-1]` + `design.md [DES-DEV]`              |
 | —    | `apps/chat/src/views/chat.tsx`                  | `spec.md [FR-2] [FR-3] [FR-4]` + `design.md [DES-UI]` |
 | —    | `apps/chat/src/components/debug-panel.tsx`      | `spec.md [FR-5]` + `design.md [DES-UI]`               |
 | —    | `apps/chat/src/components/markdown-message.tsx` | `spec.md [FR-2]` + `design.md [DES-DEC]`              |

@@ -2,8 +2,8 @@
  * Pi RPC client — spawns `pi --mode rpc` and speaks JSONL protocol over stdin/stdout.
  * Uses StringDecoder + indexOf('\n') for framing (not readline — avoids U+2028/U+2029 split bug).
  *
- * @see docs/specs/300-infra-pi/spec.md [FR-3] [FR-4]
- * @see docs/specs/300-infra-pi/design.md [DES-ARCH]
+ * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-4]
+ * @see docs/specs/351-agent-pi/design.md [DES-PI-RPC-FLOW] [DES-ARCH]
  */
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { extname } from "node:path";
@@ -112,6 +112,7 @@ interface PendingRequest {
 }
 
 export function createPiClient(options: PiClientOptions = {}): PiClient {
+  // Flow: [AgentPi.RpcJsonl]
   const { binaryPath = "pi", cwd, args = [], commandPrefixArgs = [], env, logger } = options;
 
   let proc: ChildProcessWithoutNullStreams | null = null;

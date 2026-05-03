@@ -15,6 +15,7 @@ const PORT_FILE = resolve(__dirname, "../../.vite-port-chat");
  * extension host can load the live HMR URL instead of the prod dist bundle.
  *
  * @see docs/specs/310-infra-build/spec.md [FR-3]
+ * @see docs/specs/310-infra-build/design.md [DES-INFRA-BUILD-SYSTEM-CONTEXT]
  * @see docs/specs/210-app-chat/design.md [DES-DEV]
  */
 function persistPortPlugin(): Plugin {

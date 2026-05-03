@@ -1,5 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [NFR-6] [DES-UI] [3.3]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-HELPERS]
  */
 import type { AgentCommand } from "@afx/shared";
 import {
@@ -16,12 +17,14 @@ import { Popover, PopoverAnchor, PopoverContent } from "@afx/ui/components/popov
  * Bridge messages dispatched by the popup's "Actions" group (`/new`, `/abort`)
  * — distinct from skill insertions, which only update the textarea.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [DES-API]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-FLOW]
  */
 export type SlashAction = "chat/newSession" | "chat/abort";
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [DES-UI]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP]
  */
 export interface SlashPopupProps {
   open: boolean;
@@ -32,7 +35,8 @@ export interface SlashPopupProps {
 }
 
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [NFR-6] [DES-UI] [3.3]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-HELPERS]
  */
 export function SlashPopup({ open, commands, onOpenChange, onSelect, onAction }: SlashPopupProps) {
   const afxCommands = commands.filter(
@@ -114,7 +118,8 @@ function CommandRow({
  * Render an AgentCommand `name` as the user-facing slash form.
  * AFX skills (`skill:afx-task`) → `/afx-task`; plain names get a leading slash.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-7] [DES-UI]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP]
  */
 export function displayCommandName(command: Pick<AgentCommand, "name">): string {
   if (command.name.startsWith("skill:afx-")) return `/${command.name.slice("skill:".length)}`;

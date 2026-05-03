@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-13] [DES-SETTINGS] [8.3]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-5] [FR-14]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]
  */
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
 import type { AgentModel, SettingsSnapshot } from "@afx/shared";

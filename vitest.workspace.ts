@@ -2,7 +2,7 @@
  * Vitest workspace config — references all packages with test coverage.
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1] [FR-4]
- * @see docs/specs/420-dx-testing/design.md [DES-ARCH]
+ * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
  * @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-5] [FR-6] [DES-NAMING]
  */
 import { defineWorkspace } from "vitest/config";

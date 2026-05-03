@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/220-app-workbench/spec.md [FR-5]
- * @see docs/specs/220-app-workbench/design.md [DES-BOARD]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-3] [FR-4] [FR-7]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-TEST] [DES-BOARD-COLUMN] [DES-BOARD-SAVE]
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";

@@ -1,12 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
-tags: [app, chat, webview, streaming, devoverlay]
+updated_at: "2026-05-03T00:16:19.000Z"
+tags: [app, chat, webview, streaming, devoverlay, routing]
 depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ---
 
@@ -21,6 +21,20 @@ depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ## Problem Statement
 
 The chat webview renders streaming AI conversations with markdown, tool call UI, and thinking blocks. It must work identically inside VSCode (via postMessage) and in a browser (via mock transport) to enable fast UI iteration.
+
+This parent spec owns the chat app boundary. Composer, message timeline, history, settings, and notes work routes to child specs so small UI copy/control changes do not require reading the whole chat source.
+
+---
+
+## Child Zone Route Map
+
+| Spec                    | Start Here For                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `211-app-chat-composer` | Composer input, footer hints, queue strip, activity bar, slash/mention helpers, model/thinking controls |
+| `212-app-chat-messages` | Message timeline, markdown rendering, tool cards, thinking blocks, streaming output                     |
+| `213-app-chat-history`  | History view, conversation list, history event mapping                                                  |
+| `214-app-chat-settings` | Settings panel, provider cards, API key/runtime readiness UX, theme preview                             |
+| `215-app-chat-notes`    | Save-to-notes, note capture bridge, chat/editor note entry points                                       |
 
 ---
 
@@ -73,6 +87,8 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 - [ ] Tool calls show name, input, and output when complete
 - [ ] Thinking blocks are collapsible
 - [ ] Abort button cancels in-progress stream
+- [ ] Composer-specific work routes to `211-app-chat-composer`
+- [ ] Settings/provider work routes to `214-app-chat-settings`
 
 ### DevOverlay
 
@@ -87,6 +103,7 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 - No VSCode API calls
 - No filesystem or process access
 - No engine implementation
+- No design-system token/component contract changes outside `131-package-ui-design-system`
 
 ---
 
@@ -95,3 +112,22 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 - `@afx/shared` (message types)
 - `@afx/transport` (transport abstraction)
 - `@afx/ui` (component library and design tokens)
+
+---
+
+## Appendix
+
+### Agent Entry Map (routing-only parent)
+
+This is a parent spec. It owns the chat webview boundary (shell, app entry, transport bridge) and
+**does not** own per-zone functional requirements. The table below routes incoming requests to the
+right child zone before reading any source file.
+
+| Field           | Values                                                                                                                                                                                                                                                                                         |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Chat webview shell (`apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, transport bootstrap); **routing only** for feature behavior                                                                                                                                                            |
+| Owned files     | `apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, `apps/chat/src/lib/bridge.ts` (shared bridge entry), `apps/chat/vite.config.ts`                                                                                                                                                            |
+| Children        | `211-app-chat-composer`, `212-app-chat-messages`, `213-app-chat-history`, `214-app-chat-settings`, `215-app-chat-notes`                                                                                                                                                                        |
+| Routing rules   | "footer/composer/queue/slash/@-mention/send/abort/steer/follow-up" -> 211; "message stream/tool call/thinking block/markdown" -> 212; "history/conversation list/timeline" -> 213; "settings/provider/API key/model picker/runtime control" -> 214; "save to notes/composer note strip" -> 215 |
+| Out of scope    | Functional requirements for any specific zone; those live in the child specs                                                                                                                                                                                                                   |
+| Example prompts | "Update the composer footer" -> 211; "Render tool call card differently" -> 212; "Add filter to history" -> 213; "Add provider validation" -> 214; "Notes shortcut behavior" -> 215                                                                                                            |

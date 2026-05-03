@@ -1,7 +1,9 @@
 /**
  * Host-owned runtime health monitor for the active agent adapter.
+ * Drives the runtime phase machine: unknown -> checking -> ready/unhealthy/unsupported.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-PHASE-MACHINE] [DES-AGENT-RUNTIME-STATUS] [DES-AGENT-LIFECYCLE]
  */
 import type {
   AgentManager,
@@ -24,7 +26,8 @@ const DISCONNECTED_POLL_MS = 5_000;
 /**
  * Poll interval contract used by the VS Code host monitor.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
 export interface AgentRuntimeMonitorIntervals {
   startingMs: number;
@@ -37,7 +40,8 @@ export interface AgentRuntimeMonitorIntervals {
 /**
  * Dependencies for a host-owned runtime health monitor.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export interface AgentRuntimeMonitorOptions {
   agentManager: AgentManager;
@@ -49,7 +53,8 @@ export interface AgentRuntimeMonitorOptions {
 /**
  * Runtime monitor interface shared by the VS Code command path and webview panel.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export interface AgentRuntimeMonitor extends Disposable {
   start(): void;
@@ -66,11 +71,13 @@ export interface AgentRuntimeMonitor extends Disposable {
 /**
  * Create the monitor that owns runtime polling and recovery transitions.
  *
- * @see docs/specs/chat-foundation/chat-foundation.md [FR-4] [DES-API]
+ * @see docs/specs/350-agent-manager/spec.md [FR-1] [FR-2]
+ * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export function createAgentRuntimeMonitor(
   options: AgentRuntimeMonitorOptions,
 ): AgentRuntimeMonitor {
+  // Flow: [AgentManager.RuntimeMonitor]
   const now = options.now ?? Date.now;
   const intervals: AgentRuntimeMonitorIntervals = {
     startingMs: STARTING_POLL_MS,

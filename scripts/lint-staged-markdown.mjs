@@ -1,3 +1,9 @@
+/**
+ * Formats staged markdown files while preserving vendored AFX skill content.
+ *
+ * @see docs/specs/410-dx-quality/spec.md [FR-2] [FR-3]
+ * @see docs/specs/410-dx-quality/design.md [DES-DX-QUALITY-MARKDOWN]
+ */
 import { spawnSync } from "node:child_process";
 
 const VENDORED_SKILLS_PATH = "apps/vscode/resources/skills/";

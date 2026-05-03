@@ -3,7 +3,10 @@
  *
  * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
- * @see docs/specs/chat-ui-theme-foundation/chat-ui-theme-foundation.md [FR-8] [FR-9] [FR-10]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-FLOW]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  */
 import {
   type ChangeEvent,
@@ -540,6 +543,9 @@ export default function Chat({
   /**
    * Handles draft changes and triggers slash/mention popups.
    * Uses detectComposerTrigger to find if cursor is after a "/" or "@".
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS] [DES-COMPOSER-KEYS]
    */
   function handleDraftChange(e: ChangeEvent<HTMLTextAreaElement>) {
     const next = e.currentTarget.value;
@@ -558,6 +564,9 @@ export default function Chat({
 
   /**
    * Submits the draft. If idle, sends a new turn. If streaming, queues as steer or follow-up.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4] [FR-8]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
    */
   function submit(opts?: { followUp?: boolean }) {
     const trimmed = draft.trim();
@@ -616,6 +625,12 @@ export default function Chat({
     getTextarea()?.focus();
   }
 
+  /**
+   * Saves the current composer draft as a note and renders an ephemeral timeline confirmation.
+   *
+   * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
+   * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-MOCKUP-CHAT] [DES-NOTES-FLOW]
+   */
   function saveAsNote() {
     const trimmed = draft.trim();
     if (trimmed.length === 0) return;
@@ -629,6 +644,9 @@ export default function Chat({
   /**
    * Routes keyboard events for the composer textarea.
    * When a slash/mention popup is open, delegates navigation to cmdk.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-3] [FR-6]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-KEYS] [DES-COMPOSER-HELPERS]
    */
   function onKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (slashOpen || mentionOpen) {
@@ -752,7 +770,12 @@ export default function Chat({
     insertAtTrigger(commandText);
   }
 
-  /** Clears the trigger and dispatches a slash action (/new, /abort) instead of inserting text. */
+  /**
+   * Clears the trigger and dispatches a slash action (/new, /abort) instead of inserting text.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3] [FR-8]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS] [DES-COMPOSER-FLOW]
+   */
   function selectSlashAction(action: "chat/newSession" | "chat/abort") {
     const trigger = activeTrigger;
     if (trigger) {
@@ -778,6 +801,12 @@ export default function Chat({
     insertAtTrigger(`@${filePath}`);
   }
 
+  /**
+   * Opens the mention helper from the toolbar and requests workspace file candidates.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
+   */
   function openMentionPicker() {
     setActiveTrigger({ kind: "mention", start: draft.length, query: "" });
     setMentionOpen(true);
@@ -785,6 +814,12 @@ export default function Chat({
     bridgeSend({ type: "chat/listFiles", requestId: uid(), limit: 200 });
   }
 
+  /**
+   * Selects a composer model and keeps focus in the textarea for the next turn.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-FLOW]
+   */
   function selectModel(model: AgentModel) {
     bridgeSend({
       type: "chat/setModel",
@@ -859,12 +894,13 @@ export default function Chat({
         </div>
       )}
 
-      {/* Activity bar — always-on status strip above the composer */}
+      {/* Surface: [Composer.Activity] — always-on status strip above the composer */}
       <ActivityBar thinking={thinking} isStreaming={isStreaming} />
 
-      {/* Composer — textarea, slash commands, mentions, model selector, send/abort */}
+      {/* Surface: [Composer.Root] — textarea, helpers, model selector, send/abort, footer */}
       <div className="shrink-0 px-2 pb-3 pt-2">
         <div ref={composerRef}>
+          {/* Surface: [Composer.Helpers] */}
           <SlashPopup
             open={slashOpen}
             commands={commands}
@@ -878,12 +914,14 @@ export default function Chat({
             onOpenChange={setMentionOpen}
             onSelect={selectMention}
           />
+          {/* Surface: [Composer.Queue] */}
           <QueueStrip
             queued={visibleQueued}
             onDismiss={dismissQueued}
             onClearAll={clearAllQueued}
           />
           <InputGroup className="afx-surface-composer @container h-auto flex-col items-stretch">
+            {/* Surface: [Composer.Input] */}
             <InputGroupTextarea
               id="afx-chat-composer"
               value={draft}
@@ -907,6 +945,7 @@ export default function Chat({
               className="min-h-14 max-h-56"
             />
             <InputGroupAddon align="block-end" className="flex-wrap justify-between gap-1">
+              {/* Surface: [Composer.Toolbar] */}
               <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
                 <Button
                   type="button"
@@ -931,6 +970,7 @@ export default function Chat({
                   <ThinkingLevelToggle level={runtime.thinkingLevel} onChange={setThinkingLevel} />
                 )}
               </div>
+              {/* Surface: [Composer.Actions] */}
               <div className="ml-auto flex shrink-0 items-center gap-1">
                 {isStreaming ? (
                   <>
@@ -990,6 +1030,7 @@ export default function Chat({
             </InputGroupAddon>
           </InputGroup>
         </div>
+        {/* Surface: [Composer.Footer] */}
         <FooterStrip
           usage={usage}
           isCheckingAgent={isCheckingAgent}
@@ -1006,6 +1047,7 @@ export default function Chat({
 }
 
 // ---------------------------------------------------------------------------
+// Surface: [Composer.Activity]
 // ActivityBar — always-on status strip above the composer.
 // Two-line layout: label row + optional thinking preview during streaming.
 // ---------------------------------------------------------------------------
@@ -1015,6 +1057,12 @@ interface ActivityBarProps {
   isStreaming: boolean;
 }
 
+/**
+ * Renders the live composer activity strip above the input group.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-7]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]
+ */
 function ActivityBar({ thinking, isStreaming }: ActivityBarProps) {
   // Show first 120 chars so user sees what Pi is thinking *about*, not raw tail.
   const preview =
@@ -1059,12 +1107,19 @@ function ActivityBar({ thinking, isStreaming }: ActivityBarProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Surface: [Composer.Footer]
 // FooterStrip — single always-mounted row below the composer.
 // Left: Pi pill (when RPC opted in) + Cpu icon + stats (tokens · ctx · cost).
 // Right: contextual hint text (hidden on narrow widths via container query).
 // Row height stays fixed to prevent composer jumps.
 // ---------------------------------------------------------------------------
 
+/**
+ * Renders the fixed-height footer row with Pi/runtime hints and usage stats.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-2]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]
+ */
 function FooterStrip({
   usage,
   isCheckingAgent,
@@ -1130,6 +1185,7 @@ function FooterStrip({
 }
 
 // ---------------------------------------------------------------------------
+// Surface: [Composer.Footer]
 // PiPill — runtime reachability indicator shown only when `afx.rpc.enabled`.
 // Hidden when RPC is opt-out (the SDK-only default flow). Warning state
 // becomes a button that opens AFX settings so the user can fix the path.
@@ -1332,6 +1388,12 @@ const THINKING_LEVELS: ReadonlyArray<{ level: ThinkingLevel; label: string }> = 
   { level: "xhigh", label: "Extra-high" },
 ];
 
+/**
+ * Renders the composer thinking-effort dropdown.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
+ */
 function ThinkingLevelToggle({
   level,
   onChange,
@@ -1379,10 +1441,17 @@ function ThinkingLevelToggle({
 }
 
 // ---------------------------------------------------------------------------
+// Surface: [Composer.Queue]
 // QueueStrip — visual list of messages staged while the agent is streaming.
 // The engine handles the actual queueing; this strip only mirrors what we sent.
 // ---------------------------------------------------------------------------
 
+/**
+ * Renders queued steer/follow-up rows mirrored from streaming submissions.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-MOCKUP-STREAMING]
+ */
 function QueueStrip({
   queued,
   onDismiss,
@@ -1431,6 +1500,12 @@ function QueueStrip({
   );
 }
 
+/**
+ * Renders one queued composer row and explains that dismissal only hides local display.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE]
+ */
 function QueueRow({
   item,
   marker,
@@ -1658,7 +1733,10 @@ type TimelineEvent =
  * Tools are placed before their parent assistant message.
  * Note events (Cmd+Enter saves) are appended after messages.
  *
- * @see docs/specs/900-fleet/01-chat-ux-notes/01-chat-ux-notes.md [FR-1] [FR-2] [DES-TIMELINE] [DES-NOTES-CHAT]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-4] [FR-6]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
+ * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
+ * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-MOCKUP-CHAT]
  */
 function Timeline({
   messages,
@@ -1724,6 +1802,9 @@ function Timeline({
  * Renders a single timeline row with a rail marker, event header, and event body.
  * The rail line is hidden for the last row to avoid dangling at the bottom.
  * Reply rows (non-user) are indented by 28px to visually nest under the user turn.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-MOCKUP-ASSISTANT]
  */
 function TimelineRow({
   event,
@@ -1772,7 +1853,12 @@ const MARKER_AVATAR =
   "relative flex h-5 w-5 items-center justify-center rounded-full ring-[3px] ring-background";
 const MARKER_PLAIN = "relative flex h-5 w-5 items-center justify-center bg-background";
 
-/** Renders the rail marker for each timeline event type. */
+/**
+ * Renders the rail marker for each timeline event type.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-6]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-MOCKUP-SYSTEM]
+ */
 function Marker({ event }: { event: TimelineEvent }) {
   if (event.kind === "user") {
     return (
@@ -1846,7 +1932,12 @@ function Marker({ event }: { event: TimelineEvent }) {
   );
 }
 
-/** EventHeader — renders the eyebrow label (e.g., "You", "AFX") for message events. */
+/**
+ * EventHeader — renders the eyebrow label (e.g., "You", "AFX") for message events.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-6]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-MOCKUP-ASSISTANT]
+ */
 function EventHeader({ event }: { event: TimelineEvent }) {
   if (event.kind === "user") {
     return <Eyebrow tone="info" label="You" timestamp={event.message.createdAt} />;
@@ -1914,6 +2005,9 @@ function toolEyebrow(action: string): string {
 /**
  * Eyebrow — renders a colored label with optional timestamp and trailing content.
  * Used for "You", "AFX", "Error" labels in the timeline.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS]
  */
 function Eyebrow({
   tone,
@@ -1981,7 +2075,12 @@ function ThinkingTrace({ preview }: { preview: string }) {
   );
 }
 
-/** EventBody — renders the content for each timeline event type. */
+/**
+ * EventBody — renders the content for each timeline event type.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2] [FR-3] [FR-6]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-MARKDOWN] [DES-MESSAGES-MOCKUP-SYSTEM]
+ */
 function EventBody({ event }: { event: TimelineEvent }) {
   if (event.kind === "user") {
     return (
@@ -2054,6 +2153,9 @@ function EventBody({ event }: { event: TimelineEvent }) {
  *   ├─────┼────────────────────────────────────┤
  *   │ OUT │ /path/to/workspace                   │
  *   └─────┴────────────────────────────────────┘
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-4]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS] [DES-MESSAGES-MOCKUP-TOOL]
  */
 function ToolEvent({ tool }: { tool: ChatToolView }) {
   const descriptor = toolDescriptor(tool);
@@ -2131,7 +2233,12 @@ function ToolEvent({ tool }: { tool: ChatToolView }) {
   );
 }
 
-/** A single row in the ToolEvent table with a label gutter and content cell. */
+/**
+ * A single row in the ToolEvent table with a label gutter and content cell.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-4]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+ */
 function ToolEventRow({
   label,
   labelTone,
@@ -2190,6 +2297,9 @@ const FRIENDLY_STOP_REASONS: Record<string, string | undefined> = {
 /**
  * Renders token/cost/context metadata below an assistant message.
  * Only shows data that is available and meaningful.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-5]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-META]
  */
 function AssistantMeta({ message }: { message: ChatMessageView }) {
   const usage = message.usage;

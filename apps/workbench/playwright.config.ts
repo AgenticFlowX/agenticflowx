@@ -2,7 +2,7 @@
  * Playwright config for workbench bottom-panel webview smoke + screenshot tests.
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
- * @see docs/specs/220-app-workbench/design.md [DES-TEST]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-TEST]
  */
 import { defineConfig, devices } from "@playwright/test";
 

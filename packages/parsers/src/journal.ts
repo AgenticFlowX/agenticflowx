@@ -2,7 +2,7 @@
  * journal.md parser — extracts discussion entries from AFX journal documents.
  *
  * @see docs/specs/120-package-parsers/spec.md [FR-4]
- * @see docs/specs/120-package-parsers/design.md [DES-API]
+ * @see docs/specs/120-package-parsers/design.md [DES-PARSERS-JOURNAL]
  */
 export interface Discussion {
   id: string;

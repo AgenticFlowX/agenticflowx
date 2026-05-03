@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
-tags: [package, parsers, markdown, frontmatter, spec-driven]
+updated_at: "2026-05-03T03:07:51.000Z"
+tags: ["package", "parsers", "markdown", "frontmatter", "spec-driven", "traceability"]
 spec: spec.md
 ---
 
@@ -22,7 +22,7 @@ spec: spec.md
 
 ## [DES-ARCH] Architecture
 
-### System Context
+### [DES-PARSERS-SYSTEM-CONTEXT] System Context
 
 ```text
 packages/parsers/
@@ -35,6 +35,49 @@ packages/parsers/
 ```
 
 All functions take raw file content (string) and return typed result objects.
+
+---
+
+## [DES-PARSERS-FLOW] ASCII Parser Flow
+
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] -->
+
+```text
+raw markdown string
+  |
+  +-- parseFrontmatter(raw)
+  |     -> { data, content }
+  |
+  +-- parseSpec(raw)
+  |     -> frontmatter + FR/NFR rows + non-goals
+  |
+  +-- parseTasks(raw)
+  |     -> phase groups + checkbox tasks + stats
+  |
+  `-- parseJournal(raw)
+        -> discussion entries + counts
+```
+
+### [DES-PARSERS-FRONTMATTER] Frontmatter Parser
+
+`packages/parsers/src/frontmatter.ts` is the only gray-matter wrapper. It returns
+typed `data` plus body `content` without validating AFX schema.
+
+### [DES-PARSERS-SPEC] Spec Parser
+
+`packages/parsers/src/spec.ts` extracts frontmatter, requirement rows, NFR rows,
+and non-goal lines from markdown. It is intentionally tolerant of in-progress
+specs.
+
+### [DES-PARSERS-TASKS] Tasks Parser
+
+`packages/parsers/src/tasks.ts` extracts phase headings, task checkboxes, stats,
+and Work Sessions rows. Source line numbers are preserved for Workbench toggles.
+
+### [DES-PARSERS-JOURNAL] Journal Parser
+
+`packages/parsers/src/journal.ts` extracts discussion entries by heading/date/id
+signals and returns counts for Workbench Journal surfaces.
 
 ---
 
@@ -152,7 +195,7 @@ function parseJournal(content: string): JournalEntry[];
 
 ## [DES-TEST] Testing Strategy
 
-### Unit Tests
+### [DES-PARSERS-TEST-UNIT] Unit Tests
 
 - `parsers.test.ts` covers all four parser functions
 - Test fixtures use real AFX spec file formats
@@ -161,7 +204,7 @@ function parseJournal(content: string): JournalEntry[];
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-### Initial Implementation
+### [DES-PARSERS-ROLLOUT-INITIAL] Initial Implementation
 
 1. Implement `frontmatter.ts` (simplest — delegates to gray-matter)
 2. Implement `spec.ts` (table parsing with regex)
@@ -170,12 +213,39 @@ function parseJournal(content: string): JournalEntry[];
 
 ---
 
-## File Reference Map
+## [DES-PARSERS-LOC] Code Locator Map
 
-| Task | File                                  | Required @see                             |
-| ---- | ------------------------------------- | ----------------------------------------- |
-| —    | `packages/parsers/src/index.ts`       | `spec.md [FR-1]` + `design.md [DES-API]`  |
-| —    | `packages/parsers/src/frontmatter.ts` | `spec.md [FR-1]` + `design.md [DES-API]`  |
-| —    | `packages/parsers/src/spec.ts`        | `spec.md [FR-2]` + `design.md [DES-DATA]` |
-| —    | `packages/parsers/src/tasks.ts`       | `spec.md [FR-3]` + `design.md [DES-DATA]` |
-| —    | `packages/parsers/src/journal.ts`     | `spec.md [FR-4]` + `design.md [DES-DATA]` |
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] -->
+
+| Parser surface   | Source anchor                         | Design node                 | Tests                                  |
+| ---------------- | ------------------------------------- | --------------------------- | -------------------------------------- |
+| Barrel exports   | `packages/parsers/src/index.ts`       | `[DES-API]`                 | `packages/parsers/src/parsers.test.ts` |
+| Frontmatter      | `packages/parsers/src/frontmatter.ts` | `[DES-PARSERS-FRONTMATTER]` | `packages/parsers/src/parsers.test.ts` |
+| Spec document    | `packages/parsers/src/spec.ts`        | `[DES-PARSERS-SPEC]`        | `packages/parsers/src/parsers.test.ts` |
+| Tasks document   | `packages/parsers/src/tasks.ts`       | `[DES-PARSERS-TASKS]`       | `packages/parsers/src/parsers.test.ts` |
+| Journal document | `packages/parsers/src/journal.ts`     | `[DES-PARSERS-JOURNAL]`     | `packages/parsers/src/parsers.test.ts` |
+
+---
+
+## [DES-PARSERS-TRACE] 1:1 Code/Spec Matrix
+
+| Requirement | Design node                 | Source anchor                         |
+| ----------- | --------------------------- | ------------------------------------- |
+| `[FR-1]`    | `[DES-PARSERS-FRONTMATTER]` | `packages/parsers/src/frontmatter.ts` |
+| `[FR-2]`    | `[DES-PARSERS-SPEC]`        | `packages/parsers/src/spec.ts`        |
+| `[FR-3]`    | `[DES-PARSERS-TASKS]`       | `packages/parsers/src/tasks.ts`       |
+| `[FR-4]`    | `[DES-PARSERS-JOURNAL]`     | `packages/parsers/src/journal.ts`     |
+| `[NFR-1]`   | `[DES-DEPS]`                | package typecheck/import boundary     |
+| `[NFR-2]`   | `[DES-DEPS]`                | `packages/parsers/package.json`       |
+
+---
+
+## [DES-PARSERS-REFS] File Reference Map
+
+| Task | File                                  | Required @see                                            |
+| ---- | ------------------------------------- | -------------------------------------------------------- |
+| —    | `packages/parsers/src/index.ts`       | `spec.md [FR-1]` + `design.md [DES-API]`                 |
+| —    | `packages/parsers/src/frontmatter.ts` | `spec.md [FR-1]` + `design.md [DES-PARSERS-FRONTMATTER]` |
+| —    | `packages/parsers/src/spec.ts`        | `spec.md [FR-2]` + `design.md [DES-PARSERS-SPEC]`        |
+| —    | `packages/parsers/src/tasks.ts`       | `spec.md [FR-3]` + `design.md [DES-PARSERS-TASKS]`       |
+| —    | `packages/parsers/src/journal.ts`     | `spec.md [FR-4]` + `design.md [DES-PARSERS-JOURNAL]`     |
