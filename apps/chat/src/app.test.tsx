@@ -49,6 +49,20 @@ function createControlledTransport(): Transport & {
   };
 }
 
+type ChatStateMessage = Extract<AgentToChat, { type: "chat/state" }>;
+
+function emitChatState(
+  transport: ReturnType<typeof createControlledTransport>,
+  overrides: Partial<Pick<ChatStateMessage, "isStreaming" | "messages" | "tools">> = {},
+): void {
+  transport.emit({
+    type: "chat/state",
+    isStreaming: overrides.isStreaming ?? false,
+    messages: overrides.messages ?? [],
+    tools: overrides.tools ?? [],
+  });
+}
+
 describe("chat App", () => {
   it("renders all three tab triggers", () => {
     renderApp();
@@ -89,6 +103,9 @@ describe("chat App", () => {
             consecutiveFailures: 0,
           },
         });
+      });
+      act(() => {
+        emitChatState(transport);
       });
 
       for (const label of ["Chat", "History", "Settings"]) {
@@ -278,6 +295,9 @@ describe("chat App", () => {
         },
       });
     });
+    act(() => {
+      emitChatState(transport);
+    });
 
     expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
     expect(
@@ -288,6 +308,79 @@ describe("chat App", () => {
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     await user.click(screen.getByRole("tab", { name: "Chat" }));
     expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
+  });
+
+  it("rehydrates the previous transcript immediately after remount", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    const firstRender = render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 2,
+          consecutiveFailures: 0,
+        },
+      });
+    });
+    act(() => {
+      emitChatState(transport, {
+        messages: [
+          { id: "past-user", role: "user", content: "Past session question", createdAt: 1 },
+          { id: "past-assistant", role: "assistant", content: "Past session answer", createdAt: 2 },
+        ],
+      });
+    });
+
+    await waitFor(() =>
+      expect(transport.state).toEqual(
+        expect.objectContaining({
+          chatView: expect.objectContaining({
+            messages: expect.arrayContaining([
+              expect.objectContaining({ content: "Past session question" }),
+              expect.objectContaining({ content: "Past session answer" }),
+            ]),
+          }),
+        }),
+      ),
+    );
+
+    firstRender.unmount();
+    render(<App transport={transport} />);
+
+    expect(screen.getAllByText("Past session question").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Past session answer").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Loading workspace state")).not.toBeInTheDocument();
+    expect(screen.queryByText("Connecting to agent…")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ready when you are.")).not.toBeInTheDocument();
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 3,
+          consecutiveFailures: 0,
+        },
+      });
+    });
+    act(() => {
+      emitChatState(transport, {
+        messages: [
+          { id: "past-user", role: "user", content: "Past session question", createdAt: 1 },
+          { id: "past-assistant", role: "assistant", content: "Past session answer", createdAt: 2 },
+        ],
+      });
+    });
+
+    expect(screen.getAllByText("Past session question").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Past session answer").length).toBeGreaterThan(0);
   });
 
   it("keeps Settings runtime debug controls visible for Pi/API troubleshooting", async () => {
@@ -352,6 +445,9 @@ describe("chat App", () => {
         },
       });
     });
+    act(() => {
+      emitChatState(transport);
+    });
 
     // Chat keeps its quick-commands empty state — no takeover card.
     // Runtime issues surface via the Pi pill in FooterStrip (when rpc.enabled=true)
@@ -390,6 +486,9 @@ describe("chat App", () => {
         },
       });
     });
+    act(() => {
+      emitChatState(transport);
+    });
 
     expect(screen.getByText("Connect a model to start.")).toBeInTheDocument();
     expect(screen.getByText("No active runtime")).toBeInTheDocument();
@@ -424,6 +523,9 @@ describe("chat App", () => {
           consecutiveFailures: 0,
         },
       });
+    });
+    act(() => {
+      emitChatState(transport);
     });
 
     await user.click(screen.getByRole("button", { name: "Open Settings" }));

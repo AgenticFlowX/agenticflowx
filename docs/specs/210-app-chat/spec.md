@@ -5,8 +5,8 @@ status: Draft
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T00:16:19.000Z"
-tags: [app, chat, webview, streaming, devoverlay, routing]
+updated_at: "2026-05-03T15:24:30.000Z"
+tags: [app, chat, webview, streaming, devoverlay, routing, hydration]
 depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ---
 
@@ -21,6 +21,8 @@ depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ## Problem Statement
 
 The chat webview renders streaming AI conversations with markdown, tool call UI, and thinking blocks. It must work identically inside VSCode (via postMessage) and in a browser (via mock transport) to enable fast UI iteration.
+
+When the webview remounts after a panel switch, it should rehydrate the last visible transcript immediately so the user does not see a brief empty or welcome shell before the host snapshot lands.
 
 This parent spec owns the chat app boundary. Composer, message timeline, history, settings, and notes work routes to child specs so small UI copy/control changes do not require reading the whole chat source.
 
@@ -69,6 +71,7 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 | FR-5 | DevOverlay in browser mode: scenario selector, log viewer, stream speed slider | Must Have   |
 | FR-6 | Views: Chat (primary), History, Explorer, Settings                             | Should Have |
 | FR-7 | Settings view allows theme switching (Meridian / Lyra)                         | Should Have |
+| FR-8 | Hydrate the last visible transcript on remount before the first host snapshot  | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -87,6 +90,8 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 - [ ] Tool calls show name, input, and output when complete
 - [ ] Thinking blocks are collapsible
 - [ ] Abort button cancels in-progress stream
+- [ ] Switching away and back restores the previous transcript immediately, without flashing the welcome shell
+- [ ] A genuinely empty session still shows the loading shell until the first host snapshot arrives
 - [ ] Composer-specific work routes to `211-app-chat-composer`
 - [ ] Settings/provider work routes to `214-app-chat-settings`
 

@@ -5,8 +5,8 @@ status: Draft
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T01:55:17.000Z"
-tags: ["app", "chat", "webview", "streaming", "devoverlay", "code-spec-alignment"]
+updated_at: "2026-05-03T15:24:30.000Z"
+tags: ["app", "chat", "webview", "streaming", "devoverlay", "code-spec-alignment", "hydration"]
 spec: spec.md
 ---
 
@@ -16,7 +16,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-`apps/chat` is a React + Vite webview that renders chat conversations. It detects its environment at startup (VSCode vs browser) and injects the appropriate transport. DevOverlay is rendered only in browser mode with mock transport active.
+`apps/chat` is a React + Vite webview that renders chat conversations. It detects its environment at startup (VSCode vs browser) and injects the appropriate transport. When the webview remounts, it rehydrates the last visible transcript from persisted webview state so the chat surface does not flash a fresh-session shell. DevOverlay is rendered only in browser mode with mock transport active.
 
 ---
 
@@ -29,7 +29,7 @@ apps/chat/src/
 ├── main.tsx           ← entry; detects VSCode/browser; injects transport
 ├── app.tsx            ← root component; <Chat> + conditional <DevOverlay>
 ├── lib/
-│   └── bridge.ts      ← initTransport(), bridgeSend(), bridgeOn(), getTransport()
+│   └── bridge.ts      ← initTransport(), bridgeGetState(), bridgeSetState(), bridgeSend(), bridgeOn()
 ├── views/
 │   ├── chat.tsx        ← main chat view (message list + input)
 │   ├── history.tsx     ← session history
@@ -75,6 +75,53 @@ Chat view layout:
 - Center: Scrollable message list
 - Bottom: Input area with send + abort buttons
 
+### Remount Hydration
+
+When the user leaves the webview and returns, the chat surface should repaint the last visible
+transcript immediately from persisted webview state. The loading/logo shell remains only for the
+truly cold-start case where no transcript snapshot has ever been received.
+
+```text
+webview mount
+    |
+    v
+bridgeGetState()
+    |
+    +--> cached transcript exists? ---- yes ---> render timeline immediately
+    |                                        |
+    |                                        v
+    |                                wait for host chat/state
+    |                                        |
+    |                                        v
+    |                               replace cache with live snapshot
+    |
+    +--> no cache yet ------------------ no ---> show setup/loading shell
+                                             |
+                                             v
+                                   first host chat/state arrives
+                                             |
+                                             v
+                                   render transcript or empty state
+```
+
+### [DES-UI-MOCKUP-HYDRATION] ASCII UI Mockup
+
+```text
++------------------------------------------------------------------+
+| returning to AFX                                                 |
+|                                                                  |
+| [cached transcript]                                              |
+|   o You                                                         |
+|     Update the footer hint                                       |
+|   o AFX                                                         |
+|     The footer now says ...                                      |
+|                                                                  |
+| [only when no cache exists]                                      |
+|   Connecting to agent…                                           |
+|   Loading workspace state                                         |
++------------------------------------------------------------------+
+```
+
 DevOverlay (bottom-right, dev mode):
 
 - Scenario button grid (13 buttons)
@@ -98,9 +145,13 @@ DevOverlay (bottom-right, dev mode):
 ```typescript
 // bridge.ts
 function initTransport(t: Transport): void;
+function bridgeGetState(): unknown;
+function bridgeSetState(state: unknown): void;
 function bridgeSend(msg: ChatToAgent): void;
-function bridgeOn(handler: (msg: AgentToChat) => void): () => void;
-function getTransport(): Transport;
+function bridgeOn<T extends AgentToChat["type"]>(
+  type: T,
+  handler: (msg: MessageOf<AgentToChat, T>) => void,
+): () => void;
 ```
 
 ---

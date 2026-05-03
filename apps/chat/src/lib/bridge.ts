@@ -1,5 +1,6 @@
 /**
- * Bridge — module-level shim that delegates send/on calls to the injected Transport.
+ * Bridge — module-level shim that delegates send/on calls and persisted webview state access
+ * to the injected Transport.
  * Injected once at app startup via initTransport(); all chat code imports from here.
  *
  * @see docs/specs/210-app-chat/spec.md [FR-1]
@@ -25,6 +26,28 @@ let _transport: Transport | null = null;
 /** Called once in main.tsx before React renders. */
 export function initTransport(t: Transport): void {
   _transport = t;
+}
+
+/**
+ * Reads the persisted webview state when the transport supports it.
+ *
+ * @see docs/specs/210-app-chat/spec.md [FR-1] [FR-8]
+ * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
+ * @see docs/specs/110-package-transport/spec.md [FR-5]
+ */
+export function bridgeGetState(): unknown {
+  return _transport?.getState?.();
+}
+
+/**
+ * Persists the webview state when the transport supports it.
+ *
+ * @see docs/specs/210-app-chat/spec.md [FR-1] [FR-8]
+ * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
+ * @see docs/specs/110-package-transport/spec.md [FR-5]
+ */
+export function bridgeSetState(state: unknown): void {
+  _transport?.setState?.(state);
 }
 
 /**

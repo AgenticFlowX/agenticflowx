@@ -1,8 +1,9 @@
 /**
  * Chat view — streaming message thread with composer, tool call display, and thinking blocks.
  *
- * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6]
+ * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6] [FR-8]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
+ * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-FLOW]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
@@ -86,7 +87,7 @@ import { ModelCombobox } from "../components/model-combobox";
 import { OutputCard } from "../components/output-card";
 import { SlashPopup } from "../components/slash-popup";
 import { toast } from "../components/toast";
-import { bridgeOn, bridgeSend } from "../lib/bridge";
+import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../lib/bridge";
 import type { ComposerTrigger } from "../lib/composer-detect";
 import { detectComposerTrigger } from "../lib/composer-detect";
 import { extractMentions } from "../lib/mentions";
@@ -139,6 +140,74 @@ interface UsageStats {
   contextUsage?: { tokens: number | null; contextWindow: number; percent: number | null };
 }
 
+/** Command output row rendered in the timeline. */
+interface ChatCommandOutputView {
+  requestId: string;
+  command: string;
+  stdout: string;
+  stderr: string;
+  exitCode?: number;
+  error?: string;
+  createdAt: number;
+}
+
+/** Ephemeral note confirmation rendered in the timeline. */
+interface ChatNoteEventView {
+  id: string;
+  content: string;
+  savedAt: number;
+}
+
+/** Cached chat surface state persisted through the webview transport. */
+interface PersistedChatViewState {
+  messages: ChatTimelineItem[];
+  commandOutputs: ChatCommandOutputView[];
+  noteEvents: ChatNoteEventView[];
+}
+
+/** Webview state persisted by VS Code so remounts can hydrate instantly. */
+interface PersistedWebviewState {
+  draft?: string;
+  chatView?: PersistedChatViewState;
+}
+
+function readPersistedChatViewState(): PersistedChatViewState | null {
+  const state = bridgeGetState();
+  if (!state || typeof state !== "object") return null;
+
+  const persisted = (state as PersistedWebviewState).chatView;
+  if (!persisted || typeof persisted !== "object") return null;
+
+  const messages = Array.isArray(persisted.messages)
+    ? persisted.messages.map((m) => ({ ...m }))
+    : [];
+  const commandOutputs = Array.isArray(persisted.commandOutputs)
+    ? persisted.commandOutputs.map((output) => ({ ...output }))
+    : [];
+  const noteEvents = Array.isArray(persisted.noteEvents)
+    ? persisted.noteEvents.map((event) => ({ ...event }))
+    : [];
+
+  if (messages.length === 0 && commandOutputs.length === 0 && noteEvents.length === 0) {
+    return null;
+  }
+
+  return { messages, commandOutputs, noteEvents };
+}
+
+function persistChatViewState(next: PersistedChatViewState | null): void {
+  const state = bridgeGetState();
+  const base = state && typeof state === "object" ? (state as PersistedWebviewState) : {};
+
+  if (next) {
+    bridgeSetState({ ...base, chatView: next });
+    return;
+  }
+
+  const { chatView: _chatView, ...rest } = base;
+  bridgeSetState(rest);
+}
+
 // ---------------------------------------------------------------------------
 // Chat (root)
 // ---------------------------------------------------------------------------
@@ -186,7 +255,16 @@ export default function Chat({
   onPromptHistoryAppend,
 }: ChatProps) {
   // ── message state ────────────────────────────────────────────────────────
-  const [messages, setMessages] = useState<ChatTimelineItem[]>([]);
+  const [initialPersistedChatView] = useState(() => readPersistedChatViewState());
+  const [messages, setMessages] = useState<ChatTimelineItem[]>(
+    () => initialPersistedChatView?.messages ?? [],
+  );
+  // Remounts hydrate synchronously from cached transcript state when available.
+  // Otherwise we keep the loading shell up until the first host snapshot lands so
+  // we do not flash the empty welcome card.
+  const [hasReceivedStateSnapshot, setHasReceivedStateSnapshot] = useState(
+    () => initialPersistedChatView !== null,
+  );
   const [thinking, setThinking] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageStats | null>(null);
 
@@ -209,23 +287,15 @@ export default function Chat({
   const [activeTrigger, setActiveTrigger] = useState<ComposerTrigger | null>(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   // Ephemeral note events (Cmd+Enter saves) — not persisted across reloads.
-  const [noteEvents, setNoteEvents] = useState<
-    Array<{ id: string; content: string; savedAt: number }>
-  >([]);
+  const [noteEvents, setNoteEvents] = useState<ChatNoteEventView[]>(
+    () => initialPersistedChatView?.noteEvents ?? [],
+  );
 
   // ── command output state ─────────────────────────────────────────────────
   /** Completed + active command outputs rendered in the timeline. */
-  const [commandOutputs, setCommandOutputs] = useState<
-    Array<{
-      requestId: string;
-      command: string;
-      stdout: string;
-      stderr: string;
-      exitCode?: number;
-      error?: string;
-      createdAt: number;
-    }>
-  >([]);
+  const [commandOutputs, setCommandOutputs] = useState<ChatCommandOutputView[]>(
+    () => initialPersistedChatView?.commandOutputs ?? [],
+  );
 
   // ── composer state — lifted to App for persistence across tab switches ──
   // draft and onDraftChange are passed from App
@@ -326,6 +396,7 @@ export default function Chat({
     const offs = [
       // State sync — full message/streaming state from host.
       bridgeOn("chat/state", (msg) => {
+        setHasReceivedStateSnapshot(true);
         setMessages(msg.messages);
         setInternalAgentStatus((p) => ({
           ...p,
@@ -591,6 +662,24 @@ export default function Chat({
 
     return () => offs.forEach((off) => off());
   }, []);
+
+  // Keep the last visible chat surface in webview state so remounts can
+  // hydrate directly into the transcript instead of flashing the welcome card.
+  useEffect(() => {
+    const hasTimelineContent =
+      messages.length > 0 || commandOutputs.length > 0 || noteEvents.length > 0;
+    if (!hasReceivedStateSnapshot && !hasTimelineContent) return;
+
+    persistChatViewState(
+      hasTimelineContent
+        ? {
+            messages,
+            commandOutputs,
+            noteEvents,
+          }
+        : null,
+    );
+  }, [commandOutputs, hasReceivedStateSnapshot, messages, noteEvents]);
 
   // DEV-only: lets the debug panel pre-populate the QueueStrip for design
   // iteration without manually queueing items each time. Production builds
@@ -961,9 +1050,11 @@ export default function Chat({
         className="afx-surface-subtle flex-1 min-h-0 overflow-y-auto overflow-x-hidden scroll-smooth [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]"
       >
         <div className="px-2 py-3">
-          {isCheckingAgent ? (
+          {messages.length > 0 || commandOutputs.length > 0 || noteEvents.length > 0 ? (
+            <Timeline messages={messages} noteEvents={noteEvents} commandOutputs={commandOutputs} />
+          ) : !hasReceivedStateSnapshot ? (
             <AgentSetupState />
-          ) : messages.length === 0 && commandOutputs.length === 0 ? (
+          ) : (
             <EmptyState
               runtimeUnconfigured={runtimeUnconfigured}
               rpcEnabled={rpcEnabled}
@@ -973,8 +1064,6 @@ export default function Chat({
                 composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
               }}
             />
-          ) : (
-            <Timeline messages={messages} noteEvents={noteEvents} commandOutputs={commandOutputs} />
           )}
           <div ref={bottomRef} className="h-3 shrink-0" />
         </div>
@@ -1891,16 +1980,8 @@ function Timeline({
   commandOutputs,
 }: {
   messages: ChatTimelineItem[];
-  noteEvents: Array<{ id: string; content: string; savedAt: number }>;
-  commandOutputs: Array<{
-    requestId: string;
-    command: string;
-    stdout: string;
-    stderr: string;
-    exitCode?: number;
-    error?: string;
-    createdAt: number;
-  }>;
+  noteEvents: ChatNoteEventView[];
+  commandOutputs: ChatCommandOutputView[];
 }) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
