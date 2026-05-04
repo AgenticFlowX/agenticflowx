@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.5] - 2026-05-04
+
+### Fixed
+
+- Chat UX fixes for streaming queues, thinking state, transcript hydration, system commands, notes, and AFX upstream sync.
+
 ## [2.0.0] - 2026-05-02
 
 ### Breaking Changes
