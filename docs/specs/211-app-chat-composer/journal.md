@@ -19,6 +19,8 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 
 <!-- Quick notes during active chat - cleared when recorded -->
 
+- `2026-05-04T08:02:36.000Z` `/afx-dev debug`: production queue bug found in composer/host queue paths. Rapid steer/follow-up submissions were dispatched concurrently to the runtime instead of serialized, local queue rows did not reconcile when `pendingMessageCount` drained to zero, and queue rows lacked visible `Steer` / `Follow-up` labels. Fixed in `apps/vscode/src/panels/sidebar-panel.ts` and `apps/chat/src/views/chat.tsx`; added regression coverage in app/sidebar tests. `[FR-4] [FR-8] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FLOW]`
+
 ---
 
 ## Discussions

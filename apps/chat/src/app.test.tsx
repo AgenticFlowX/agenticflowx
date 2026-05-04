@@ -993,4 +993,49 @@ describe("chat App", () => {
       expect.objectContaining({ type: "chat/steer", content: "nudge now" }),
     );
   });
+
+  /**
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE]
+   */
+  it("labels queued steer and follow-up rows and clears them when the runtime queue drains", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "busy",
+          running: true,
+          isStreaming: true,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+    });
+
+    const input = screen.getByPlaceholderText("Queue a follow-up… (⌘⏎ to steer this turn)");
+    await user.type(input, "tighten now");
+    await user.click(screen.getByRole("button", { name: "Steer turn" }));
+    await user.type(input, "then verify");
+    await user.click(screen.getByRole("button", { name: "Queue follow-up" }));
+
+    expect(screen.getByText("Steer")).toBeInTheDocument();
+    expect(screen.getByText("Follow-up")).toBeInTheDocument();
+    expect(screen.getByText("tighten now")).toBeInTheDocument();
+    expect(screen.getByText("then verify")).toBeInTheDocument();
+
+    act(() => {
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { pendingMessageCount: 0 },
+      });
+    });
+
+    await waitFor(() => expect(screen.queryByText("tighten now")).not.toBeInTheDocument());
+    expect(screen.queryByText("then verify")).not.toBeInTheDocument();
+  });
 });

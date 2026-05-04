@@ -361,6 +361,21 @@ export default function Chat({
   function getTextarea(): HTMLTextAreaElement | null {
     return composerRef.current?.querySelector("textarea") ?? null;
   }
+
+  /**
+   * Reconciles the local queue mirror with the runtime's authoritative pending count.
+   * The runtime reports consumption after queued steers/follow-ups are sent, so the
+   * composer can clear rows without relying on manual dismiss/clear affordances.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FLOW]
+   */
+  function reconcileQueuedFromRuntime(pendingMessageCount: number | undefined) {
+    if (typeof pendingMessageCount !== "number") return;
+    const normalizedCount = Math.max(0, pendingMessageCount);
+    setQueued((q) => (q.length <= normalizedCount ? q : q.slice(q.length - normalizedCount)));
+  }
+
   useEffect(() => {
     if (!isCheckingAgent && !isStreaming) {
       const active = document.activeElement as HTMLElement | null;
@@ -590,6 +605,7 @@ export default function Chat({
       // Runtime settings — thinking level, queue modes, compaction, retry.
       bridgeOn("agent/runtimeSettings", (msg) => {
         setRuntime(msg.settings);
+        reconcileQueuedFromRuntime(msg.settings.pendingMessageCount);
       }),
 
       // Compaction — clears the queue and shows a toast.
@@ -1743,6 +1759,8 @@ function QueueRow({
   kindIcon: React.ReactNode;
   onDismiss: (id: string) => void;
 }) {
+  const label = item.mode === "steer" ? "Steer" : "Follow-up";
+
   return (
     <li
       className="group/queue-item flex items-start gap-1.5 rounded-sm py-0.5 pl-1 pr-0.5 hover:bg-muted/60"
@@ -1760,6 +1778,16 @@ function QueueRow({
         )}
       >
         {marker}
+      </span>
+      <span
+        className={cn(
+          "mt-[1px] shrink-0 rounded px-1 py-px text-[9px] font-medium uppercase tracking-wide",
+          item.mode === "steer"
+            ? "bg-afx-brand-soft/10 text-afx-brand-soft"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {label}
       </span>
       <span className="line-clamp-2 min-w-0 flex-1 text-[11px] leading-relaxed text-foreground/90">
         {item.content}

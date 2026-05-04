@@ -999,6 +999,39 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  /**
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
+   */
+  it("serializes queued steer/follow-up injections so rapid steers preserve order", async () => {
+    let resolveFirstSteer: (() => void) | undefined;
+    agent.steer
+      .mockImplementationOnce(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveFirstSteer = resolve;
+          }),
+      )
+      .mockImplementationOnce(async () => {});
+
+    const { inbound } = setupWithView();
+    const listener = firstAgentEventListener();
+    listener?.({ type: "agent_start" });
+
+    inbound.fire({ type: "chat/steer", requestId: "req-steer-1", content: "first steer" });
+    inbound.fire({ type: "chat/steer", requestId: "req-steer-2", content: "second steer" });
+    await flushAsyncWork(2);
+
+    expect(agent.steer).toHaveBeenCalledTimes(1);
+    expect(agent.steer).toHaveBeenNthCalledWith(1, "first steer");
+
+    resolveFirstSteer?.();
+    await flushAsyncWork(2);
+
+    expect(agent.steer).toHaveBeenCalledTimes(2);
+    expect(agent.steer).toHaveBeenNthCalledWith(2, "second steer");
+  });
+
   it("renders queued user messages only when the runtime consumes them", async () => {
     const { inbound, postMessage } = setupWithView();
     const listener = firstAgentEventListener();

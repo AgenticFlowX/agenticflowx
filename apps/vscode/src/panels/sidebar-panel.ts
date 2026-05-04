@@ -136,6 +136,20 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   let currentModel: AgentRuntimeModel | undefined;
   let bundledSkillCountCache: number | null = null;
   const queuedUserDisplays: QueuedUserDisplay[] = [];
+  let queueInjectionChain: Promise<void> = Promise.resolve();
+
+  /**
+   * Serializes streaming queue injections so rapid steer/follow-up submissions
+   * reach the runtime in the same order the composer sent them.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
+   */
+  function enqueueQueueInjection(work: () => Promise<void>): Promise<void> {
+    const next = queueInjectionChain.then(work, work);
+    queueInjectionChain = next.catch(() => undefined);
+    return next;
+  }
 
   // Pending delta text per message id; flushed on a single RAF-like timer.
   const pendingDeltas = new Map<string, string>();
@@ -1745,10 +1759,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       return;
     }
     try {
-      const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
-      await agentManager.steer(inflated);
-      queuedUserDisplays.push({ content });
-      void broadcastRuntimeSettings();
+      await enqueueQueueInjection(async () => {
+        const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
+        await agentManager.steer(inflated);
+        queuedUserDisplays.push({ content });
+        void broadcastRuntimeSettings();
+      });
     } catch (err) {
       log.error("agent.steer failed", err instanceof Error ? err : undefined, { requestId });
       postError(requestId, err instanceof Error ? err.message : String(err), "transcript");
@@ -1765,10 +1781,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       return;
     }
     try {
-      const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
-      await agentManager.followUp(inflated);
-      queuedUserDisplays.push({ content });
-      void broadcastRuntimeSettings();
+      await enqueueQueueInjection(async () => {
+        const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
+        await agentManager.followUp(inflated);
+        queuedUserDisplays.push({ content });
+        void broadcastRuntimeSettings();
+      });
     } catch (err) {
       log.error("agent.followUp failed", err instanceof Error ? err : undefined, { requestId });
       postError(requestId, err instanceof Error ? err.message : String(err), "transcript");
