@@ -961,6 +961,52 @@ describe("chat App", () => {
     await waitFor(() => expect(input).toHaveValue("prompt before switch"));
   });
 
+  /**
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MOCKUP-THINKING] [DES-MESSAGES-COMPONENT-TIMELINE]
+   */
+  it("keeps thinking in the composer activity strip and suppresses blank timeline placeholders", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    const now = Date.now();
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "busy",
+          running: true,
+          isStreaming: true,
+          checkedAt: now,
+          consecutiveFailures: 0,
+        },
+      });
+      transport.emit({
+        type: "chat/state",
+        isStreaming: true,
+        tools: [],
+        messages: [
+          { id: "u-blank", role: "user", content: "debug blank rows", createdAt: now },
+          { id: "a-empty-1", role: "assistant", content: "", createdAt: now + 1, streaming: false },
+          { id: "a-empty-2", role: "assistant", content: "", createdAt: now + 2, streaming: false },
+          { id: "a-live", role: "assistant", content: "", createdAt: now + 3, streaming: true },
+        ],
+      });
+      transport.emit({
+        type: "chat/thinkingDelta",
+        id: "a-live",
+        delta:
+          "Reading the message timeline code and checking why empty assistant placeholders are visible in the transcript.",
+      });
+    });
+
+    expect(screen.queryByText("Working")).not.toBeInTheDocument();
+    expect(screen.queryAllByText("AFX")).toHaveLength(0);
+    expect(screen.getByText("thinking")).toBeInTheDocument();
+    expect(screen.getByText(/empty assistant placeholders are visible/i)).toBeInTheDocument();
+  });
+
   it("exposes separate Queue and Steer buttons while streaming", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();

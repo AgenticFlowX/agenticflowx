@@ -1978,7 +1978,6 @@ type TimelineEvent =
   | { id: string; kind: "error"; message: ChatMessageView }
   | { id: string; kind: "info"; message: ChatMessageView }
   | { id: string; kind: "tool"; tool: ChatToolView }
-  | { id: string; kind: "thinking"; preview: string }
   | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number }
   | { id: string; kind: "note"; content: string; savedAt: number }
   | {
@@ -1993,11 +1992,23 @@ type TimelineEvent =
     };
 
 /**
+ * Returns whether an assistant row has user-visible content worth rendering.
+ * Empty non-streaming placeholders can be produced by thinking-only runtime phases;
+ * suppressing them prevents long blank AFX history rows.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENT-TIMELINE] [DES-MESSAGES-MOCKUP-THINKING]
+ */
+function hasVisibleAssistantMessage(message: ChatMessageView): boolean {
+  return message.content.trim().length > 0;
+}
+
+/**
  * Converts a flat message list into a timeline of events.
  * Tools are placed before their parent assistant message.
- * Note events (Cmd+Enter saves) are appended after messages.
+ * Note and shell events are appended after messages, then sorted by timestamp.
  *
- * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-4] [FR-6]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2] [FR-4] [FR-6]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
  * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-MOCKUP-CHAT]
@@ -2038,6 +2049,7 @@ function Timeline({
     for (const t of m.tools ?? []) {
       events.push({ id: `${m.id}-${t.toolCallId}`, kind: "tool", tool: t });
     }
+    if (!hasVisibleAssistantMessage(m)) continue;
     const isError = m.content.startsWith("⚠");
     const isInfo = m.content.startsWith("ℹ");
     events.push({
@@ -2076,7 +2088,6 @@ function Timeline({
         return event.createdAt;
       case "shell":
         return event.createdAt;
-      case "thinking":
       case "tool":
         return 0;
     }
@@ -2145,9 +2156,8 @@ function TimelineRow({
   );
 }
 
-// Avatar circles for the conversation participants (user, AFX). System events
-// (tools, errors, thinking) render as plain icons against the rail to reduce
-// visual noise and keep the focus on the dialogue.
+// Avatar circles for the conversation participants (user, AFX). Tool, error,
+// and system events render as plain icons against the rail to reduce visual noise.
 const MARKER_AVATAR =
   "relative flex h-5 w-5 items-center justify-center rounded-full ring-[3px] ring-background";
 const MARKER_PLAIN = "relative flex h-5 w-5 items-center justify-center bg-background";
@@ -2231,12 +2241,7 @@ function Marker({ event }: { event: TimelineEvent }) {
     );
   }
 
-  // thinking — pulsing indicator during live streaming.
-  return (
-    <span aria-hidden className={cn(MARKER_PLAIN, "animate-pulse text-afx-brand-soft")}>
-      <Brain size={12} className="shrink-0" strokeWidth={2.25} />
-    </span>
-  );
+  return null;
 }
 
 /**
@@ -2263,20 +2268,6 @@ function EventHeader({ event }: { event: TimelineEvent }) {
   }
   if (event.kind === "info") {
     return null;
-  }
-  if (event.kind === "thinking") {
-    return (
-      <div className="flex items-center gap-1.5 text-[11px]">
-        <span className="flex items-center gap-1 italic text-afx-brand-soft">
-          thinking
-          <span className="inline-flex gap-0.5">
-            <span className="animate-pulse">.</span>
-            <span className="animate-pulse [animation-delay:150ms]">.</span>
-            <span className="animate-pulse [animation-delay:300ms]">.</span>
-          </span>
-        </span>
-      </div>
-    );
   }
   if (event.kind === "compaction") {
     return <Eyebrow tone="brand" label="Session compacted" timestamp={event.createdAt} />;
@@ -2351,40 +2342,6 @@ function Eyebrow({
   );
 }
 
-// ---------------------------------------------------------------------------
-// ThinkingTrace — collapsible reasoning block in the message timeline.
-// No card chrome; first ~60 chars shown as inline preview when collapsed.
-// ---------------------------------------------------------------------------
-
-function ThinkingTrace({ preview }: { preview: string }) {
-  const [open, setOpen] = useState(false);
-  const firstLine = preview.length > 60 ? preview.slice(0, 60) + "…" : preview;
-  return (
-    <div className="mt-1">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-start gap-1.5 text-left"
-      >
-        <Brain size={11} className="mt-0.5 shrink-0 text-afx-brand-soft" />
-        <span className="font-serif text-[11px] italic text-muted-foreground">{firstLine}</span>
-        <ChevronRight
-          size={11}
-          className={cn(
-            "ml-auto mt-0.5 shrink-0 text-muted-foreground/40 transition-transform",
-            open && "rotate-90",
-          )}
-        />
-      </button>
-      {open && (
-        <div className="mt-1 pl-5 whitespace-pre-wrap break-words font-serif text-[11px] italic leading-relaxed text-muted-foreground/70">
-          {preview}
-        </div>
-      )}
-    </div>
-  );
-}
-
 /**
  * EventBody — renders the content for each timeline event type.
  *
@@ -2432,9 +2389,6 @@ function EventBody({ event }: { event: TimelineEvent }) {
         </p>
       </div>
     );
-  }
-  if (event.kind === "thinking") {
-    return <ThinkingTrace preview={event.preview} />;
   }
   if (event.kind === "compaction") {
     return <CompactionCard summary={event.summary} tokensBefore={event.tokensBefore} />;
