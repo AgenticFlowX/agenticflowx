@@ -3,15 +3,15 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T11:43:38.000Z"
-approved_at: "2026-05-03T11:43:38.000Z"
+updated_at: "2026-05-05T07:29:30.000Z"
+approved_at: "2026-05-05T07:29:30.000Z"
 tags: ["app", "chat", "composer", "webview"]
 spec: spec.md
 ---
 
-<!-- APPROVED: 2026-05-03 - Do not edit without version bump -->
+<!-- APPROVED: 2026-05-05T07:29:30.000Z - Do not edit without version bump -->
 
 # App Chat Composer - Technical Design
 
@@ -99,11 +99,11 @@ The streaming state replaces the single send action with follow-up, steer, and s
 +--------------------------------------------------------------------+
 | [Composer.Queue] Queued . 2                         [Clear all] [v]   |
 |   [steer] -> tighten footer copy                                      |
-|   [follow] 1. then update tests                                       |
+|   [follow-up] 1. then update tests                                    |
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                                 |
 |  [@] [Composer.Input: Queue a follow-up... (Cmd+Enter to steer)]      |
-|      [Composer.Model] [Thinking]             [Queue] [Steer] [Stop]   |
+|      [Composer.Model] [Thinking]         [Follow-up] [Steer] [Stop]   |
 +--------------------------------------------------------------------+
 | [Composer.Footer] streaming hint . Pi pill . token/cost tooltip       |
 +--------------------------------------------------------------------+
@@ -177,7 +177,7 @@ Chat
         ThinkingLevelToggle     -> runtime thinking dropdown
       Actions
         Send                    -> idle send
-        Queue                   -> streaming follow-up
+        Follow-up               -> streaming follow-up
         Steer                   -> streaming interrupt
         Stop                    -> abort active turn
     FooterStrip                 -> [Composer.Footer]
@@ -190,7 +190,7 @@ Chat
 | `[Composer.Input]`    | Draft text, placeholder, keyboard routing, prompt-history recall           | Message timeline rendering            |
 | `[Composer.Helpers]`  | Slash/mention trigger detection, picker display, insertion/action dispatch | Command implementation in host        |
 | `[Composer.Toolbar]`  | Mention button, model selector, thinking level selector                    | Provider setup forms                  |
-| `[Composer.Actions]`  | Send/queue/steer/stop affordances                                          | Agent implementation                  |
+| `[Composer.Actions]`  | Send/follow-up/steer/stop affordances                                      | Agent implementation                  |
 | `[Composer.Footer]`   | Compact runtime readiness, Pi state, usage hints                           | Full settings diagnostics             |
 
 ## [DES-COMPOSER-SYSTEM-COMMAND] System Command Execution
@@ -464,7 +464,7 @@ The composer transitions between five states. State transitions are driven by `a
 | `empty`       | Placeholder text, send disabled                                       | Type to enter `typing`                         |
 | `typing`      | Active draft, send enabled when non-empty                             | Submit, slash/mention triggers, history recall |
 | `idle`        | Steady state, no streaming                                            | Submit (transitions to `streaming`)            |
-| `streaming`   | Stop / Steer / Queue actions visible                                  | Steer, follow-up (queue), abort                |
+| `streaming`   | Stop / Steer / Follow-up actions visible                              | Steer, follow-up (queue), abort                |
 | `queued`      | Local mirror rows shown above input (queued for after current turn)   | Add more, dismiss row, clear all               |
 
 ## [DES-COMPOSER-FOOTER] Activity And Footer Copy Matrix
@@ -477,7 +477,7 @@ The composer transitions between five states. State transitions are driven by `a
 | Runtime checking           | `FooterStrip`                   | Explains the agent runtime is still handshaking                    |
 | Runtime unconfigured       | `FooterStrip`                   | Routes user toward provider/Pi setup copy                          |
 | Runtime unavailable        | `FooterStrip`, Pi warning click | Surfaces recovery/settings affordance without full-screen takeover |
-| Streaming                  | `FooterStrip`                   | Shows queue/steer keyboard hint instead of idle send hint          |
+| Streaming                  | `FooterStrip`                   | Shows follow-up/steer keyboard hint before idle send/note hints    |
 
 ---
 

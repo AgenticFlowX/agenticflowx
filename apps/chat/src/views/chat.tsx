@@ -1208,11 +1208,14 @@ export default function Chat({
                           onClick={() => submit({ followUp: true })}
                           onMouseDown={(e) => e.preventDefault()}
                           aria-label="Queue follow-up"
-                          title="Queue this message to run after the active turn (⏎)"
-                          className="h-7 gap-1 px-2 text-[11px]"
+                          title="Queue this message to run after the active turn (Enter)"
+                          className="h-7 gap-1 px-1.5 text-[11px]"
                         >
                           <Plus className="size-3.5" />
-                          Queue
+                          <span>Follow-up</span>
+                          <span className="rounded-sm border border-current/20 px-1 font-mono text-[9px] leading-4 opacity-75">
+                            ⏎
+                          </span>
                         </Button>
                         <Button
                           size="sm"
@@ -1220,11 +1223,14 @@ export default function Chat({
                           onClick={() => submit({ followUp: false })}
                           onMouseDown={(e) => e.preventDefault()}
                           aria-label="Steer turn"
-                          title="Interrupt the active turn and redirect with this message (⌘⏎)"
-                          className="h-7 gap-1 px-2 text-[11px]"
+                          title="Interrupt the active turn and redirect with this message (Command/Ctrl+Enter)"
+                          className="h-7 gap-1 px-1.5 text-[11px]"
                         >
                           <Zap className="size-3.5" />
-                          Steer
+                          <span>Steer</span>
+                          <span className="rounded-sm border border-current/20 px-1 font-mono text-[9px] leading-4 opacity-75">
+                            ⌘⏎
+                          </span>
                         </Button>
                       </>
                     )}
@@ -1390,8 +1396,8 @@ function FooterStrip({
         : runtimeUnavailable
           ? "Connection recovery is required before sending."
           : isStreaming
-            ? "⌘⇧⏎ note · ⌘⏎ steer · ⏎ queue · ↑ history"
-            : "⌘⇧⏎ note · ⏎ send · ↑ history";
+            ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
+            : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
 
   const statsText = usage
     ? [
@@ -1977,7 +1983,7 @@ type TimelineEvent =
   | { id: string; kind: "assistant"; message: ChatMessageView }
   | { id: string; kind: "error"; message: ChatMessageView }
   | { id: string; kind: "info"; message: ChatMessageView }
-  | { id: string; kind: "tool"; tool: ChatToolView }
+  | { id: string; kind: "tool"; tool: ChatToolView; createdAt: number }
   | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number }
   | { id: string; kind: "note"; content: string; savedAt: number }
   | {
@@ -2045,9 +2051,10 @@ function Timeline({
       });
       continue;
     }
-    // Assistant: tools first (they ran before the final content), then the message itself.
+    // Assistant: tools first within the assistant turn, but timestamped to the
+    // parent assistant so sorting never moves them above the triggering user row.
     for (const t of m.tools ?? []) {
-      events.push({ id: `${m.id}-${t.toolCallId}`, kind: "tool", tool: t });
+      events.push({ id: `${m.id}-${t.toolCallId}`, kind: "tool", tool: t, createdAt: m.createdAt });
     }
     if (!hasVisibleAssistantMessage(m)) continue;
     const isError = m.content.startsWith("⚠");
@@ -2087,9 +2094,8 @@ function Timeline({
       case "compaction":
         return event.createdAt;
       case "shell":
-        return event.createdAt;
       case "tool":
-        return 0;
+        return event.createdAt;
     }
   }
   events.sort((a, b) => getEventTime(a) - getEventTime(b));

@@ -4,7 +4,7 @@ type: JOURNAL
 status: Living
 owner: "@rixrix"
 created_at: "2026-05-03T11:23:57.000Z"
-updated_at: "2026-05-03T13:55:41.000Z"
+updated_at: "2026-05-05T07:29:30.000Z"
 tags: ["app", "chat", "composer", "webview", "journal"]
 ---
 
@@ -20,6 +20,7 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 <!-- Quick notes during active chat - cleared when recorded -->
 
 - `2026-05-04T08:02:36.000Z` `/afx-dev debug`: production queue bug found in composer/host queue paths. Rapid steer/follow-up submissions were dispatched concurrently to the runtime instead of serialized, local queue rows did not reconcile when `pendingMessageCount` drained to zero, and queue rows lacked visible `Steer` / `Follow-up` labels. Fixed in `apps/vscode/src/panels/sidebar-panel.ts` and `apps/chat/src/views/chat.tsx`; added regression coverage in app/sidebar tests. `[FR-4] [FR-8] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FLOW]`
+- `2026-05-05T07:29:30.000Z` `/afx-dev debug`: composer streaming actions lacked visible shortcut affordances for follow-up and steer. Updated streaming action buttons to show compact visible labels and shortcut chips: `Follow-up ⏎` and `Steer ⌘⏎`, moved follow-up/steer footer hints before idle send/note copy for narrow sidebars, and preserved accessible button names. Added regression coverage in `apps/chat/src/app.test.tsx`. `[FR-1] [FR-2] [FR-4] [NFR-1] [DES-COMPOSER-KEYS] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FOOTER]`
 
 ---
 

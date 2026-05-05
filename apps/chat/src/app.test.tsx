@@ -686,7 +686,9 @@ describe("chat App", () => {
         .getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note")
         .closest(".afx-surface-composer"),
     ).toBeInTheDocument();
-    expect(screen.getByText("⌘⇧⏎ note · ⏎ send · ↑ history")).toBeInTheDocument();
+    expect(
+      screen.getByText("⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history"),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/AFX may make mistakes/)).not.toBeInTheDocument();
 
     act(() => {
@@ -699,7 +701,9 @@ describe("chat App", () => {
     });
 
     expect(screen.getByText("3.5k tokens · ctx 2% · $0.0012")).toBeInTheDocument();
-    expect(screen.getByText("⌘⇧⏎ note · ⏎ send · ↑ history")).toBeInTheDocument();
+    expect(
+      screen.getByText("⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history"),
+    ).toBeInTheDocument();
   });
 
   it("shows tool arguments immediately while a file tool is running", () => {
@@ -736,6 +740,48 @@ describe("chat App", () => {
     // header target text.
     expect(screen.getByText("read")).toBeInTheDocument();
     expect(screen.getByText("packages/shared/src/messages.ts")).toBeInTheDocument();
+  });
+
+  /**
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-4]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENT-TIMELINE] [DES-MESSAGES-COMPONENT-TOOL-EVENT]
+   */
+  it("keeps tool rows below the triggering user message after timeline sorting", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "chat/state",
+        isStreaming: true,
+        tools: [],
+        messages: [
+          { id: "user-review", role: "user", content: "review this research file", createdAt: 10 },
+          {
+            id: "assistant-review",
+            role: "assistant",
+            content: "",
+            createdAt: 11,
+            streaming: true,
+            tools: [
+              {
+                toolCallId: "tool-read-research",
+                toolName: "read_file",
+                status: "running",
+                args: { path: "docs/research/res-top10-user-ask.md" },
+              },
+            ],
+          },
+        ],
+      });
+    });
+
+    const userMessage = screen.getByText("review this research file");
+    const toolLabel = screen.getByText("read");
+    expect(userMessage.compareDocumentPosition(toolLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it("renders model switch transcript rows as info events", () => {
@@ -1028,6 +1074,10 @@ describe("chat App", () => {
 
     const input = screen.getByPlaceholderText("Queue a follow-up… (⌘⏎ to steer this turn)");
     await user.type(input, "do this next");
+    expect(screen.getByText("Follow-up")).toBeInTheDocument();
+    expect(screen.getByText("⏎")).toBeInTheDocument();
+    expect(screen.getByText("Steer")).toBeInTheDocument();
+    expect(screen.getByText("⌘⏎")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Queue follow-up" }));
     expect(transport.send).toHaveBeenCalledWith(
       expect.objectContaining({ type: "chat/followUp", content: "do this next" }),
