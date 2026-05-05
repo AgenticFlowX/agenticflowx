@@ -3,11 +3,11 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T12:33:26.000Z"
-approved_at: "2026-05-03T11:23:57.000Z"
-tags: ["app", "chat", "composer", "webview"]
+updated_at: "2026-05-05T15:18:06.000Z"
+approved_at: "2026-05-05T15:15:37.000Z"
+tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
   [
     "100-package-shared",
@@ -18,8 +18,6 @@ depends_on:
   ]
 ---
 
-<!-- APPROVED: 2026-05-03 - Do not edit without version bump -->
-
 ## References
 
 - **Parent Spec**: [App Chat](../210-app-chat/spec.md)
@@ -28,7 +26,7 @@ depends_on:
 
 ## Problem Statement
 
-The chat composer has become a dense interaction surface: input, queued content, footer hints, activity state, slash commands, mentions, model selection, thinking controls, and send/abort/steer behavior all converge in one area. Small changes such as updating footer instructions should start from a precise spec instead of requiring a full chat source read.
+The chat composer has become a dense interaction surface: input, queued content, footer hints, activity state, slash commands, mentions, model selection, workspace mode control, thinking controls, blocked Explore feedback, and send/abort/steer behavior all converge in one area. Small changes such as updating footer instructions should start from a precise spec instead of requiring a full chat source read.
 
 ---
 
@@ -67,6 +65,8 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | FR-9  | Intercept system-command prefixes (`!`) in the composer and dispatch `chat/runCommand` instead of sending to the LLM; strip the `!` prefix before routing                                                                                                                                                                                                      | Must Have   |
 | FR-10 | Render a "Modified files" strip above the composer that lists files touched by agent edit/write tool calls in the current transcript; pills open the file in the editor on click and, when the tool result reports a first-changed line, jump the editor cursor there; dismissible per assistant turn; expanded by default (user can collapse via the chevron) | Should Have |
 | FR-11 | Render a compact active-file context toggle after Thinking in the composer toolbar, default it on, and mirror the same preference with Settings                                                                                                                                                                                                                | Must Have   |
+| FR-12 | Own the workspace mode control in the composer toolbar, including the leading icon, `Mode` label, tooltip, dropdown menu, Code default, and Explore experimental/read-only copy for inspection, tracing, and planning; the control sits after the context divider and before the file-context control                                                          | Must Have   |
+| FR-13 | Render the host-blocked Explore command strip when `agent/actionBlocked` arrives, including Switch to Code, Copy command, and Dismiss affordances                                                                                                                                                                                                              | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -103,6 +103,30 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Dangerous-pattern guard: commands containing `rm -rf`, `del /f /s`, `format`, `mkfs`, `dd` prompt a confirm dialog before execution (Cancel / Run anyway)
 - [ ] Output card: monospace block; stdout in muted text, stderr in red, exit code as badge
 
+### ASCII UI Mockup
+
+```text
++--------------------------------------------------------------------------------+
+| Chat | History | Settings                                                      |
+|--------------------------------------------------------------------------------|
+| transcript ...                                                                  |
+|                                                                                |
+| +---------------- Blocked command ------------------------------+               |
+| | Shell command blocked in Explore mode.                      |               |
+| | [Switch to Code] [Copy command] [Dismiss]                   |               |
+| +--------------------------------------------------------------+               |
+|                                                                                |
+| [ Brain ] [ Mode ▾ ] | [ File ctx on ] [@] [ Model ] [ Thinking ] [ Send ]    |
+|           \______/      \_____________/                                         |
+|             Mode control  Active-file context control                            |
+|                                                                                |
+| Mode                                                                            |
+| - Code      Default. Full access. Pi can act and edit.                         |
+| - Explore   Read-only. Use it to inspect code, trace behavior, and plan changes|
+|             Experimental                                                       |
++--------------------------------------------------------------------------------+
+```
+
 ### Modified Files Strip (FR-10)
 
 - [ ] Strip is hidden when the transcript contains no edit/write tool calls
@@ -123,6 +147,20 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Toggle mirrors the persisted Settings preference so changing it in either surface updates the other
 - [ ] Model, thinking, and file-context controls expose shadcn tooltips with concise guidance
 - [ ] Composer source files anchor to FR-11 / DES-COMPOSER-CONTEXT
+
+### Workspace Mode Control (FR-12)
+
+- [ ] Mode control appears after the `|` divider and before the active-file context toggle in the composer toolbar
+- [ ] Mode control includes a leading icon, compact `Mode` label, hover tooltip, dropdown menu, and a visible default Code posture
+- [ ] Explore mode copy labels the mode as experimental/read-only and makes the host boundary clear to the user
+- [ ] Composer source files anchor to FR-12 / DES-COMPOSER-MODE
+
+### Blocked Command Strip (FR-13)
+
+- [ ] Blocked-command strip renders when the host emits `agent/actionBlocked`
+- [ ] Strip includes `Switch to Code`, `Copy command`, and `Dismiss` affordances
+- [ ] Switching to Code keeps the blocked command recoverable for a follow-up send
+- [ ] Composer source files anchor to FR-13 / DES-COMPOSER-BLOCKED-ACTION
 
 ### Boundaries
 

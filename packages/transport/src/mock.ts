@@ -2,8 +2,9 @@
  * Mock transport — scripted scenarios for browser dev and unit tests.
  * Never active in production; injected only when `acquireVsCodeApi` is unavailable.
  *
- * @see docs/specs/110-package-transport/spec.md [FR-3] [FR-4] [FR-6]
+ * @see docs/specs/110-package-transport/spec.md [FR-3] [FR-4] [FR-7]
  * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-MOCK-ADAPTER] [DES-TRANSPORT-MOCK-SCENARIOS]
+ * @see docs/specs/100-package-shared/spec.md [FR-9] [FR-10]
  */
 import {
   AFX_STYLE_IDS,
@@ -19,6 +20,7 @@ import {
   type MessageOf,
   PROVIDER_DETAILS,
   type SettingsSnapshot,
+  type WorkspaceMode,
   consoleSink,
   createLogger,
 } from "@afx/shared";
@@ -161,6 +163,9 @@ const MOCK_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   context: {
     includeActiveFileContext: true,
   },
+  mode: {
+    active: "code",
+  },
   diagnostics: { logLevel: "info" },
   telemetry: {
     enabled: true,
@@ -228,6 +233,7 @@ export function createMockTransport(): MockTransport {
   let drainingFollowUps = false;
   const pendingSteers: string[] = [];
   const pendingFollowUps: string[] = [];
+  let activeMode: WorkspaceMode = MOCK_SETTINGS_SNAPSHOT.mode.active;
   let persistedState: unknown;
   // Mirrors emitted message events so chat/getState and chat/ready can return
   // the actual conversation history instead of wiping it on every chat-view
@@ -1276,6 +1282,20 @@ This is a long-running response on purpose so the queue stays visible while you 
       return;
     }
     if (msg.type === "chat/getSettingsSnapshot") {
+      emit({
+        type: "agent/settingsSnapshot",
+        requestId: msg.requestId,
+        snapshot: {
+          ...MOCK_SETTINGS_SNAPSHOT,
+          appearance,
+          context: { includeActiveFileContext },
+        },
+      });
+      return;
+    }
+    if (msg.type === "chat/setMode") {
+      activeMode = msg.mode;
+      MOCK_SETTINGS_SNAPSHOT.mode.active = activeMode;
       emit({
         type: "agent/settingsSnapshot",
         requestId: msg.requestId,

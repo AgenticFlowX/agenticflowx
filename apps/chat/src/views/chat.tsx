@@ -5,9 +5,12 @@
  * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
+ * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9] [FR-10]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-13]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6]
  */
 import {
   type ChangeEvent,
@@ -28,6 +31,7 @@ import {
   Brain,
   ChevronDown,
   ChevronRight,
+  Copy,
   CornerDownLeft,
   Cpu,
   ExternalLink,
@@ -39,6 +43,7 @@ import {
   Plus,
   RefreshCw,
   Scissors,
+  SlidersHorizontal,
   Square,
   Terminal,
   Trash2,
@@ -60,8 +65,10 @@ import type {
   ChatTimelineItem,
   ChatToolView,
   ThinkingLevel,
+  WorkspaceMode,
 } from "@afx/shared";
 import { createCheckingAgentRuntimeStatus } from "@afx/shared";
+import { Badge } from "@afx/ui/components/badge";
 import { Button, buttonVariants } from "@afx/ui/components/button";
 import {
   DropdownMenu,
@@ -133,6 +140,15 @@ interface QueuedMessage {
   /** Truncated content for display. */
   content: string;
   sentAt: number;
+}
+
+/** Host-blocked shell command surfaced when Explore mode rejects a runCommand. */
+interface BlockedActionView {
+  requestId: string;
+  command: string;
+  title: string;
+  message: string;
+  mode: WorkspaceMode;
 }
 
 /**
@@ -272,6 +288,7 @@ export default function Chat({
   const [thinking, setThinking] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [includeActiveFileContext, setIncludeActiveFileContext] = useState(true);
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("code");
   const [activeFileContext, setActiveFileContext] = useState<ActiveFileContextSnapshot | null>(
     null,
   );
@@ -290,6 +307,7 @@ export default function Chat({
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
+  const [blockedAction, setBlockedAction] = useState<BlockedActionView | null>(null);
   /**
    * ID of the assistant message at which the user dismissed the modified-files
    * strip. Strip stays hidden until a *later* assistant message produces an
@@ -376,6 +394,7 @@ export default function Chat({
   const showThinkingToggle = Boolean(
     agentStatus.model && (modelSupportsThinking || isApiProviderRuntime),
   );
+  const isExploreMode = workspaceMode === "explore";
   const activeFileDisplayName = activeFileContext?.name ?? "No active file";
   const activeFileDisplayPath = activeFileContext?.path ?? "No active editor file";
   /** True when the draft starts with "!" — shows the shell badge and warning footer. */
@@ -389,6 +408,7 @@ export default function Chat({
     runtimeUnavailable,
     isCompacting,
     isStreaming,
+    workspaceMode,
   });
 
   // ── scroll ────────────────────────────────────────────────────────────────
@@ -689,6 +709,19 @@ export default function Chat({
       // Settings snapshot — mirrors the active-file context default from the host.
       bridgeOn("agent/settingsSnapshot", (msg) => {
         setIncludeActiveFileContext(msg.snapshot.context?.includeActiveFileContext ?? true);
+        setWorkspaceMode(msg.snapshot.mode?.active ?? "code");
+      }),
+
+      // Blocked actions — surfaces host-side guardrails when Explore rejects a command.
+      bridgeOn("agent/actionBlocked", (msg) => {
+        setWorkspaceMode(msg.mode);
+        setBlockedAction({
+          requestId: msg.requestId ?? uid(),
+          command: msg.command?.trim() ?? "",
+          title: msg.title,
+          message: msg.message,
+          mode: msg.mode,
+        });
       }),
 
       // Active-file context — keeps the composer label synced with the current editor file.
@@ -865,6 +898,14 @@ export default function Chat({
       if (command.length === 0) return;
       // New command: add empty slot that will be filled by streaming events
 
+      if (isExploreMode) {
+        const requestId = uid();
+        activeCommandRef.current = { requestId, command };
+        bridgeSend({ type: "chat/runCommand", requestId, command });
+        getTextarea()?.focus();
+        return;
+      }
+
       // Dangerous pattern guard — request confirmation before executing
       const danger = analyzeDanger(command);
       if (danger.isDangerous) {
@@ -929,6 +970,33 @@ export default function Chat({
       enabled: next,
     });
     getTextarea()?.focus();
+  }
+
+  function setMode(mode: WorkspaceMode) {
+    if (workspaceMode !== mode) {
+      setWorkspaceMode(mode);
+    }
+    bridgeSend({ type: "chat/setMode", requestId: uid(), mode });
+  }
+
+  function restoreBlockedCommand(): void {
+    if (!blockedAction) return;
+    const restored = `! ${blockedAction.command}`.trim();
+    onDraftChange(restored);
+    setBlockedAction(null);
+    setMode("code");
+    window.requestAnimationFrame(() => getTextarea()?.focus());
+  }
+
+  async function copyBlockedCommand(): Promise<void> {
+    if (!blockedAction) return;
+    const text = `! ${blockedAction.command}`.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Command copied");
+    } catch {
+      toast.error("Copy failed", "Could not copy the blocked command.");
+    }
   }
 
   function dismissQueued(id: string) {
@@ -1253,6 +1321,14 @@ export default function Chat({
             onDismiss={dismissQueued}
             onClearAll={clearAllQueued}
           />
+          {blockedAction && (
+            <BlockedCommandStrip
+              action={blockedAction}
+              onSwitchToCode={restoreBlockedCommand}
+              onCopyCommand={copyBlockedCommand}
+              onDismiss={() => setBlockedAction(null)}
+            />
+          )}
           <InputGroup className="afx-surface-composer @container h-auto flex-col items-stretch">
             {/* Surface: [Composer.Input] */}
             <InputGroupTextarea
@@ -1304,7 +1380,7 @@ export default function Chat({
                     onSelect={selectModel}
                     onOpenSettings={onOpenSettings}
                   />
-                  {showThinkingToggle && (
+                  {showThinkingToggle ? (
                     <>
                       <ThinkingLevelToggle
                         level={runtime.thinkingLevel}
@@ -1317,7 +1393,15 @@ export default function Chat({
                         |
                       </span>
                     </>
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
+                    >
+                      |
+                    </span>
                   )}
+                  <ModeToggle mode={workspaceMode} onChange={setMode} />
                   <ActiveFileContextToggle
                     enabled={includeActiveFileContext}
                     fileName={activeFileDisplayName}
@@ -1403,6 +1487,7 @@ export default function Chat({
           agentPhase={agentStatus.phase}
           onPiWarningClick={recoveryActions?.onOpenSettings}
           isSystemCommand={isSystemCommand}
+          workspaceMode={workspaceMode}
         />
       </div>
     </div>
@@ -1422,6 +1507,7 @@ function getComposerPlaceholder({
   runtimeUnavailable,
   isCompacting,
   isStreaming,
+  workspaceMode,
 }: {
   isCheckingAgent: boolean;
   runtimeUnconfigured: boolean;
@@ -1429,6 +1515,7 @@ function getComposerPlaceholder({
   runtimeUnavailable: boolean;
   isCompacting: boolean;
   isStreaming: boolean;
+  workspaceMode: WorkspaceMode;
 }): string {
   if (isCheckingAgent) return "Waiting for the agent runtime to be ready…";
   if (runtimeUnconfigured) {
@@ -1438,6 +1525,11 @@ function getComposerPlaceholder({
   }
   if (runtimeUnavailable) return "Reconnect the agent runtime to continue…";
   if (isCompacting) return "Compacting session — wait for it to finish…";
+  if (workspaceMode === "explore") {
+    return isStreaming
+      ? "Explore mode is read-only — queue another analysis question…"
+      : "Explore mode is read-only — ask about files, risks, or the next step…";
+  }
   if (isStreaming) return "Queue a follow-up… (⌘⏎ to steer this turn)";
   return "Ask AFX about this workspace — ⌘⇧⏎ saves a note";
 }
@@ -1547,6 +1639,7 @@ function FooterStrip({
   agentPhase,
   onPiWarningClick,
   isSystemCommand,
+  workspaceMode,
 }: {
   usage: UsageStats | null;
   isCheckingAgent: boolean;
@@ -1557,20 +1650,24 @@ function FooterStrip({
   agentPhase: AgentRuntimePhase;
   onPiWarningClick?: () => void;
   isSystemCommand?: boolean;
+  workspaceMode: WorkspaceMode;
 }) {
-  const hint = isSystemCommand
-    ? "⚠ Shell · output is local only"
-    : isCheckingAgent
-      ? "Checking agent runtime readiness…"
-      : runtimeUnconfigured
-        ? rpcEnabled
-          ? "Configure a provider or fix Pi RPC in Settings."
-          : "Configure an API provider or enable Pi RPC in Settings."
-        : runtimeUnavailable
-          ? "Connection recovery is required before sending."
-          : isStreaming
-            ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
-            : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
+  const hint =
+    workspaceMode === "explore"
+      ? "Read-only / Safe"
+      : isSystemCommand
+        ? "⚠ Shell · output is local only"
+        : isCheckingAgent
+          ? "Checking agent runtime readiness…"
+          : runtimeUnconfigured
+            ? rpcEnabled
+              ? "Configure a provider or fix Pi RPC in Settings."
+              : "Configure an API provider or enable Pi RPC in Settings."
+            : runtimeUnavailable
+              ? "Connection recovery is required before sending."
+              : isStreaming
+                ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
+                : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
 
   const statsText = usage
     ? [
@@ -1807,6 +1904,25 @@ const THINKING_LEVELS: ReadonlyArray<{ level: ThinkingLevel; label: string }> = 
   { level: "xhigh", label: "Extra-high" },
 ];
 
+const WORKSPACE_MODES: ReadonlyArray<{
+  value: WorkspaceMode;
+  label: string;
+  description: string;
+  badge?: string;
+}> = [
+  {
+    value: "code",
+    label: "Code",
+    description: "Default. Full access. Pi can act and edit.",
+  },
+  {
+    value: "explore",
+    label: "Explore",
+    description: "Read-only. Use it to inspect code, trace behavior, and plan changes.",
+    badge: "Experimental",
+  },
+];
+
 /**
  * Renders the composer thinking-effort dropdown.
  *
@@ -1859,6 +1975,98 @@ function ThinkingLevelToggle({
           {THINKING_LEVELS.map(({ level: l, label }) => (
             <DropdownMenuRadioItem key={l} value={l} className="text-[11px] font-medium">
               {label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Renders the workspace posture dropdown used to switch between Code and Explore.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-12]
+ */
+function ModeToggle({
+  mode,
+  onChange,
+}: {
+  mode: WorkspaceMode;
+  onChange: (mode: WorkspaceMode) => void;
+}) {
+  const current = WORKSPACE_MODES.find((item) => item.value === mode) ?? WORKSPACE_MODES[0];
+
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuPrimitive.Trigger
+            type="button"
+            aria-label={`Mode: ${current.label}`}
+            className={cn(
+              buttonVariants({
+                variant: current.value === "explore" ? "secondary" : "ghost",
+                size: "sm",
+              }),
+              "cn-button min-w-0 max-w-full shrink-0 gap-1 px-1.5",
+              current.value === "explore" ? "text-amber-600" : null,
+            )}
+          >
+            <SlidersHorizontal
+              size={11}
+              className={cn(
+                "shrink-0",
+                current.value === "explore" ? "text-amber-600" : "text-muted-foreground",
+              )}
+            />
+            <span className="hidden max-w-[6.5rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
+              Mode: {current.label}
+            </span>
+            <span className="font-mono text-[10px] @[260px]:hidden">Mode</span>
+            <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
+          </DropdownMenuPrimitive.Trigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
+          {current.value === "explore"
+            ? "Explore is experimental and read-only. Use it to inspect code, trace behavior, and plan changes without running commands or edits."
+            : "Code is the default full-access Pi-backed mode."}
+        </TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent side="top" align="start" className="min-w-[15rem]">
+        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+          Mode
+        </DropdownMenuLabel>
+        <div className="px-2 pb-1 text-[10px] leading-relaxed text-muted-foreground">
+          Code is the default. Explore is for inspection, tracing, and planning.
+        </div>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          value={current.value}
+          onValueChange={(value) => onChange(value as WorkspaceMode)}
+        >
+          {WORKSPACE_MODES.map(({ value, label, description, badge }) => (
+            <DropdownMenuRadioItem
+              key={value}
+              value={value}
+              className="items-start gap-2 px-2 py-2"
+            >
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-foreground">{label}</span>
+                  {badge ? (
+                    <Badge
+                      variant="outline"
+                      className="h-4 px-1 text-[9px] uppercase tracking-wide"
+                    >
+                      {badge}
+                    </Badge>
+                  ) : null}
+                </div>
+                <span className="text-[10px] leading-snug text-muted-foreground">
+                  {description}
+                </span>
+              </div>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -2004,6 +2212,67 @@ function QueueStrip({
           />
         ))}
       </ul>
+    </ComposerStrip>
+  );
+}
+
+/**
+ * Renders the host-blocked system-command strip used in Explore mode.
+ *
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-11]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-13]
+ */
+function BlockedCommandStrip({
+  action,
+  onSwitchToCode,
+  onCopyCommand,
+  onDismiss,
+}: {
+  action: BlockedActionView;
+  onSwitchToCode: () => void;
+  onCopyCommand: () => void | Promise<void>;
+  onDismiss: () => void;
+}) {
+  const commandText = `! ${action.command}`.trim();
+
+  return (
+    <ComposerStrip
+      title="Blocked command"
+      tone="warning"
+      action={{
+        label: "Switch to Code",
+        onClick: onSwitchToCode,
+      }}
+      onDismiss={onDismiss}
+    >
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-start gap-2">
+          <AlertTriangle size={12} className="mt-0.5 shrink-0 text-amber-500" />
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-amber-500">
+              {action.title}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+              {action.message}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-sm border border-amber-500/20 bg-amber-500/5 px-2 py-1">
+          <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-foreground">
+            {commandText}
+          </span>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void onCopyCommand()}
+          >
+            <Copy className="size-3" />
+            <span>Copy command</span>
+          </Button>
+        </div>
+      </div>
     </ComposerStrip>
   );
 }

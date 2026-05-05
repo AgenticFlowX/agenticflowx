@@ -13,6 +13,7 @@ describe("composeSettingsSnapshot", () => {
         ephemeral: false,
       },
       context: { includeActiveFileContext: true },
+      mode: { active: "code" },
       providers: expect.arrayContaining([
         expect.objectContaining({ id: "anthropic", state: "empty" }),
         expect.objectContaining({ id: "minimax", state: "empty" }),
@@ -94,6 +95,11 @@ describe("composeSettingsSnapshot", () => {
     expect(composeSettingsSnapshot({ includeActiveFileContext: false }).context).toEqual({
       includeActiveFileContext: false,
     });
+  });
+
+  it("defaults the workspace mode to Code and allows overriding it", () => {
+    expect(composeSettingsSnapshot({}).mode).toEqual({ active: "code" });
+    expect(composeSettingsSnapshot({ mode: "explore" }).mode).toEqual({ active: "explore" });
   });
 
   it("marks telemetry ineffective when VS Code telemetry is disabled", () => {

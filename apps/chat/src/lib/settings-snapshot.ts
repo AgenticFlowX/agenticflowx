@@ -1,20 +1,22 @@
 /**
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]
+ * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
-import type { AgentModel, SettingsSnapshot } from "@afx/shared";
+import type { AgentModel, SettingsSnapshot, WorkspaceMode } from "@afx/shared";
 
 /**
  * Inputs used to synthesize a SettingsSnapshot for the chat webview.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
  */
 export interface SettingsSnapshotInput {
   extensionVersion?: string;
   availableModels?: readonly AgentModel[];
   logLevel?: string;
+  mode?: WorkspaceMode;
   rpcEnabled?: boolean;
   agentBinary?: string;
   bundledSkillsPath?: string;
@@ -68,6 +70,9 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
     },
     context: {
       includeActiveFileContext: input.includeActiveFileContext ?? true,
+    },
+    mode: {
+      active: input.mode ?? "code",
     },
     providers: groupProviders(availableModels, input.sdkDefaultModel),
     externalAgents: groupExternalAgents(availableModels, input),

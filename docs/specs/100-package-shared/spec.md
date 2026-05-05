@@ -2,11 +2,12 @@
 afx: true
 type: SPEC
 status: Approved
-owner: "@rixrix"
-version: "1.3"
-created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T11:53:21.000Z"
-tags: [package, shared, protocol, types, agent, logging]
+ owner: "@rixrix"
+ version: "1.4"
+ created_at: "2026-04-26T04:32:48.000Z"
+updated_at: "2026-05-05T15:15:37.000Z"
+approved_at: "2026-05-05T15:15:37.000Z"
+tags: [package, shared, protocol, types, agent, logging, mode, workspace-mode]
 ---
 
 # @afx/shared — Product Specification
@@ -45,16 +46,18 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                                                                                                                        | Priority    |
-| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Typed discriminated-union protocol: `ChatToAgent` and `AgentToChat` message families                                                                                                                                                               | Must Have   |
-| FR-2 | View types: `ChatMessageView`, `ChatToolView`, `ChatUsageView` for rendering streaming output                                                                                                                                                      | Must Have   |
-| FR-3 | Domain types: `Task`, `Spec`, `Phase`, `Feature`, `Discussion`, `Mode`, `Provider`                                                                                                                                                                 | Must Have   |
-| FR-4 | Workbench protocol: `WorkbenchToHost`, `HostToWorkbench` message families                                                                                                                                                                          | Should Have |
-| FR-5 | Runtime-agnostic agent contract: `AgentManager`, `AgentEvent`, `AgentStatus`, `AgentUsageStats`, `AgentUiRequest`, `AgentUiResponse`, `Disposable` — implemented by every agent adapter, starting with Pi                                          | Must Have   |
-| FR-6 | Structured `Logger` contract: leveled (silent/error/warn/info/debug/trace), scoped child loggers, lazy-callback messages (`() => string`), pluggable sinks (`outputChannelSink`, `consoleSink`, `onErrorAutoShowSink`, `memorySink`); see ADR-0003 | Must Have   |
-| FR-7 | Shared settings snapshot includes the durable active-file context preference so chat composer and settings surfaces can stay in sync                                                                                                               | Must Have   |
-| FR-8 | Chat-to-host protocol includes a toggle mutation for the active-file context preference so the composer quick toggle and settings switch can write the same setting                                                                                | Must Have   |
+| ID    | Requirement                                                                                                                                                                                                                                        | Priority    |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1  | Typed discriminated-union protocol: `ChatToAgent` and `AgentToChat` message families                                                                                                                                                               | Must Have   |
+| FR-2  | View types: `ChatMessageView`, `ChatToolView`, `ChatUsageView` for rendering streaming output                                                                                                                                                      | Must Have   |
+| FR-3  | Domain types: `Task`, `Spec`, `Phase`, `Feature`, `Discussion`, `Mode`, `WorkspaceMode`, `Provider`                                                                                                                                                | Must Have   |
+| FR-4  | Workbench protocol: `WorkbenchToHost`, `HostToWorkbench` message families                                                                                                                                                                          | Should Have |
+| FR-5  | Runtime-agnostic agent contract: `AgentManager`, `AgentEvent`, `AgentStatus`, `AgentUsageStats`, `AgentUiRequest`, `AgentUiResponse`, `Disposable` — implemented by every agent adapter, starting with Pi                                          | Must Have   |
+| FR-6  | Structured `Logger` contract: leveled (silent/error/warn/info/debug/trace), scoped child loggers, lazy-callback messages (`() => string`), pluggable sinks (`outputChannelSink`, `consoleSink`, `onErrorAutoShowSink`, `memorySink`); see ADR-0003 | Must Have   |
+| FR-7  | Shared settings snapshot includes the durable active-file context preference so chat composer and settings surfaces can stay in sync                                                                                                               | Must Have   |
+| FR-8  | Chat-to-host protocol includes a toggle mutation for the active-file context preference so the composer quick toggle and settings switch can write the same setting                                                                                | Must Have   |
+| FR-9  | Shared settings snapshot includes the workspace mode preference so chat composer and settings surfaces can stay in sync                                                                                                                            | Must Have   |
+| FR-10 | Chat-to-host protocol includes a toggle mutation for the workspace mode preference so the composer `Mode` control and Settings switch can write the same setting                                                                                   | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -74,6 +77,8 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 - [ ] Protocol types are exported from `index.ts` barrel
 - [x] `SettingsSnapshot` includes a `context.includeActiveFileContext` boolean
 - [x] `ChatToAgent` includes a toggle mutation for the active-file context preference
+- [x] `SettingsSnapshot` includes a `mode.active` workspace posture
+- [x] `ChatToAgent` includes a toggle mutation for the workspace mode preference
 
 ### Domain Types
 

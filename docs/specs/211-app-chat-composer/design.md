@@ -5,9 +5,9 @@ status: Approved
 owner: "@rixrix"
 version: "1.6"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T13:25:50.000Z"
+updated_at: "2026-05-05T15:33:06.000Z"
 approved_at: "2026-05-05T08:37:39.000Z"
-tags: ["app", "chat", "composer", "webview"]
+tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
 ---
 
@@ -26,6 +26,8 @@ System commands (FR-9) extend the composer with local shell execution: typing `!
 The composer also mirrors the durable active-file context preference from Settings. That toggle stays compact and visible next to Thinking so users can keep it on by default without leaving the chat surface.
 Model, thinking, and file-context controls use shadcn tooltips to explain what each choice does without relying on native browser titles.
 Prompt shaping stays host-owned: the webview captures intent and explicit mentions, while the extension host decides whether to inject active-file context and when to inflate workspace file contents before the runtime ever sees the prompt.
+The same toolbar now also carries the workspace posture control: Code is the default full-access Pi-backed mode, while Explore is the experimental read-only posture for inspection, tracing, and planning. The chip intentionally uses a sliders-style icon so it reads as posture selection rather than compact/session functionality.
+When Explore rejects a shell command, the webview renders a blocked-command strip with copy, dismiss, and switch-to-Code affordances instead of silently failing.
 
 ---
 
@@ -35,10 +37,11 @@ Prompt shaping stays host-owned: the webview captures intent and explicit mentio
 Chat view state
   ├─ composer input and keyboard policy
   ├─ helper popups: slash and mention
-  ├─ controls: model, thinking, active-file context, send, steer, abort
+  ├─ controls: model, thinking, workspace mode, active-file context, send, steer, abort
   ├─ queue/footer/activity rendering
   └─ transport bridge messages to VSCode host
   └─ system command execution (! prefix → child_process.spawn)
+  └─ host-blocked Explore command feedback (agent/actionBlocked)
 ```
 
 Composer logic stays in the chat webview. The VSCode extension host owns command execution and runtime services. Shell commands are executed in a separate context from the LLM stream, enabling concurrent execution.
@@ -181,6 +184,54 @@ Triggered when the command matches known destructive patterns (`rm -rf`, `del /f
 +--------------------------------------------------------------------+
 ```
 
+### [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] Workspace Mode Chip
+
+The mode chip sits after the toolbar divider and before the file-context toggle. Code stays visually
+quiet; Explore uses the warning tone and an `Experimental` badge in the dropdown.
+
+```text
++--------------------------------------------------------------------+
+| [Composer.Activity]  dot idle  AFX ready                           |
++--------------------------------------------------------------------+
+| [Composer.InputGroup]                                              |
+|  [@] [Composer.Input: Ask AFX about this workspace ...]        [^] |
+|      [Composer.Model: Anthropic . Claude] [Thinking: Medium] | [Sliders] Mode: Code [FileText] [File ctx: On] |
++--------------------------------------------------------------------+
+| [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
++--------------------------------------------------------------------+
+```
+
+### [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] Explore Dropdown Open
+
+Hovering the chip shows a tooltip; clicking it opens a compact posture menu with Code default and
+Explore labeled as experimental read-only.
+
+```text
++------------------------------ Mode --------------------------------+
+| Code                                                               |
+|   Default. Full access. Pi can act and edit.                       |
+| Explore                                                            |
+|   Experimental. Read-only. Inspect code, trace behavior, plan.     |
+|                                                                    |
+|               [selected]                                            |
++--------------------------------------------------------------------+
+```
+
+### [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] Explore Blocked Command Strip
+
+When the host rejects `!` in Explore mode, the composer shows the rejected command, an explanation,
+and the switch/copy/dismiss affordances.
+
+```text
++--------------------------------------------------------------------+
+| [Blocked command]                                                  |
+| ⚠ Shell command blocked in Explore mode                            |
+| ! pnpm test                                                        |
+| Explore mode is read-only. Switch to Code to run shell commands.   |
+| [Switch to Code] [Copy command] [Dismiss]                          |
++--------------------------------------------------------------------+
+```
+
 ## [DES-COMPOSER-COMPONENTS] Composer Component And Control Anatomy
 
 ```text
@@ -194,12 +245,15 @@ Chat
     QueueStrip                  -> [Composer.Queue]
       ComposerStrip             -> reusable chrome for collapsible strips
       QueueRow                  -> steer/follow-up row, local mirror only
+    BlockedCommandStrip         -> host-blocked runCommand feedback and switch/copy/dismiss affordances
     InputGroup                  -> [Composer.InputGroup]
       InputGroupTextarea        -> [Composer.Input]
       Toolbar
         mention button          -> opens MentionPopup and lists files
         ModelCombobox           -> API/external model selector
         ThinkingLevelToggle     -> runtime thinking dropdown
+        ModeToggle              -> workspace posture selector (Code default / Explore experimental)
+        ActiveFileContextToggle -> durable active-file context toggle mirrored in Settings
       Actions
         Send                    -> idle send
         Follow-up               -> streaming follow-up
@@ -208,15 +262,34 @@ Chat
     FooterStrip                 -> [Composer.Footer]
 ```
 
-| Surface               | Owned behavior                                                                      | Not owned here                        |
-| --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------- |
-| `[Composer.Activity]` | Live thinking preview and idle/busy strip above composer                            | Full timeline thinking blocks         |
-| `[Composer.Queue]`    | Local display of messages already sent as steer/follow-up                           | Engine-authoritative queue scheduling |
-| `[Composer.Input]`    | Draft text, placeholder, keyboard routing, prompt-history recall                    | Message timeline rendering            |
-| `[Composer.Helpers]`  | Slash/mention trigger detection, picker display, insertion/action dispatch          | Command implementation in host        |
-| `[Composer.Toolbar]`  | Mention button, model selector, thinking level selector, active-file context toggle | Provider setup forms                  |
-| `[Composer.Actions]`  | Send/follow-up/steer/stop affordances                                               | Agent implementation                  |
-| `[Composer.Footer]`   | Compact runtime readiness, Pi state, usage hints                                    | Full settings diagnostics             |
+| Surface                    | Owned behavior                                                                                     | Not owned here                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `[Composer.Activity]`      | Live thinking preview and idle/busy strip above composer                                           | Full timeline thinking blocks          |
+| `[Composer.Queue]`         | Local display of messages already sent as steer/follow-up                                          | Engine-authoritative queue scheduling  |
+| `[Composer.Input]`         | Draft text, placeholder, keyboard routing, prompt-history recall                                   | Message timeline rendering             |
+| `[Composer.Helpers]`       | Slash/mention trigger detection, picker display, insertion/action dispatch                         | Command implementation in host         |
+| `[Composer.Toolbar]`       | Mention button, model selector, thinking level selector, mode selector, active-file context toggle | Workspace posture and context controls |
+| `[Composer.Actions]`       | Send/follow-up/steer/stop affordances                                                              | Agent implementation                   |
+| `[Composer.Footer]`        | Compact runtime readiness, Pi state, usage hints                                                   | Full settings diagnostics              |
+| `[Composer.BlockedAction]` | Host-blocked shell command strip, command copy, dismiss, switch to Code affordance                 | Host shell guardrail handling          |
+
+### [DES-COMPOSER-COMPONENT-MODE-TOGGLE] ModeToggle
+
+| Code anchor             | Component contract                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ModeToggle`            | Owns the workspace posture chip, tooltip, dropdown menu, and current selection echo in the narrow composer toolbar |
+| `WORKSPACE_MODES`       | Defines the Code/Explore option copy and the Explore `Experimental` badge                                          |
+| `setMode`               | Sends `chat/setMode` with the selected `WorkspaceMode` and keeps the local toolbar state in sync                   |
+| `restoreBlockedCommand` | When the blocked strip switches back to Code, restores the exact command into the draft before focus returns       |
+
+### [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP] BlockedCommandStrip
+
+| Code anchor             | Component contract                                                                                       |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| `BlockedCommandStrip`   | Renders the host-blocked Explore action strip with warning copy, command copy, switch, and dismiss hooks |
+| `BlockedActionView`     | Host-only payload describing the blocked command, title, message, and mode                               |
+| `copyBlockedCommand`    | Copies the original `!` command text to the clipboard                                                    |
+| `restoreBlockedCommand` | Restores the blocked command into the textarea and switches workspace mode back to Code                  |
 
 ## [DES-COMPOSER-SYSTEM-COMMAND] System Command Execution
 
@@ -440,14 +513,16 @@ draft before caret -> detectComposerTrigger("@", not escaped, not inside fence)
 
 ## [DES-COMPOSER-RUNTIME] Model, Thinking, And Runtime Control Map
 
-| Control             | Source anchor                | Data                                                   | Behavior                                                               |
-| ------------------- | ---------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
-| Model trigger       | `ModelCombobox`              | `AgentModel[]`, active `agentStatus.model`             | Groups API models by provider and external-agent models by instance    |
-| Empty model list    | `ModelCombobox`              | no `models`                                            | Offers Settings fallback instead of showing a dead picker              |
-| Model item          | `renderModelItem`            | `name`, `id`, `contextWindow`                          | Shows compact display name and context window                          |
-| Model select        | `selectModel`                | `provider`, `id`, `instanceId`                         | Sends `chat/setModel`, resets prompt-history cursor, focuses textarea  |
-| Thinking trigger    | `ThinkingLevelToggle`        | `ThinkingLevel`                                        | Sends `chat/setThinkingLevel` and optimistically updates runtime state |
-| Runtime unavailable | `canSend`, placeholder logic | `agentStatus.phase`, `runtimeConfigured`, `rpcEnabled` | Disables textarea/actions and routes user to setup copy                |
+| Control             | Source anchor                | Data                                                   | Behavior                                                                 |
+| ------------------- | ---------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Model trigger       | `ModelCombobox`              | `AgentModel[]`, active `agentStatus.model`             | Groups API models by provider and external-agent models by instance      |
+| Empty model list    | `ModelCombobox`              | no `models`                                            | Offers Settings fallback instead of showing a dead picker                |
+| Model item          | `renderModelItem`            | `name`, `id`, `contextWindow`                          | Shows compact display name and context window                            |
+| Model select        | `selectModel`                | `provider`, `id`, `instanceId`                         | Sends `chat/setModel`, resets prompt-history cursor, focuses textarea    |
+| Thinking trigger    | `ThinkingLevelToggle`        | `ThinkingLevel`                                        | Sends `chat/setThinkingLevel` and optimistically updates runtime state   |
+| Workspace mode      | `ModeToggle`                 | `WorkspaceMode`, `snapshot.mode.active`                | Sends `chat/setMode`, keeps Code default, Explore experimental/read-only |
+| Blocked action      | `BlockedCommandStrip`        | `BlockedActionView`                                    | Renders Explore rejection strip; Switch to Code restores the draft       |
+| Runtime unavailable | `canSend`, placeholder logic | `agentStatus.phase`, `runtimeConfigured`, `rpcEnabled` | Disables textarea/actions and routes user to setup copy                  |
 
 ## [DES-COMPOSER-CONTEXT] Active File Context Toggle
 
@@ -456,6 +531,10 @@ the durable value, the composer renders the quick toggle, and the extension host
 of truth for persistence and prompt shaping. The composer control stays compact: switch first,
 filename label second, and the full path exposed in the hover tooltip. The webview never reads the
 workspace file contents itself; it sends intent, and the host performs the injection.
+
+Workspace mode follows the same host-owned pattern. The composer sends `chat/setMode`, the host
+routes that to `afx.setMode`, and the persisted `afx.mode.active` value rehydrates both the chat
+toolbar and the settings card.
 
 ### Flow: Settings Snapshot → Toolbar Toggle → Host Persistence → Snapshot Echo
 
@@ -477,24 +556,28 @@ workspace file contents itself; it sends intent, and the host performs the injec
   draft text
   + explicit @file mentions
   + active-file context toggle
+  + workspace mode (Code / Explore)
   + model / thinking selections
         │
         ├─ 1. User types a draft in the chat box
         ├─ 2. User may click @ to insert an explicit workspace file mention
         ├─ 3. User may toggle active-file context ON/OFF
-        ├─ 4. Chat submit() packages content + mentions
-        ├─ 5. bridgeSend({ type: "chat/send" | "chat/steer" | "chat/followUp" })
-        ├─ 6. VS Code host receives the inbound message
-        ├─ 7. normalizePromptMentions(content, mentions)
+        ├─ 4. User may switch between Code and Explore mode
+        ├─ 5. Chat submit() packages content + mentions
+        ├─ 6. bridgeSend({ type: "chat/send" | "chat/steer" | "chat/followUp" })
+        ├─ 7. VS Code host receives the inbound message
+        ├─ 8. normalizePromptMentions(content, mentions)
         │      - parses explicit @mentions from the draft
         │      - appends the current editor file when the toggle is ON
-        ├─ 8. inflateMentionContext(content, mentions)
+        ├─ 9. inflateMentionContext(content, mentions)
         │      - reads workspace files
         │      - builds the final prompt preamble / file context block
-        ├─ 9. agentManager.send(...) / steer(...) / followUp(...)
-        ├─ 10. Pi Rpc Manager serializes the request
-        ├─ 11. Pi subprocess receives the final text prompt
-        └─ 12. Model generates from the already-shaped prompt
+        ├─ 10. prefixExplorePrompt(content)
+        │      - prepends the strict read-only guardrail only when mode is Explore
+        ├─ 11. agentManager.send(...) / steer(...) / followUp(...)
+        ├─ 12. Pi Rpc Manager serializes the request
+        ├─ 13. Pi subprocess receives the final text prompt
+        └─ 14. Model generates from the already-shaped prompt
 ```
 
 | Layer                    | Responsibility                                                                         | What it must not do                                 |
@@ -505,6 +588,10 @@ workspace file contents itself; it sends intent, and the host performs the injec
 | `AgentManager` interface | Carry the final request through send / steer / follow-up paths                         | Decide which workspace files get injected           |
 | Pi runtime adapter       | Serialize the already-shaped request to the Pi process                                 | Re-run webview context logic                        |
 | Pi subprocess / model    | Generate a response from final prompt text                                             | Reach back into the editor or workspace directly    |
+
+The workspace mode control uses the same host boundary. `chat/setMode` never mutates the model
+directly; it routes to `afx.setMode`, which persists `afx.mode.active` at workspace scope and then
+refreshes the shared settings snapshot for both Settings and the composer toolbar.
 
 ### Why The Host Owns Injection
 
@@ -812,15 +899,17 @@ The composer transitions between five states. State transitions are driven by `a
 
 ## [DES-DEC] Key Decisions
 
-| Decision                | Options Considered                            | Choice                  | Rationale                                                                             |
-| ----------------------- | --------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
-| Composer split          | Keep in `210-app-chat`, create child spec     | Child spec              | Footer/input changes are frequent and surgical                                        |
-| Footer ownership        | Settings, runtime, composer                   | Composer                | Footer copy appears in composer and depends on composer actions                       |
-| Helper ownership        | Shared UI, messages, composer                 | Composer                | Slash/mention helpers are input-driven                                                |
-| System command routing  | Client detection, server detection            | Client detection        | Webview knows the draft text; extension host executes                                 |
-| Shell selection         | Hardcoded `bash`, detect `$SHELL`, prompt     | Platform-aware spawn    | `bash` on macOS/Linux, `cmd`/`powershell` on Windows                                  |
-| Concurrent execution    | Block while streaming, queue, allow           | Allow                   | Separate execution context from LLM stream; user can run `!top` while LLM writes code |
-| Dangerous-pattern guard | Block all, allow all, confirm for destructive | Confirm for destructive | Catches common accidents (`rm -rf`) without blocking safe commands                    |
+| Decision                | Options Considered                             | Choice                  | Rationale                                                                             |
+| ----------------------- | ---------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| Composer split          | Keep in `210-app-chat`, create child spec      | Child spec              | Footer/input changes are frequent and surgical                                        |
+| Footer ownership        | Settings, runtime, composer                    | Composer                | Footer copy appears in composer and depends on composer actions                       |
+| Helper ownership        | Shared UI, messages, composer                  | Composer                | Slash/mention helpers are input-driven                                                |
+| System command routing  | Client detection, server detection             | Client detection        | Webview knows the draft text; extension host executes                                 |
+| Shell selection         | Hardcoded `bash`, detect `$SHELL`, prompt      | Platform-aware spawn    | `bash` on macOS/Linux, `cmd`/`powershell` on Windows                                  |
+| Concurrent execution    | Block while streaming, queue, allow            | Allow                   | Separate execution context from LLM stream; user can run `!top` while LLM writes code |
+| Dangerous-pattern guard | Block all, allow all, confirm for destructive  | Confirm for destructive | Catches common accidents (`rm -rf`) without blocking safe commands                    |
+| Workspace mode          | Separate mode service, workspace config, host  | Workspace config + host | Keeps Code default, Explore experimental/read-only, and lets the host prefix prompts  |
+| Guardrail prompt        | No prompt prefix, local-only copy, host prefix | Host-injected prefix    | The strict Explore prompt must be injected before the runtime sees any Explore turn   |
 
 ---
 
@@ -828,16 +917,18 @@ The composer transitions between five states. State transitions are driven by `a
 
 Composer state includes input text, queued content metadata, selected model, thinking level, runtime readiness, busy/sending state, helper popup candidates, prompt-history cursor state, usage stats, and ephemeral note confirmations.
 
-| Data shape        | Source anchor                      | Purpose                                                                                                      |
-| ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `RuntimeSettings` | `chat.tsx`                         | Composer-visible subset of `AgentStatus` for thinking, queue modes, compaction/retry, session, and RPC state |
-| `QueuedMessage`   | `chat.tsx`                         | Local display mirror for steer/follow-up content that was already sent while streaming                       |
-| `UsageStats`      | `chat.tsx`                         | Footer tooltip and assistant metadata token/cost/context display                                             |
-| `ComposerTrigger` | `composer-detect.ts`               | Active slash/mention token location and query                                                                |
-| `AgentCommand`    | `SlashPopup`, `displayCommandName` | Slash command list and action labels                                                                         |
-| `AgentFileView`   | `MentionPopup`                     | Mention candidate list split by recent/workspace                                                             |
-| `AgentModel`      | `ModelCombobox`                    | API/external model groups and selection identity                                                             |
-| `ModifiedFile`    | `derive-modified-files.ts`         | Files touched by edit/write tool calls; derived per-render from transcript                                   |
+| Data shape          | Source anchor                      | Purpose                                                                                                      |
+| ------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `RuntimeSettings`   | `chat.tsx`                         | Composer-visible subset of `AgentStatus` for thinking, queue modes, compaction/retry, session, and RPC state |
+| `QueuedMessage`     | `chat.tsx`                         | Local display mirror for steer/follow-up content that was already sent while streaming                       |
+| `UsageStats`        | `chat.tsx`                         | Footer tooltip and assistant metadata token/cost/context display                                             |
+| `ComposerTrigger`   | `composer-detect.ts`               | Active slash/mention token location and query                                                                |
+| `AgentCommand`      | `SlashPopup`, `displayCommandName` | Slash command list and action labels                                                                         |
+| `AgentFileView`     | `MentionPopup`                     | Mention candidate list split by recent/workspace                                                             |
+| `AgentModel`        | `ModelCombobox`                    | API/external model groups and selection identity                                                             |
+| `ModifiedFile`      | `derive-modified-files.ts`         | Files touched by edit/write tool calls; derived per-render from transcript                                   |
+| `WorkspaceMode`     | `chat.tsx` / `settings.tsx`        | Workspace posture state: `code` default, `explore` experimental/read-only                                    |
+| `BlockedActionView` | `chat.tsx`                         | Host-blocked Explore command payload rendered by `BlockedCommandStrip`                                       |
 
 ---
 
@@ -856,6 +947,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 | Webview to host | `chat/listFiles`                        | Populate mention popup                                                                                                                               |
 | Webview to host | `chat/setModel`                         | Update active runtime model                                                                                                                          |
 | Webview to host | `chat/setThinkingLevel`                 | Update runtime reasoning effort                                                                                                                      |
+| Webview to host | `chat/setMode`                          | Update workspace posture via the shared `afx.setMode` command                                                                                        |
 | Webview to host | `chat/setIncludeActiveFileContext`      | Persist the mirrored active-file context preference                                                                                                  |
 | Webview to host | `chat/runCommand`                       | System command: stripped `!` prefix, shell command string, requestId                                                                                 |
 | Webview to host | `chat/openFile`                         | Modified files strip pill click: `{ path, line? }` (workspace-relative or absolute; line is 1-indexed) — host calls `vscode.window.showTextDocument` |
@@ -864,6 +956,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 | Host to webview | `agent/files`                           | Mention popup candidates                                                                                                                             |
 | Host to webview | `agent/models`, `agent/modelChanged`    | Model picker candidates and active model                                                                                                             |
 | Host to webview | `agent/settingsSnapshot`                | Mirrors durable active-file context preference and any other persisted Settings values                                                               |
+| Host to webview | `agent/actionBlocked`                   | Renders the host-blocked Explore command strip                                                                                                       |
 | Host to webview | `agent/runtimeSettings`, `agent/status` | Thinking/footer/readiness state                                                                                                                      |
 | Host to webview | `chat/usage`                            | Footer usage tooltip state                                                                                                                           |
 
@@ -906,21 +999,24 @@ Composer actions use the chat webview transport. Message payloads are defined in
 - **CWD bounded to workspace**: All shell commands run in the VSCode workspace root directory (`vscode.workspace.workspaceFolders?.[0].uri.fsPath`). Commands cannot escape the workspace unless the user has symlinks or bind mounts outside it.
 - **Timeout enforcement**: Commands exceeding 30 seconds are terminated; the user receives an error with exit code `-1`.
 - **No LLM injection**: System commands are never sent to the LLM. The `!` prefix is detected client-side and routed to `chat/runCommand` before any model call.
+- **Explore guardrail**: The host prepends the strict read-only prompt before any Explore `send` / `steer` / `followUp` turn and blocks `chat/runCommand` before shell spawn, so no shell/edit/git operation can slip through the Explore path.
+- **Explore guardrail**: When the workspace mode is Explore, the host prepends the strict read-only prompt before send/steer/follow-up turns and blocks `chat/runCommand` before any shell spawn occurs.
 
 ---
 
 ## [DES-ERR] Error Handling
 
-| Scenario                       | Handling                                                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| Runtime unavailable            | Footer and send state explain configuration/readiness path                                              |
-| Bridge send fails              | Composer returns to editable state and surfaces failure through chat error UI                           |
-| Helper parsing fails           | Fall back to plain text input without blocking send                                                     |
-| Shell command timeout (30s)    | Terminate subprocess; emit `agent/commandOutput { error: "Command timed out after 30s", exitCode: -1 }` |
-| Shell non-zero exit            | Emit `agent/commandOutput { done: true, exitCode }`; output card shows exit code badge in amber         |
-| Shell exception (ENOENT, etc.) | Emit `agent/commandOutput { error: <exception.message> }`; render error in red inline                   |
-| Dangerous pattern before guard | Show `DangerousPatternGuard` confirm dialog; do not execute until user confirms                         |
-| Workspace not open             | Show "No workspace folder open" error; disable system command input                                     |
+| Scenario                       | Handling                                                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Runtime unavailable            | Footer and send state explain configuration/readiness path                                                |
+| Bridge send fails              | Composer returns to editable state and surfaces failure through chat error UI                             |
+| Helper parsing fails           | Fall back to plain text input without blocking send                                                       |
+| Shell command timeout (30s)    | Terminate subprocess; emit `agent/commandOutput { error: "Command timed out after 30s", exitCode: -1 }`   |
+| Shell non-zero exit            | Emit `agent/commandOutput { done: true, exitCode }`; output card shows exit code badge in amber           |
+| Shell exception (ENOENT, etc.) | Emit `agent/commandOutput { error: <exception.message> }`; render error in red inline                     |
+| Dangerous pattern before guard | Show `DangerousPatternGuard` confirm dialog; do not execute until user confirms                           |
+| Workspace not open             | Show "No workspace folder open" error; disable system command input                                       |
+| Explore command blocked        | Render `BlockedCommandStrip`, keep the draft available, and offer Switch to Code / Copy command / Dismiss |
 
 ---
 
@@ -928,6 +1024,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 
 - Unit-test helper parsing where practical.
 - Add chat view tests for footer/queue state when the surface changes.
+- Add mode-specific tests for the toolbar posture chip, Explore prompt prefixing, and blocked-command strip.
 - Use e2e tests for keyboard policy or queue affordance regressions.
 
 ---
@@ -946,53 +1043,56 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 
 ## [DES-COMPOSER-REFS] File Reference Map
 
-| Task | File                                          | Required @see                                                                                                     |
-| ---- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| 1.x  | `apps/chat/src/views/chat.tsx`                | `design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-FLOW]` |
-| 1.x  | `apps/chat/src/components/model-combobox.tsx` | `design.md [DES-COMPOSER-RUNTIME]`                                                                                |
-| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
-| 1.x  | `apps/chat/src/components/mention-popup.tsx`  | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
-| 1.x  | `apps/chat/src/components/composer-strip.tsx` | `design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FILES-STRIP]`                                                       |
-| 1.x  | `apps/chat/src/components/files-strip.tsx`    | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                        |
-| 1.x  | `apps/chat/src/lib/composer-detect.ts`        | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
-| 1.x  | `apps/chat/src/lib/derive-modified-files.ts`  | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                        |
-| 1.x  | `apps/chat/src/lib/mentions.ts`               | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
+| Task | File                                          | Required @see                                                                                                                                                                                                                    |
+| ---- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/chat.tsx`                | `design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-FLOW]` |
+| 1.x  | `apps/chat/src/components/model-combobox.tsx` | `design.md [DES-COMPOSER-RUNTIME]`                                                                                                                                                                                               |
+| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                               |
+| 1.x  | `apps/chat/src/components/mention-popup.tsx`  | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                               |
+| 1.x  | `apps/chat/src/components/composer-strip.tsx` | `design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FILES-STRIP]`                                                                                                                                                                      |
+| 1.x  | `apps/chat/src/components/files-strip.tsx`    | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                                                                                                                                       |
+| 1.x  | `apps/chat/src/lib/composer-detect.ts`        | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                               |
+| 1.x  | `apps/chat/src/lib/derive-modified-files.ts`  | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                                                                                                                                       |
+| 1.x  | `apps/chat/src/lib/mentions.ts`               | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                               |
 
 ## [DES-COMPOSER-LOC] Code Locator Map
 
-| Map ID                     | Code anchor                                                                                                                               | Messages/settings/commands                                    | Tests                                                                                 |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `[Composer.Activity]`      | `apps/chat/src/views/chat.tsx` `ActivityBar`                                                                                              | `thinking_delta`, runtime streaming state                     | `apps/chat/src/app.test.tsx`                                                          |
-| `[Composer.Queue]`         | `apps/chat/src/views/chat.tsx` `QueueStrip`, `QueueRow`; `composer-strip.tsx`                                                             | `chat/steer`, `chat/followUp`, `queue_update`                 | `apps/chat/src/app.test.tsx`                                                          |
-| `[Composer.ModifiedFiles]` | `apps/chat/src/components/files-strip.tsx` `FilesStrip`, `FilePill`; `apps/chat/src/lib/derive-modified-files.ts`; `chat.tsx` integration | `chat/openFile`                                               | `derive-modified-files.test.ts`, `files-strip.test.tsx`, `apps/chat/src/app.test.tsx` |
-| `[Composer.Input]`         | `apps/chat/src/views/chat.tsx` `InputGroupTextarea`, `handleDraftChange`, `onKeyDown`                                                     | `chat/send`, `chat/saveNote`, `chat/listFiles`                | `apps/chat/src/app.test.tsx`                                                          |
-| `[Composer.Helpers]`       | `slash-popup.tsx`, `mention-popup.tsx`, `composer-detect.ts`, `mentions.ts`                                                               | `chat/getCommands`, `chat/listFiles`, `chat/newSession`       | `composer-detect.test.ts`, `mentions.test.ts`                                         |
-| `[Composer.Toolbar]`       | `apps/chat/src/views/chat.tsx` toolbar block; `model-combobox.tsx`; `ThinkingLevelToggle`                                                 | `chat/setModel`, `chat/setThinkingLevel`, `chat/openSettings` | `apps/chat/src/app.test.tsx`                                                          |
-| `[Composer.Actions]`       | `apps/chat/src/views/chat.tsx` action buttons, `submit`, `abort`                                                                          | `chat/send`, `chat/steer`, `chat/followUp`, `chat/abort`      | `apps/chat/src/app.test.tsx`                                                          |
-| `[Composer.Footer]`        | `apps/chat/src/views/chat.tsx` `FooterStrip`, `PiPill`, `usageTooltip`                                                                    | `agent/runtimeStatus`, usage stats, `afx.rpc.enabled`         | `apps/chat/src/app.test.tsx`                                                          |
+| Map ID                     | Code anchor                                                                                                                               | Messages/settings/commands                                                                                        | Tests                                                                                 |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `[Composer.Activity]`      | `apps/chat/src/views/chat.tsx` `ActivityBar`                                                                                              | `thinking_delta`, runtime streaming state                                                                         | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.Queue]`         | `apps/chat/src/views/chat.tsx` `QueueStrip`, `QueueRow`; `composer-strip.tsx`                                                             | `chat/steer`, `chat/followUp`, `queue_update`                                                                     | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.ModifiedFiles]` | `apps/chat/src/components/files-strip.tsx` `FilesStrip`, `FilePill`; `apps/chat/src/lib/derive-modified-files.ts`; `chat.tsx` integration | `chat/openFile`                                                                                                   | `derive-modified-files.test.ts`, `files-strip.test.tsx`, `apps/chat/src/app.test.tsx` |
+| `[Composer.Input]`         | `apps/chat/src/views/chat.tsx` `InputGroupTextarea`, `handleDraftChange`, `onKeyDown`                                                     | `chat/send`, `chat/saveNote`, `chat/listFiles`                                                                    | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.Helpers]`       | `slash-popup.tsx`, `mention-popup.tsx`, `composer-detect.ts`, `mentions.ts`                                                               | `chat/getCommands`, `chat/listFiles`, `chat/newSession`                                                           | `composer-detect.test.ts`, `mentions.test.ts`                                         |
+| `[Composer.Toolbar]`       | `apps/chat/src/views/chat.tsx` toolbar block; `model-combobox.tsx`; `ThinkingLevelToggle`; `ModeToggle`; `ActiveFileContextToggle`        | `chat/setModel`, `chat/setThinkingLevel`, `chat/setMode`, `chat/openSettings`, `chat/setIncludeActiveFileContext` | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.BlockedAction]` | `apps/chat/src/views/chat.tsx` `BlockedCommandStrip`, `copyBlockedCommand`, `restoreBlockedCommand`                                       | `agent/actionBlocked`, `chat/setMode`                                                                             | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.Actions]`       | `apps/chat/src/views/chat.tsx` action buttons, `submit`, `abort`                                                                          | `chat/send`, `chat/steer`, `chat/followUp`, `chat/abort`                                                          | `apps/chat/src/app.test.tsx`                                                          |
+| `[Composer.Footer]`        | `apps/chat/src/views/chat.tsx` `FooterStrip`, `PiPill`, `usageTooltip`                                                                    | `agent/runtimeStatus`, usage stats, `afx.rpc.enabled`                                                             | `apps/chat/src/app.test.tsx`                                                          |
 
 ## [DES-COMPOSER-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                                                                                                      | Code anchors                                                                                                                                                                  | Verification                                                                                                    |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`     | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                      |
-| FR-2        | `DES-COMPOSER-FOOTER`, `DES-COMPOSER-MOCKUP-COMPACTING`                                                                                           | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                    |
-| FR-3        | `DES-COMPOSER-HELPERS`                                                                                                                            | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                   |
-| FR-4        | `DES-COMPOSER-QUEUE`                                                                                                                              | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                    |
-| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                                                            | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                                                                                     | `app.test.tsx`; model-combobox tests when changed                                                               |
-| FR-6        | `DES-COMPOSER-KEYS`                                                                                                                               | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                            |
-| FR-7        | `DES-COMPOSER-FOOTER`                                                                                                                             | `ActivityBar`, `chat/thinkingDelta` handler                                                                                                                                   | `app.test.tsx`                                                                                                  |
-| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                                                    | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
-| FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR`                                    | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
-| FR-10       | `DES-COMPOSER-FILES-STRIP`, `DES-COMPOSER-MOCKUP-FILES-COLLAPSED`, `DES-COMPOSER-MOCKUP-FILES-EXPANDED`, `DES-COMPOSER-MOCKUP-FILES-DISMISS-FLOW` | `deriveModifiedFiles`, `FilesStrip`, `FilePill`, `bridgeSend({ type: "chat/openFile", path })`; host `case "chat/openFile":` calls `vscode.window.showTextDocument`           | `derive-modified-files.test.ts`, `files-strip.test.tsx`; e2e: pill click opens file in extension dev host       |
-| FR-11       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-COMPOSER-REFS`          | `ActiveFileContextToggle`, `applyIncludeActiveFileContext`, `chat/setIncludeActiveFileContext`, `agent/settingsSnapshot`                                                      | `app.test.tsx`, settings snapshot tests, small-screen toolbar tests                                             |
-| NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                    | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
-| NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`                                                               | `ActiveFileContextToggle`, compact toolbar placement                                                                                                                          | `app.test.tsx` narrow-width composer coverage                                                                   |
-| NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                               | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
-| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                             | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
-| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                    | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |
-| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                                                            | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                               |
-| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                                                           | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                             |
+| Requirement | Design nodes                                                                                                                                                 | Code anchors                                                                                                                                                                  | Verification                                                                                                    |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`                | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                      |
+| FR-2        | `DES-COMPOSER-FOOTER`, `DES-COMPOSER-MOCKUP-COMPACTING`                                                                                                      | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-3        | `DES-COMPOSER-HELPERS`                                                                                                                                       | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                   |
+| FR-4        | `DES-COMPOSER-QUEUE`                                                                                                                                         | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                                                                       | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                                                                                     | `app.test.tsx`; model-combobox tests when changed                                                               |
+| FR-6        | `DES-COMPOSER-KEYS`                                                                                                                                          | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                            |
+| FR-7        | `DES-COMPOSER-FOOTER`                                                                                                                                        | `ActivityBar`, `chat/thinkingDelta` handler                                                                                                                                   | `app.test.tsx`                                                                                                  |
+| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                                                               | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
+| FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR`                                               | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
+| FR-10       | `DES-COMPOSER-FILES-STRIP`, `DES-COMPOSER-MOCKUP-FILES-COLLAPSED`, `DES-COMPOSER-MOCKUP-FILES-EXPANDED`, `DES-COMPOSER-MOCKUP-FILES-DISMISS-FLOW`            | `deriveModifiedFiles`, `FilesStrip`, `FilePill`, `bridgeSend({ type: "chat/openFile", path })`; host `case "chat/openFile":` calls `vscode.window.showTextDocument`           | `derive-modified-files.test.ts`, `files-strip.test.tsx`; e2e: pill click opens file in extension dev host       |
+| FR-11       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-COMPOSER-REFS`                     | `ActiveFileContextToggle`, `applyIncludeActiveFileContext`, `chat/setIncludeActiveFileContext`, `agent/settingsSnapshot`                                                      | `app.test.tsx`, settings snapshot tests, small-screen toolbar tests                                             |
+| FR-12       | `DES-COMPOSER-MOCKUP-MODE-COLLAPSED`, `DES-COMPOSER-MOCKUP-MODE-DROPDOWN`, `DES-COMPOSER-COMPONENT-MODE-TOGGLE`, `DES-COMPOSER-RUNTIME`, `DES-COMPOSER-REFS` | `ModeToggle`, `WORKSPACE_MODES`, `chat/setMode`, `WorkspaceMode`                                                                                                              | `app.test.tsx`, mode snapshot tests, settings mode coverage                                                     |
+| FR-13       | `DES-COMPOSER-MOCKUP-BLOCKED-COMMAND`, `DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP`, `DES-COMPOSER-REFS`, `DES-API`, `DES-SEC`, `DES-ERR`                  | `BlockedCommandStrip`, `BlockedActionView`, `restoreBlockedCommand`, `copyBlockedCommand`, `agent/actionBlocked`                                                              | `app.test.tsx`, blocked-command tests, Explore guardrail coverage                                               |
+| NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                               | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
+| NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`                                                                          | `ActiveFileContextToggle`, compact toolbar placement                                                                                                                          | `app.test.tsx` narrow-width composer coverage                                                                   |
+| NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                                          | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
+| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                                        | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
+| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                               | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |
+| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                                                                       | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                               |
+| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                                                                      | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                             |
 
 ---
 

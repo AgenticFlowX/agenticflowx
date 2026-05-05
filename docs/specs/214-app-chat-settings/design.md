@@ -5,9 +5,9 @@ status: Approved
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T11:38:55.000Z"
+updated_at: "2026-05-05T15:23:18.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
-tags: ["app", "chat", "settings", "providers"]
+tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode"]
 spec: spec.md
 ---
 
@@ -17,7 +17,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-The settings zone renders provider/runtime configuration state inside the chat webview. It consumes shared snapshots and sends configuration requests through the transport bridge.
+The settings zone renders provider/runtime configuration state inside the chat webview. It consumes shared snapshots and sends configuration requests through the transport bridge. It also owns the workspace posture card, which is the canonical place to switch between Code (`default`, full access, Pi-backed) and Explore (`experimental`, read-only, inspection/planning).
 
 ---
 
@@ -43,6 +43,7 @@ Settings view
 | Hydrate panel      | mount effect in `Settings`                                                                              | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                        | Host broadcasts settings, commands, runtime settings                 | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings` |
 | Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry` | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Active `AgentManager` runtime setting update                         | `agent/runtimeSettings` or `chat/error`                             |
 | Context preference | `applyIncludeActiveFileContext`                                                                         | `chat/setIncludeActiveFileContext`                                                                                     | Host persists `afx.context.includeActiveFileContext` + snapshot      | `agent/settingsSnapshot` or `chat/error`                            |
+| Workspace mode     | `applyMode`                                                                                             | `chat/setMode`                                                                                                         | Host persists `afx.mode.active` + snapshot via shared `afx.setMode`  | `agent/settingsSnapshot` or `chat/error`                            |
 | Appearance         | `applyTheme`, `applyStyle`                                                                              | `appearance/update`                                                                                                    | Host persists `afx.theme` / `afx.style` and emits runtime appearance | `agent/appearanceUpdated` or `chat/error`                           |
 | API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                        | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Host SecretStore/settings mutation                                   | `agent/settingsSnapshot` or `chat/error`                            |
 | Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Host config + runtime discovery                                      | `agent/settingsSnapshot` or `chat/error`                            |
@@ -56,6 +57,22 @@ Settings view
 Settings copy must be concrete about readiness, missing credentials, active provider/model, and recovery actions. Theme preview may demonstrate app appearance, but shared tokens remain owned by the design-system spec.
 
 ## [DES-SETTINGS-MOCKUPS] ASCII UI Mockups
+
+### [DES-SETTINGS-MOCKUP-MODE] Workspace Mode Card
+
+```text
++----------------------------------------------------------------+
+| Settings                                                       |
+| Runtime paths, providers, appearance                           |
+| [Mode] [Run] [ID] [Look] [Models] [Skills] [Logs] [About]      |
++----------------------------------------------------------------+
+| Mode                                                           |
+| (*) Code      Default. Full access. Pi can act and edit.      |
+| ( ) Explore   Experimental. Read-only. Inspect, trace, plan.  |
+|                                                                |
+| The model stays shared across both modes.                      |
++----------------------------------------------------------------+
+```
 
 ### [DES-SETTINGS-MOCKUP-RUNTIME] Runtime Setup And Controls
 
@@ -149,6 +166,8 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 +----------------------------------------------------------------+
 | [ChatSettings.Readiness] setup/recovery cards when unavailable  |
 +----------------------------------------------------------------+
+| [ChatSettings.Mode] workspace posture card                      |
++----------------------------------------------------------------+
 | [ChatSettings.RuntimeSetup] API Provider SDK + Pi RPC choice    |
 | [ChatSettings.RuntimeControls] thinking, queue, compaction      |
 +----------------------------------------------------------------+
@@ -168,11 +187,21 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 
 ### [DES-SETTINGS-SURFACE-NAV] Sticky Navigation
 
-| Code anchor                         | UI/functionality                                                                               |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `SETTINGS_SECTIONS`                 | Defines runtime, identity, style, providers, skills, diagnostics, and about section ids/labels |
-| Sticky header JSX                   | Keeps the settings title and section shortcuts visible while scrolling                         |
-| `jumpToSection` / `jumpToProviders` | Updates active nav state and scrolls to `settings-<id>` cards                                  |
+| Code anchor                         | UI/functionality                                                                                     |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `SETTINGS_SECTIONS`                 | Defines mode, runtime, identity, style, providers, skills, diagnostics, and about section ids/labels |
+| Sticky header JSX                   | Keeps the settings title and section shortcuts visible while scrolling                               |
+| `jumpToSection` / `jumpToProviders` | Updates active nav state and scrolls to `settings-<id>` cards                                        |
+
+### [DES-SETTINGS-SURFACE-MODE] Workspace Posture
+
+| Code anchor                     | UI/functionality                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `SettingsCard`                  | Mode card chrome with icon, title, description, and compact radio-group layout                  |
+| `RadioGroup` / `RadioGroupItem` | Code/Explore selection rows with custom click targets and checked state                         |
+| `applyMode`                     | Sends `chat/setMode`, updates local optimistic state, and reuses the shared host command        |
+| `pendingModeMutations`          | RequestId-to-toast-label map for mode success/error feedback                                    |
+| `agent/settingsSnapshot`        | Rehydrates `mode.active` so the settings card stays in sync after the workspace setting changes |
 
 ### [DES-SETTINGS-SURFACE-RUNTIME] Runtime Setup And Runtime Controls
 
@@ -305,16 +334,18 @@ Mutation -> ack mapping for the most common flows:
 | `appearance/update`         | `agent/appearanceUpdated`                         |
 | `chat/setThinkingLevel`     | `agent/runtimeSettings`                           |
 | `chat/setSteeringMode` etc. | `agent/runtimeSettings`                           |
+| `chat/setMode`              | `agent/settingsSnapshot`                          |
 | `telemetry/setEnabled`      | `agent/settingsSnapshot` + `agent/telemetryState` |
 
 ---
 
 ## [DES-DEC] Key Decisions
 
-| Decision                | Options Considered                       | Choice         | Rationale                                                          |
-| ----------------------- | ---------------------------------------- | -------------- | ------------------------------------------------------------------ |
-| Settings ownership      | Composer, parent chat, settings child    | Settings child | Provider/runtime UX is dense and separate from message composition |
-| Theme preview ownership | Design-system only, settings only, split | Split          | Settings owns preview UX; design-system owns shared contract       |
+| Decision                 | Options Considered                       | Choice         | Rationale                                                             |
+| ------------------------ | ---------------------------------------- | -------------- | --------------------------------------------------------------------- |
+| Settings ownership       | Composer, parent chat, settings child    | Settings child | Provider/runtime UX is dense and separate from message composition    |
+| Theme preview ownership  | Design-system only, settings only, split | Split          | Settings owns preview UX; design-system owns shared contract          |
+| Workspace mode ownership | Composer, parent chat, settings child    | Settings child | Code default and Explore read-only posture must stay workspace-scoped |
 
 ---
 
@@ -326,9 +357,11 @@ Settings state includes provider catalog entries, active provider/model, runtime
 | --------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `SettingsSnapshot`                | `@afx/shared` and `settings-snapshot.ts` | Webview-ready host/settings/provider snapshot                                              |
 | `ContextPreference`               | `settings.tsx`                           | Default-on active-file context toggle mirrored from host snapshot                          |
+| `WorkspaceMode`                   | `settings.tsx`                           | Workspace posture state: Code default, Explore experimental/read-only                      |
 | `RuntimeSettings`                 | `settings.tsx`                           | Active runtime controls for thinking, queue modes, compaction, retry, and session metadata |
 | `ProviderFilter`                  | `settings.tsx`                           | Local API provider filter state: all, ready, needs-key                                     |
 | `pending*Mutations` maps          | `settings.tsx`                           | RequestId-to-toast-label maps for success/error feedback                                   |
+| `pendingModeMutations`            | `settings.tsx`                           | RequestId-to-toast-label map for Code / Explore mutation feedback                          |
 | `SettingsSnapshotInput`           | `settings-snapshot.ts`                   | Host-normalized inputs used to compose the snapshot                                        |
 | `ProviderConnectionState`         | `@afx/shared` / `ProviderCard`           | API provider credential/model state                                                        |
 | `ExternalAgentCardProps.status`   | `ExternalAgentCard`                      | Pi/local-agent state: connected, disabled, unavailable, coming-soon                        |
@@ -340,25 +373,26 @@ Settings state includes provider catalog entries, active provider/model, runtime
 
 Settings uses shared settings snapshot and provider update bridge messages. Secret persistence remains in the VSCode host.
 
-| Direction       | Message/event                                                                                                          | Settings responsibility                                       |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Webview to host | `chat/getSettingsSnapshot`                                                                                             | Request full settings snapshot                                |
-| Webview to host | `chat/getCommands`                                                                                                     | Populate skills/commands list                                 |
-| Webview to host | `chat/getState`                                                                                                        | Re-broadcast runtime settings after tab switch                |
-| Webview to host | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Runtime control mutations                                     |
-| Webview to host | `chat/setIncludeActiveFileContext`                                                                                     | Persist the active-file context default                       |
-| Webview to host | `appearance/update`                                                                                                    | Persist theme/style choice                                    |
-| Webview to host | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Provider credential/default model mutations                   |
-| Webview to host | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Pi RPC local-agent mutations                                  |
-| Webview to host | `chat/openSettings`                                                                                                    | Open specific VS Code setting key                             |
-| Webview to host | `chat/getStderr`                                                                                                       | Request buffered runtime stderr                               |
-| Webview to host | `telemetry/setEnabled`                                                                                                 | Persist analytics preference                                  |
-| Host to webview | `agent/settingsSnapshot`                                                                                               | Replace snapshot and resolve provider/telemetry pending state |
-| Host to webview | `agent/appearanceUpdated`                                                                                              | Replace appearance and resolve appearance pending state       |
-| Host to webview | `agent/runtimeSettings`                                                                                                | Replace runtime controls and resolve runtime pending state    |
-| Host to webview | `agent/commands`                                                                                                       | Populate skills list                                          |
-| Host to webview | `agent/stderr`                                                                                                         | Show stderr viewer                                            |
-| Host to webview | `chat/error`                                                                                                           | Resolve pending mutation failure with toast                   |
+| Direction       | Message/event                                                                                                          | Settings responsibility                                                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Webview to host | `chat/getSettingsSnapshot`                                                                                             | Request full settings snapshot                                                               |
+| Webview to host | `chat/getCommands`                                                                                                     | Populate skills/commands list                                                                |
+| Webview to host | `chat/getState`                                                                                                        | Re-broadcast runtime settings after tab switch                                               |
+| Webview to host | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Runtime control mutations                                                                    |
+| Webview to host | `chat/setIncludeActiveFileContext`                                                                                     | Persist the active-file context default                                                      |
+| Webview to host | `chat/setMode`                                                                                                         | Persist the workspace posture default                                                        |
+| Webview to host | `appearance/update`                                                                                                    | Persist theme/style choice                                                                   |
+| Webview to host | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Provider credential/default model mutations                                                  |
+| Webview to host | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Pi RPC local-agent mutations                                                                 |
+| Webview to host | `chat/openSettings`                                                                                                    | Open specific VS Code setting key                                                            |
+| Webview to host | `chat/getStderr`                                                                                                       | Request buffered runtime stderr                                                              |
+| Webview to host | `telemetry/setEnabled`                                                                                                 | Persist analytics preference                                                                 |
+| Host to webview | `agent/settingsSnapshot`                                                                                               | Replace snapshot, including `mode.active`, and resolve provider/telemetry/mode pending state |
+| Host to webview | `agent/appearanceUpdated`                                                                                              | Replace appearance and resolve appearance pending state                                      |
+| Host to webview | `agent/runtimeSettings`                                                                                                | Replace runtime controls and resolve runtime pending state                                   |
+| Host to webview | `agent/commands`                                                                                                       | Populate skills list                                                                         |
+| Host to webview | `agent/stderr`                                                                                                         | Show stderr viewer                                                                           |
+| Host to webview | `chat/error`                                                                                                           | Resolve pending mutation failure with toast                                                  |
 
 ---
 
@@ -427,16 +461,16 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 
 ## [DES-SETTINGS-REFS] File Reference Map
 
-| Task | File                                               | Required @see                                                                                |
-| ---- | -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 1.x  | `apps/chat/src/views/settings.tsx`                 | `design.md [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-FLOW]` |
-| 1.x  | `apps/chat/src/components/provider-card.tsx`       | `design.md [DES-SETTINGS-SURFACE-PROVIDERS]`                                                 |
-| 1.x  | `apps/chat/src/components/external-agent-card.tsx` | `design.md [DES-SETTINGS-SURFACE-PROVIDERS]`                                                 |
-| 1.x  | `apps/chat/src/components/agent-recovery-card.tsx` | `design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]`                                               |
-| 1.x  | `apps/chat/src/components/debug-panel.tsx`         | `design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]`                                               |
-| 1.x  | `apps/chat/src/components/toast.tsx`               | `design.md [DES-SETTINGS-FLOW]`                                                              |
-| 1.x  | `apps/chat/src/lib/settings-snapshot.ts`           | `design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]`                                      |
-| 1.x  | `apps/chat/src/lib/theme-preview.ts`               | `design.md [DES-SETTINGS-SURFACE-APPEARANCE]`                                                |
+| Task | File                                               | Required @see                                                                                                                                       |
+| ---- | -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/settings.tsx`                 | `design.md [DES-SETTINGS-MOCKUP-MODE] [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MODE] [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-FLOW]` |
+| 1.x  | `apps/chat/src/components/provider-card.tsx`       | `design.md [DES-SETTINGS-SURFACE-PROVIDERS]`                                                                                                        |
+| 1.x  | `apps/chat/src/components/external-agent-card.tsx` | `design.md [DES-SETTINGS-SURFACE-PROVIDERS]`                                                                                                        |
+| 1.x  | `apps/chat/src/components/agent-recovery-card.tsx` | `design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]`                                                                                                      |
+| 1.x  | `apps/chat/src/components/debug-panel.tsx`         | `design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]`                                                                                                      |
+| 1.x  | `apps/chat/src/components/toast.tsx`               | `design.md [DES-SETTINGS-FLOW]`                                                                                                                     |
+| 1.x  | `apps/chat/src/lib/settings-snapshot.ts`           | `design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]`                                                                                             |
+| 1.x  | `apps/chat/src/lib/theme-preview.ts`               | `design.md [DES-SETTINGS-SURFACE-APPEARANCE]`                                                                                                       |
 
 ## [DES-SETTINGS-LOC] Code Locator Map
 
@@ -444,6 +478,7 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 | ----------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
 | `[ChatSettings.Nav]`                | `apps/chat/src/views/settings.tsx` sticky header, `SETTINGS_SECTIONS`  | section ids: runtime, identity, style, providers, skills, diagnostics        | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard` | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`            | `external-agent-card.test.tsx`                        |
+| `[ChatSettings.Mode]`               | `SettingsCard`, `RadioGroup`, `applyMode`, `pendingModeMutations`      | `chat/setMode`, `agent/settingsSnapshot`, `chat/error`                       | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.RuntimeSetup]`       | `RuntimeChoiceBlock`, `RuntimePathBlock`, `ConfigField`                | `chat/openSettings`, `external/setRpcEnabled`, `external/setEphemeral`       | `settings-snapshot.test.ts`                           |
 | `[ChatSettings.RuntimeControls]`    | `SelectRow`, `SwitchRow`, runtime mutation handlers                    | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`      | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.Appearance]`         | identity/style cards, `theme-preview.ts`                               | `appearance/update`, `afx.theme`, `afx.style`                                | `theme-preview.ts` helper tests when introduced       |
@@ -461,6 +496,8 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 | FR-2        | `DES-DATA`, `DES-SETTINGS-FLOW`                                                                 | `composeSettingsSnapshot`, `bridgeOn("agent/settingsSnapshot")`, snapshot-derived memos       | `settings-snapshot.test.ts`                         |
 | FR-3        | `DES-SETTINGS-SURFACE-APPEARANCE`                                                               | `applyTheme`, `applyStyle`, `applyRuntimeAppearance`                                          | future theme-preview tests                          |
 | FR-4        | `DES-SETTINGS-SURFACE-RUNTIME`, `DES-SETTINGS-SURFACE-PROVIDERS`                                | runtime mutation handlers, `ExternalAgentCard`, recovery actions                              | future runtime settings tests                       |
+| FR-5        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-DATA`, `DES-SETTINGS-FLOW`        | `SettingsCard`, `RadioGroup`, `applyMode`, `pendingModeMutations`                             | `apps/chat/src/app.test.tsx`; mode snapshot tests   |
+| FR-6        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-API`                              | `chat/setMode`, `agent/settingsSnapshot`, `chat/error`                                        | mode mutation coverage                              |
 | NFR-1       | `DES-SEC`, `DES-SETTINGS-SURFACE-PROVIDERS`                                                     | masked provider key row, `data-clarity-mask`, no raw key render                               | provider-card tests/manual review                   |
 | NFR-2       | `DES-ERR`, `DES-SETTINGS-MOCKUP-RECOVERY`                                                       | `RuntimeConfigurationNotice`, `AgentRecoveryCard`, pending mutation error toasts              | `apps/chat/src/app.test.tsx`; future recovery tests |
 

@@ -1,8 +1,9 @@
 /**
  * Settings view — runtime snapshot, diagnostics, and available skill discovery.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-SURFACE-CONTEXT]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-MODE] [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-SURFACE-MODE] [DES-SETTINGS-FLOW] [DES-SETTINGS-SURFACE-CONTEXT]
+ * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -25,6 +26,7 @@ import {
   RotateCcw,
   Server,
   Settings2,
+  SlidersHorizontal,
   SwatchBook,
   Zap,
 } from "lucide-react";
@@ -38,6 +40,7 @@ import type {
   QueueMode,
   SettingsSnapshot,
   ThinkingLevel,
+  WorkspaceMode,
 } from "@afx/shared";
 import { createCheckingAgentRuntimeStatus } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
@@ -46,6 +49,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@afx/
 import { Input } from "@afx/ui/components/input";
 import { Label } from "@afx/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@afx/ui/components/native-select";
+import { RadioGroup, RadioGroupItem } from "@afx/ui/components/radio-group";
 import { Switch } from "@afx/ui/components/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@afx/ui/components/tabs";
 import { cn } from "@afx/ui/lib/utils";
@@ -90,6 +94,7 @@ const QUEUE_MODES: ReadonlyArray<{ value: QueueMode; label: string }> = [
 ];
 
 const SETTINGS_SECTIONS = [
+  { id: "mode", label: "Mode", shortLabel: "Mode" },
   { id: "runtime", label: "Runtime", shortLabel: "Run" },
   { id: "context", label: "Context", shortLabel: "Ctx" },
   { id: "identity", label: "Identity", shortLabel: "ID" },
@@ -145,13 +150,14 @@ export default function Settings({
   const [stderr, setStderr] = useState("");
   const [showStderr, setShowStderr] = useState(false);
   const [activeSection, setActiveSection] =
-    useState<(typeof SETTINGS_SECTIONS)[number]["id"]>("runtime");
+    useState<(typeof SETTINGS_SECTIONS)[number]["id"]>("mode");
   const [providerTab, setProviderTab] = useState<"api" | "external">("api");
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [providerSearch, setProviderSearch] = useState("");
 
   // Pending requestIds that should fire a success toast when their reply lands.
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
+  const pendingModeMutations = useRef<Map<string, string>>(new Map());
   const pendingAppearanceMutations = useRef<Map<string, string>>(new Map());
   const pendingProviderMutations = useRef<Map<string, string>>(new Map());
   const pendingContextMutations = useRef<Map<string, string>>(new Map());
@@ -170,6 +176,11 @@ export default function Settings({
         if (label) {
           pendingProviderMutations.current.delete(msg.requestId);
           toast.success(label);
+        }
+        const modeLabel = pendingModeMutations.current.get(msg.requestId);
+        if (modeLabel) {
+          pendingModeMutations.current.delete(msg.requestId);
+          toast.success(modeLabel);
         }
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
         if (telemetryLabel) {
@@ -202,14 +213,21 @@ export default function Settings({
         const appearanceLabel = pendingAppearanceMutations.current.get(msg.requestId);
         const providerLabel = pendingProviderMutations.current.get(msg.requestId);
         const contextLabel = pendingContextMutations.current.get(msg.requestId);
+        const modeLabel = pendingModeMutations.current.get(msg.requestId);
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
         const label =
-          runtimeLabel ?? appearanceLabel ?? providerLabel ?? contextLabel ?? telemetryLabel;
+          runtimeLabel ??
+          appearanceLabel ??
+          providerLabel ??
+          contextLabel ??
+          modeLabel ??
+          telemetryLabel;
         if (!label) return;
         pendingRuntimeMutations.current.delete(msg.requestId);
         pendingAppearanceMutations.current.delete(msg.requestId);
         pendingProviderMutations.current.delete(msg.requestId);
         pendingContextMutations.current.delete(msg.requestId);
+        pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
       }),
@@ -235,6 +253,7 @@ export default function Settings({
   const snapshotProviders = snapshot?.providers;
   const telemetrySettings = snapshot?.telemetry ?? DEFAULT_TELEMETRY_SETTINGS;
   const contextSettings = snapshot?.context ?? DEFAULT_CONTEXT_SETTINGS;
+  const activeMode = snapshot?.mode?.active ?? "code";
   const providers = useMemo(() => snapshotProviders ?? [], [snapshotProviders]);
   const providerStats = useMemo(() => {
     return providers.reduce(
@@ -301,6 +320,11 @@ export default function Settings({
     pendingContextMutations.current.set(requestId, label);
     return requestId;
   }
+  function trackModeMutation(label: string): string {
+    const requestId = uid();
+    pendingModeMutations.current.set(requestId, label);
+    return requestId;
+  }
   function trackTelemetryMutation(label: string): string {
     const requestId = uid();
     pendingTelemetryMutations.current.set(requestId, label);
@@ -362,6 +386,14 @@ export default function Settings({
       type: "chat/setIncludeActiveFileContext",
       requestId: trackContextMutation(`Active file context ${enabled ? "enabled" : "disabled"}`),
       enabled,
+    });
+  }
+  function applyMode(mode: WorkspaceMode) {
+    setSnapshot((prev) => (prev ? { ...prev, mode: { active: mode } } : prev));
+    bridgeSend({
+      type: "chat/setMode",
+      requestId: trackModeMutation(`${mode === "explore" ? "Explore" : "Code"} mode selected`),
+      mode,
     });
   }
   function jumpToSection(id: string) {
@@ -544,6 +576,74 @@ export default function Settings({
         {runtimeUnavailable ? (
           <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
         ) : null}
+
+        {/* Surface: [ChatSettings.Mode] */}
+        <SettingsCard
+          id="mode"
+          icon={SlidersHorizontal}
+          title="Mode"
+          description="Choose the workspace posture. Code is the default full-access Pi-backed mode; Explore is read-only and best for inspection, tracing, and planning."
+        >
+          <RadioGroup
+            value={activeMode}
+            onValueChange={(value) => applyMode(value as WorkspaceMode)}
+            className="grid gap-2"
+          >
+            <label
+              className={cn(
+                "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                activeMode === "code" && "border-border bg-muted/40",
+              )}
+              onClick={(event) => {
+                if (
+                  (event.target as HTMLElement | null)?.closest('[data-slot="radio-group-item"]')
+                ) {
+                  return;
+                }
+                applyMode("code");
+              }}
+            >
+              <RadioGroupItem value="code" className="mt-0.5" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <span className="text-[11px] font-medium text-foreground">Code</span>
+                <span className="text-[10px] leading-relaxed text-muted-foreground">
+                  Default. Full access. Pi can act and edit.
+                </span>
+              </div>
+            </label>
+            <label
+              className={cn(
+                "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                activeMode === "explore" && "border-amber-500/40 bg-amber-500/5",
+              )}
+              onClick={(event) => {
+                if (
+                  (event.target as HTMLElement | null)?.closest('[data-slot="radio-group-item"]')
+                ) {
+                  return;
+                }
+                applyMode("explore");
+              }}
+            >
+              <RadioGroupItem value="explore" className="mt-0.5" />
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-medium text-foreground">Explore</span>
+                  <Badge variant="outline" className="h-4 px-1 text-[9px] uppercase tracking-wide">
+                    Experimental
+                  </Badge>
+                </div>
+                <span className="text-[10px] leading-relaxed text-muted-foreground">
+                  Read-only investigation mode for inspection, tracing, and planning. The host
+                  blocks shell commands before they spawn.
+                </span>
+              </div>
+            </label>
+          </RadioGroup>
+          <p className="rounded-sm border border-border/60 bg-muted/25 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
+            The model stays shared across both modes.
+          </p>
+        </SettingsCard>
 
         {/* Surface: [ChatSettings.RuntimeSetup] */}
         <SettingsCard

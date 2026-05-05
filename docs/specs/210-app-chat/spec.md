@@ -1,12 +1,13 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T15:24:30.000Z"
-tags: [app, chat, webview, streaming, devoverlay, routing, hydration]
+updated_at: "2026-05-05T15:15:37.000Z"
+approved_at: "2026-05-05T15:15:37.000Z"
+tags: [app, chat, webview, streaming, devoverlay, routing, hydration, mode, workspace-mode]
 depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ---
 
@@ -30,13 +31,13 @@ This parent spec owns the chat app boundary. Composer, message timeline, history
 
 ## Child Zone Route Map
 
-| Spec                    | Start Here For                                                                                          |
-| ----------------------- | ------------------------------------------------------------------------------------------------------- |
-| `211-app-chat-composer` | Composer input, footer hints, queue strip, activity bar, slash/mention helpers, model/thinking controls |
-| `212-app-chat-messages` | Message timeline, markdown rendering, tool cards, thinking blocks, streaming output                     |
-| `213-app-chat-history`  | History view, conversation list, history event mapping                                                  |
-| `214-app-chat-settings` | Settings panel, provider cards, API key/runtime readiness UX, theme preview                             |
-| `215-app-chat-notes`    | Save-to-notes, note capture bridge, chat/editor note entry points                                       |
+| Spec                    | Start Here For                                                                                                                               |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `211-app-chat-composer` | Composer input, footer hints, queue strip, activity bar, slash/mention helpers, model/thinking controls, mode control, blocked-command strip |
+| `212-app-chat-messages` | Message timeline, markdown rendering, tool cards, thinking blocks, streaming output                                                          |
+| `213-app-chat-history`  | History view, conversation list, history event mapping                                                                                       |
+| `214-app-chat-settings` | Settings panel, provider cards, API key/runtime readiness UX, theme preview, workspace mode card                                             |
+| `215-app-chat-notes`    | Save-to-notes, note capture bridge, chat/editor note entry points                                                                            |
 
 ---
 

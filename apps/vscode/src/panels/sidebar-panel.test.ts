@@ -121,6 +121,7 @@ describe("sidebar-panel host bridge", () => {
         "sdk.ollamaBaseUrl": "",
         sessionDir: "",
         "context.includeActiveFileContext": true,
+        "mode.active": "code",
         style: "lyra",
         "telemetry.enabled": true,
         theme: "meridian",
@@ -200,6 +201,24 @@ describe("sidebar-panel host bridge", () => {
             extensionVersion: "2.0.0-test",
             bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
           }),
+        }),
+      }),
+    );
+  });
+
+  it("includes the active workspace mode in the settings snapshot", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "settings-mode" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "settings-mode",
+        snapshot: expect.objectContaining({
+          mode: { active: "explore" },
         }),
       }),
     );
@@ -1072,6 +1091,24 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
   });
 
+  it("prepends the Explore guardrail prompt to chat/send", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound } = setupWithView();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-explore-send",
+      content: "hello world",
+    });
+    await new Promise((r) => setImmediate(r));
+
+    expect(agent.send).toHaveBeenCalledOnce();
+    expect(agent.send).toHaveBeenCalledWith(
+      expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
+    );
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
+  });
+
   it("keeps the no-response timeout active when the runtime only reports startup", async () => {
     vi.useFakeTimers();
     const { inbound, postMessage } = setupWithView();
@@ -1121,6 +1158,44 @@ describe("sidebar-panel host bridge", () => {
         message: expect.stringMatching(/no turn is currently streaming/i),
       }),
     );
+  });
+
+  it("prepends the Explore guardrail prompt to chat/steer and chat/followUp", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    listener?.({ type: "agent_start" });
+
+    inbound.fire({ type: "chat/steer", requestId: "req-explore-steer", content: "redirect" });
+    await flushAsyncWork(2);
+    expect(agent.steer).toHaveBeenCalledOnce();
+    expect(agent.steer).toHaveBeenCalledWith(
+      expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
+    );
+    expect(agent.steer).toHaveBeenCalledWith(expect.stringContaining("redirect"));
+
+    inbound.fire({
+      type: "chat/followUp",
+      requestId: "req-explore-follow",
+      content: "next question",
+    });
+    await flushAsyncWork(2);
+    expect(agent.followUp).toHaveBeenCalledOnce();
+    expect(agent.followUp).toHaveBeenCalledWith(
+      expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
+    );
+    expect(agent.followUp).toHaveBeenCalledWith(expect.stringContaining("next question"));
+  });
+
+  it("chat/setMode delegates to the shared afx.setMode command", async () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const inbound = setup();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "explore" });
+    await new Promise((r) => setImmediate(r));
+
+    expect(executeCommand).toHaveBeenCalledWith("afx.setMode", "explore");
   });
 
   /**
@@ -1295,6 +1370,27 @@ describe("sidebar-panel host bridge", () => {
   });
 
   describe("runCommand", () => {
+    it("blocks shell execution in Explore mode before spawning", async () => {
+      mockAfxConfiguration({ "mode.active": "explore" });
+      const { inbound, postMessage } = setupWithView();
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-explore", command: "pnpm test" });
+      await flushAsyncWork(1);
+
+      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/actionBlocked",
+          requestId: "cmd-explore",
+          mode: "explore",
+          action: "runCommand",
+          title: "Shell command blocked in Explore mode",
+          message: "Explore mode is read-only. Switch to Code to run shell commands.",
+          command: "pnpm test",
+        }),
+      );
+    });
+
     it("emits commandOutput with error when no workspace folder is open", () => {
       const { inbound, postMessage } = setupWithView();
       vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue(undefined);

@@ -3,10 +3,11 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
-tags: [package, transport, vscode, mock, devoverlay]
+updated_at: "2026-05-05T15:15:37.000Z"
+approved_at: "2026-05-05T15:15:37.000Z"
+tags: [package, transport, vscode, mock, devoverlay, mode, workspace-mode]
 depends_on: [100-package-shared]
 ---
 
@@ -50,14 +51,15 @@ depends_on: [100-package-shared]
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                                           | Priority    |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | `Transport` interface with `send()`, `on()`, `dispose()` methods                                                                                                      | Must Have   |
-| FR-2 | `createVscodeTransport()` wraps `acquireVsCodeApi()` postMessage bridge                                                                                               | Must Have   |
-| FR-3 | `createMockTransport()` provides named scenarios for dev/test                                                                                                         | Must Have   |
-| FR-4 | Mock scenarios cover chat replies, streaming, tools, runtime settings, provider setup, startup/recovery, settings snapshots, appearance, and context-near-full states | Must Have   |
-| FR-5 | `MockTransport` logs all send/receive events with direction and timestamp                                                                                             | Should Have |
-| FR-6 | Stream speed is configurable on `MockTransport` for testing fast/slow streaming                                                                                       | Should Have |
+| ID   | Requirement                                                                                                                                                                           | Priority    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1 | `Transport` interface with `send()`, `on()`, `dispose()` methods                                                                                                                      | Must Have   |
+| FR-2 | `createVscodeTransport()` wraps `acquireVsCodeApi()` postMessage bridge                                                                                                               | Must Have   |
+| FR-3 | `createMockTransport()` provides named scenarios for dev/test                                                                                                                         | Must Have   |
+| FR-4 | Mock scenarios cover chat replies, streaming, tools, runtime settings, provider setup, startup/recovery, settings snapshots, workspace mode, appearance, and context-near-full states | Must Have   |
+| FR-5 | `MockTransport` logs all send/receive events with direction and timestamp                                                                                                             | Should Have |
+| FR-6 | Stream speed is configurable on `MockTransport` for testing fast/slow streaming                                                                                                       | Should Have |
+| FR-7 | Mock transport mirrors workspace mode changes into the settings snapshot so browser-mode tests can flip between Code and Explore                                                      | Should Have |
 
 ### Non-Functional Requirements
 
@@ -81,6 +83,7 @@ depends_on: [100-package-shared]
 - [ ] `abort` scenario cancels an in-progress stream
 - [ ] `disconnected` scenario results in a connection error UI state
 - [ ] `dispose()` cleans up all listeners
+- [ ] Workspace mode snapshots and `chat/setMode` updates round-trip through the mock transport
 
 ---
 

@@ -83,6 +83,30 @@ describe("chat-foundation shared protocol", () => {
     expect(message.enabled).toBe(true);
   });
 
+  it("supports workspace mode toggles", () => {
+    const message: ChatToAgent = {
+      type: "chat/setMode",
+      requestId: "mode-enabled",
+      mode: "explore",
+    };
+
+    expect(message.mode).toBe("explore");
+  });
+
+  it("supports blocked action responses", () => {
+    const message: AgentToChat = {
+      type: "agent/actionBlocked",
+      requestId: "blocked-1",
+      mode: "explore",
+      action: "runCommand",
+      title: "Shell command blocked in Explore mode",
+      message: "Explore mode is read-only.",
+      command: "pnpm test",
+    };
+
+    expect(message.action).toBe("runCommand");
+  });
+
   it("supports active-file context snapshots", () => {
     const message: AgentToChat = {
       type: "agent/activeFileContext",

@@ -111,10 +111,41 @@ describe("extension.activate", () => {
         "afx.showLogs",
         "afx.agentSmokeTest",
         "afx.agentRestart",
+        "afx.setMode",
         "afx.setProviderApiKey",
         "afx.clearProviderApiKey",
         "afx.detectPiBinary",
       ]),
+    );
+  });
+
+  it("persists workspace mode through afx.setMode", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setMode",
+    )?.[1] as ((mode?: string) => Promise<void>) | undefined;
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.("explore");
+
+    expect(update).toHaveBeenCalledWith(
+      "mode.active",
+      "explore",
+      vscode.ConfigurationTarget.Workspace,
     );
   });
 
@@ -202,6 +233,31 @@ describe("extension.activate", () => {
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(2);
+    const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
+      | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
+      | undefined;
+    expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
+  });
+
+  it("refreshes the sidebar when the workspace mode changes", async () => {
+    let configListener:
+      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
+      | undefined;
+    vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
+      configListener = listener as typeof configListener;
+      return { dispose: vi.fn() };
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    configListener?.({
+      affectsConfiguration: (key: string) => key === "afx.mode.active",
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(1);
     const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
       | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
       | undefined;

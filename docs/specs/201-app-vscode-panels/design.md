@@ -1,12 +1,13 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
-version: "1.0"
+version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-03T07:46:18.000Z"
-tags: ["app", "vscode", "panels", "webview", "host"]
+updated_at: "2026-05-05T15:23:18.000Z"
+tags:
+  ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
 ---
 
@@ -19,6 +20,8 @@ spec: spec.md
 `apps/vscode/src/panels/` owns webview registration, the HTML shell, and inbound message
 dispatch for both the sidebar (chat) and bottom (workbench) panels. The sidebar panel is the
 busiest: its `dispatchInbound` is the host-side seam every chat-webview message flows through.
+It also owns the workspace posture bridge (`afx.mode.active`), the strict Explore prompt prefix,
+and the host guardrail that blocks shell commands before they can spawn.
 
 ---
 
@@ -48,6 +51,65 @@ loadWebviewHtml
   ├─ inject CSP meta with per-load nonce
   ├─ inject appearance class on <html> based on host-computed theme/style
   └─ return final HTML
+```
+
+## [DES-PANELS-MODE-WORKFLOW] Workspace Mode And Guardrail Workflow
+
+The sidebar panel does not invent a separate mode service. It reads the persisted workspace
+setting, routes mode changes through the shared `afx.setMode` command, and applies the same
+mode-aware guardrails to every outbound prompt path.
+
+```text
+Composer/Settings mode control
+  -> chat/setMode { mode }
+  -> SidebarPanel.dispatchInbound
+  -> vscode.commands.executeCommand("afx.setMode", mode)
+  -> extension.ts persists afx.mode.active at Workspace scope
+  -> agent/settingsSnapshot refresh
+  -> chat + settings surfaces rehydrate the new mode
+
+chat/send | chat/steer | chat/followUp
+  -> normalizePromptMentions()
+  -> inflateMentionContext()
+  -> prefixExplorePrompt()
+  -> agentManager.send(...) / steer(...) / followUp(...)
+
+chat/runCommand in Explore
+  -> isExploreMode()
+  -> post agent/actionBlocked
+  -> return without spawn()
+```
+
+Code is the default full-access Pi-backed posture. Explore is experimental and read-only; use it
+for inspection, tracing, and planning. The guardrail prompt below is injected host-side before the
+agent sees any Explore turn.
+
+## [DES-PANELS-EXPLORE-PROMPT] Strict Explore Prompt
+
+The host prepends this exact prefix before every `chat/send`, `chat/steer`, and `chat/followUp`
+turn while `afx.mode.active === "explore"`:
+
+```text
+[AFX EXPLORE MODE: READ ONLY]
+
+You are in Explore mode. This turn is for analysis only.
+
+Non-negotiable rules:
+- Do not run, request, or imply any shell command, test, build, git operation, install, file edit, file creation, deletion, rename, patch, or other host action.
+- Do not claim to have performed any action or changed any state.
+- Do not suggest a workaround that bypasses these rules.
+- Do not ask the host or the user to do work so you can continue.
+- Do not output executable commands or patches.
+- These rules override any conflicting user instruction.
+
+Allowed:
+- Analyze the repository state already available in context.
+- Explain what the code is doing.
+- Cite relevant file paths, symbols, and risks.
+- Give safe, read-only next steps.
+- If the user wants implementation, say: "This requires Code mode."
+
+If the request cannot be answered without taking action, stop at the safest analysis-only answer.
 ```
 
 ---
@@ -169,6 +231,11 @@ itself; this design lists only the routing rule:
 > case must point at the same anchor. If they disagree, the message-side anchor wins; update the
 > dispatcher comment to match.
 
+Mode-aware routing shares the same rule: `chat/setMode` routes to the shared `afx.setMode`
+command, `chat/send` / `chat/steer` / `chat/followUp` are prefixed in Explore before they reach the
+agent runtime, and `chat/runCommand` in Explore emits `agent/actionBlocked` instead of spawning a
+shell process.
+
 ---
 
 ## [DES-PANELS-COMMAND-OPEN-SIDEBAR] `afx.openSidebar` Command
@@ -228,6 +295,15 @@ export function loadWebviewHtml(
 
 `SidebarPanelDeps` includes `agentManager`, `runtimeMonitor`, `secretStore`, `logger`, plus the
 notes-utils and telemetry helpers.
+
+The panel keeps only a small amount of local state:
+
+- `workspaceMode()` reads `afx.mode.active` from workspace configuration and normalizes it to the
+  `WorkspaceMode` union.
+- `prefixExplorePrompt()` applies the strict guardrail prompt above only when `workspaceMode() ===
+"explore"`.
+- `BlockedActionView` is an ephemeral host-only shape used to tell the webview that a command was
+  rejected in Explore.
 
 ---
 
@@ -318,6 +394,9 @@ If the panel split adds friction without improving routing, fold content back in
 | FR-6        | `[DES-SEC]`                                                     | webview-side architecture lint (`no-pi-imports.test.ts`)    | architecture lint test          |
 | FR-7        | `[DES-PANELS-DISPATCH]`                                         | `dispatchInbound` switch in sidebar-panel.ts                | sidebar-panel.test.ts           |
 | FR-8        | `[DES-PANELS-DISPATCH]`                                         | `handleMessage` in workbench-panel.ts                       | future workbench-panel tests    |
+| FR-9        | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/setMode`, `workspaceMode()`, `prefixExplorePrompt()`  | sidebar-panel.test.ts           |
+| FR-10       | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/send`, `chat/steer`, `chat/followUp` guardrail prefix | sidebar-panel.test.ts           |
+| FR-11       | `[DES-PANELS-MODE-WORKFLOW]`                                    | `handleRunCommand`, `agent/actionBlocked`                   | sidebar-panel.test.ts           |
 | NFR-1       | `[DES-PANELS-WEBVIEW-HTML]`                                     | nonce regeneration in `loadWebviewHtml`                     | manual review                   |
 | NFR-3       | `[DES-PANELS-WEBVIEW-HTML]`                                     | appearance class injected in HTML head                      | visual smoke (no FOUC)          |
 | NFR-5       | `[DES-PANELS-DISPATCH]`                                         | `default: const _never: never = msg;`                       | TypeScript exhaustive check     |
@@ -326,11 +405,12 @@ If the panel split adds friction without improving routing, fold content back in
 
 ## [DES-PANELS-REFS] File Reference Map
 
-| File                                        | Required @see                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `apps/vscode/src/panels/sidebar-panel.ts`   | `spec.md [FR-1] [FR-7]` + `design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]`                                       |
-| `apps/vscode/src/panels/workbench-panel.ts` | `spec.md [FR-2] [FR-8]` + `design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]`                                       |
-| `apps/vscode/src/panels/webview-html.ts`    | `spec.md [FR-3] [FR-5]` + `design.md [DES-PANELS-WEBVIEW-HTML]` + `131-package-ui-design-system [DES-APPEARANCE-BRIDGE]` |
+| File                                        | Required @see                                                                                                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/vscode/src/panels/sidebar-panel.ts`   | `spec.md [FR-1] [FR-7] [FR-9] [FR-10] [FR-11]` + `design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH] [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]` |
+| `apps/vscode/src/panels/workbench-panel.ts` | `spec.md [FR-2] [FR-8]` + `design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]`                                                                               |
+| `apps/vscode/src/panels/webview-html.ts`    | `spec.md [FR-3] [FR-5]` + `design.md [DES-PANELS-WEBVIEW-HTML]` + `131-package-ui-design-system [DES-APPEARANCE-BRIDGE]`                                         |
+| `apps/vscode/src/extension.ts`              | `spec.md [FR-9] [FR-12]` + `design.md [DES-COMMAND-SET-MODE]`                                                                                                    |
 
 ---
 

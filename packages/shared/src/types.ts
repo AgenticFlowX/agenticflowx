@@ -11,6 +11,13 @@ export type SpecStatus = "draft" | "approved" | "living";
 
 export type Mode = "spec" | "design" | "dev" | "check" | "report" | "session" | "task" | "discover";
 
+/**
+ * Workspace posture for the chat shell and settings snapshot.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-3] [FR-9] [FR-10]
+ */
+export type WorkspaceMode = "code" | "explore";
+
 export type Provider = "openai" | "anthropic" | "google" | "ollama" | "lmstudio" | "custom";
 
 export interface TaskStats {

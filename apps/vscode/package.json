@@ -114,6 +114,15 @@
           "default": true,
           "description": "Attach the active editor file to new chat turns and keep the chat composer toggle in sync with this default."
         },
+        "afx.mode.active": {
+          "type": "string",
+          "enum": [
+            "code",
+            "explore"
+          ],
+          "default": "code",
+          "description": "Workspace mode for the chat composer. Code is the default full-access Pi-backed mode; Explore is read-only and experimental."
+        },
         "afx.debugPerf": {
           "type": "boolean",
           "default": false,
@@ -185,6 +194,11 @@
       {
         "command": "afx.agentRestart",
         "title": "AgenticFlowX: Restart Agent Process"
+      },
+      {
+        "command": "afx.setMode",
+        "title": "Set Mode",
+        "category": "AFX"
       },
       {
         "command": "afx.setProviderApiKey",

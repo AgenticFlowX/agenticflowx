@@ -7,6 +7,7 @@ import type {
   AgentModel,
   AgentToChat,
   SettingsSnapshot,
+  WorkspaceMode,
 } from "@afx/shared";
 import { createMockTransport } from "@afx/transport";
 import type { Transport } from "@afx/transport";
@@ -73,7 +74,7 @@ function emitChatState(
   });
 }
 
-function createSettingsSnapshot(): SettingsSnapshot {
+function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot {
   return {
     appearance: {
       theme: "meridian",
@@ -110,6 +111,9 @@ function createSettingsSnapshot(): SettingsSnapshot {
     },
     context: {
       includeActiveFileContext: true,
+    },
+    mode: {
+      active: mode,
     },
     providers: [],
     externalAgents: [
@@ -444,6 +448,104 @@ describe("chat App", () => {
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
+  });
+
+  it("shows the Mode control, Explore tooltip, footer state, and blocked command strip", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+          },
+        },
+      });
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings",
+        snapshot: createSettingsSnapshot(),
+      });
+      transport.emit({
+        type: "agent/activeFileContext",
+        snapshot: { name: "journal.md", path: "/workspace/src/notes/journal.md" },
+      });
+    });
+
+    const modeButton = screen.getByRole("button", { name: "Mode: Code" });
+    await user.hover(modeButton);
+    expect(
+      await screen.findByText(/code is the default full-access pi-backed mode/i, {
+        selector: '[data-slot="tooltip-content"]',
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(modeButton);
+    expect(screen.getByRole("menuitemradio", { name: /Explore/i })).toBeInTheDocument();
+    expect(screen.getAllByText("Experimental").length).toBeGreaterThan(0);
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(screen.getByRole("menuitemradio", { name: /Explore/i }));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setMode",
+        mode: "explore",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Mode: Explore" })).toBeInTheDocument();
+    expect(screen.getByText("Read-only / Safe")).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(
+        "Explore mode is read-only — ask about files, risks, or the next step…",
+      ),
+    ).toBeInTheDocument();
+
+    act(() => {
+      transport.emit({
+        type: "agent/actionBlocked",
+        requestId: "blocked-1",
+        mode: "explore",
+        action: "runCommand",
+        title: "Shell command blocked in Explore mode",
+        message: "Explore mode is read-only. Switch to Code to run shell commands.",
+        command: "pnpm test",
+      });
+    });
+
+    expect(screen.getByText("Blocked command")).toBeInTheDocument();
+    expect(screen.getByText("! pnpm test")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy command" })).toBeInTheDocument();
+
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: "Switch to Code" }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setMode",
+        mode: "code",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+    ).toHaveValue("! pnpm test");
+    expect(screen.queryByText("Blocked command")).not.toBeInTheDocument();
   });
 
   it("closes the model menu before navigating to Settings", async () => {
@@ -885,13 +987,28 @@ describe("chat App", () => {
     await user.click(screen.getByRole("tab", { name: "Settings" }));
 
     expect(screen.getByText("Runtime Setup")).toBeInTheDocument();
+    expect(screen.getByText(/Default\. Full access\. Pi can act and edit\./)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Read-only investigation mode for inspection, tracing, and planning\. The host blocks shell commands/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Experimental").length).toBeGreaterThan(0);
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(screen.getByText("Explore"));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setMode",
+        mode: "explore",
+      }),
+    );
     expect(screen.getByRole("button", { name: /paste api key/i })).toBeInTheDocument();
     expect(screen.getByText("Advanced paths and defaults")).toBeInTheDocument();
     const includeActiveFileContext = screen.getByRole("switch", {
       name: "Include active file context",
     });
     expect(includeActiveFileContext).toBeChecked();
-    const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
     fireEvent.click(includeActiveFileContext);
     expect(send).toHaveBeenCalledWith(

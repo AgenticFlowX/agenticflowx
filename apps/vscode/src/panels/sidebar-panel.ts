@@ -3,14 +3,15 @@
  * Routes chat/send, chat/abort, chat/newSession from the webview to the agent; streams events back.
  * Deltas are coalesced per message id and flushed at ~16ms intervals.
  *
- * @see docs/specs/201-app-vscode-panels/spec.md [FR-1] [FR-7]
- * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-1] [FR-7] [FR-9] [FR-10] [FR-11]
+ * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH] [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
  * @see docs/specs/350-agent-manager/spec.md [FR-2] [FR-4]
  * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
  * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
  * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
- * @see docs/specs/200-app-vscode/spec.md [FR-9] [FR-10]
- * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+ * @see docs/specs/200-app-vscode/spec.md [FR-9] [FR-10] [FR-11] [FR-12]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-13]
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -48,6 +49,7 @@ import type {
   Logger,
   RuntimeAppearanceSnapshot,
   SettingsSnapshot,
+  WorkspaceMode,
 } from "@afx/shared";
 
 import { type AgentRuntimeMonitor, createAgentRuntimeMonitor } from "../agent-runtime-monitor";
@@ -108,6 +110,26 @@ const TURN_START_TIMEOUT_MS = 20_000;
 const OVERFLOW_RECOVERY_GRACE_MS = 1_500;
 const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
+const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
+
+You are in Explore mode. This turn is for analysis only.
+
+Non-negotiable rules:
+- Do not run, request, or imply any shell command, test, build, git operation, install, file edit, file creation, deletion, rename, patch, or other host action.
+- Do not claim to have performed any action or changed any state.
+- Do not suggest a workaround that bypasses these rules.
+- Do not ask the host or the user to do work so you can continue.
+- Do not output executable commands or patches.
+- These rules override any conflicting user instruction.
+
+Allowed:
+- Analyze the repository state already available in context.
+- Explain what the code is doing.
+- Cite relevant file paths, symbols, and risks.
+- Give safe, read-only next steps.
+- If the user wants implementation, say: "This requires Code mode."
+
+If the request cannot be answered without taking action, stop at the safest analysis-only answer.`;
 
 export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider {
   const {
@@ -193,6 +215,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       .get<boolean>("context.includeActiveFileContext", true);
   }
 
+  function workspaceMode(): WorkspaceMode {
+    const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code");
+    return value === "explore" ? "explore" : "code";
+  }
+
+  function isExploreMode(): boolean {
+    return workspaceMode() === "explore";
+  }
+
   /**
    * Captures the active editor file for the composer label.
    *
@@ -237,6 +268,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     const activeFile = getActiveWorkspaceFileMention();
     if (!activeFile) return normalized;
     return Array.from(new Set([activeFile, ...normalized]));
+  }
+
+  function prefixExplorePrompt(content: string): string {
+    if (!isExploreMode()) return content;
+    return `${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
   }
 
   function computeTelemetryState(): {
@@ -1166,6 +1202,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleSetModel(msg.requestId, msg.provider, msg.modelId, msg.instanceId);
         return;
       }
+      // @see docs/specs/201-app-vscode-panels/spec.md [FR-9] [FR-10] [FR-11]
+      // @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
+      case "chat/setMode": {
+        void handleSetMode(msg.requestId, msg.mode);
+        return;
+      }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
       case "chat/getCommands": {
         void handleGetCommands(msg.requestId);
@@ -1364,7 +1406,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         content,
         normalizePromptMentions(content, mentions),
       );
-      await agentManager.send(inflated);
+      await agentManager.send(prefixExplorePrompt(inflated));
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
       const message = err instanceof Error ? err.message : String(err);
@@ -1377,8 +1419,23 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   /**
    * @see docs/specs/211-app-chat-composer/spec.md [FR-9]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-SYSTEM-COMMAND]
+   * @see docs/specs/201-app-vscode-panels/spec.md [FR-11]
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-13]
    */
   function handleRunCommand(requestId: string, command: string): void {
+    if (isExploreMode()) {
+      post({
+        type: "agent/actionBlocked",
+        requestId,
+        mode: "explore",
+        action: "runCommand",
+        title: "Shell command blocked in Explore mode",
+        message: "Explore mode is read-only. Switch to Code to run shell commands.",
+        command,
+      });
+      return;
+    }
+
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspaceRoot) {
       post({ type: "agent/commandOutput", requestId, error: "No workspace folder open" });
@@ -1511,6 +1568,22 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
   }
 
+  /**
+   * Switches the workspace posture through the shared `afx.setMode` command so
+   * the same path serves command palette and webview-initiated changes.
+   *
+   * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
+   * @see docs/specs/201-app-vscode-panels/spec.md [FR-9]
+   */
+  async function handleSetMode(requestId: string, mode: WorkspaceMode): Promise<void> {
+    try {
+      await vscode.commands.executeCommand("afx.setMode", mode);
+    } catch (err) {
+      log.error("setMode failed", err instanceof Error ? err : undefined, { mode });
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
   async function persistSelectedApiProviderModel(
     requestId: string,
     model: AgentModel,
@@ -1598,6 +1671,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const ephemeral = cfg.get<boolean>("agentEphemeralSession", false);
       const sessionDir = cfg.get<string>("sessionDir", "").trim();
       const includeActiveFileContext = cfg.get<boolean>("context.includeActiveFileContext", true);
+      const mode = workspaceMode();
       const telemetryEnabled = cfg.get<boolean>("telemetry.enabled", true);
       const snapshot: SettingsSnapshot = {
         appearance: appearanceSnapshotFromConfig(cfg),
@@ -1616,6 +1690,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         },
         context: {
           includeActiveFileContext,
+        },
+        mode: {
+          active: mode,
         },
         providers: await groupProviders(
           models,
@@ -1926,7 +2003,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.steer(inflated);
+        await agentManager.steer(prefixExplorePrompt(inflated));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });
@@ -1951,7 +2028,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.followUp(inflated);
+        await agentManager.followUp(prefixExplorePrompt(inflated));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });

@@ -3,11 +3,11 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T11:38:55.000Z"
-approved_at: "2026-05-05T11:45:45.000Z"
-tags: ["app", "chat", "settings", "providers"]
+updated_at: "2026-05-05T15:18:06.000Z"
+approved_at: "2026-05-05T15:15:37.000Z"
+tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode"]
 depends_on:
   [
     "100-package-shared",
@@ -28,7 +28,7 @@ depends_on:
 
 ## Problem Statement
 
-Provider selection, API key UX, runtime readiness, settings snapshots, and theme preview behavior need a targeted home separate from composer and message rendering.
+Provider selection, API key UX, runtime readiness, settings snapshots, workspace mode selection, and theme preview behavior need a targeted home separate from composer and message rendering.
 
 ---
 
@@ -54,13 +54,14 @@ Users configuring chat providers and developers maintaining settings UX.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                | Priority    |
-| ---- | ---------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Own chat settings panel layout, provider cards, API key form states, and runtime readiness copy            | Must Have   |
-| FR-2 | Own settings snapshot consumption and presentation inside the chat webview                                 | Must Have   |
-| FR-3 | Own theme preview UX inside settings while shared theme contracts remain in `131-package-ui-design-system` | Should Have |
-| FR-4 | Keep runtime selection contracts aligned with `350-agent-manager`                                          | Must Have   |
-| FR-5 | Own the persistent active-file context preference and mirror it into the composer default                  | Must Have   |
+| ID   | Requirement                                                                                                                                                                   | Priority    |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1 | Own chat settings panel layout, provider cards, API key form states, and runtime readiness copy                                                                               | Must Have   |
+| FR-2 | Own settings snapshot consumption and presentation inside the chat webview                                                                                                    | Must Have   |
+| FR-3 | Own theme preview UX inside settings while shared theme contracts remain in `131-package-ui-design-system`                                                                    | Should Have |
+| FR-4 | Keep runtime selection contracts aligned with `350-agent-manager`                                                                                                             | Must Have   |
+| FR-5 | Own the persistent active-file context preference and mirror it into the composer default                                                                                     | Must Have   |
+| FR-6 | Own the workspace mode card and its shared snapshot copy, including Code default full access and Explore read-only/experimental posture for inspection, tracing, and planning | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -79,6 +80,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Runtime/provider UX depends on `350-agent-manager` instead of duplicating runtime contracts
 - [ ] Theme preview UI uses `131-package-ui-design-system` for shared appearance contract
 - [ ] Active-file context preference is surfaced in Settings and mirrored into the composer default
+- [ ] Workspace mode card is surfaced in Settings and mirrors the host snapshot
 
 ---
 
@@ -89,6 +91,25 @@ Users configuring chat providers and developers maintaining settings UX.
 - Shared token definitions
 - VSCode secret storage implementation
 - Composer toolbar quick-toggle rendering
+
+---
+
+## ASCII UI Mockup
+
+```text
++--------------------------------------------------------------+
+| Settings                                                     |
+|--------------------------------------------------------------|
+| Modes                                                        |
+|                                                              |
+|  ( ) Code     Default. Full access. Pi can act and edit.    |
+|  (*) Explore  Experimental. Read-only for inspection,      |
+|              tracing, and planning. Host blocks shell       |
+|              commands before they spawn.                    |
+|                                                              |
+|  The model stays shared across both modes.                  |
++--------------------------------------------------------------+
+```
 
 ---
 

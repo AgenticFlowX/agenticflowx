@@ -15,6 +15,7 @@ import type {
   QueueMode,
   ThinkingLevel,
 } from "./agent";
+import type { WorkspaceMode } from "./types";
 
 // ---------------------------------------------------------------------------
 // Runtime appearance
@@ -220,6 +221,16 @@ export interface SettingsContextSnapshot {
 }
 
 /**
+ * Workspace mode preference mirrored between Settings, the chat composer, and
+ * the host bridge.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-9]
+ */
+export interface SettingsModeSnapshot {
+  active: WorkspaceMode;
+}
+
+/**
  * Snapshot of the active editor file surfaced to the composer UI.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
@@ -231,8 +242,9 @@ export interface ActiveFileContextSnapshot {
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-CONTEXT]
+ * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 export interface SettingsSnapshot {
   appearance: RuntimeAppearanceSnapshot;
@@ -245,6 +257,7 @@ export interface SettingsSnapshot {
   };
   sdk?: SettingsSdkSnapshot;
   context: SettingsContextSnapshot;
+  mode: SettingsModeSnapshot;
   providers: SettingsProviderSnapshot[];
   externalAgents?: SettingsExternalAgentSnapshot[];
   diagnostics: { logLevel: string };
@@ -356,6 +369,13 @@ export type ChatToAgent =
       modelId: string;
       instanceId?: string;
     }
+  /**
+   * Workspace mode toggle from the chat composer or Settings surface.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-10]
+   * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
+   */
+  | { type: "chat/setMode"; requestId: string; mode: WorkspaceMode }
   /**
    * Composer slash popup requests the available commands.
    *
@@ -752,6 +772,21 @@ export type AgentToChat =
    */
   | { type: "agent/modelChanged"; requestId?: string; model: AgentModel }
   /**
+   * Host rejected an action while in a restricted workspace mode.
+   *
+   * @see docs/specs/201-app-vscode-panels/spec.md [FR-11]
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-13]
+   */
+  | {
+      type: "agent/actionBlocked";
+      requestId?: string;
+      mode: WorkspaceMode;
+      action: "runCommand";
+      title: string;
+      message: string;
+      command?: string;
+    }
+  /**
    * Composer slash popup: command list response.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
@@ -768,8 +803,9 @@ export type AgentToChat =
   /**
    * Settings panel: full snapshot response.
    *
-   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-2] [FR-5] [FR-6]
    * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
    */
   | { type: "agent/settingsSnapshot"; requestId: string; snapshot: SettingsSnapshot }
   /**

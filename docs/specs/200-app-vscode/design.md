@@ -5,9 +5,9 @@ status: Approved
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T11:53:21.000Z"
+updated_at: "2026-05-05T15:23:18.000Z"
 approved_at: "2026-05-05T11:53:21.000Z"
-tags: [app, vscode, extension, webview, commands, agent]
+tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode]
 spec: spec.md
 ---
 
@@ -17,7 +17,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator. It also owns the durable active-file context preference that the chat composer mirrors when sending prompts.
+`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator. It also owns the durable active-file context preference and the workspace mode preference (`afx.mode.active`) that the chat composer and settings surfaces mirror when sending prompts and switching between Code and Explore. The `afx.setMode` command is the shared workspace-mode entry point for the command palette, settings card, and composer toggle.
 
 ---
 
@@ -134,6 +134,7 @@ is `package.json` `contributes.configuration.properties`; this table mirrors it 
 | `afx.sdk.defaultModel`                 | string  | `anthropic:claude-opus-4-5` | chat settings provider card                   | `214-app-chat-settings`        |
 | `afx.sdk.ollamaBaseUrl`                | string  | `""`                        | chat settings provider card                   | `214-app-chat-settings`        |
 | `afx.context.includeActiveFileContext` | boolean | `true`                      | chat settings context card / composer toolbar | `214-app-chat-settings`        |
+| `afx.mode.active`                      | enum    | `code`                      | chat settings mode card / composer toolbar    | `214-app-chat-settings`        |
 | `afx.debugPerf`                        | boolean | `false`                     | composer footer (when on)                     | `211-app-chat-composer`        |
 | `afx.theme`                            | enum    | `meridian`                  | chat settings appearance                      | `131-package-ui-design-system` |
 | `afx.style`                            | enum    | `lyra`                      | chat settings appearance                      | `131-package-ui-design-system` |
@@ -163,6 +164,7 @@ the design node that should anchor the registration's `@see`.
 | ------------------------- | ------------------------- | --------------------------------- | ----------------------- | -------------------------------------- |
 | `afx.openSidebar`         | Open Sidebar              | palette, keybinding `cmd+alt+a`   | `201-app-vscode-panels` | `[DES-PANELS-COMMAND-OPEN-SIDEBAR]`    |
 | `afx.openWorkbench`       | Open Workbench            | palette                           | `201-app-vscode-panels` | `[DES-PANELS-COMMAND-OPEN-WORKBENCH]`  |
+| `afx.setMode`             | Set Mode                  | palette, settings card, composer  | `214-app-chat-settings` | `[DES-COMMAND-SET-MODE]`               |
 | `afx.showLogs`            | Show Logs (Output Panel)  | palette                           | `200-app-vscode`        | `[DES-COMMAND-SHOW-LOGS]`              |
 | `afx.agentSmokeTest`      | Agent Smoke Test          | palette                           | `350-agent-manager`     | `[DES-AGENT-COMMAND-SMOKE-TEST]`       |
 | `afx.agentRestart`        | Restart Agent Process     | palette, settings recovery button | `350-agent-manager`     | `[DES-AGENT-COMMAND-RESTART]`          |
@@ -202,6 +204,27 @@ Adding a command:
 1. Add to `package.json` `contributes.commands` and (if menu-bound) `contributes.menus.afx.editorContext`.
 2. Register the handler in `extension.ts` with a top-of-handler `@see` to the design anchor above.
 3. Add a row to this table with the owning spec.
+
+## [DES-COMMAND-SET-MODE] `afx.setMode` Command
+
+`afx.setMode` is the workspace-posture mutation path shared by the command palette, the settings
+card, and the composer toggle. The command writes `afx.mode.active` at workspace scope, then the
+sidebar/settings snapshots rehydrate from that persisted value.
+
+| Aspect     | Value                                                                                                                                                     |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registered | `apps/vscode/src/extension.ts`                                                                                                                            |
+| Title      | `Set Mode`                                                                                                                                                |
+| Keybinding | None in v1; use the command palette or in-app mode controls                                                                                               |
+| Behavior   | Reads the current `afx.mode.active` workspace setting, optionally shows a quick-pick, and persists the chosen posture back to the workspace configuration |
+| Surfaces   | command palette, Settings `Mode` card, composer `Mode` toggle                                                                                             |
+
+Quick-pick copy:
+
+| Option    | Description                                 |
+| --------- | ------------------------------------------- |
+| `Code`    | Default. Full access. Pi can act and edit.  |
+| `Explore` | Experimental. Read-only investigation mode. |
 
 ---
 
@@ -312,10 +335,10 @@ Adding a keybinding:
 
 ## File Reference Map
 
-| Task | File                                        | Required @see                                           |
-| ---- | ------------------------------------------- | ------------------------------------------------------- |
-| —    | `apps/vscode/src/extension.ts`              | `spec.md [FR-1] [FR-4] [FR-6]` + `design.md [DES-ARCH]` |
-| —    | `apps/vscode/src/agent-factory.ts`          | `spec.md [FR-6] [FR-8]` + `design.md [DES-ARCH]`        |
-| —    | `apps/vscode/src/panels/sidebar-panel.ts`   | `spec.md [FR-2] [FR-7]` + `design.md [DES-ARCH]`        |
-| —    | `apps/vscode/src/panels/workbench-panel.ts` | `spec.md [FR-3]` + `design.md [DES-ARCH]`               |
-| —    | `apps/vscode/src/panels/webview-html.ts`    | `spec.md [FR-5]` + `design.md [DES-ARCH]`               |
+| Task | File                                        | Required @see                                                                          |
+| ---- | ------------------------------------------- | -------------------------------------------------------------------------------------- |
+| —    | `apps/vscode/src/extension.ts`              | `spec.md [FR-1] [FR-4] [FR-6] [FR-12]` + `design.md [DES-ARCH] [DES-COMMAND-SET-MODE]` |
+| —    | `apps/vscode/src/agent-factory.ts`          | `spec.md [FR-6] [FR-8]` + `design.md [DES-ARCH]`                                       |
+| —    | `apps/vscode/src/panels/sidebar-panel.ts`   | `spec.md [FR-2] [FR-7]` + `design.md [DES-ARCH]`                                       |
+| —    | `apps/vscode/src/panels/workbench-panel.ts` | `spec.md [FR-3]` + `design.md [DES-ARCH]`                                              |
+| —    | `apps/vscode/src/panels/webview-html.ts`    | `spec.md [FR-5]` + `design.md [DES-ARCH]`                                              |

@@ -3,13 +3,15 @@
  * Reads VSCode config and injects into the active agent adapter; types agent as AgentManager.
  * Per-command @see anchors live inline at each registerCommand call.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-6] [FR-7]
- * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG] [DES-SETTINGS-CATALOG] [DES-KEYBINDING-CATALOG]
+ * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-6] [FR-7] [FR-11] [FR-12]
+ * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG] [DES-COMMAND-SET-MODE] [DES-SETTINGS-CATALOG] [DES-KEYBINDING-CATALOG]
  * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
  * @see docs/specs/350-agent-manager/spec.md [FR-2]
  * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
  * @see docs/specs/351-agent-pi/spec.md [FR-2]
  * @see docs/specs/351-agent-pi/design.md [DES-API]
+ * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
+ * @see docs/specs/201-app-vscode-panels/spec.md [FR-9] [FR-10] [FR-11]
  */
 import { existsSync } from "node:fs";
 import { delimiter, extname, isAbsolute, join } from "node:path";
@@ -23,6 +25,7 @@ import {
   type Disposable,
   type LogLevel,
   type Logger,
+  type WorkspaceMode,
   createLogger,
   onErrorAutoShowSink,
   outputChannelSink,
@@ -231,6 +234,9 @@ export async function activate(
         logger.info(`logLevel → ${next}`);
         logger.setLevel(next);
       }
+      if (e.affectsConfiguration("afx.mode.active")) {
+        void sidebarProvider?.refreshRuntimeConfiguration();
+      }
       if (RUNTIME_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {
         void scheduleAgentRuntimeRebuild("configuration changed");
       }
@@ -295,6 +301,18 @@ export async function activate(
     vscode.commands.registerCommand("afx.agentRestart", async () => {
       await runtimeMonitor.restart();
       vscode.window.showInformationMessage("AgenticFlowX: agent runtime restarted");
+    }),
+    // @see docs/specs/201-app-vscode-panels/spec.md [FR-9] [FR-10] [FR-11]
+    // @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
+    vscode.commands.registerCommand("afx.setMode", async (mode?: WorkspaceMode) => {
+      const currentMode = normalizeWorkspaceMode(
+        vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code"),
+      );
+      const nextMode = mode ?? (await pickWorkspaceMode(currentMode));
+      if (!nextMode || nextMode === currentMode) return;
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("mode.active", nextMode, vscode.ConfigurationTarget.Workspace);
     }),
     // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand(
@@ -494,6 +512,33 @@ function resolveInitialLevel(): LogLevel {
   if (fromSetting && (VALID_LEVELS as Set<string>).has(fromSetting)) return fromSetting as LogLevel;
 
   return "info";
+}
+
+async function pickWorkspaceMode(current: WorkspaceMode): Promise<WorkspaceMode | undefined> {
+  const selected = await vscode.window.showQuickPick(
+    [
+      {
+        label: "Code",
+        description: "Default. Full access. Pi can act and edit.",
+        value: "code" as const,
+      },
+      {
+        label: "Explore",
+        description: "Experimental. Read-only investigation mode.",
+        value: "explore" as const,
+      },
+    ],
+    {
+      title: "AFX: Set Mode",
+      placeHolder: "Choose Code or Explore",
+      ignoreFocusOut: true,
+    },
+  );
+  return selected?.value ?? current;
+}
+
+function normalizeWorkspaceMode(value: string | undefined): WorkspaceMode {
+  return value === "explore" ? "explore" : "code";
 }
 
 function detectExecutableOnPath(command: string): string | undefined {
