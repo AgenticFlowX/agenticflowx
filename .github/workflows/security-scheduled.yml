@@ -20,7 +20,7 @@ jobs:
     name: trufflehog (full-history secret scan)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: trufflesecurity/trufflehog@v3.83.7
@@ -35,7 +35,7 @@ jobs:
     name: lychee (markdown link check)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: lycheeverse/lychee-action@v2
         with:
           args: |-
