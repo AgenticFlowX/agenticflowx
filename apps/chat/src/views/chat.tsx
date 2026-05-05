@@ -5,7 +5,7 @@
  * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-FLOW]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  */
@@ -319,6 +319,7 @@ export default function Chat({
   const runtimeUnavailable = agentStatus.phase === "disconnected" || agentStatus.phase === "error";
   const runtimeUnconfigured = agentStatus.runtimeConfigured === false;
   const rpcEnabled = runtime.rpcEnabled === true || agentStatus.rpcEnabled === true;
+  const isCompacting = runtime.isCompacting === true;
   // The strip stays visible whenever the user has anything queued locally; the
   // dismiss / clear-all controls handle stale items if the engine drains them.
   const visibleQueued = queued;
@@ -339,6 +340,16 @@ export default function Chat({
   );
   /** True when the draft starts with "!" — shows the shell badge and warning footer. */
   const isSystemCommand = draft.startsWith("!");
+  const isComposerDisabled =
+    isCheckingAgent || isCompacting || (!isSystemCommand && runtimeUnavailable);
+  const composerPlaceholder = getComposerPlaceholder({
+    isCheckingAgent,
+    runtimeUnconfigured,
+    rpcEnabled,
+    runtimeUnavailable,
+    isCompacting,
+    isStreaming,
+  });
 
   // ── scroll ────────────────────────────────────────────────────────────────
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -405,6 +416,22 @@ export default function Chat({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- onDraftChange is stable (useCallback in App)
   }, [insertCommand, onCommandInserted]);
+
+  const setCompactionActive = useCallback((isActive: boolean): void => {
+    setRuntime((current) => ({ ...current, isCompacting: isActive }));
+  }, []);
+
+  const completeCompaction = useCallback((): void => {
+    setQueued([]);
+    setCompactionActive(false);
+    setInternalAgentStatus((current) => ({
+      ...current,
+      phase: current.running ? "ready" : current.phase,
+      isStreaming: false,
+    }));
+    setThinking(null);
+    toast.success("Session compacted", "History compacted into a summary.");
+  }, [setCompactionActive]);
 
   // ── bridge events ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -608,14 +635,8 @@ export default function Chat({
         reconcileQueuedFromRuntime(msg.settings.pendingMessageCount);
       }),
 
-      // Compaction — clears the queue and shows a toast.
-      bridgeOn("agent/compacted", (msg) => {
-        setQueued([]);
-        toast.success(
-          "Session compacted",
-          msg.result.summary ? msg.result.summary : "History compacted into a summary.",
-        );
-      }),
+      // Compaction — clears the queue and shows a compact confirmation.
+      bridgeOn("agent/compacted", completeCompaction),
 
       // Command output — accumulates streaming stdout/stderr from shell commands.
       bridgeOn("agent/commandOutput", (msg) => {
@@ -677,7 +698,7 @@ export default function Chat({
     bridgeSend({ type: "chat/getCommands", requestId: uid() });
 
     return () => offs.forEach((off) => off());
-  }, []);
+  }, [completeCompaction]);
 
   // Keep the last visible chat surface in webview state so remounts can
   // hydrate directly into the transcript instead of flashing the welcome card.
@@ -719,7 +740,7 @@ export default function Chat({
   // ── actions ────────────────────────────────────────────────────────────────
   /** Returns true if the composer has content and the agent is ready to receive input. */
   const hasDraft = draft.trim().length > 0;
-  const canSend = !isCheckingAgent && (!runtimeUnavailable || isSystemCommand) && hasDraft;
+  const canSend = hasDraft && !isComposerDisabled;
 
   /**
    * Handles draft changes and triggers slash/mention popups.
@@ -752,8 +773,11 @@ export default function Chat({
    */
   function submit(opts?: { followUp?: boolean }) {
     const trimmed = draft.trim();
-    const isSystemCommand = trimmed.startsWith("!");
-    if (trimmed.length === 0 || (!isSystemCommand && (isCheckingAgent || runtimeUnavailable)))
+    const isCommandDraft = trimmed.startsWith("!");
+    if (
+      trimmed.length === 0 ||
+      (isCommandDraft ? isCheckingAgent || isCompacting : isComposerDisabled)
+    )
       return;
     onDraftChange("");
     setSlashOpen(false);
@@ -763,7 +787,7 @@ export default function Chat({
     draftBeforeHistoryRef.current = "";
 
     // System command: bypass LLM entirely
-    if (trimmed.startsWith("!")) {
+    if (isCommandDraft) {
       const command = trimmed.slice(1).trimStart();
       if (command.length === 0) return;
       // New command: add empty slot that will be filled by streaming events
@@ -812,6 +836,8 @@ export default function Chat({
   }
 
   function startCompact() {
+    if (isCompacting) return;
+    setCompactionActive(true);
     bridgeSend({ type: "chat/compact", requestId: uid() });
     toast.info("Compacting session…");
   }
@@ -1142,20 +1168,8 @@ export default function Chat({
               value={draft}
               onChange={handleDraftChange}
               onKeyDown={onKeyDown}
-              placeholder={
-                isCheckingAgent
-                  ? "Waiting for the agent runtime to be ready…"
-                  : runtimeUnconfigured
-                    ? rpcEnabled
-                      ? "Configure a provider or fix Pi RPC in Settings…"
-                      : "Configure an API provider or enable Pi RPC to continue…"
-                    : runtimeUnavailable
-                      ? "Reconnect the agent runtime to continue…"
-                      : isStreaming
-                        ? "Queue a follow-up… (⌘⏎ to steer this turn)"
-                        : "Ask AFX about this workspace — ⌘⇧⏎ saves a note"
-              }
-              disabled={isCheckingAgent || (!isSystemCommand && runtimeUnavailable)}
+              placeholder={composerPlaceholder}
+              disabled={isComposerDisabled}
               rows={1}
               className="min-h-14 max-h-56"
             />
@@ -1178,7 +1192,7 @@ export default function Chat({
                     variant="ghost"
                     className="shrink-0"
                     onClick={openMentionPicker}
-                    disabled={isCheckingAgent || runtimeUnavailable}
+                    disabled={isComposerDisabled}
                     aria-label="Mention file"
                     title="Mention file"
                   >
@@ -1188,7 +1202,7 @@ export default function Chat({
                 <ModelCombobox
                   models={models}
                   value={agentStatus.model}
-                  disabled={isCheckingAgent || (!isSystemCommand && runtimeUnavailable)}
+                  disabled={isComposerDisabled}
                   onSelect={selectModel}
                   onOpenSettings={onOpenSettings}
                 />
@@ -1277,6 +1291,49 @@ export default function Chat({
       </div>
     </div>
   );
+}
+
+/**
+ * Builds state-aware composer placeholder copy without nesting UI conditionals.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER] [DES-COMPOSER-MOCKUP-COMPACTING]
+ */
+function getComposerPlaceholder({
+  isCheckingAgent,
+  runtimeUnconfigured,
+  rpcEnabled,
+  runtimeUnavailable,
+  isCompacting,
+  isStreaming,
+}: {
+  isCheckingAgent: boolean;
+  runtimeUnconfigured: boolean;
+  rpcEnabled: boolean;
+  runtimeUnavailable: boolean;
+  isCompacting: boolean;
+  isStreaming: boolean;
+}): string {
+  if (isCheckingAgent) return "Waiting for the agent runtime to be ready…";
+  if (runtimeUnconfigured) {
+    return rpcEnabled
+      ? "Configure a provider or fix Pi RPC in Settings…"
+      : "Configure an API provider or enable Pi RPC to continue…";
+  }
+  if (runtimeUnavailable) return "Reconnect the agent runtime to continue…";
+  if (isCompacting) return "Compacting session — wait for it to finish…";
+  if (isStreaming) return "Queue a follow-up… (⌘⏎ to steer this turn)";
+  return "Ask AFX about this workspace — ⌘⇧⏎ saves a note";
+}
+
+function isCompactDisabled(status: AgentRuntimeStatus, runtime: RuntimeSettings): boolean {
+  return !status.running || status.isStreaming || runtime.isCompacting === true;
+}
+
+function getCompactTooltip(status: AgentRuntimeStatus, runtime: RuntimeSettings): string {
+  if (runtime.isCompacting) return "Compacting…";
+  if (status.isStreaming) return "Wait for the active turn to finish";
+  return "Compact session";
 }
 
 // ---------------------------------------------------------------------------
@@ -1555,16 +1612,14 @@ function StatusBar({
               <button
                 type="button"
                 onClick={onCompact}
-                disabled={!status.running || runtime.isCompacting}
+                disabled={isCompactDisabled(status, runtime)}
                 className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label="Compact session"
               >
                 <Layers size={12} className={cn(runtime.isCompacting && "animate-pulse")} />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {runtime.isCompacting ? "Compacting…" : "Compact session"}
-            </TooltipContent>
+            <TooltipContent side="bottom">{getCompactTooltip(status, runtime)}</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>

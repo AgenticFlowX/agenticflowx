@@ -4,7 +4,7 @@ type: JOURNAL
 status: Living
 owner: "@rixrix"
 created_at: "2026-05-03T11:23:57.000Z"
-updated_at: "2026-05-05T07:29:30.000Z"
+updated_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "composer", "webview", "journal"]
 ---
 
@@ -21,6 +21,9 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 
 - `2026-05-04T08:02:36.000Z` `/afx-dev debug`: production queue bug found in composer/host queue paths. Rapid steer/follow-up submissions were dispatched concurrently to the runtime instead of serialized, local queue rows did not reconcile when `pendingMessageCount` drained to zero, and queue rows lacked visible `Steer` / `Follow-up` labels. Fixed in `apps/vscode/src/panels/sidebar-panel.ts` and `apps/chat/src/views/chat.tsx`; added regression coverage in app/sidebar tests. `[FR-4] [FR-8] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FLOW]`
 - `2026-05-05T07:29:30.000Z` `/afx-dev debug`: composer streaming actions lacked visible shortcut affordances for follow-up and steer. Updated streaming action buttons to show compact visible labels and shortcut chips: `Follow-up ⏎` and `Steer ⌘⏎`, moved follow-up/steer footer hints before idle send/note copy for narrow sidebars, and preserved accessible button names. Added regression coverage in `apps/chat/src/app.test.tsx`. `[FR-1] [FR-2] [FR-4] [NFR-1] [DES-COMPOSER-KEYS] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FOOTER]`
+- `2026-05-05T07:49:21.000Z` `/afx-dev debug`: P0 manual compaction UX/state bug. Compacting did not lock the composer, so overlapping sends could race with Pi compaction and leave chat stuck in a stale streaming state. Locked the composer and compact button while compaction is active, guarded host sends during manual compaction, and reset runtime busy state when compaction completes. Added chat/host regression coverage. `[FR-1] [FR-2] [NFR-3] [DES-COMPOSER-RUNTIME] [DES-COMPOSER-FOOTER]`
+- `2026-05-05T08:18:33.000Z` `/afx-dev refactor`: follow-up code smell cleanup after the manual compaction P0 fix. Extracted state-aware composer placeholder and compact-tooltip helpers, centralized composer disabled checks, and moved host compaction lock/reset logic behind named helpers so future compaction changes do not add more nested conditionals or partial state resets. `[FR-1] [FR-2] [NFR-3] [DES-COMPOSER-RUNTIME] [DES-COMPOSER-FOOTER]`
+- `2026-05-05T08:37:39.000Z` `/afx-dev docs`: synchronized composer ASCII mockups with the implemented streaming follow-up/steer labels and manual compaction lock state. Added `[DES-COMPOSER-MOCKUP-COMPACTING]` so the disabled placeholder, compact lock, and footer reference are traceable for future UI work. `[FR-1] [FR-2] [NFR-3] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING]`
 
 ---
 

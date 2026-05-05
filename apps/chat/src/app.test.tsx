@@ -1053,6 +1053,54 @@ describe("chat App", () => {
     expect(screen.getByText(/empty assistant placeholders are visible/i)).toBeInTheDocument();
   });
 
+  /**
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-FOOTER] [DES-COMPOSER-MOCKUP-COMPACTING]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MOCKUP-COMPACTION-TOAST]
+   */
+  it("locks the composer during compaction and keeps compacted toasts short", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    const longSummary =
+      "This compacted session summary is intentionally long and should stay out of the transient toast.";
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { isCompacting: true, runtimeConfigured: true },
+      });
+    });
+
+    expect(
+      screen.getByPlaceholderText("Compacting session — wait for it to finish…"),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Compact session" })).toBeDisabled();
+
+    act(() => {
+      transport.emit({
+        type: "agent/compacted",
+        requestId: "compact-1",
+        result: { summary: longSummary, firstKeptEntryId: "entry-1", tokensBefore: 1234 },
+      });
+    });
+
+    expect(screen.getByText("Session compacted")).toBeInTheDocument();
+    expect(screen.getByText("History compacted into a summary.")).toBeInTheDocument();
+    expect(screen.queryByText(longSummary)).not.toBeInTheDocument();
+  });
+
   it("exposes separate Queue and Steer buttons while streaming", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();

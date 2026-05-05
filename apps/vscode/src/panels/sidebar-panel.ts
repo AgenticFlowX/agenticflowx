@@ -74,6 +74,8 @@ export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
 
 interface SidebarState {
   isStreaming: boolean;
+  /** Host-side lock for manual compaction requests until Pi resolves compact(). */
+  isCompacting: boolean;
   messages: ChatTimelineItem[];
   tools: ChatToolView[];
   /** id of the assistant message currently being streamed, if any. */
@@ -123,6 +125,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   const state: SidebarState = {
     isStreaming: false,
+    isCompacting: false,
     messages: [],
     tools: [],
     currentAssistantId: null,
@@ -1246,6 +1249,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     content: string,
     mentions: readonly string[] = [],
   ): Promise<void> {
+    if (state.isCompacting) {
+      postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
+      return;
+    }
     if (state.isStreaming) {
       postError(requestId, "Already streaming. Wait for the current turn to finish.", "toast");
       return;
@@ -1716,8 +1723,22 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    *
    * Performance: creates a new array reference so React can efficiently diff and
    * unmount the old message components.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-6]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
    */
   async function handleCompact(requestId: string, customInstructions?: string): Promise<void> {
+    if (state.isCompacting) {
+      postError(requestId, "Compaction is already in progress.", "toast");
+      return;
+    }
+    if (state.isStreaming) {
+      postError(requestId, "Wait for the current turn to finish before compacting.", "toast");
+      return;
+    }
+
+    beginManualCompaction();
+
     try {
       const result = await agentManager.compact(customInstructions);
 
@@ -1732,21 +1753,54 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       };
       state.messages = [compactionMsg];
 
-      // Clear pending streaming state — there can't be any in-progress deltas
-      // after compaction, and clearing this prevents stale UI.
-      pendingDeltas.clear();
-
-      // Clear queued messages — they belong to the pruned context.
-      queuedUserDisplays.length = 0;
+      clearTurnStateAfterCompaction();
 
       // Broadcast the result and updated snapshot to the webview.
       post({ type: "agent/compacted", requestId, result });
       postSnapshot();
-      void broadcastRuntimeSettings();
     } catch (err) {
       log.error("compact failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "transcript");
+    } finally {
+      finishManualCompaction();
     }
+  }
+
+  function beginManualCompaction(): void {
+    state.isCompacting = true;
+    recordRuntimeStatus({
+      running: true,
+      isStreaming: false,
+      model: currentModel,
+      isCompacting: true,
+    });
+    void broadcastRuntimeSettings();
+  }
+
+  function finishManualCompaction(): void {
+    state.isCompacting = false;
+    recordRuntimeStatus({
+      running: true,
+      isStreaming: state.isStreaming,
+      model: currentModel,
+      isCompacting: false,
+    });
+    void broadcastRuntimeSettings();
+  }
+
+  function clearTurnStateAfterCompaction(): void {
+    state.isStreaming = false;
+    state.currentRequestId = null;
+    state.currentAssistantId = null;
+    state.currentAssistantSourceId = null;
+    state.lastAssistantId = null;
+    state.suppressNextUserMessageStart = false;
+    state.currentTurnSawRuntimeEvent = false;
+    pendingDeltas.clear();
+    clearTurnStartTimeout();
+    clearPendingContextOverflow();
+    clearPendingRetryableError();
+    queuedUserDisplays.length = 0;
   }
 
   async function handleSteer(
@@ -1818,7 +1872,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           followUpMode: status.followUpMode,
           autoCompactionEnabled: status.autoCompactionEnabled,
           autoRetryEnabled: status.autoRetryEnabled,
-          isCompacting: status.isCompacting,
+          isCompacting: state.isCompacting || status.isCompacting,
           sessionId: status.sessionId,
           sessionFile: status.sessionFile,
           sessionName: status.sessionName,

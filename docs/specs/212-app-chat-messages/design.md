@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T02:54:23.000Z"
+updated_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -86,6 +86,8 @@ Messages should preserve readability during streaming and make tool/thinking sta
 
 ### [DES-MESSAGES-MOCKUP-SYSTEM] Error, Info, Compaction, And Note Rows
 
+System rows are durable timeline content. The compaction summary row owns the full summary text and token delta; transient notifications must not render the full summary.
+
 ```text
 +------------------------------------------------------------------+
 |       ! Error                                                     |
@@ -95,10 +97,22 @@ Messages should preserve readability during streaming and make tool/thinking sta
 |                                                                  |
 |       < Session compacted                         -12.5k tokens   |
 |         Summary of previous context...                            |
+|         (full compacted-context summary stays in the timeline)     |
 |                                                                  |
 |       / Note                                      14:05           |
 |         remember to update specs first                            |
 +------------------------------------------------------------------+
+```
+
+### [DES-MESSAGES-MOCKUP-COMPACTION-TOAST] Transient Compaction Confirmation
+
+The toast confirms completion only. It never uses `result.summary` as its description, because long summaries can obscure the transcript.
+
+```text
++------------------------------------------+
+| ✓ Session compacted                      |
+|   History compacted into a summary.      |
++------------------------------------------+
 ```
 
 ## [DES-MESSAGES-COMPONENTS] Timeline Component Anatomy
@@ -248,8 +262,7 @@ within `streaming`.
 | `completed`    | `chat/messageEnd`                                               | Streaming flag cleared; stopReason rendered if non-friendly |
 | `aborted`      | `chat/aborted`                                                  | Streaming flag cleared; "interrupted" badge rendered        |
 
-Compaction (`agent/compacted`) inserts a `compactionSummary` row in the timeline; not part of the
-per-message lifecycle.
+Compaction (`agent/compacted`) inserts a `compactionSummary` row in the timeline and may show the short `[DES-MESSAGES-MOCKUP-COMPACTION-TOAST]` confirmation; it is not part of the per-message lifecycle.
 
 ---
 
@@ -372,19 +385,19 @@ Route files back to `210-app-chat` only if this child spec stops providing clear
 
 ## [DES-MESSAGES-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                               | Code anchors                                                    | Verification                                 |
-| ----------- | ---------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------- |
-| FR-1        | `DES-MESSAGES-MOCKUP-ASSISTANT`, `DES-MESSAGES-COMPONENTS` | `Timeline`, `TimelineRow`, `Marker`, `EventHeader`, `EventBody` | `apps/chat/src/app.test.tsx`                 |
-| FR-2        | `DES-MESSAGES-EVENT-FLOW`, `DES-MESSAGES-MOCKUP-THINKING`  | `chat/messageDelta`, `chat/thinkingDelta`, `ThinkingTrace`      | future focused timeline tests                |
-| FR-3        | `DES-MESSAGES-MARKDOWN`                                    | `MarkdownMessage`, `CodeFence`                                  | future markdown tests                        |
-| FR-4        | `DES-MESSAGES-MOCKUP-TOOL`, `DES-MESSAGES-TOOLS`           | `ToolEvent`, `ToolEventRow`, `toolDescriptor`                   | future tool-card tests                       |
-| FR-5        | `DES-MESSAGES-META`                                        | `AssistantMeta`, `FRIENDLY_STOP_REASONS`                        | future metadata tests                        |
-| FR-6        | `DES-MESSAGES-MOCKUP-SYSTEM`                               | `EventHeader`, `EventBody`, `CompactionCard`, note event branch | future system-row tests                      |
-| FR-7        | `DES-DEC`                                                  | Composer behavior routed to `211-app-chat-composer`             | child spec boundary                          |
-| NFR-1       | `DES-MESSAGES-EVENT-FLOW`                                  | incremental React state updates                                 | `apps/chat/src/app.test.tsx`                 |
-| NFR-2       | `DES-MESSAGES-MARKDOWN`, `DES-MESSAGES-TOOLS`              | semantic markdown, buttons, details/summary                     | future accessibility assertions              |
-| NFR-3       | `DES-MESSAGES-MOCKUPS`                                     | compact rail/table/meta layouts                                 | visual review/e2e when layout changes        |
-| NFR-4       | `DES-MESSAGES-REFS`, `DES-MESSAGES-LOC`                    | local `@see` anchors                                            | `rg "@see docs/specs/212-app-chat-messages"` |
+| Requirement | Design nodes                                                         | Code anchors                                                    | Verification                                 |
+| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------- |
+| FR-1        | `DES-MESSAGES-MOCKUP-ASSISTANT`, `DES-MESSAGES-COMPONENTS`           | `Timeline`, `TimelineRow`, `Marker`, `EventHeader`, `EventBody` | `apps/chat/src/app.test.tsx`                 |
+| FR-2        | `DES-MESSAGES-EVENT-FLOW`, `DES-MESSAGES-MOCKUP-THINKING`            | `chat/messageDelta`, `chat/thinkingDelta`, `ThinkingTrace`      | future focused timeline tests                |
+| FR-3        | `DES-MESSAGES-MARKDOWN`                                              | `MarkdownMessage`, `CodeFence`                                  | future markdown tests                        |
+| FR-4        | `DES-MESSAGES-MOCKUP-TOOL`, `DES-MESSAGES-TOOLS`                     | `ToolEvent`, `ToolEventRow`, `toolDescriptor`                   | future tool-card tests                       |
+| FR-5        | `DES-MESSAGES-META`                                                  | `AssistantMeta`, `FRIENDLY_STOP_REASONS`                        | future metadata tests                        |
+| FR-6        | `DES-MESSAGES-MOCKUP-SYSTEM`, `DES-MESSAGES-MOCKUP-COMPACTION-TOAST` | `EventHeader`, `EventBody`, `CompactionCard`, note event branch | `apps/chat/src/app.test.tsx`                 |
+| FR-7        | `DES-DEC`                                                            | Composer behavior routed to `211-app-chat-composer`             | child spec boundary                          |
+| NFR-1       | `DES-MESSAGES-EVENT-FLOW`                                            | incremental React state updates                                 | `apps/chat/src/app.test.tsx`                 |
+| NFR-2       | `DES-MESSAGES-MARKDOWN`, `DES-MESSAGES-TOOLS`                        | semantic markdown, buttons, details/summary                     | future accessibility assertions              |
+| NFR-3       | `DES-MESSAGES-MOCKUPS`                                               | compact rail/table/meta layouts                                 | visual review/e2e when layout changes        |
+| NFR-4       | `DES-MESSAGES-REFS`, `DES-MESSAGES-LOC`                              | local `@see` anchors                                            | `rg "@see docs/specs/212-app-chat-messages"` |
 
 ---
 

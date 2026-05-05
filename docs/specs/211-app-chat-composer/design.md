@@ -3,15 +3,15 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T07:29:30.000Z"
-approved_at: "2026-05-05T07:29:30.000Z"
+updated_at: "2026-05-05T08:37:39.000Z"
+approved_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "composer", "webview"]
 spec: spec.md
 ---
 
-<!-- APPROVED: 2026-05-05T07:29:30.000Z - Do not edit without version bump -->
+<!-- APPROVED: 2026-05-05T08:37:39.000Z - Do not edit without version bump -->
 
 # App Chat Composer - Technical Design
 
@@ -95,17 +95,35 @@ The streaming state replaces the single send action with follow-up, steer, and s
 
 ```text
 +--------------------------------------------------------------------+
-| [Composer.Activity]  pulsing dot  thinking: reading specs...          |
+| [Composer.Activity]  pulsing dot  thinking: reading specs...       |
 +--------------------------------------------------------------------+
-| [Composer.Queue] Queued . 2                         [Clear all] [v]   |
-|   [steer] -> tighten footer copy                                      |
-|   [follow-up] 1. then update tests                                    |
+| [Composer.Queue] Queued . 2                       [Clear all] [v]   |
+|   [Steer] -> tighten footer copy                                   |
+|   [Follow-up] 1. then update tests                                 |
 +--------------------------------------------------------------------+
-| [Composer.InputGroup]                                                 |
-|  [@] [Composer.Input: Queue a follow-up... (Cmd+Enter to steer)]      |
-|      [Composer.Model] [Thinking]         [Follow-up] [Steer] [Stop]   |
+| [Composer.InputGroup]                                              |
+|  [@] [Composer.Input: Queue a follow-up... (⌘⏎ to steer)]          |
+|      [Model] [Thinking]      [Follow-up ⏎] [Steer ⌘⏎] [Stop]       |
 +--------------------------------------------------------------------+
-| [Composer.Footer] streaming hint . Pi pill . token/cost tooltip       |
+| [Composer.Footer] ⏎ follow-up . ⌘⏎ steer . Pi pill . usage         |
++--------------------------------------------------------------------+
+```
+
+### [DES-COMPOSER-MOCKUP-COMPACTING] Manual Compaction Locked State
+
+Manual compaction is a runtime-busy state. It disables text entry, send/follow-up/steer actions, and duplicate compact requests until the host reports `agent/compacted` or an error.
+
+```text
++--------------------------------------------------------------------+
+| [Composer.Activity]  pulsing dot  Compacting session...            |
++--------------------------------------------------------------------+
+| [Composer.InputGroup disabled]                                     |
+|  [@ disabled] [Composer.Input disabled]                            |
+|      "Compacting session — wait for it to finish…"                 |
+|      [Composer.Model disabled] [Thinking disabled]        [Send off] |
++--------------------------------------------------------------------+
+| [Composer.Footer] Compacting history . wait for completion         |
+| [Header.Action] Compact session disabled / pulsing                 |
 +--------------------------------------------------------------------+
 ```
 
@@ -465,6 +483,7 @@ The composer transitions between five states. State transitions are driven by `a
 | `typing`      | Active draft, send enabled when non-empty                             | Submit, slash/mention triggers, history recall |
 | `idle`        | Steady state, no streaming                                            | Submit (transitions to `streaming`)            |
 | `streaming`   | Stop / Steer / Follow-up actions visible                              | Steer, follow-up (queue), abort                |
+| `compacting`  | Disabled composer + `[DES-COMPOSER-MOCKUP-COMPACTING]` copy           | Wait for completion; no send/compact overlap   |
 | `queued`      | Local mirror rows shown above input (queued for after current turn)   | Add more, dismiss row, clear all               |
 
 ## [DES-COMPOSER-FOOTER] Activity And Footer Copy Matrix
@@ -478,6 +497,7 @@ The composer transitions between five states. State transitions are driven by `a
 | Runtime unconfigured       | `FooterStrip`                   | Routes user toward provider/Pi setup copy                          |
 | Runtime unavailable        | `FooterStrip`, Pi warning click | Surfaces recovery/settings affordance without full-screen takeover |
 | Streaming                  | `FooterStrip`                   | Shows follow-up/steer keyboard hint before idle send/note hints    |
+| Manual compaction          | `FooterStrip`, placeholder      | Locks input with `Compacting session — wait for it to finish…`     |
 
 ---
 
@@ -634,23 +654,23 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 
 ## [DES-COMPOSER-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                                                                   | Code anchors                                                                                                                                                                  | Verification                                                                                                    |
-| ----------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`    | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                      |
-| FR-2        | `DES-COMPOSER-FOOTER`                                                                                          | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                    |
-| FR-3        | `DES-COMPOSER-HELPERS`                                                                                         | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                   |
-| FR-4        | `DES-COMPOSER-QUEUE`                                                                                           | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                    |
-| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                         | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                                                                                     | `app.test.tsx`; model-combobox tests when changed                                                               |
-| FR-6        | `DES-COMPOSER-KEYS`                                                                                            | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                            |
-| FR-7        | `DES-COMPOSER-FOOTER`                                                                                          | `ActivityBar`, `chat/thinkingDelta` handler                                                                                                                                   | `app.test.tsx`                                                                                                  |
-| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                 | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
-| FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR` | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
-| NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                 | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
-| NFR-1       | `DES-COMPOSER-KEYS`                                                                                            | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
-| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                          | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
-| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-QUEUE`                                                                   | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |
-| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                         | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                               |
-| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                        | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                             |
+| Requirement | Design nodes                                                                                                                                  | Code anchors                                                                                                                                                                  | Verification                                                                                                    |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS` | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                      |
+| FR-2        | `DES-COMPOSER-FOOTER`, `DES-COMPOSER-MOCKUP-COMPACTING`                                                                                       | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-3        | `DES-COMPOSER-HELPERS`                                                                                                                        | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                   |
+| FR-4        | `DES-COMPOSER-QUEUE`                                                                                                                          | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                    |
+| FR-5        | `DES-COMPOSER-RUNTIME`                                                                                                                        | `ModelCombobox`, `ThinkingLevelToggle`, `selectModel`, `setThinkingLevel`                                                                                                     | `app.test.tsx`; model-combobox tests when changed                                                               |
+| FR-6        | `DES-COMPOSER-KEYS`                                                                                                                           | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                            |
+| FR-7        | `DES-COMPOSER-FOOTER`                                                                                                                         | `ActivityBar`, `chat/thinkingDelta` handler                                                                                                                                   | `app.test.tsx`                                                                                                  |
+| FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                                                | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
+| FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR`                                | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
+| NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
+| NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                           | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
+| NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                         | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
+| NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |
+| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                                                        | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                               |
+| NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                                                       | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                             |
 
 ---
 

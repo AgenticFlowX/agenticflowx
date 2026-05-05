@@ -717,6 +717,60 @@ describe("sidebar-panel host bridge", () => {
     ).toBe(false);
   });
 
+  it("locks manual compaction against overlapping sends and clears busy state", async () => {
+    const { inbound, postMessage } = setupWithView();
+    let finishCompact!: (value: Awaited<ReturnType<MockAgentManager["compact"]>>) => void;
+    agent.compact.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishCompact = resolve;
+        }),
+    );
+
+    inbound.fire({ type: "chat/compact", requestId: "manual-compact" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/runtimeSettings",
+        settings: expect.objectContaining({ isCompacting: true }),
+      }),
+    );
+
+    inbound.fire({ type: "chat/send", requestId: "send-during-compact", content: "hello" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "send-during-compact",
+        message: "Compaction is in progress. Wait for it to finish.",
+      }),
+    );
+
+    finishCompact({
+      summary: "Kept the important details.",
+      firstKeptEntryId: "entry-1",
+      tokensBefore: 1000,
+    });
+    await flushAsyncWork(3);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/state",
+        isStreaming: false,
+        messages: [expect.objectContaining({ role: "compactionSummary" })],
+      }),
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/runtimeSettings",
+        settings: expect.objectContaining({ isCompacting: false }),
+      }),
+    );
+  });
+
   it("surfaces context overflow when Pi does not start compaction recovery", async () => {
     vi.useFakeTimers();
     const { inbound, postMessage } = setupWithView();
