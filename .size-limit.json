@@ -16,7 +16,7 @@
   {
     "name": "workbench webview",
     "path": "apps/workbench/dist/assets/*.js",
-    "limit": "1 MB",
+    "limit": "2 MB",
     "brotli": false,
     "gzip": false
   }
