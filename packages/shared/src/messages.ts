@@ -210,8 +210,29 @@ export interface SettingsSdkSnapshot {
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
- * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
+ * Active-file context preference mirrored between Settings and the composer.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
+ */
+export interface SettingsContextSnapshot {
+  includeActiveFileContext: boolean;
+}
+
+/**
+ * Snapshot of the active editor file surfaced to the composer UI.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+ */
+export interface ActiveFileContextSnapshot {
+  name: string;
+  path: string;
+}
+
+/**
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-CONTEXT]
  */
 export interface SettingsSnapshot {
   appearance: RuntimeAppearanceSnapshot;
@@ -223,6 +244,7 @@ export interface SettingsSnapshot {
     ephemeral: boolean;
   };
   sdk?: SettingsSdkSnapshot;
+  context: SettingsContextSnapshot;
   providers: SettingsProviderSnapshot[];
   externalAgents?: SettingsExternalAgentSnapshot[];
   diagnostics: { logLevel: string };
@@ -355,6 +377,15 @@ export type ChatToAgent =
    * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
    */
   | { type: "chat/getSettingsSnapshot"; requestId: string }
+  /**
+   * Composer and Settings mirror the active-file context default through the host.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
+   */
+  | { type: "chat/setIncludeActiveFileContext"; requestId: string; enabled: boolean }
   /**
    * Settings panel sets a provider API key.
    *
@@ -741,6 +772,13 @@ export type AgentToChat =
    * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
    */
   | { type: "agent/settingsSnapshot"; requestId: string; snapshot: SettingsSnapshot }
+  /**
+   * Composer context label for the active editor file.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+   */
+  | { type: "agent/activeFileContext"; snapshot: ActiveFileContextSnapshot | null }
   /**
    * Appearance change applied (echoed back so all webviews stay in sync).
    *

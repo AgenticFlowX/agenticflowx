@@ -1,11 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
-version: "1.5"
+version: "1.6"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T10:04:49.000Z"
+updated_at: "2026-05-05T11:38:55.000Z"
+approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
 ---
@@ -61,6 +62,12 @@ type ChatToAgent =
   | { type: "chat/abort" }
   | { type: "chat/newSession" }
   | { type: "chat/getState" }
+  // Durable preference toggle shared by Settings and the chat composer toolbar.
+  // @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+  // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+  | { type: "chat/setIncludeActiveFileContext"; requestId: string; enabled: boolean }
   // Composer modified-files strip pill click — host opens path in editor; if
   // `line` is provided (1-indexed), the host reveals that line via the editor
   // selection. Optional, harness-agnostic.
@@ -142,6 +149,38 @@ interface ChatUsageView {
   tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
   cost: number;
   contextUsage?: { tokens: number | null; contextWindow: number; percent: number | null };
+}
+```
+
+### [DES-SHARED-SETTINGS-SNAPSHOT] Settings Snapshot
+
+`SettingsSnapshot` is the shared shape the extension host sends to webviews when they need durable
+UI state. The active-file context toggle lives here so the settings panel and chat composer can
+render and persist the same default.
+
+```typescript
+interface SettingsSnapshot {
+  appearance: RuntimeAppearanceSnapshot;
+  engine: {
+    rpcEnabled: boolean;
+    agentBinary: string;
+    bundledSkillsPath: string;
+    bundledSkillCount: number;
+    ephemeral: boolean;
+  };
+  context: {
+    includeActiveFileContext: boolean;
+  };
+  sdk?: SettingsSdkSnapshot;
+  providers: SettingsProviderSnapshot[];
+  externalAgents?: SettingsExternalAgentSnapshot[];
+  diagnostics: { logLevel: string };
+  telemetry: {
+    enabled: boolean;
+    effectiveEnabled: boolean;
+    vscodeTelemetryEnabled: boolean;
+  };
+  about: { extensionVersion: string; bundledPiNpmVersion?: string };
 }
 ```
 

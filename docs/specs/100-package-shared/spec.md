@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-05T11:53:21.000Z"
 tags: [package, shared, protocol, types, agent, logging]
 ---
 
@@ -53,6 +53,8 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 | FR-4 | Workbench protocol: `WorkbenchToHost`, `HostToWorkbench` message families                                                                                                                                                                          | Should Have |
 | FR-5 | Runtime-agnostic agent contract: `AgentManager`, `AgentEvent`, `AgentStatus`, `AgentUsageStats`, `AgentUiRequest`, `AgentUiResponse`, `Disposable` — implemented by every agent adapter, starting with Pi                                          | Must Have   |
 | FR-6 | Structured `Logger` contract: leveled (silent/error/warn/info/debug/trace), scoped child loggers, lazy-callback messages (`() => string`), pluggable sinks (`outputChannelSink`, `consoleSink`, `onErrorAutoShowSink`, `memorySink`); see ADR-0003 | Must Have   |
+| FR-7 | Shared settings snapshot includes the durable active-file context preference so chat composer and settings surfaces can stay in sync                                                                                                               | Must Have   |
+| FR-8 | Chat-to-host protocol includes a toggle mutation for the active-file context preference so the composer quick toggle and settings switch can write the same setting                                                                                | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -70,6 +72,8 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 - [ ] `ChatToAgent` and `AgentToChat` are discriminated unions with `type` string literal fields
 - [ ] All message types are namespaced (e.g. `chat/send`, `agent/message`)
 - [ ] Protocol types are exported from `index.ts` barrel
+- [x] `SettingsSnapshot` includes a `context.includeActiveFileContext` boolean
+- [x] `ChatToAgent` includes a toggle mutation for the active-file context preference
 
 ### Domain Types
 

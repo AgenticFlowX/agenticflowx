@@ -158,6 +158,9 @@ const MOCK_SETTINGS_SNAPSHOT: SettingsSnapshot = {
     ollamaBaseUrl: "",
     sessionDir: "extension-managed storage",
   },
+  context: {
+    includeActiveFileContext: true,
+  },
   diagnostics: { logLevel: "info" },
   telemetry: {
     enabled: true,
@@ -210,6 +213,7 @@ export function createMockTransport(): MockTransport {
   let streamSpeed = 40; // ms per chunk
   let runtimeSettings: RuntimeSettings = { ...BASE_RUNTIME_SETTINGS };
   let appearance: SettingsSnapshot["appearance"] = MOCK_SETTINGS_SNAPSHOT.appearance;
+  let includeActiveFileContext = MOCK_SETTINGS_SNAPSHOT.context.includeActiveFileContext;
   let runtimeStatus: AgentRuntimeStatus = {
     phase: "ready",
     running: true,
@@ -1038,7 +1042,11 @@ This is a long-running response on purpose so the queue stays visible while you 
     emit({
       type: "agent/settingsSnapshot",
       requestId: uid(),
-      snapshot: { ...MOCK_SETTINGS_SNAPSHOT, appearance },
+      snapshot: {
+        ...MOCK_SETTINGS_SNAPSHOT,
+        appearance,
+        context: { includeActiveFileContext },
+      },
     });
   }
 
@@ -1049,6 +1057,7 @@ This is a long-running response on purpose so the queue stays visible while you 
       snapshot: {
         ...MOCK_SETTINGS_SNAPSHOT,
         appearance,
+        context: { includeActiveFileContext },
         providers: MOCK_SETTINGS_SNAPSHOT.providers.map((provider) => ({
           ...provider,
           modelCount: 0,
@@ -1077,6 +1086,7 @@ This is a long-running response on purpose so the queue stays visible while you 
       snapshot: {
         ...MOCK_SETTINGS_SNAPSHOT,
         appearance,
+        context: { includeActiveFileContext },
         providers: MOCK_SETTINGS_SNAPSHOT.providers.filter((provider) =>
           ["anthropic", "openai"].includes(provider.id),
         ),
@@ -1091,6 +1101,7 @@ This is a long-running response on purpose so the queue stays visible while you 
       snapshot: {
         ...MOCK_SETTINGS_SNAPSHOT,
         appearance,
+        context: { includeActiveFileContext },
         sdk: {
           enabled: true,
           defaultModel: "anthropic:claude-opus-4",
@@ -1125,6 +1136,7 @@ This is a long-running response on purpose so the queue stays visible while you 
       snapshot: {
         ...MOCK_SETTINGS_SNAPSHOT,
         appearance,
+        context: { includeActiveFileContext },
         providers: MOCK_SETTINGS_SNAPSHOT.providers.map((provider) => ({
           ...provider,
           modelCount: 0,
@@ -1155,6 +1167,7 @@ This is a long-running response on purpose so the queue stays visible while you 
       snapshot: {
         ...MOCK_SETTINGS_SNAPSHOT,
         appearance,
+        context: { includeActiveFileContext },
         engine: { ...MOCK_SETTINGS_SNAPSHOT.engine, rpcEnabled: true },
         externalAgents: [
           {
@@ -1178,7 +1191,11 @@ This is a long-running response on purpose so the queue stays visible while you 
     emit({
       type: "agent/settingsSnapshot",
       requestId,
-      snapshot: { ...MOCK_SETTINGS_SNAPSHOT, appearance },
+      snapshot: {
+        ...MOCK_SETTINGS_SNAPSHOT,
+        appearance,
+        context: { includeActiveFileContext },
+      },
     });
   }
 
@@ -1262,7 +1279,24 @@ This is a long-running response on purpose so the queue stays visible while you 
       emit({
         type: "agent/settingsSnapshot",
         requestId: msg.requestId,
-        snapshot: { ...MOCK_SETTINGS_SNAPSHOT, appearance },
+        snapshot: {
+          ...MOCK_SETTINGS_SNAPSHOT,
+          appearance,
+          context: { includeActiveFileContext },
+        },
+      });
+      return;
+    }
+    if (msg.type === "chat/setIncludeActiveFileContext") {
+      includeActiveFileContext = msg.enabled;
+      emit({
+        type: "agent/settingsSnapshot",
+        requestId: msg.requestId,
+        snapshot: {
+          ...MOCK_SETTINGS_SNAPSHOT,
+          appearance,
+          context: { includeActiveFileContext },
+        },
       });
       return;
     }
@@ -1285,7 +1319,11 @@ This is a long-running response on purpose so the queue stays visible while you 
       emit({
         type: "agent/settingsSnapshot",
         requestId: msg.requestId,
-        snapshot: { ...MOCK_SETTINGS_SNAPSHOT, appearance },
+        snapshot: {
+          ...MOCK_SETTINGS_SNAPSHOT,
+          appearance,
+          context: { includeActiveFileContext },
+        },
       });
       return;
     }
@@ -1296,6 +1334,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           providers: MOCK_SETTINGS_SNAPSHOT.providers.map((provider) =>
             provider.id === msg.provider ? { ...provider, state: "configured" } : provider,
           ),
@@ -1310,6 +1349,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           providers: MOCK_SETTINGS_SNAPSHOT.providers.map((provider) =>
             provider.id === msg.provider
               ? { ...provider, state: "empty", modelCount: 0, models: [] }
@@ -1326,6 +1366,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           sdk: {
             ...MOCK_SETTINGS_SNAPSHOT.sdk!,
             defaultModel: `${msg.provider}:${msg.modelId}`,
@@ -1344,6 +1385,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           engine: { ...MOCK_SETTINGS_SNAPSHOT.engine, rpcEnabled: true },
           externalAgents: [
             {
@@ -1367,6 +1409,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           engine: { ...MOCK_SETTINGS_SNAPSHOT.engine, rpcEnabled: msg.enabled },
           externalAgents: [
             {
@@ -1391,6 +1434,7 @@ This is a long-running response on purpose so the queue stays visible while you 
         snapshot: {
           ...MOCK_SETTINGS_SNAPSHOT,
           appearance,
+          context: { includeActiveFileContext },
           engine: { ...MOCK_SETTINGS_SNAPSHOT.engine, ephemeral: msg.enabled },
           externalAgents: MOCK_SETTINGS_SNAPSHOT.externalAgents?.map((agent) => ({
             ...agent,

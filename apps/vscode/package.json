@@ -109,6 +109,11 @@
           "default": "",
           "description": "Base URL for a local Ollama server. Leave empty to disable."
         },
+        "afx.context.includeActiveFileContext": {
+          "type": "boolean",
+          "default": true,
+          "description": "Attach the active editor file to new chat turns and keep the chat composer toggle in sync with this default."
+        },
         "afx.debugPerf": {
           "type": "boolean",
           "default": false,

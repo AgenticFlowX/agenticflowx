@@ -1,11 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T10:04:49.000Z"
+updated_at: "2026-05-05T11:53:21.000Z"
+approved_at: "2026-05-05T11:53:21.000Z"
 tags: [app, vscode, extension, webview, commands, agent]
 spec: spec.md
 ---
@@ -16,7 +17,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator.
+`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator. It also owns the durable active-file context preference that the chat composer mirrors when sending prompts.
 
 ---
 
@@ -102,14 +103,18 @@ function loadWebviewHtml(webview: vscode.Webview, distPath: string): string;
 
 The sidebar panel's webview message handler dispatches `ChatToAgent` variants to host services
 (`AgentManager`, settings, telemetry, shell). One additional case lives here for the composer
-modified-files strip:
+modified-files strip and the mirrored active-file context preference:
 
-| Message         | Handler                                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `chat/openFile` | `vscode.window.showTextDocument(uri, { selection })` — relative paths resolved against workspace; `line` (1-indexed) reveals row |
+| Message                            | Handler                                                                                                                                                              |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat/openFile`                    | `vscode.window.showTextDocument(uri, { selection })` — relative paths resolved against workspace; `line` (1-indexed) reveals row                                     |
+| `chat/setIncludeActiveFileContext` | `vscode.workspace.getConfiguration("afx").update("context.includeActiveFileContext", enabled, vscode.ConfigurationTarget.Global)` then refresh the settings snapshot |
 
 @see docs/specs/211-app-chat-composer/spec.md [FR-10]
-@see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+@see docs/specs/211-app-chat-composer/spec.md [FR-11]
+@see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT]
+@see docs/specs/214-app-chat-settings/spec.md [FR-5]
+@see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
 
 ---
 
@@ -119,20 +124,21 @@ Master index of every `afx.*` configuration key contributed by `apps/vscode/pack
 key lists its UI surface and the spec that owns the behavior driven by the value. Source of truth
 is `package.json` `contributes.configuration.properties`; this table mirrors it for routing.
 
-| Key                         | Type    | Default                     | UI surface                  | Owning spec                    |
-| --------------------------- | ------- | --------------------------- | --------------------------- | ------------------------------ |
-| `afx.rpc.enabled`           | boolean | `false`                     | chat settings panel         | `351-agent-pi`                 |
-| `afx.agentBinaryPath`       | string  | `""`                        | chat settings panel         | `351-agent-pi`                 |
-| `afx.agentEphemeralSession` | boolean | `false`                     | chat settings panel         | `351-agent-pi`                 |
-| `afx.sessionDir`            | string  | `""`                        | none (host-managed)         | `351-agent-pi`                 |
-| `afx.sdk.enabled`           | boolean | `true`                      | chat settings panel         | `350-agent-manager`            |
-| `afx.sdk.defaultModel`      | string  | `anthropic:claude-opus-4-5` | chat settings provider card | `214-app-chat-settings`        |
-| `afx.sdk.ollamaBaseUrl`     | string  | `""`                        | chat settings provider card | `214-app-chat-settings`        |
-| `afx.debugPerf`             | boolean | `false`                     | composer footer (when on)   | `211-app-chat-composer`        |
-| `afx.theme`                 | enum    | `meridian`                  | chat settings appearance    | `131-package-ui-design-system` |
-| `afx.style`                 | enum    | `lyra`                      | chat settings appearance    | `131-package-ui-design-system` |
-| `afx.logLevel`              | enum    | `info`                      | none (env `AFX_LOG_LEVEL`)  | `200-app-vscode`               |
-| `afx.telemetry.enabled`     | boolean | `true`                      | chat settings panel         | `901-cross-telemetry`          |
+| Key                                    | Type    | Default                     | UI surface                                    | Owning spec                    |
+| -------------------------------------- | ------- | --------------------------- | --------------------------------------------- | ------------------------------ |
+| `afx.rpc.enabled`                      | boolean | `false`                     | chat settings panel                           | `351-agent-pi`                 |
+| `afx.agentBinaryPath`                  | string  | `""`                        | chat settings panel                           | `351-agent-pi`                 |
+| `afx.agentEphemeralSession`            | boolean | `false`                     | chat settings panel                           | `351-agent-pi`                 |
+| `afx.sessionDir`                       | string  | `""`                        | none (host-managed)                           | `351-agent-pi`                 |
+| `afx.sdk.enabled`                      | boolean | `true`                      | chat settings panel                           | `350-agent-manager`            |
+| `afx.sdk.defaultModel`                 | string  | `anthropic:claude-opus-4-5` | chat settings provider card                   | `214-app-chat-settings`        |
+| `afx.sdk.ollamaBaseUrl`                | string  | `""`                        | chat settings provider card                   | `214-app-chat-settings`        |
+| `afx.context.includeActiveFileContext` | boolean | `true`                      | chat settings context card / composer toolbar | `214-app-chat-settings`        |
+| `afx.debugPerf`                        | boolean | `false`                     | composer footer (when on)                     | `211-app-chat-composer`        |
+| `afx.theme`                            | enum    | `meridian`                  | chat settings appearance                      | `131-package-ui-design-system` |
+| `afx.style`                            | enum    | `lyra`                      | chat settings appearance                      | `131-package-ui-design-system` |
+| `afx.logLevel`                         | enum    | `info`                      | none (env `AFX_LOG_LEVEL`)                    | `200-app-vscode`               |
+| `afx.telemetry.enabled`                | boolean | `true`                      | chat settings panel                           | `901-cross-telemetry`          |
 
 `afx.style` enum: `lyra` | `luma` | `maia` | `nova` | `vega` | `mira` | `sera`.
 `afx.logLevel` enum: `silent` | `error` | `warn` | `info` | `debug` | `trace`.

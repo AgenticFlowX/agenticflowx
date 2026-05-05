@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T10:28:33.000Z"
+updated_at: "2026-05-05T12:33:26.000Z"
 approved_at: "2026-05-03T11:23:57.000Z"
 tags: ["app", "chat", "composer", "webview"]
 depends_on:
@@ -66,17 +66,19 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | FR-8  | Preserve host/webview boundaries; composer UI sends bridge messages but does not call VSCode APIs directly                                                                                                                                                                                                                                                     | Must Have   |
 | FR-9  | Intercept system-command prefixes (`!`) in the composer and dispatch `chat/runCommand` instead of sending to the LLM; strip the `!` prefix before routing                                                                                                                                                                                                      | Must Have   |
 | FR-10 | Render a "Modified files" strip above the composer that lists files touched by agent edit/write tool calls in the current transcript; pills open the file in the editor on click and, when the tool result reports a first-changed line, jump the editor cursor there; dismissible per assistant turn; expanded by default (user can collapse via the chevron) | Should Have |
+| FR-11 | Render a compact active-file context toggle after Thinking in the composer toolbar, default it on, and mirror the same preference with Settings                                                                                                                                                                                                                | Must Have   |
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                     | Target                                                                                                                                                                                                              |
-| ----- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NFR-1 | Composer remains keyboard-friendly              | Enter/modified-enter behavior is explicit and tested where possible                                                                                                                                                 |
-| NFR-2 | Footer copy stays concise                       | Footer state can be understood without reading settings docs                                                                                                                                                        |
-| NFR-3 | Runtime state changes do not cause layout jumps | Queue/footer/control surfaces remain stable                                                                                                                                                                         |
-| NFR-4 | Composer helpers stay cheap                     | Trigger detection is string-local and avoids bridge calls unless a picker opens                                                                                                                                     |
-| NFR-5 | Source/spec traceability is bidirectional       | Major composer zones have local source anchors and design node references                                                                                                                                           |
-| NFR-6 | System command UX is persistent but unobtrusive | An amber "Shell" badge appears in the composer input group when `!` is active; footer shows `"⚠ Shell · output is local only"`; these cues are always visible while the prefix is active and do not block execution |
+| ID    | Requirement                                                   | Target                                                                                                                                                                                                              |
+| ----- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NFR-1 | Composer remains keyboard-friendly                            | Enter/modified-enter behavior is explicit and tested where possible                                                                                                                                                 |
+| NFR-2 | Footer copy stays concise                                     | Footer state can be understood without reading settings docs                                                                                                                                                        |
+| NFR-3 | Runtime state changes do not cause layout jumps               | Queue/footer/control surfaces remain stable                                                                                                                                                                         |
+| NFR-4 | Composer helpers stay cheap                                   | Trigger detection is string-local and avoids bridge calls unless a picker opens                                                                                                                                     |
+| NFR-5 | Source/spec traceability is bidirectional                     | Major composer zones have local source anchors and design node references                                                                                                                                           |
+| NFR-6 | System command UX is persistent but unobtrusive               | An amber "Shell" badge appears in the composer input group when `!` is active; footer shows `"⚠ Shell · output is local only"`; these cues are always visible while the prefix is active and do not block execution |
+| NFR-7 | Toolbar controls stay compact on the smallest supported width | The active-file context toggle collapses to switch-first form like the model/thinking controls                                                                                                                      |
 
 ---
 
@@ -112,6 +114,15 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Mid-turn edits do not cause a dismissed strip to re-open
 - [ ] Files are deduped by path with most-recent-win ordering
 - [ ] Composer source files anchor to FR-10 / DES-COMPOSER-FILES-STRIP
+
+### Composer Active File Context Toggle (FR-11)
+
+- [ ] Toggle appears immediately after the Thinking control in the toolbar, with a literal `|` divider between them
+- [ ] Toggle shows a compact switch to the left of the active file basename and reveals the full path on hover while remaining compact on the smallest supported width
+- [ ] Toggle defaults to on when the persisted Settings preference has not yet arrived
+- [ ] Toggle mirrors the persisted Settings preference so changing it in either surface updates the other
+- [ ] Model, thinking, and file-context controls expose shadcn tooltips with concise guidance
+- [ ] Composer source files anchor to FR-11 / DES-COMPOSER-CONTEXT
 
 ### Boundaries
 
@@ -153,11 +164,11 @@ None.
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Owned surface   | Chat composer input, footer, queue strip, activity bar, composer toolbar                                                                                                                                                                                                                                                                                                                  |
 | Owned files     | `apps/chat/src/views/chat.tsx`, `apps/chat/src/components/model-combobox.tsx`, `apps/chat/src/components/slash-popup.tsx`, `apps/chat/src/components/mention-popup.tsx`, `apps/chat/src/components/composer-strip.tsx`, `apps/chat/src/components/files-strip.tsx`, `apps/chat/src/lib/composer-detect.ts`, `apps/chat/src/lib/derive-modified-files.ts`, `apps/chat/src/lib/mentions.ts` |
-| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort/command handlers, helper popup components, model/thinking controls                                                                                                                                                                                                                             |
-| Bridge messages | Chat send/steer/abort/queue/runCommand requests and runtime readiness payloads consumed by composer                                                                                                                                                                                                                                                                                       |
-| Settings keys   | Composer-visible runtime/provider/model settings only as displayed state                                                                                                                                                                                                                                                                                                                  |
+| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort/command handlers, helper popup components, model/thinking/context controls                                                                                                                                                                                                                     |
+| Bridge messages | Chat send/steer/abort/queue/runCommand requests, active-file context preference requests, and runtime readiness payloads consumed by composer                                                                                                                                                                                                                                             |
+| Settings keys   | Composer-visible runtime/provider/model settings plus `afx.context.includeActiveFileContext` as mirrored state                                                                                                                                                                                                                                                                            |
 | Commands        | Slash commands and composer actions, not VSCode extension commands                                                                                                                                                                                                                                                                                                                        |
-| Tests           | Chat view/composer tests, helper tests, future e2e keyboard tests                                                                                                                                                                                                                                                                                                                         |
+| Tests           | Chat view/composer tests, helper tests, future e2e keyboard tests, active-file context toggle tests                                                                                                                                                                                                                                                                                       |
 | Dependencies    | `212-app-chat-messages`, `214-app-chat-settings`, `215-app-chat-notes`, `131-package-ui-design-system`                                                                                                                                                                                                                                                                                    |
 | Out of scope    | Message timeline, history panel, full settings forms, host menu registration                                                                                                                                                                                                                                                                                                              |
 | Example prompts | "Update chat footer hint", "Minimize queued composer content", "Change slash popup behavior", "Adjust send keyboard policy"                                                                                                                                                                                                                                                               |

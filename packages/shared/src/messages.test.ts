@@ -72,4 +72,26 @@ describe("chat-foundation shared protocol", () => {
 
     expect(message.enabled).toBe(true);
   });
+
+  it("supports active-file context preference messages", () => {
+    const message: ChatToAgent = {
+      type: "chat/setIncludeActiveFileContext",
+      requestId: "context-enabled",
+      enabled: true,
+    };
+
+    expect(message.enabled).toBe(true);
+  });
+
+  it("supports active-file context snapshots", () => {
+    const message: AgentToChat = {
+      type: "agent/activeFileContext",
+      snapshot: {
+        name: "journal.md",
+        path: "/workspace/src/notes/journal.md",
+      },
+    };
+
+    expect(message.snapshot?.name).toBe("journal.md");
+  });
 });

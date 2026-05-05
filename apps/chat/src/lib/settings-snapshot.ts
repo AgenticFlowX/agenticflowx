@@ -5,6 +5,12 @@
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
 import type { AgentModel, SettingsSnapshot } from "@afx/shared";
 
+/**
+ * Inputs used to synthesize a SettingsSnapshot for the chat webview.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
+ */
 export interface SettingsSnapshotInput {
   extensionVersion?: string;
   availableModels?: readonly AgentModel[];
@@ -19,6 +25,7 @@ export interface SettingsSnapshotInput {
   ollamaBaseUrl?: string;
   sessionDir?: string;
   bundledPiNpmVersion?: string;
+  includeActiveFileContext?: boolean;
   telemetryEnabled?: boolean;
   vscodeTelemetryEnabled?: boolean;
 }
@@ -58,6 +65,9 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
       defaultModel: input.sdkDefaultModel?.trim() || "anthropic:claude-opus-4-5",
       ollamaBaseUrl: input.ollamaBaseUrl?.trim() || "",
       sessionDir: input.sessionDir?.trim() || "",
+    },
+    context: {
+      includeActiveFileContext: input.includeActiveFileContext ?? true,
     },
     providers: groupProviders(availableModels, input.sdkDefaultModel),
     externalAgents: groupExternalAgents(availableModels, input),

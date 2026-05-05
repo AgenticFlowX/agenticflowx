@@ -9,6 +9,8 @@
  * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
  * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
  * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
+ * @see docs/specs/200-app-vscode/spec.md [FR-9] [FR-10]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5]
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -20,6 +22,7 @@ import {
   AFX_STYLE_IDS,
   AFX_THEME_IDS,
   API_PROVIDER_IDS,
+  type ActiveFileContextSnapshot,
   type ChatCompactionView,
   type ChatMessageView,
   type ChatTimelineItem,
@@ -182,6 +185,58 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   function post(msg: AgentToChat): void {
     webview?.postMessage(msg);
+  }
+
+  function includeActiveFileContext(): boolean {
+    return vscode.workspace
+      .getConfiguration("afx")
+      .get<boolean>("context.includeActiveFileContext", true);
+  }
+
+  /**
+   * Captures the active editor file for the composer label.
+   *
+   * @see docs/specs/200-app-vscode/spec.md [FR-10]
+   * @see docs/specs/200-app-vscode/design.md [DES-ARCH]
+   */
+  function getActiveFileContextSnapshot(): ActiveFileContextSnapshot | null {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme !== "file") return null;
+    const filePath = editor.document.uri.fsPath;
+    return {
+      name: path.basename(filePath),
+      path: filePath,
+    };
+  }
+
+  /**
+   * Pushes the current active-file label to the webview so the composer can
+   * render the filename + hover tooltip.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+   */
+  function postActiveFileContext(): void {
+    if (!webview || !chatReady) return;
+    post({ type: "agent/activeFileContext", snapshot: getActiveFileContextSnapshot() });
+  }
+
+  function getActiveWorkspaceFileMention(): string | null {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || editor.document.uri.scheme !== "file") return null;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!root) return null;
+    const relative = path.relative(root, editor.document.uri.fsPath);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) return null;
+    return relative.split(path.sep).join("/");
+  }
+
+  function normalizePromptMentions(content: string, mentions: readonly string[] = []): string[] {
+    const normalized = normalizeMentions(content, mentions);
+    if (!includeActiveFileContext()) return normalized;
+    const activeFile = getActiveWorkspaceFileMention();
+    if (!activeFile) return normalized;
+    return Array.from(new Set([activeFile, ...normalized]));
   }
 
   function computeTelemetryState(): {
@@ -432,6 +487,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       messages: state.messages,
       tools: state.tools,
     });
+    postActiveFileContext();
     // On tab switch, emit current usage so the chat view can display it live.
     if (state.lastUsageTotals) {
       emitCurrentUsage();
@@ -1125,6 +1181,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleGetSettingsSnapshot(msg.requestId);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-CONTEXT]
+      case "chat/setIncludeActiveFileContext": {
+        void handleSetIncludeActiveFileContext(msg.requestId, msg.enabled);
+        return;
+      }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "provider/setApiKey": {
         void handleSetProviderApiKey(msg.requestId, msg.provider, msg.key);
@@ -1298,7 +1360,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     scheduleTurnStartTimeout(requestId);
 
     try {
-      const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
+      const inflated = await inflateMentionContext(
+        content,
+        normalizePromptMentions(content, mentions),
+      );
       await agentManager.send(inflated);
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
@@ -1532,6 +1597,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const rpcEnabled = cfg.get<boolean>("rpc.enabled", false);
       const ephemeral = cfg.get<boolean>("agentEphemeralSession", false);
       const sessionDir = cfg.get<string>("sessionDir", "").trim();
+      const includeActiveFileContext = cfg.get<boolean>("context.includeActiveFileContext", true);
       const telemetryEnabled = cfg.get<boolean>("telemetry.enabled", true);
       const snapshot: SettingsSnapshot = {
         appearance: appearanceSnapshotFromConfig(cfg),
@@ -1547,6 +1613,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           defaultModel: cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5"),
           ollamaBaseUrl: cfg.get<string>("sdk.ollamaBaseUrl", "").trim(),
           sessionDir: sessionDir || "extension-managed storage",
+        },
+        context: {
+          includeActiveFileContext,
         },
         providers: await groupProviders(
           models,
@@ -1658,6 +1727,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set telemetry enabled failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetIncludeActiveFileContext(
+    requestId: string,
+    enabled: boolean,
+  ): Promise<void> {
+    try {
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("context.includeActiveFileContext", enabled, vscode.ConfigurationTarget.Global);
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set active file context failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
     }
   }
@@ -1838,7 +1922,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
     try {
       await enqueueQueueInjection(async () => {
-        const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
+        const inflated = await inflateMentionContext(
+          content,
+          normalizePromptMentions(content, mentions),
+        );
         await agentManager.steer(inflated);
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -1860,7 +1947,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
     try {
       await enqueueQueueInjection(async () => {
-        const inflated = await inflateMentionContext(content, normalizeMentions(content, mentions));
+        const inflated = await inflateMentionContext(
+          content,
+          normalizePromptMentions(content, mentions),
+        );
         await agentManager.followUp(inflated);
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -2088,6 +2178,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }),
       vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) void runtimeMonitor.check();
+      }),
+      vscode.window.onDidChangeActiveTextEditor(() => {
+        postActiveFileContext();
       }),
       agentManager.onEvent(handleAgentEvent),
       agentManager.onStderr(handleAgentStderr),

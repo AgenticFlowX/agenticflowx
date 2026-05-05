@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.5"
+version: "1.6"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T10:28:33.000Z"
+updated_at: "2026-05-05T13:25:50.000Z"
 approved_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "composer", "webview"]
 spec: spec.md
@@ -23,6 +23,10 @@ The composer is the bottom interaction surface of the chat webview. It coordinat
 
 System commands (FR-9) extend the composer with local shell execution: typing `!ls` and pressing Enter dispatches `chat/runCommand` instead of `chat/send`, executes the command in the extension host via `child_process.spawn`, and streams output back via `agent/commandOutput` events. UX uses an amber "Shell" badge and persistent footer warning (not blocking); a dangerous-pattern guard prompts confirmation for `rm -rf`, `del /f /s`, `format`, `mkfs`, `dd`.
 
+The composer also mirrors the durable active-file context preference from Settings. That toggle stays compact and visible next to Thinking so users can keep it on by default without leaving the chat surface.
+Model, thinking, and file-context controls use shadcn tooltips to explain what each choice does without relying on native browser titles.
+Prompt shaping stays host-owned: the webview captures intent and explicit mentions, while the extension host decides whether to inject active-file context and when to inflate workspace file contents before the runtime ever sees the prompt.
+
 ---
 
 ## [DES-ARCH] Architecture
@@ -31,13 +35,14 @@ System commands (FR-9) extend the composer with local shell execution: typing `!
 Chat view state
   ├─ composer input and keyboard policy
   ├─ helper popups: slash and mention
-  ├─ controls: model, thinking, send, steer, abort
+  ├─ controls: model, thinking, active-file context, send, steer, abort
   ├─ queue/footer/activity rendering
   └─ transport bridge messages to VSCode host
   └─ system command execution (! prefix → child_process.spawn)
 ```
 
 Composer logic stays in the chat webview. The VSCode extension host owns command execution and runtime services. Shell commands are executed in a separate context from the LLM stream, enabling concurrent execution.
+Prompt shaping for file context follows the same boundary: the webview stays UI-only, and the host performs mention normalization, workspace file expansion, and AgentManager dispatch so later prompt-injection features can plug in at one stable boundary.
 
 ## [DES-COMPOSER-FLOW] Composer Event And Bridge Flow
 
@@ -51,20 +56,21 @@ Composer logic stays in the chat webview. The VSCode extension host owns command
   -> HostToChat events rehydrate Chat state
 ```
 
-| Flow                | Source anchor                                     | Bridge message                  | Host/runtime result                                                       | Returned state                                                              |
-| ------------------- | ------------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Idle send           | `submit({ followUp: false })` when `!isStreaming` | `chat/send`                     | Starts a user turn                                                        | `chat/messageStart`, `chat/messageDelta`, `chat/messageEnd`, `agent/status` |
-| Streaming follow-up | `submit({ followUp: true })`                      | `chat/followUp`                 | Queues content after active turn                                          | Local `queued` mirror plus future stream state                              |
-| Streaming steer     | `submit({ followUp: false })` while streaming     | `chat/steer`                    | Interrupts/redirects active turn                                          | Local `queued` mirror plus runtime stream state                             |
-| Abort               | `abort()`                                         | `chat/abort`                    | Stops active run                                                          | `chat/aborted`, `agent/status`                                              |
-| Save note           | `saveAsNote()`                                    | `chat/saveNote`                 | Host appends note                                                         | Local note event plus note bridge result                                    |
-| Slash action        | `selectSlashAction()`                             | `chat/newSession`, `chat/abort` | Host action without textarea insertion                                    | New session/abort events                                                    |
-| Mention picker      | `handleDraftChange()`, `openMentionPicker()`      | `chat/listFiles`                | Host lists recent/workspace files                                         | `agent/files`                                                               |
-| Slash picker        | mount hydration                                   | `chat/getCommands`              | Host lists agent/extension commands                                       | `agent/commands`                                                            |
-| Model picker        | `selectModel()`                                   | `chat/setModel`                 | Runtime default/model changes                                             | `agent/modelChanged`                                                        |
-| Thinking picker     | `setThinkingLevel()`                              | `chat/setThinkingLevel`         | Runtime effort changes                                                    | `agent/runtimeSettings`                                                     |
-| System command      | `submit()` when draft starts with `!`             | `chat/runCommand`               | Spawns shell in workspace root                                            | `agent/commandOutput` (delta / done / error)                                |
-| Open modified file  | `FilesStrip` pill click                           | `chat/openFile`                 | `vscode.window.showTextDocument(uri, { selection })` when `line` provided | Editor opens (and reveals first changed line if known)                      |
+| Flow                | Source anchor                                     | Bridge message                     | Host/runtime result                                                       | Returned state                                                              |
+| ------------------- | ------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Idle send           | `submit({ followUp: false })` when `!isStreaming` | `chat/send`                        | Starts a user turn                                                        | `chat/messageStart`, `chat/messageDelta`, `chat/messageEnd`, `agent/status` |
+| Streaming follow-up | `submit({ followUp: true })`                      | `chat/followUp`                    | Queues content after active turn                                          | Local `queued` mirror plus future stream state                              |
+| Streaming steer     | `submit({ followUp: false })` while streaming     | `chat/steer`                       | Interrupts/redirects active turn                                          | Local `queued` mirror plus runtime stream state                             |
+| Abort               | `abort()`                                         | `chat/abort`                       | Stops active run                                                          | `chat/aborted`, `agent/status`                                              |
+| Save note           | `saveAsNote()`                                    | `chat/saveNote`                    | Host appends note                                                         | Local note event plus note bridge result                                    |
+| Slash action        | `selectSlashAction()`                             | `chat/newSession`, `chat/abort`    | Host action without textarea insertion                                    | New session/abort events                                                    |
+| Mention picker      | `handleDraftChange()`, `openMentionPicker()`      | `chat/listFiles`                   | Host lists recent/workspace files                                         | `agent/files`                                                               |
+| Slash picker        | mount hydration                                   | `chat/getCommands`                 | Host lists agent/extension commands                                       | `agent/commands`                                                            |
+| Model picker        | `selectModel()`                                   | `chat/setModel`                    | Runtime default/model changes                                             | `agent/modelChanged`                                                        |
+| Thinking picker     | `setThinkingLevel()`                              | `chat/setThinkingLevel`            | Runtime effort changes                                                    | `agent/runtimeSettings`                                                     |
+| Context picker      | `applyIncludeActiveFileContext()`                 | `chat/setIncludeActiveFileContext` | Durable active-file context preference changes                            | `agent/settingsSnapshot`                                                    |
+| System command      | `submit()` when draft starts with `!`             | `chat/runCommand`                  | Spawns shell in workspace root                                            | `agent/commandOutput` (delta / done / error)                                |
+| Open modified file  | `FilesStrip` pill click                           | `chat/openFile`                    | `vscode.window.showTextDocument(uri, { selection })` when `line` provided | Editor opens (and reveals first changed line if known)                      |
 
 ---
 
@@ -84,7 +90,7 @@ The idle state renders one primary send action and keeps model/thinking controls
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Ask AFX about this workspace ...]        [^] |
-|      [Composer.Model: Anthropic . Claude] [Thinking: Medium]       |
+|      [Composer.Model: Anthropic . Claude] [Thinking: Medium] | [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -104,7 +110,7 @@ The streaming state replaces the single send action with follow-up, steer, and s
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Queue a follow-up... (⌘⏎ to steer)]          |
-|      [Model] [Thinking]      [Follow-up ⏎] [Steer ⌘⏎] [Stop]       |
+|      [Model] [Thinking] | [FileText] [File ctx: On] [Follow-up ⏎] [Steer ⌘⏎] [Stop] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] ⏎ follow-up . ⌘⏎ steer . Pi pill . usage         |
 +--------------------------------------------------------------------+
@@ -155,7 +161,7 @@ The "Shell" amber pill badge replaces the `@` mention button and the model/think
 | [Composer.InputGroup]                                              |
 |  [Shell] [!] [Composer.Input: pnpm build]                     [^]   |
 |      ⚠ Shell · output is local only                               |
-|      [Composer.Model: Anthropic . Claude] [Thinking: Medium]       |
+|      [Composer.Model: Anthropic . Claude] [Thinking: Medium] | [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -202,15 +208,15 @@ Chat
     FooterStrip                 -> [Composer.Footer]
 ```
 
-| Surface               | Owned behavior                                                             | Not owned here                        |
-| --------------------- | -------------------------------------------------------------------------- | ------------------------------------- |
-| `[Composer.Activity]` | Live thinking preview and idle/busy strip above composer                   | Full timeline thinking blocks         |
-| `[Composer.Queue]`    | Local display of messages already sent as steer/follow-up                  | Engine-authoritative queue scheduling |
-| `[Composer.Input]`    | Draft text, placeholder, keyboard routing, prompt-history recall           | Message timeline rendering            |
-| `[Composer.Helpers]`  | Slash/mention trigger detection, picker display, insertion/action dispatch | Command implementation in host        |
-| `[Composer.Toolbar]`  | Mention button, model selector, thinking level selector                    | Provider setup forms                  |
-| `[Composer.Actions]`  | Send/follow-up/steer/stop affordances                                      | Agent implementation                  |
-| `[Composer.Footer]`   | Compact runtime readiness, Pi state, usage hints                           | Full settings diagnostics             |
+| Surface               | Owned behavior                                                                      | Not owned here                        |
+| --------------------- | ----------------------------------------------------------------------------------- | ------------------------------------- |
+| `[Composer.Activity]` | Live thinking preview and idle/busy strip above composer                            | Full timeline thinking blocks         |
+| `[Composer.Queue]`    | Local display of messages already sent as steer/follow-up                           | Engine-authoritative queue scheduling |
+| `[Composer.Input]`    | Draft text, placeholder, keyboard routing, prompt-history recall                    | Message timeline rendering            |
+| `[Composer.Helpers]`  | Slash/mention trigger detection, picker display, insertion/action dispatch          | Command implementation in host        |
+| `[Composer.Toolbar]`  | Mention button, model selector, thinking level selector, active-file context toggle | Provider setup forms                  |
+| `[Composer.Actions]`  | Send/follow-up/steer/stop affordances                                               | Agent implementation                  |
+| `[Composer.Footer]`   | Compact runtime readiness, Pi state, usage hints                                    | Full settings diagnostics             |
 
 ## [DES-COMPOSER-SYSTEM-COMMAND] System Command Execution
 
@@ -443,6 +449,182 @@ draft before caret -> detectComposerTrigger("@", not escaped, not inside fence)
 | Thinking trigger    | `ThinkingLevelToggle`        | `ThinkingLevel`                                        | Sends `chat/setThinkingLevel` and optimistically updates runtime state |
 | Runtime unavailable | `canSend`, placeholder logic | `agentStatus.phase`, `runtimeConfigured`, `rpcEnabled` | Disables textarea/actions and routes user to setup copy                |
 
+## [DES-COMPOSER-CONTEXT] Active File Context Toggle
+
+The active-file context toggle is a mirrored preference, not a separate data source. Settings owns
+the durable value, the composer renders the quick toggle, and the extension host remains the source
+of truth for persistence and prompt shaping. The composer control stays compact: switch first,
+filename label second, and the full path exposed in the hover tooltip. The webview never reads the
+workspace file contents itself; it sends intent, and the host performs the injection.
+
+### Flow: Settings Snapshot → Toolbar Toggle → Host Persistence → Snapshot Echo
+
+```text
+[Composer.Toolbar] switch + filename label
+  -> applyIncludeActiveFileContext(enabled)
+  -> bridgeSend({ type: "chat/setIncludeActiveFileContext", requestId, enabled })
+  -> @afx/transport webview bridge
+  -> VSCode SidebarPanel.dispatchInbound
+  -> workspace configuration update (afx.context.includeActiveFileContext)
+  -> agent/settingsSnapshot
+  -> Chat + Settings rehydrate the mirrored preference
+```
+
+### Flow: Chat Draft -> Host Prompt Shaping -> AgentManager -> Pi
+
+```text
+[Composer.Input]
+  draft text
+  + explicit @file mentions
+  + active-file context toggle
+  + model / thinking selections
+        │
+        ├─ 1. User types a draft in the chat box
+        ├─ 2. User may click @ to insert an explicit workspace file mention
+        ├─ 3. User may toggle active-file context ON/OFF
+        ├─ 4. Chat submit() packages content + mentions
+        ├─ 5. bridgeSend({ type: "chat/send" | "chat/steer" | "chat/followUp" })
+        ├─ 6. VS Code host receives the inbound message
+        ├─ 7. normalizePromptMentions(content, mentions)
+        │      - parses explicit @mentions from the draft
+        │      - appends the current editor file when the toggle is ON
+        ├─ 8. inflateMentionContext(content, mentions)
+        │      - reads workspace files
+        │      - builds the final prompt preamble / file context block
+        ├─ 9. agentManager.send(...) / steer(...) / followUp(...)
+        ├─ 10. Pi Rpc Manager serializes the request
+        ├─ 11. Pi subprocess receives the final text prompt
+        └─ 12. Model generates from the already-shaped prompt
+```
+
+| Layer                    | Responsibility                                                                         | What it must not do                                 |
+| ------------------------ | -------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Webview composer         | Capture the user's draft, explicit mentions, and toggle state                          | Read workspace files or assemble injected file text |
+| Transport bridge         | Move messages between webview and host                                                 | Interpret or mutate prompt content                  |
+| VS Code host             | Normalize mentions, resolve active-file preference, and inflate workspace file context | Hide prompt shaping inside the webview              |
+| `AgentManager` interface | Carry the final request through send / steer / follow-up paths                         | Decide which workspace files get injected           |
+| Pi runtime adapter       | Serialize the already-shaped request to the Pi process                                 | Re-run webview context logic                        |
+| Pi subprocess / model    | Generate a response from final prompt text                                             | Reach back into the editor or workspace directly    |
+
+### Why The Host Owns Injection
+
+The host owns injection because it is the only layer with safe workspace access, runtime context, and a stable place for future prompt shaping. Keeping the webview UI-only gives us a few benefits:
+
+- The chat surface stays portable and easier to reason about.
+- Send, steer, and follow-up all share the same shaped prompt path.
+- Active-file context stays consistent whether the user sends a fresh prompt or continues a streaming turn.
+- Future prompt injection features can slot in before `AgentManager` without changing the composer UI contract.
+
+### Future Prompt Injection Slot
+
+Future prompt-injection features should live alongside `normalizePromptMentions()` and `inflateMentionContext()` in the host, not inside the webview. That gives us one place to add later enrichers such as:
+
+- policy-based prompt prefixes
+- session-scoped hints
+- agent-specific metadata
+- workspace-aware snippets
+
+The composer should continue to send intent, not constructed prompt text.
+
+### Composer Toolbar Mockup
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Chat                                                                         │
+│                                                                              │
+│ ┌──────────────────────────────────────────────────────────────────────────┐ │
+│ │ Inspect the active file and explain the failing test                   │ │
+│ └──────────────────────────────────────────────────────────────────────────┘ │
+│  [@]   [Model ▾]   [Thinking ▾]   |   [○] journal.md   [Send]               │
+│   │        │             │              │                                   │
+│   │        │             │              └─ active-file context toggle       │
+│   │        │             └─ reasoning-level helper                          │
+│   │        └─ model selection helper                                        │
+│   └─ file mention helper                                                    │
+│                                                                              │
+│ Hovering `journal.md` shows the full path, for example                     │
+│ `src/notes/journal.md`                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+The toolbar stays narrow-screen friendly by keeping the switch small, the filename short, and the
+tooltip as the place where the full path lives. That matches the compact model and thinking controls
+instead of introducing a heavier "file context" box.
+
+### Concrete Payload Example
+
+This example shows the full path from the chat box to Pi with one active-file selection and one
+explicit file mention.
+
+Composer state:
+
+- draft: `Please compare this with @docs/specs/211-app-chat-composer/design.md and confirm the flow.`
+- active-file toggle: `ON`
+- active editor file: `apps/vscode/src/panels/sidebar-panel.ts`
+- explicit mentions: `["docs/specs/211-app-chat-composer/design.md"]`
+
+Webview payload to host:
+
+```json
+{
+  "type": "chat/send",
+  "requestId": "req-42",
+  "content": "Please compare this with @docs/specs/211-app-chat-composer/design.md and confirm the flow.",
+  "mentions": ["docs/specs/211-app-chat-composer/design.md"]
+}
+```
+
+Host normalization result:
+
+```text
+normalizePromptMentions(content, mentions)
+-> [
+     "apps/vscode/src/panels/sidebar-panel.ts",
+     "docs/specs/211-app-chat-composer/design.md"
+   ]
+```
+
+Host-inflated prompt passed to `agentManager.send(...)`:
+
+```text
+The user referenced these files:
+
+### apps/vscode/src/panels/sidebar-panel.ts
+[ts file content block]
+
+### docs/specs/211-app-chat-composer/design.md
+[md file content block]
+
+Then asked:
+Please compare this with @docs/specs/211-app-chat-composer/design.md and confirm the flow.
+```
+
+Pi RPC request:
+
+```json
+{
+  "type": "prompt",
+  "message": "<inflated prompt text from above>"
+}
+```
+
+What Pi receives:
+
+- the injected file blocks
+- the user's original question
+- no webview state, no host file paths beyond the shaped prompt text
+- no active-file toggle concept, because that choice has already been resolved before the runtime call
+
+If the active-file toggle is OFF, step 2 returns only the explicit mention array, and step 3 only
+injects the files the user explicitly referenced in the draft.
+
+| Step                 | Source anchor                        | Bridge message                     | Host/runtime result                                                 | Returned state                        |
+| -------------------- | ------------------------------------ | ---------------------------------- | ------------------------------------------------------------------- | ------------------------------------- |
+| Hydrate toggle       | `bridgeOn("agent/settingsSnapshot")` | `agent/settingsSnapshot`           | Host snapshot includes durable context preference                   | Composer/settings toggle state        |
+| Toggle click         | `applyIncludeActiveFileContext()`    | `chat/setIncludeActiveFileContext` | Persist `afx.context.includeActiveFileContext`                      | Updated snapshot and optimistic UI    |
+| Toolbar render       | toolbar block                        | none                               | Keeps the compact switch and filename label aligned on small widths | `aria-pressed`/title reflect state    |
+| Host consume setting | `sidebar-panel.ts` settings handler  | none                               | Active-file context is attached to send/steer/follow-up content     | Inflated prompt text with active file |
+
 ## [DES-COMPOSER-QUEUE] Queue Strip Behavior
 
 | Queue state     | Source anchor                         | UI/functionality                                                       |
@@ -674,12 +856,14 @@ Composer actions use the chat webview transport. Message payloads are defined in
 | Webview to host | `chat/listFiles`                        | Populate mention popup                                                                                                                               |
 | Webview to host | `chat/setModel`                         | Update active runtime model                                                                                                                          |
 | Webview to host | `chat/setThinkingLevel`                 | Update runtime reasoning effort                                                                                                                      |
+| Webview to host | `chat/setIncludeActiveFileContext`      | Persist the mirrored active-file context preference                                                                                                  |
 | Webview to host | `chat/runCommand`                       | System command: stripped `!` prefix, shell command string, requestId                                                                                 |
 | Webview to host | `chat/openFile`                         | Modified files strip pill click: `{ path, line? }` (workspace-relative or absolute; line is 1-indexed) — host calls `vscode.window.showTextDocument` |
 | Host to webview | `agent/commandOutput`                   | Shell output stream: `requestId`, `streamId`, `delta` (partial line), `done` (final), `exitCode` (0–255), `error` (exception string)                 |
 | Host to webview | `agent/commands`                        | Slash popup candidates                                                                                                                               |
 | Host to webview | `agent/files`                           | Mention popup candidates                                                                                                                             |
 | Host to webview | `agent/models`, `agent/modelChanged`    | Model picker candidates and active model                                                                                                             |
+| Host to webview | `agent/settingsSnapshot`                | Mirrors durable active-file context preference and any other persisted Settings values                                                               |
 | Host to webview | `agent/runtimeSettings`, `agent/status` | Thinking/footer/readiness state                                                                                                                      |
 | Host to webview | `chat/usage`                            | Footer usage tooltip state                                                                                                                           |
 
@@ -762,17 +946,17 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 
 ## [DES-COMPOSER-REFS] File Reference Map
 
-| Task | File                                          | Required @see                                                                              |
-| ---- | --------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| 1.x  | `apps/chat/src/views/chat.tsx`                | `design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-FLOW]` |
-| 1.x  | `apps/chat/src/components/model-combobox.tsx` | `design.md [DES-COMPOSER-RUNTIME]`                                                         |
-| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS]`                                                         |
-| 1.x  | `apps/chat/src/components/mention-popup.tsx`  | `design.md [DES-COMPOSER-HELPERS]`                                                         |
-| 1.x  | `apps/chat/src/components/composer-strip.tsx` | `design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FILES-STRIP]`                                |
-| 1.x  | `apps/chat/src/components/files-strip.tsx`    | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                 |
-| 1.x  | `apps/chat/src/lib/composer-detect.ts`        | `design.md [DES-COMPOSER-HELPERS]`                                                         |
-| 1.x  | `apps/chat/src/lib/derive-modified-files.ts`  | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                 |
-| 1.x  | `apps/chat/src/lib/mentions.ts`               | `design.md [DES-COMPOSER-HELPERS]`                                                         |
+| Task | File                                          | Required @see                                                                                                     |
+| ---- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/chat.tsx`                | `design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-FLOW]` |
+| 1.x  | `apps/chat/src/components/model-combobox.tsx` | `design.md [DES-COMPOSER-RUNTIME]`                                                                                |
+| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
+| 1.x  | `apps/chat/src/components/mention-popup.tsx`  | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
+| 1.x  | `apps/chat/src/components/composer-strip.tsx` | `design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FILES-STRIP]`                                                       |
+| 1.x  | `apps/chat/src/components/files-strip.tsx`    | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                        |
+| 1.x  | `apps/chat/src/lib/composer-detect.ts`        | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
+| 1.x  | `apps/chat/src/lib/derive-modified-files.ts`  | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                        |
+| 1.x  | `apps/chat/src/lib/mentions.ts`               | `design.md [DES-COMPOSER-HELPERS]`                                                                                |
 
 ## [DES-COMPOSER-LOC] Code Locator Map
 
@@ -801,7 +985,9 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | FR-8        | `DES-COMPOSER-FLOW`, `DES-API`                                                                                                                    | `bridgeSend` calls only; no VSCode API imports in chat webview                                                                                                                | architecture lint/no-restricted-imports                                                                         |
 | FR-9        | `DES-COMPOSER-FLOW`, `DES-UI`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-SEC`, `DES-ERR`                                    | Prefix detection in `submit()`, `chat/runCommand` bridge send, `ShellBadge` badge state, `DangerousPatternGuard`, `OutputCard` timeline render, `agent/commandOutput` handler | Unit test: system command dispatched when draft starts with `!`; dangerous pattern blocks without guard confirm |
 | FR-10       | `DES-COMPOSER-FILES-STRIP`, `DES-COMPOSER-MOCKUP-FILES-COLLAPSED`, `DES-COMPOSER-MOCKUP-FILES-EXPANDED`, `DES-COMPOSER-MOCKUP-FILES-DISMISS-FLOW` | `deriveModifiedFiles`, `FilesStrip`, `FilePill`, `bridgeSend({ type: "chat/openFile", path })`; host `case "chat/openFile":` calls `vscode.window.showTextDocument`           | `derive-modified-files.test.ts`, `files-strip.test.tsx`; e2e: pill click opens file in extension dev host       |
+| FR-11       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-COMPOSER-REFS`          | `ActiveFileContextToggle`, `applyIncludeActiveFileContext`, `chat/setIncludeActiveFileContext`, `agent/settingsSnapshot`                                                      | `app.test.tsx`, settings snapshot tests, small-screen toolbar tests                                             |
 | NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                    | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline             |
+| NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`                                                               | `ActiveFileContextToggle`, compact toolbar placement                                                                                                                          | `app.test.tsx` narrow-width composer coverage                                                                   |
 | NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                               | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                      |
 | NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                             | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                   |
 | NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                    | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                           |

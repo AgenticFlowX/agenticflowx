@@ -12,6 +12,7 @@ describe("composeSettingsSnapshot", () => {
         bundledSkillCount: 0,
         ephemeral: false,
       },
+      context: { includeActiveFileContext: true },
       providers: expect.arrayContaining([
         expect.objectContaining({ id: "anthropic", state: "empty" }),
         expect.objectContaining({ id: "minimax", state: "empty" }),
@@ -87,6 +88,12 @@ describe("composeSettingsSnapshot", () => {
     expect(snapshot.externalAgents).toEqual([
       expect.objectContaining({ id: "pi", status: "connected", enabled: true }),
     ]);
+  });
+
+  it("respects the active-file context preference input", () => {
+    expect(composeSettingsSnapshot({ includeActiveFileContext: false }).context).toEqual({
+      includeActiveFileContext: false,
+    });
   });
 
   it("marks telemetry ineffective when VS Code telemetry is disabled", () => {

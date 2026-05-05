@@ -120,6 +120,7 @@ describe("sidebar-panel host bridge", () => {
         "sdk.enabled": true,
         "sdk.ollamaBaseUrl": "",
         sessionDir: "",
+        "context.includeActiveFileContext": true,
         style: "lyra",
         "telemetry.enabled": true,
         theme: "meridian",
@@ -143,6 +144,28 @@ describe("sidebar-panel host bridge", () => {
     for (let cycle = 0; cycle < cycles; cycle += 1) {
       await new Promise((resolve) => setImmediate(resolve));
     }
+  }
+
+  function mockActiveWorkspaceFile(): void {
+    const activeEditor = {
+      document: {
+        uri: vscode.Uri.file("/workspace/src/active.ts"),
+        languageId: "ts",
+      },
+    } as unknown as vscode.TextEditor;
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+    ]);
+    vi.spyOn(vscode.window, "activeTextEditor", "get").mockReturnValue(activeEditor);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 64,
+    });
+    vi.spyOn(vscode.workspace.fs, "readFile").mockResolvedValue(
+      Buffer.from("console.log('active file context');"),
+    );
   }
 
   function firstAgentEventListener(): ((event: AgentEvent) => void) | undefined {
@@ -180,6 +203,53 @@ describe("sidebar-panel host bridge", () => {
         }),
       }),
     );
+  });
+
+  it("posts the active file context snapshot when the chat view becomes ready", async () => {
+    const { inbound, postMessage } = setupWithView();
+    mockAfxConfiguration();
+    mockActiveWorkspaceFile();
+
+    inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/activeFileContext",
+        snapshot: {
+          name: "active.ts",
+          path: "/workspace/src/active.ts",
+        },
+      }),
+    );
+  });
+
+  it("attaches the active file context to chat turns when enabled", async () => {
+    mockAfxConfiguration({ "context.includeActiveFileContext": true });
+    const { inbound } = setupWithView();
+    mockActiveWorkspaceFile();
+
+    inbound.fire({ type: "chat/send", requestId: "ctx-on", content: "Summarize this." });
+    await vi.waitFor(() => expect(agent.send).toHaveBeenCalledTimes(1));
+
+    expect(agent.send).toHaveBeenCalledWith(
+      expect.stringContaining("The user referenced these files:"),
+    );
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("### src/active.ts"));
+    expect(agent.send).toHaveBeenCalledWith(
+      expect.stringContaining("console.log('active file context');"),
+    );
+  });
+
+  it("omits the active file context when disabled", async () => {
+    mockAfxConfiguration({ "context.includeActiveFileContext": false });
+    const { inbound } = setupWithView();
+    mockActiveWorkspaceFile();
+
+    inbound.fire({ type: "chat/send", requestId: "ctx-off", content: "Summarize this." });
+    await vi.waitFor(() => expect(agent.send).toHaveBeenCalledTimes(1));
+
+    expect(agent.send).toHaveBeenCalledWith("Summarize this.");
   });
 
   it("provider/setApiKey refreshes settings and chat model options", async () => {

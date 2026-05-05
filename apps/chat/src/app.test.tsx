@@ -2,7 +2,12 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentModel, AgentToChat } from "@afx/shared";
+import type {
+  ActiveFileContextSnapshot,
+  AgentModel,
+  AgentToChat,
+  SettingsSnapshot,
+} from "@afx/shared";
 import { createMockTransport } from "@afx/transport";
 import type { Transport } from "@afx/transport";
 
@@ -54,6 +59,7 @@ type ChatStateMessage = Extract<AgentToChat, { type: "chat/state" }>;
 function emitChatState(
   transport: ReturnType<typeof createControlledTransport>,
   overrides: Partial<Pick<ChatStateMessage, "isStreaming" | "messages" | "tools">> = {},
+  activeFileContext: ActiveFileContextSnapshot | null = null,
 ): void {
   transport.emit({
     type: "chat/state",
@@ -61,6 +67,73 @@ function emitChatState(
     messages: overrides.messages ?? [],
     tools: overrides.tools ?? [],
   });
+  transport.emit({
+    type: "agent/activeFileContext",
+    snapshot: activeFileContext,
+  });
+}
+
+function createSettingsSnapshot(): SettingsSnapshot {
+  return {
+    appearance: {
+      theme: "meridian",
+      style: "lyra",
+      themes: [
+        {
+          id: "meridian",
+          label: "AFX / Meridian",
+          implemented: true,
+          description: "AFX identity and brass accents over VS Code host surfaces.",
+        },
+      ],
+      styles: [
+        {
+          id: "lyra",
+          label: "Lyra",
+          implemented: true,
+          description: "Compact, boxy shadcn treatment.",
+        },
+      ],
+    },
+    engine: {
+      rpcEnabled: false,
+      agentBinary: "pi",
+      bundledSkillsPath: "resources/skills/agenticflowx",
+      bundledSkillCount: 17,
+      ephemeral: false,
+    },
+    sdk: {
+      enabled: true,
+      defaultModel: "openai:gpt-5.4",
+      ollamaBaseUrl: "",
+      sessionDir: "extension-managed storage",
+    },
+    context: {
+      includeActiveFileContext: true,
+    },
+    providers: [],
+    externalAgents: [
+      {
+        id: "pi",
+        name: "Pi CLI",
+        status: "disabled",
+        modelCount: 0,
+        binaryPath: "pi",
+        enabled: false,
+        ephemeral: false,
+      },
+    ],
+    diagnostics: { logLevel: "info" },
+    telemetry: {
+      enabled: true,
+      vscodeTelemetryEnabled: true,
+      effectiveEnabled: true,
+    },
+    about: {
+      extensionVersion: "2.0.0",
+      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+    },
+  };
 }
 
 describe("chat App", () => {
@@ -101,11 +174,28 @@ describe("chat App", () => {
             isStreaming: false,
             checkedAt: 1,
             consecutiveFailures: 0,
+            model: {
+              provider: "openai",
+              id: "gpt-5.4",
+              name: "GPT-5.4",
+              reasoning: true,
+              source: "api-provider",
+              instanceId: "pi-sdk",
+            },
           },
         });
       });
       act(() => {
-        emitChatState(transport);
+        emitChatState(
+          transport,
+          {},
+          { name: "journal.md", path: "/workspace/src/notes/journal.md" },
+        );
+        transport.emit({
+          type: "agent/settingsSnapshot",
+          requestId: "settings",
+          snapshot: createSettingsSnapshot(),
+        });
       });
 
       for (const label of ["Chat", "History", "Settings"]) {
@@ -114,7 +204,44 @@ describe("chat App", () => {
       expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "/afx-scaffold" })).toBeInTheDocument();
       expect(screen.getByRole("combobox", { name: "Switch model" })).toHaveClass("min-w-0");
-      expect(screen.getByText("Select model")).toHaveClass("hidden", "@[260px]:inline");
+      expect(screen.getByRole("combobox", { name: "Switch model" })).toHaveTextContent("GPT-5.4");
+      expect(screen.getByRole("button", { name: "Mention file" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Thinking level" })).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "journal.md" })).toBeChecked();
+      expect(screen.getByText("journal.md")).toHaveClass("hidden", "@[260px]:inline");
+      expect(screen.getByText("|")).toBeInTheDocument();
+
+      await user.hover(screen.getByRole("button", { name: "Mention file" }));
+      const mentionTooltip = await waitFor(() => {
+        const tooltip = document.querySelector('[data-slot="tooltip-content"]');
+        expect(tooltip).not.toBeNull();
+        return tooltip as HTMLElement;
+      });
+      expect(mentionTooltip).toHaveTextContent(/mention a file in the workspace/i);
+      expect(mentionTooltip).toHaveTextContent(/current editor file/i);
+
+      const send = transport.send as ReturnType<typeof vi.fn>;
+      send.mockClear();
+      await user.click(screen.getByRole("switch", { name: "journal.md" }));
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "chat/setIncludeActiveFileContext",
+          enabled: false,
+        }),
+      );
+
+      const fileContextTrigger = screen.getByRole("switch", { name: "journal.md" });
+      await user.unhover(fileContextTrigger);
+      await user.hover(fileContextTrigger);
+      const fileContextTooltip = await waitFor(() => {
+        const tooltip = document.querySelector('[data-slot="tooltip-content"]');
+        expect(tooltip).not.toBeNull();
+        return tooltip as HTMLElement;
+      });
+      expect(fileContextTooltip).toHaveTextContent(/file context off/i);
+      expect(fileContextTooltip).toHaveTextContent(
+        /turn this on when you want the next turn to use the current editor file as context\./i,
+      );
 
       await user.click(screen.getByRole("tab", { name: "History" }));
       expect(screen.getByRole("heading", { name: /history/i })).toBeInTheDocument();
@@ -126,6 +253,194 @@ describe("chat App", () => {
       expect(screen.getByRole("button", { name: "Runtime" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "API Providers" })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: "External Agents" })).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
+    }
+  });
+
+  it("shows a tooltip for the model selector at collapse width", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: 240, configurable: true });
+
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+          },
+        },
+      });
+      transport.emit({
+        type: "agent/models",
+        requestId: "models",
+        models: [
+          {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+            reasoning: true,
+            contextWindow: 0,
+            maxTokens: 0,
+          },
+        ],
+      });
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings",
+        snapshot: createSettingsSnapshot(),
+      });
+      transport.emit({
+        type: "agent/activeFileContext",
+        snapshot: { name: "journal.md", path: "/workspace/src/notes/journal.md" },
+      });
+    });
+
+    try {
+      await user.hover(screen.getByRole("combobox", { name: "Switch model" }));
+      expect(
+        await screen.findByText(/choose the model for the next turn/i, {
+          selector: '[data-slot="tooltip-content"]',
+        }),
+      ).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
+    }
+  });
+
+  it("shows a tooltip for the thinking dropdown at collapse width", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: 240, configurable: true });
+
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+          },
+        },
+      });
+      transport.emit({
+        type: "agent/models",
+        requestId: "models",
+        models: [
+          {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+            reasoning: true,
+            contextWindow: 0,
+            maxTokens: 0,
+          },
+        ],
+      });
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings",
+        snapshot: createSettingsSnapshot(),
+      });
+    });
+
+    try {
+      await user.hover(screen.getByRole("button", { name: "Thinking level" }));
+      expect(
+        await screen.findByText(/choose how much reasoning the agent uses before replying/i, {
+          selector: '[data-slot="tooltip-content"]',
+        }),
+      ).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
+    }
+  });
+
+  it("shows a tooltip for the active file context switch at collapse width", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: 240, configurable: true });
+
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+          },
+        },
+      });
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings",
+        snapshot: createSettingsSnapshot(),
+      });
+      transport.emit({
+        type: "agent/activeFileContext",
+        snapshot: { name: "journal.md", path: "/workspace/src/notes/journal.md" },
+      });
+    });
+
+    try {
+      const fileContextTrigger = screen.getByRole("switch", { name: "journal.md" });
+      await user.hover(fileContextTrigger);
+      const fileContextTooltip = await waitFor(() => {
+        const tooltip = document.querySelector('[data-slot="tooltip-content"]');
+        expect(tooltip).not.toBeNull();
+        return tooltip as HTMLElement;
+      });
+      expect(fileContextTooltip).toHaveTextContent(/file context on/i);
+      expect(fileContextTooltip).toHaveTextContent(
+        /new turns automatically include this editor file, which is useful when the answer depends on the current code\./i,
+      );
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
@@ -563,63 +878,7 @@ describe("chat App", () => {
       transport.emit({
         type: "agent/settingsSnapshot",
         requestId: "settings",
-        snapshot: {
-          appearance: {
-            theme: "meridian",
-            style: "lyra",
-            themes: [
-              {
-                id: "meridian",
-                label: "AFX / Meridian",
-                implemented: true,
-                description: "AFX identity and brass accents over VS Code host surfaces.",
-              },
-            ],
-            styles: [
-              {
-                id: "lyra",
-                label: "Lyra",
-                implemented: true,
-                description: "Compact, boxy shadcn treatment.",
-              },
-            ],
-          },
-          engine: {
-            rpcEnabled: false,
-            agentBinary: "pi",
-            bundledSkillsPath: "resources/skills/agenticflowx",
-            bundledSkillCount: 17,
-            ephemeral: false,
-          },
-          sdk: {
-            enabled: true,
-            defaultModel: "openai:gpt-5.4",
-            ollamaBaseUrl: "",
-            sessionDir: "extension-managed storage",
-          },
-          providers: [],
-          externalAgents: [
-            {
-              id: "pi",
-              name: "Pi CLI",
-              status: "disabled",
-              modelCount: 0,
-              binaryPath: "pi",
-              enabled: false,
-              ephemeral: false,
-            },
-          ],
-          diagnostics: { logLevel: "info" },
-          telemetry: {
-            enabled: true,
-            vscodeTelemetryEnabled: true,
-            effectiveEnabled: true,
-          },
-          about: {
-            extensionVersion: "2.0.0",
-            bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
-          },
-        },
+        snapshot: createSettingsSnapshot(),
       });
     });
 
@@ -628,6 +887,19 @@ describe("chat App", () => {
     expect(screen.getByText("Runtime Setup")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /paste api key/i })).toBeInTheDocument();
     expect(screen.getByText("Advanced paths and defaults")).toBeInTheDocument();
+    const includeActiveFileContext = screen.getByRole("switch", {
+      name: "Include active file context",
+    });
+    expect(includeActiveFileContext).toBeChecked();
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    fireEvent.click(includeActiveFileContext);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIncludeActiveFileContext",
+        enabled: false,
+      }),
+    );
     const piRpcSwitch = screen.getByRole("switch", { name: "Enable Pi RPC" });
     expect(piRpcSwitch).not.toBeChecked();
     fireEvent.click(piRpcSwitch);

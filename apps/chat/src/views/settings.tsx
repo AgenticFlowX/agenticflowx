@@ -1,8 +1,8 @@
 /**
  * Settings view — runtime snapshot, diagnostics, and available skill discovery.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-SURFACE-CONTEXT]
  */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
@@ -91,6 +91,7 @@ const QUEUE_MODES: ReadonlyArray<{ value: QueueMode; label: string }> = [
 
 const SETTINGS_SECTIONS = [
   { id: "runtime", label: "Runtime", shortLabel: "Run" },
+  { id: "context", label: "Context", shortLabel: "Ctx" },
   { id: "identity", label: "Identity", shortLabel: "ID" },
   { id: "style", label: "Style", shortLabel: "Look" },
   { id: "providers", label: "Providers", shortLabel: "Models" },
@@ -111,6 +112,10 @@ const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
   enabled: true,
   effectiveEnabled: true,
   vscodeTelemetryEnabled: true,
+};
+
+const DEFAULT_CONTEXT_SETTINGS: SettingsSnapshot["context"] = {
+  includeActiveFileContext: true,
 };
 
 /**
@@ -149,12 +154,18 @@ export default function Settings({
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
   const pendingAppearanceMutations = useRef<Map<string, string>>(new Map());
   const pendingProviderMutations = useRef<Map<string, string>>(new Map());
+  const pendingContextMutations = useRef<Map<string, string>>(new Map());
   const pendingTelemetryMutations = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const offs = [
       bridgeOn("agent/settingsSnapshot", (msg) => {
         setSnapshot(msg.snapshot);
+        const contextLabel = pendingContextMutations.current.get(msg.requestId);
+        if (contextLabel) {
+          pendingContextMutations.current.delete(msg.requestId);
+          toast.success(contextLabel);
+        }
         const label = pendingProviderMutations.current.get(msg.requestId);
         if (label) {
           pendingProviderMutations.current.delete(msg.requestId);
@@ -190,12 +201,15 @@ export default function Settings({
         const runtimeLabel = pendingRuntimeMutations.current.get(msg.requestId);
         const appearanceLabel = pendingAppearanceMutations.current.get(msg.requestId);
         const providerLabel = pendingProviderMutations.current.get(msg.requestId);
+        const contextLabel = pendingContextMutations.current.get(msg.requestId);
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
-        const label = runtimeLabel ?? appearanceLabel ?? providerLabel ?? telemetryLabel;
+        const label =
+          runtimeLabel ?? appearanceLabel ?? providerLabel ?? contextLabel ?? telemetryLabel;
         if (!label) return;
         pendingRuntimeMutations.current.delete(msg.requestId);
         pendingAppearanceMutations.current.delete(msg.requestId);
         pendingProviderMutations.current.delete(msg.requestId);
+        pendingContextMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
       }),
@@ -220,6 +234,7 @@ export default function Settings({
   const runtimeControlsDisabled = isCheckingAgent || runtimeUnavailable || runtimeUnconfigured;
   const snapshotProviders = snapshot?.providers;
   const telemetrySettings = snapshot?.telemetry ?? DEFAULT_TELEMETRY_SETTINGS;
+  const contextSettings = snapshot?.context ?? DEFAULT_CONTEXT_SETTINGS;
   const providers = useMemo(() => snapshotProviders ?? [], [snapshotProviders]);
   const providerStats = useMemo(() => {
     return providers.reduce(
@@ -281,6 +296,11 @@ export default function Settings({
     pendingProviderMutations.current.set(requestId, label);
     return requestId;
   }
+  function trackContextMutation(label: string): string {
+    const requestId = uid();
+    pendingContextMutations.current.set(requestId, label);
+    return requestId;
+  }
   function trackTelemetryMutation(label: string): string {
     const requestId = uid();
     pendingTelemetryMutations.current.set(requestId, label);
@@ -323,6 +343,24 @@ export default function Settings({
     bridgeSend({
       type: "chat/setAutoRetry",
       requestId: trackRuntimeMutation(`Auto-retry ${enabled ? "enabled" : "disabled"}`),
+      enabled,
+    });
+  }
+  function applyIncludeActiveFileContext(enabled: boolean) {
+    setSnapshot((prev) =>
+      prev
+        ? {
+            ...prev,
+            context: {
+              ...(prev.context ?? DEFAULT_CONTEXT_SETTINGS),
+              includeActiveFileContext: enabled,
+            },
+          }
+        : prev,
+    );
+    bridgeSend({
+      type: "chat/setIncludeActiveFileContext",
+      requestId: trackContextMutation(`Active file context ${enabled ? "enabled" : "disabled"}`),
       enabled,
     });
   }
@@ -463,7 +501,7 @@ export default function Settings({
                 Settings
               </h2>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                Runtime paths, providers, appearance
+                Runtime paths, context, providers, appearance
               </p>
             </div>
           </div>
@@ -745,6 +783,23 @@ export default function Settings({
               disabled={runtimeControlsDisabled}
             />
           </div>
+        </SettingsCard>
+
+        {/* Surface: [ChatSettings.Context] */}
+        <SettingsCard
+          id="context"
+          icon={FileText}
+          title="Context"
+          description="Default context attachment for new chat turns."
+        >
+          <SwitchRow
+            id="active-file-context"
+            label="Include active file context"
+            description="Attaches the active editor file to new turns. The composer toggle mirrors this default."
+            checked={contextSettings.includeActiveFileContext}
+            onCheckedChange={applyIncludeActiveFileContext}
+            disabled={!snapshot}
+          />
         </SettingsCard>
 
         {/* Surface: [ChatSettings.Appearance] */}

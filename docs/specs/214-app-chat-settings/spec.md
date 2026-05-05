@@ -1,11 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:25:11.000Z"
+updated_at: "2026-05-05T11:38:55.000Z"
+approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers"]
 depends_on:
   [
@@ -59,6 +60,7 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-2 | Own settings snapshot consumption and presentation inside the chat webview                                 | Must Have   |
 | FR-3 | Own theme preview UX inside settings while shared theme contracts remain in `131-package-ui-design-system` | Should Have |
 | FR-4 | Keep runtime selection contracts aligned with `350-agent-manager`                                          | Must Have   |
+| FR-5 | Own the persistent active-file context preference and mirror it into the composer default                  | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -76,6 +78,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Settings view and provider card files route to this spec
 - [ ] Runtime/provider UX depends on `350-agent-manager` instead of duplicating runtime contracts
 - [ ] Theme preview UI uses `131-package-ui-design-system` for shared appearance contract
+- [ ] Active-file context preference is surfaced in Settings and mirrored into the composer default
 
 ---
 
@@ -85,6 +88,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - Pi RPC implementation
 - Shared token definitions
 - VSCode secret storage implementation
+- Composer toolbar quick-toggle rendering
 
 ---
 
@@ -112,8 +116,8 @@ None.
 | Owned surface   | Chat settings panel, provider cards, API key/runtime readiness UX, settings snapshot UI                                                                                                                              |
 | Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts` |
 | Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                           |
-| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads                                                                                                                                            |
-| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings                                                                                                                                        |
+| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                            |
+| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`                                                                                                |
 | Commands        | Settings panel actions inside the chat webview                                                                                                                                                                       |
 | Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                      |
 | Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                  |

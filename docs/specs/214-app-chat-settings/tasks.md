@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:34:22.000Z"
+updated_at: "2026-05-05T12:03:56.000Z"
 tags: ["app", "chat", "settings", "providers"]
 spec: spec.md
 design: design.md
@@ -39,14 +39,20 @@ design: design.md
 - [ ] Update requirements before changing provider/API key behavior
 - [ ] Add focused settings tests
 
+### 2.2 Active File Context Preference
+
+- [x] Add the default-on active-file context switch to the Settings view
+- [x] Mirror the same setting through the chat composer quick toggle
+- [x] Add tests for snapshot hydration, persistence, and small-screen behavior
+
 ---
 
 ## Phase 3: Verification
 
 ### 3.1 Verify Settings Routing
 
-- [ ] Run stale-ref search for settings files
-- [ ] Run relevant chat tests
+- [x] Run stale-ref search for settings files
+- [x] Run relevant chat tests
 
 ---
 
@@ -56,6 +62,8 @@ design: design.md
 Retarget settings refs
     ↓
 Update provider/runtime UX
+    ↓
+Add active-file context preference
     ↓
 Verify settings behavior
 ```
@@ -68,12 +76,14 @@ Verify settings behavior
 | ---- | ---------------- | ----------------------- |
 | 1.1  | [FR-1], [FR-2]   | [DES-FILES], [DES-DATA] |
 | 2.1  | [FR-1], [FR-4]   | [DES-UI], [DES-API]     |
+| 2.2  | [FR-5]           | [DES-SETTINGS-CONTEXT]  |
 
 ---
 
 ## Notes
 
 - Shared token/theme contracts remain in `131-package-ui-design-system`.
+- Active-file context is a durable preference mirrored by the composer quick toggle.
 
 ---
 
@@ -82,7 +92,10 @@ Verify settings behavior
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task | Action     | Files Modified                              | Agent | Human |
-| ---------- | ---- | ---------- | ------------------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/214-app-chat-settings/           | [x]   | []    |
-| 2026-05-03 | 1.2  | Coded      | design.md, apps/chat/src/views/settings.tsx | [x]   | []    |
+| Date                     | Task | Action      | Files Modified                                                                                                                                    | Agent | Human |
+| ------------------------ | ---- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1  | Scaffolded  | docs/specs/214-app-chat-settings/                                                                                                                 | [x]   | []    |
+| 2026-05-03               | 1.2  | Coded       | design.md, apps/chat/src/views/settings.tsx                                                                                                       | [x]   | []    |
+| 2026-05-05               | 2.2  | In progress | spec.md, design.md                                                                                                                                | [x]   | []    |
+| 2026-05-05T11:53:21.000Z | 2.2  | Coded       | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx | [x]   | []    |
+| 2026-05-05T12:03:56.000Z | 2.2  | Completed   | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx | [x]   | []    |

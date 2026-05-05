@@ -4,8 +4,8 @@
  * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6] [FR-8]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
- * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  */
@@ -46,8 +46,10 @@ import {
   X,
   Zap,
 } from "lucide-react";
+import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import type {
+  ActiveFileContextSnapshot,
   AgentCommand,
   AgentFileView,
   AgentModel,
@@ -68,7 +70,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from "@afx/ui/components/dropdown-menu";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@afx/ui/components/input-group";
 import {
@@ -270,6 +271,10 @@ export default function Chat({
   );
   const [thinking, setThinking] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [includeActiveFileContext, setIncludeActiveFileContext] = useState(true);
+  const [activeFileContext, setActiveFileContext] = useState<ActiveFileContextSnapshot | null>(
+    null,
+  );
 
   // ── agent status state ────────────────────────────────────────────────────
   // Internal status used when external status is not provided (e.g., no runtime).
@@ -371,6 +376,8 @@ export default function Chat({
   const showThinkingToggle = Boolean(
     agentStatus.model && (modelSupportsThinking || isApiProviderRuntime),
   );
+  const activeFileDisplayName = activeFileContext?.name ?? "No active file";
+  const activeFileDisplayPath = activeFileContext?.path ?? "No active editor file";
   /** True when the draft starts with "!" — shows the shell badge and warning footer. */
   const isSystemCommand = draft.startsWith("!");
   const isComposerDisabled =
@@ -679,6 +686,16 @@ export default function Chat({
         setCommands(msg.commands);
       }),
 
+      // Settings snapshot — mirrors the active-file context default from the host.
+      bridgeOn("agent/settingsSnapshot", (msg) => {
+        setIncludeActiveFileContext(msg.snapshot.context?.includeActiveFileContext ?? true);
+      }),
+
+      // Active-file context — keeps the composer label synced with the current editor file.
+      bridgeOn("agent/activeFileContext", (msg) => {
+        setActiveFileContext(msg.snapshot);
+      }),
+
       // Files — populates the mention picker.
       bridgeOn("agent/files", (msg) => {
         setFiles(msg.files);
@@ -751,6 +768,7 @@ export default function Chat({
     bridgeSend({ type: "chat/getState" });
     bridgeSend({ type: "chat/getModels", requestId: uid() });
     bridgeSend({ type: "chat/getCommands", requestId: uid() });
+    bridgeSend({ type: "chat/getSettingsSnapshot", requestId: uid() });
 
     return () => offs.forEach((off) => off());
   }, [completeCompaction]);
@@ -900,6 +918,17 @@ export default function Chat({
   function setThinkingLevel(level: ThinkingLevel) {
     setRuntime((r) => ({ ...r, thinkingLevel: level }));
     bridgeSend({ type: "chat/setThinkingLevel", requestId: uid(), level });
+  }
+
+  function toggleIncludeActiveFileContext() {
+    const next = !includeActiveFileContext;
+    setIncludeActiveFileContext(next);
+    bridgeSend({
+      type: "chat/setIncludeActiveFileContext",
+      requestId: uid(),
+      enabled: next,
+    });
+    getTextarea()?.focus();
   }
 
   function dismissQueued(id: string) {
@@ -1243,36 +1272,60 @@ export default function Chat({
             )}
             <InputGroupAddon align="block-end" className="flex-wrap justify-between gap-1">
               {/* Surface: [Composer.Toolbar] */}
-              <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                {isSystemCommand ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-amber-500">
-                    Shell
-                  </span>
-                ) : (
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    className="shrink-0"
-                    onClick={openMentionPicker}
+              <TooltipProvider>
+                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+                  {isSystemCommand ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-amber-500">
+                      Shell
+                    </span>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                          onClick={openMentionPicker}
+                          disabled={isComposerDisabled}
+                          aria-label="Mention file"
+                        >
+                          <AtSign />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
+                        Mention a file in the workspace. Use it to insert the current editor file or
+                        pick another file to reference in your message.
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  <ModelCombobox
+                    models={models}
+                    value={agentStatus.model}
                     disabled={isComposerDisabled}
-                    aria-label="Mention file"
-                    title="Mention file"
-                  >
-                    <AtSign />
-                  </Button>
-                )}
-                <ModelCombobox
-                  models={models}
-                  value={agentStatus.model}
-                  disabled={isComposerDisabled}
-                  onSelect={selectModel}
-                  onOpenSettings={onOpenSettings}
-                />
-                {showThinkingToggle && (
-                  <ThinkingLevelToggle level={runtime.thinkingLevel} onChange={setThinkingLevel} />
-                )}
-              </div>
+                    onSelect={selectModel}
+                    onOpenSettings={onOpenSettings}
+                  />
+                  {showThinkingToggle && (
+                    <>
+                      <ThinkingLevelToggle
+                        level={runtime.thinkingLevel}
+                        onChange={setThinkingLevel}
+                      />
+                      <span
+                        aria-hidden="true"
+                        className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
+                      >
+                        |
+                      </span>
+                    </>
+                  )}
+                  <ActiveFileContextToggle
+                    enabled={includeActiveFileContext}
+                    fileName={activeFileDisplayName}
+                    filePath={activeFileDisplayPath}
+                    onToggle={toggleIncludeActiveFileContext}
+                  />
+                </div>
+              </TooltipProvider>
               {/* Surface: [Composer.Actions] */}
               <div className="ml-auto flex shrink-0 items-center gap-1">
                 {isStreaming ? (
@@ -1771,21 +1824,29 @@ function ThinkingLevelToggle({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        type="button"
-        aria-label="Thinking level"
-        title={`Thinking: ${current.label}`}
-        className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "cn-button min-w-0 max-w-full shrink-0 px-1.5",
-        )}
-      >
-        <Brain className="shrink-0 text-afx-brand-soft" />
-        <span className="hidden max-w-[4.75rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
-          {current.label}
-        </span>
-        <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
-      </DropdownMenuTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuPrimitive.Trigger
+            type="button"
+            aria-label="Thinking level"
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "cn-button min-w-0 max-w-full shrink-0 px-1.5",
+            )}
+          >
+            <Brain className="shrink-0 text-afx-brand-soft" />
+            <span className="hidden max-w-[4.75rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
+              {current.label}
+            </span>
+            <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
+          </DropdownMenuPrimitive.Trigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
+          Choose how much reasoning the agent uses before replying. Higher levels can help with
+          harder tasks but may take longer. Leave it low for fast edits, and raise it when you want
+          the agent to think more carefully.
+        </TooltipContent>
+      </Tooltip>
       <DropdownMenuContent side="top" align="start" className="min-w-[10rem]">
         <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
           Thinking level
@@ -1803,6 +1864,87 @@ function ThinkingLevelToggle({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Composer switch for whether new turns should include the active file context.
+ * The visible label uses the active file basename; hover exposes the full path.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
+ */
+function ActiveFileContextToggle({
+  enabled,
+  fileName,
+  filePath,
+  onToggle,
+}: {
+  enabled: boolean;
+  fileName: string;
+  filePath: string;
+  onToggle: () => void;
+}) {
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+
+  return (
+    <Tooltip open={tooltipOpen} onOpenChange={setTooltipOpen}>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={fileName}
+          onClick={onToggle}
+          onMouseOver={() => setTooltipOpen(true)}
+          onMouseEnter={() => setTooltipOpen(true)}
+          onMouseMove={() => setTooltipOpen(true)}
+          onMouseLeave={() => setTooltipOpen(false)}
+          onPointerOver={() => setTooltipOpen(true)}
+          onPointerEnter={() => setTooltipOpen(true)}
+          onPointerLeave={() => setTooltipOpen(false)}
+          onFocus={() => setTooltipOpen(true)}
+          onBlur={() => setTooltipOpen(false)}
+          className={cn(
+            "inline-flex min-w-0 max-w-full items-center gap-1",
+            enabled ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          <span
+            data-slot="switch"
+            data-size="sm"
+            data-state={enabled ? "checked" : "unchecked"}
+            aria-hidden="true"
+            className={cn(
+              "cn-switch",
+              "group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80",
+              "shrink-0 origin-center scale-[0.8]",
+            )}
+          >
+            <span
+              data-slot="switch-thumb"
+              className="cn-switch-thumb pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground"
+            />
+          </span>
+          <span className="hidden min-w-0 max-w-[7rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
+            {fileName}
+          </span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
+        <div className="flex flex-col gap-0.5">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em]">
+            {enabled ? "File context on" : "File context off"}
+          </span>
+          <span className="text-xs">
+            {enabled
+              ? "New turns automatically include this editor file, which is useful when the answer depends on the current code. Keep this on by default for file-specific work."
+              : "Turn this on when you want the next turn to use the current editor file as context. It is best left on when you are debugging or editing this file."}
+          </span>
+          <span className="break-all font-mono text-[10px] opacity-70">{filePath}</span>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

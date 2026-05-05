@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T14:07:18.000Z"
+updated_at: "2026-05-05T13:13:33.000Z"
 tags: ["app", "chat", "composer", "webview", "system-command"]
 spec: spec.md
 design: design.md
@@ -25,6 +25,7 @@ design: design.md
 - **5.x** - System command implementation
 - **6.x** - System command testing
 - **7.x** - Verification
+- **8.x** - Active file context toggle
 
 ---
 
@@ -64,6 +65,26 @@ design: design.md
 
 - [ ] Run stale-ref search for chat composer files
 - [ ] Run relevant chat tests
+
+## Phase 8: Active File Context Toggle
+
+### 8.1 Add Toolbar Preference Mirror
+
+<!-- files: apps/chat/src/views/chat.tsx, apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT] | docs/specs/211-app-chat-composer/spec.md [FR-11] -->
+
+- [x] Add the active-file context toggle after Thinking with a literal `|` divider
+- [x] Mirror the persisted Settings preference via `agent/settingsSnapshot`
+- [x] Persist toggle changes through `chat/setIncludeActiveFileContext`
+
+### 8.2 Add Context Toggle Tests
+
+<!-- files: apps/chat/src/app.test.tsx, apps/chat/src/lib/settings-snapshot.test.ts, packages/shared/src/messages.test.ts -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT] | docs/specs/211-app-chat-composer/spec.md [FR-11] -->
+
+- [x] Add narrow-width composer coverage for the icon-first toggle
+- [x] Add snapshot hydration and persistence tests for the mirrored preference
+- [x] Keep the new toggle covered by the shared protocol tests
 
 ## Phase 4: System Command Protocol
 
@@ -159,10 +180,10 @@ design: design.md
 <!-- files: All modified files -->
 <!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-TRACE] -->
 
-- [ ] Run stale-ref search for @see annotations
-- [ ] Verify badge visible when draft starts with `!`
-- [ ] Verify guard shown for `rm -rf`
-- [ ] Verify output renders in timeline
+- [x] Run stale-ref search for @see annotations
+- [x] Verify badge visible when draft starts with `!`
+- [x] Verify guard shown for `rm -rf`
+- [x] Verify output renders in timeline
 
 ---
 
@@ -203,6 +224,8 @@ Verify traceability
 | 6.1  | [FR-9]                 | [DES-TEST]                    |
 | 6.2  | [FR-9]                 | [DES-TEST]                    |
 | 7.1  | [FR-9], [NFR-6]        | [DES-COMPOSER-TRACE]          |
+| 8.1  | [FR-11]                | [DES-COMPOSER-CONTEXT]        |
+| 8.2  | [FR-11], [NFR-7]       | [DES-COMPOSER-CONTEXT]        |
 
 ---
 
@@ -217,29 +240,37 @@ Verify traceability
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task | Action     | Files Modified                                           | Agent | Human |
-| ---------- | ---- | ---------- | -------------------------------------------------------- | ----- | ----- |
-| 2026-05-02 | 0.1  | Scaffolded | docs/specs/211-app-chat-composer/                        | [x]   | []    |
-| 2026-05-03 | 0.2  | Coded      | design.md, apps/chat/src/views/chat.tsx                  | [x]   | []    |
-| 2026-05-04 | 4.1  | Picked     | -                                                        | [x]   | []    |
-| 2026-05-04 | 4.1  | Coded      | packages/shared/src/messages.ts                          | [x]   | []    |
-| 2026-05-04 | 4.1  | Completed  | packages/shared/src/messages.ts                          | [x]   | []    |
-| 2026-05-04 | 5.4  | Picked     | -                                                        | [x]   | []    |
-| 2026-05-04 | 5.4  | Coded      | sidebar-panel.ts, sidebar-panel.test.ts                  | [x]   | []    |
-| 2026-05-04 | 5.4  | Completed  | sidebar-panel.ts, sidebar-panel.test.ts                  | [x]   | []    |
-| 2026-05-04 | 5.1  | Picked     | -                                                        | [x]   | []    |
-| 2026-05-04 | 5.1  | Coded      | chat.tsx                                                 | [x]   | []    |
-| 2026-05-04 | 5.1  | Completed  | chat.tsx                                                 | [x]   | []    |
-| 2026-05-04 | 5.2  | Coded      | chat.tsx                                                 | [x]   | []    |
-| 2026-05-04 | 5.2  | Completed  | chat.tsx                                                 | [x]   | []    |
-| 2026-05-04 | 5.3  | Picked     | -                                                        | [x]   | []    |
-| 2026-05-04 | 5.3  | Coded      | chat.tsx, sidebar-panel.ts, messages.ts                  | [x]   | []    |
-| 2026-05-04 | 5.3  | Completed  | chat.tsx, sidebar-panel.ts, messages.ts                  | [x]   | []    |
-| 2026-05-04 | 5.5  | Picked     | -                                                        | [x]   | []    |
-| 2026-05-04 | 5.5  | Coded      | chat.tsx, output-card.tsx                                | [x]   | []    |
-| 2026-05-04 | 5.5  | Completed  | chat.tsx, output-card.tsx                                | [x]   | []    |
-| 2026-05-04 | 5.5  | Coded      | chat.tsx, output-card.tsx, sidebar-panel.ts, messages.ts | [x]   | []    |
-| 2026-05-04 | 5.5  | Coded      | chat.tsx, sidebar-panel.ts                               | [x]   | []    |
-| 2026-05-04 | 5.5  | Coded      | chat.tsx                                                 | [x]   | []    |
-| 2026-05-04 | 6.1  | Coded      | system-command.ts, system-command.test.ts                | [x]   | []    |
-| 2026-05-04 | 6.2  | Coded      | sidebar-panel.test.ts                                    | [x]   | []    |
+| Date                     | Task    | Action     | Files Modified                                                                                                                                                                                                                                                                                                                                                          | Agent | Human |
+| ------------------------ | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 0.1     | Scaffolded | docs/specs/211-app-chat-composer/                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-03               | 0.2     | Coded      | design.md, apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                 | [x]   | []    |
+| 2026-05-04               | 4.1     | Picked     | -                                                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-04               | 4.1     | Coded      | packages/shared/src/messages.ts                                                                                                                                                                                                                                                                                                                                         | [x]   | []    |
+| 2026-05-04               | 4.1     | Completed  | packages/shared/src/messages.ts                                                                                                                                                                                                                                                                                                                                         | [x]   | []    |
+| 2026-05-04               | 5.4     | Picked     | -                                                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-04               | 5.4     | Coded      | sidebar-panel.ts, sidebar-panel.test.ts                                                                                                                                                                                                                                                                                                                                 | [x]   | []    |
+| 2026-05-04               | 5.4     | Completed  | sidebar-panel.ts, sidebar-panel.test.ts                                                                                                                                                                                                                                                                                                                                 | [x]   | []    |
+| 2026-05-04               | 5.1     | Picked     | -                                                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-04               | 5.1     | Coded      | chat.tsx                                                                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.1     | Completed  | chat.tsx                                                                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.2     | Coded      | chat.tsx                                                                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.2     | Completed  | chat.tsx                                                                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.3     | Picked     | -                                                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-04               | 5.3     | Coded      | chat.tsx, sidebar-panel.ts, messages.ts                                                                                                                                                                                                                                                                                                                                 | [x]   | []    |
+| 2026-05-04               | 5.3     | Completed  | chat.tsx, sidebar-panel.ts, messages.ts                                                                                                                                                                                                                                                                                                                                 | [x]   | []    |
+| 2026-05-05T11:53:21.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/app.test.tsx, apps/chat/src/lib/settings-snapshot.test.ts, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts, apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, apps/vscode/package.json | [x]   | []    |
+| 2026-05-05T12:03:56.000Z | 8.1/8.2 | Completed  | apps/chat/src/views/chat.tsx, apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/app.test.tsx, apps/chat/src/lib/settings-snapshot.test.ts, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts, apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, apps/vscode/package.json | [x]   | []    |
+| 2026-05-05T12:23:25.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md                                                                                                                                                                                                                                                      | [x]   | []    |
+| 2026-05-05T12:27:26.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md                                                                                                                                                                                                                                                      | [x]   | []    |
+| 2026-05-05T12:29:44.000Z | 8.1/8.2 | Completed  | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                           | [x]   | []    |
+| 2026-05-05T12:33:26.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/components/model-combobox.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md                                                                                                                                                                             | [x]   | []    |
+| 2026-05-05T13:09:28.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/package.json, pnpm-lock.yaml                                                                                                                                                                                                                                                                                                    | [x]   | []    |
+| 2026-05-05T13:13:33.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.5     | Picked     | -                                                                                                                                                                                                                                                                                                                                                                       | [x]   | []    |
+| 2026-05-04               | 5.5     | Coded      | chat.tsx, output-card.tsx                                                                                                                                                                                                                                                                                                                                               | [x]   | []    |
+| 2026-05-04               | 5.5     | Completed  | chat.tsx, output-card.tsx                                                                                                                                                                                                                                                                                                                                               | [x]   | []    |
+| 2026-05-04               | 5.5     | Coded      | chat.tsx, output-card.tsx, sidebar-panel.ts, messages.ts                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 5.5     | Coded      | chat.tsx, sidebar-panel.ts                                                                                                                                                                                                                                                                                                                                              | [x]   | []    |
+| 2026-05-04               | 5.5     | Coded      | chat.tsx                                                                                                                                                                                                                                                                                                                                                                | [x]   | []    |
+| 2026-05-04               | 6.1     | Coded      | system-command.ts, system-command.test.ts                                                                                                                                                                                                                                                                                                                               | [x]   | []    |
+| 2026-05-04               | 6.2     | Coded      | sidebar-panel.test.ts                                                                                                                                                                                                                                                                                                                                                   | [x]   | []    |

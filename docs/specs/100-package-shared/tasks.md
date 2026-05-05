@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Living
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-05T12:03:56.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging"]
 spec: spec.md
 design: design.md
@@ -44,14 +44,23 @@ design: design.md
 - [x] Add test fixture `apps/vscode/__tests__/fixtures/mock-logger.ts`; update `agent-factory.spec.ts` and `extension.spec.ts`
 - [x] Verify: `pnpm check-types` and `pnpm test` clean (29 tests in `@afx/shared`; 82 tests monorepo-wide)
 
+## Phase 4 — Active File Context Snapshot
+
+- [x] Extend `SettingsSnapshot` with the durable active-file context preference
+- [x] Add `chat/setIncludeActiveFileContext` to the chat-to-host protocol
+- [x] Update shared protocol/design tests for the new snapshot field and toggle message
+
 ---
 
 ## Work Sessions
 
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 
-| Date       | Task                             | Action    | Files Modified                                                                                                 | Agent | Human |
-| ---------- | -------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 1 — scaffold               | Completed | docs/specs/100-package-shared/ (scaffolded)                                                                    | [x]   | []    |
-| 2026-04-26 | Phase 2 — AgentManager (ADR-002) | Completed | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002 | [x]   | []    |
-| 2026-04-26 | Review fixes                     | Completed | packages/shared/src/agent.ts, spec.md, design.md                                                               | [x]   | []    |
+| Date                     | Task                                   | Action      | Files Modified                                                                                                 | Agent | Human |
+| ------------------------ | -------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-04-26               | Phase 1 — scaffold                     | Completed   | docs/specs/100-package-shared/ (scaffolded)                                                                    | [x]   | []    |
+| 2026-04-26               | Phase 2 — AgentManager (ADR-002)       | Completed   | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002 | [x]   | []    |
+| 2026-04-26               | Review fixes                           | Completed   | packages/shared/src/agent.ts, spec.md, design.md                                                               | [x]   | []    |
+| 2026-05-05               | Phase 4 — active file context          | In progress | spec.md, design.md, packages/shared/src/messages.ts, messages.test.ts                                          | [x]   | []    |
+| 2026-05-05T11:53:21.000Z | Phase 4 — active file context snapshot | Coded       | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | []    |
+| 2026-05-05T12:03:56.000Z | Phase 4 — active file context snapshot | Completed   | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | []    |

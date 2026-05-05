@@ -4,6 +4,7 @@
  */
 import { useState } from "react";
 
+import { Combobox as ComboboxPrimitive } from "@base-ui/react";
 import { KeyRound, Server, Settings2, Sparkles } from "lucide-react";
 
 import type { AgentModel } from "@afx/shared";
@@ -22,8 +23,8 @@ import {
   ComboboxLabel,
   ComboboxList,
   ComboboxSeparator,
-  ComboboxTrigger,
 } from "@afx/ui/components/combobox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 export interface ModelComboboxProps {
@@ -75,19 +76,28 @@ export function ModelCombobox({
       isItemEqualToValue={isSameModel}
       autoHighlight
     >
-      <ComboboxTrigger
-        aria-label="Switch model"
-        disabled={disabled}
-        className={cn(
-          buttonVariants({ variant: "ghost", size: "sm" }),
-          "cn-button min-w-0 max-w-full px-1.5 [&>svg:last-child]:hidden @[260px]:[&>svg:last-child]:block",
-        )}
-      >
-        <Sparkles className="shrink-0 text-afx-brand-soft" />
-        <span className="hidden min-w-0 max-w-[9rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
-          {triggerLabel ?? "Select model"}
-        </span>
-      </ComboboxTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <ComboboxPrimitive.Trigger
+            aria-label="Switch model"
+            disabled={disabled}
+            className={cn(
+              buttonVariants({ variant: "ghost", size: "sm" }),
+              "cn-button min-w-0 max-w-full px-1.5 [&>svg:last-child]:hidden @[260px]:[&>svg:last-child]:block",
+            )}
+          >
+            <Sparkles className="shrink-0 text-afx-brand-soft" />
+            <span className="hidden min-w-0 max-w-[9rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
+              {triggerLabel ?? "Select model"}
+            </span>
+          </ComboboxPrimitive.Trigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
+          Choose the model for the next turn. API providers are grouped together, and external
+          agents appear separately. Leave this on the default model unless you need a different
+          capability or context window.
+        </TooltipContent>
+      </Tooltip>
       <ComboboxContent side="top" align="start" className="w-72 max-w-[calc(100vw-1rem)]">
         <ComboboxList>
           {models.length === 0 ? (

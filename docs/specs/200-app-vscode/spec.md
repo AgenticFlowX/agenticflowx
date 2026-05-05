@@ -1,11 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T00:16:19.000Z"
+updated_at: "2026-05-05T11:38:55.000Z"
+approved_at: "2026-05-05T11:45:45.000Z"
 tags: [app, vscode, extension, webview, commands, agent, routing]
 depends_on: [100-package-shared, 110-package-transport, 300-infra-pi]
 ---
@@ -60,16 +61,18 @@ VSCode users running the AgenticFlowX extension.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                                                                                                        | Priority    |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Extension activates lazily via VSCode view contributions (sidebar/workbench panels) and registers all commands during `activate()`; `activationEvents` may stay empty since the panel views themselves are activation events       | Must Have   |
-| FR-2 | Sidebar webview provider loads `apps/chat` dist output                                                                                                                                                                             | Must Have   |
-| FR-3 | Workbench webview provider loads `apps/workbench` dist output                                                                                                                                                                      | Must Have   |
-| FR-4 | Commands: `afx.openSidebar`, `afx.openWorkbench`, `afx.showLogs`, `afx.agentSmokeTest`, `afx.agentRestart`                                                                                                                         | Must Have   |
-| FR-5 | Webview HTML generator loads compiled Vite dist with correct CSP and nonce                                                                                                                                                         | Must Have   |
-| FR-6 | `extension.ts` reads `afx.agentBinaryPath`, `afx.agentEphemeralSession`, and workspace folder from VSCode settings and injects them into `agent-factory.ts`; the active `AgentManager` is disposed on deactivation                 | Must Have   |
-| FR-7 | `sidebar-panel.ts` depends on `AgentManager` from `@afx/shared` — not on `PiManager` or any adapter-specific type; it handles normalized agent events, usage stats, and extension UI requests without referencing Pi-native shapes | Must Have   |
-| FR-8 | `agent-factory.ts` models configured coding agents as `AgentInstance[]`; AFX can return Pi CLI and API-provider runtimes while keeping webview panels runtime-agnostic                                                             | Should Have |
+| ID    | Requirement                                                                                                                                                                                                                        | Priority    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1  | Extension activates lazily via VSCode view contributions (sidebar/workbench panels) and registers all commands during `activate()`; `activationEvents` may stay empty since the panel views themselves are activation events       | Must Have   |
+| FR-2  | Sidebar webview provider loads `apps/chat` dist output                                                                                                                                                                             | Must Have   |
+| FR-3  | Workbench webview provider loads `apps/workbench` dist output                                                                                                                                                                      | Must Have   |
+| FR-4  | Commands: `afx.openSidebar`, `afx.openWorkbench`, `afx.showLogs`, `afx.agentSmokeTest`, `afx.agentRestart`                                                                                                                         | Must Have   |
+| FR-5  | Webview HTML generator loads compiled Vite dist with correct CSP and nonce                                                                                                                                                         | Must Have   |
+| FR-6  | `extension.ts` reads `afx.agentBinaryPath`, `afx.agentEphemeralSession`, and workspace folder from VSCode settings and injects them into `agent-factory.ts`; the active `AgentManager` is disposed on deactivation                 | Must Have   |
+| FR-7  | `sidebar-panel.ts` depends on `AgentManager` from `@afx/shared` — not on `PiManager` or any adapter-specific type; it handles normalized agent events, usage stats, and extension UI requests without referencing Pi-native shapes | Must Have   |
+| FR-8  | `agent-factory.ts` models configured coding agents as `AgentInstance[]`; AFX can return Pi CLI and API-provider runtimes while keeping webview panels runtime-agnostic                                                             | Should Have |
+| FR-9  | `package.json` contributes `afx.context.includeActiveFileContext` with a default-on setting that the host snapshots for the settings panel and composer quick toggle                                                               | Must Have   |
+| FR-10 | `sidebar-panel.ts` auto-attaches the active workspace file context to `chat/send`, `chat/steer`, and `chat/followUp` when the preference is enabled                                                                                | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -94,6 +97,7 @@ VSCode users running the AgenticFlowX extension.
 - [x] `afx.agentRestart` stops and restarts the agent process
 - [ ] Editor action work routes to `202-app-vscode-editor-actions`
 - [ ] `@see` navigation work routes to `203-app-vscode-see-navigation`
+- [ ] Active-file context preference routes through host config and composer send paths
 
 ---
 

@@ -1,11 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T02:54:23.000Z"
+updated_at: "2026-05-05T11:38:55.000Z"
+approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers"]
 spec: spec.md
 ---
@@ -41,6 +42,7 @@ Settings view
 | ------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | Hydrate panel      | mount effect in `Settings`                                                                              | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                        | Host broadcasts settings, commands, runtime settings                 | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings` |
 | Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry` | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Active `AgentManager` runtime setting update                         | `agent/runtimeSettings` or `chat/error`                             |
+| Context preference | `applyIncludeActiveFileContext`                                                                         | `chat/setIncludeActiveFileContext`                                                                                     | Host persists `afx.context.includeActiveFileContext` + snapshot      | `agent/settingsSnapshot` or `chat/error`                            |
 | Appearance         | `applyTheme`, `applyStyle`                                                                              | `appearance/update`                                                                                                    | Host persists `afx.theme` / `afx.style` and emits runtime appearance | `agent/appearanceUpdated` or `chat/error`                           |
 | API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                        | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Host SecretStore/settings mutation                                   | `agent/settingsSnapshot` or `chat/error`                            |
 | Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Host config + runtime discovery                                      | `agent/settingsSnapshot` or `chat/error`                            |
@@ -77,6 +79,10 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | Follow-up mode       [One at a time v]                         |
 | Auto-compaction      [toggle]                                  |
 | Auto-retry           [toggle]                                  |
++----------------------------------------------------------------+
+| Context                                                        |
+| Include active file context [toggle]                           |
+| Default on; mirrored in the composer toolbar                   |
 +----------------------------------------------------------------+
 ```
 
@@ -146,6 +152,8 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | [ChatSettings.RuntimeSetup] API Provider SDK + Pi RPC choice    |
 | [ChatSettings.RuntimeControls] thinking, queue, compaction      |
 +----------------------------------------------------------------+
+| [ChatSettings.Context] active file context toggle               |
++----------------------------------------------------------------+
 | [ChatSettings.Appearance] identity/theme + style treatment      |
 +----------------------------------------------------------------+
 | [ChatSettings.Providers]                                       |
@@ -175,6 +183,15 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | `RuntimeChoiceBlock`         | First-run API Provider SDK vs opt-in Pi RPC choice cards                          |
 | `RuntimePathBlock`           | Advanced SDK/RPC/session/bundled skills configuration detail                      |
 | `SelectRow` / `SwitchRow`    | Narrow-safe runtime control rows for thinking, queue modes, compaction, and retry |
+
+### [DES-SETTINGS-SURFACE-CONTEXT] Active File Context Preference
+
+| Code anchor                          | UI/functionality                                                                          |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `applyIncludeActiveFileContext`      | Mirrors the durable active-file context preference to the host and optimistic local state |
+| Context `SettingsCard`               | SwitchRow-based card for the default-on active-file context preference                    |
+| `bridgeOn("agent/settingsSnapshot")` | Hydrates and keeps the Settings switch aligned with the host snapshot                     |
+| `chat/setIncludeActiveFileContext`   | Bridge message shared with the composer quick toggle and host persistence path            |
 
 ### [DES-SETTINGS-SURFACE-PROVIDERS] Provider Management
 
@@ -308,6 +325,7 @@ Settings state includes provider catalog entries, active provider/model, runtime
 | Data shape                        | Owner                                    | Purpose                                                                                    |
 | --------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `SettingsSnapshot`                | `@afx/shared` and `settings-snapshot.ts` | Webview-ready host/settings/provider snapshot                                              |
+| `ContextPreference`               | `settings.tsx`                           | Default-on active-file context toggle mirrored from host snapshot                          |
 | `RuntimeSettings`                 | `settings.tsx`                           | Active runtime controls for thinking, queue modes, compaction, retry, and session metadata |
 | `ProviderFilter`                  | `settings.tsx`                           | Local API provider filter state: all, ready, needs-key                                     |
 | `pending*Mutations` maps          | `settings.tsx`                           | RequestId-to-toast-label maps for success/error feedback                                   |
@@ -328,6 +346,7 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | Webview to host | `chat/getCommands`                                                                                                     | Populate skills/commands list                                 |
 | Webview to host | `chat/getState`                                                                                                        | Re-broadcast runtime settings after tab switch                |
 | Webview to host | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Runtime control mutations                                     |
+| Webview to host | `chat/setIncludeActiveFileContext`                                                                                     | Persist the active-file context default                       |
 | Webview to host | `appearance/update`                                                                                                    | Persist theme/style choice                                    |
 | Webview to host | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Provider credential/default model mutations                   |
 | Webview to host | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Pi RPC local-agent mutations                                  |
