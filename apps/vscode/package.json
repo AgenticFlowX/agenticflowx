@@ -2,7 +2,7 @@
   "name": "agenticflowx",
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",

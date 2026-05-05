@@ -1,5 +1,19 @@
 # Changelog
 
+<!-- markdownlint-disable MD024 -->
+
+## [2.0.6] - 2026-05-05
+
+### Added
+
+- Active-file context toggle in the chat composer and Settings, with host-owned file injection before prompts reach Pi.
+- End-to-end prompt-shaping docs showing how the chat draft, explicit file mentions, and selected file context become the final runtime payload.
+
+### Changed
+
+- Composer toolbar controls now use compact shadcn tooltips and filename-based context labels so the narrow layout stays readable.
+- Shared message protocol, VS Code host handling, tests, and spec/design docs were updated to keep the context flow synchronized across the repo.
+
 ## [2.0.5] - 2026-05-04
 
 ### Fixed
