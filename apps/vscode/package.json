@@ -469,12 +469,12 @@
     "@afx/parsers": "workspace:*",
     "@afx/agent-pi": "workspace:*",
     "@afx/agent-pi-sdk": "workspace:*",
-    "@types/vscode": "^1.96.0"
+    "@types/vscode": "^1.118.0"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
     "@vscode/vsce": "^3.9.1",
-    "esbuild": "^0.24.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.9",
     "@vitest/coverage-v8": "^2.1.9"
