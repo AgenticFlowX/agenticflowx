@@ -706,6 +706,50 @@ describe("chat App", () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  it("flips a running file-edit tool to error when the user aborts mid-turn", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "busy",
+          running: true,
+          isStreaming: true,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      transport.emit({
+        type: "chat/messageStart",
+        id: "assistant-abort-1",
+        role: "assistant",
+        createdAt: 1,
+      });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "edit-1",
+        toolName: "edit_file",
+        args: { path: "src/x.ts" },
+      });
+    });
+
+    const pill = screen.getByTestId("files-strip-pill");
+    expect(pill).toHaveAttribute("data-status", "running");
+
+    act(() => {
+      transport.emit({ type: "chat/aborted" });
+    });
+
+    expect(screen.getByTestId("files-strip-pill")).toHaveAttribute("data-status", "error");
+  });
+
   it("shows tool arguments immediately while a file tool is running", () => {
     const transport = createControlledTransport();
     initTransport(transport);

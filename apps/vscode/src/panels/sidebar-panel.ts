@@ -891,10 +891,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         const { toolCallId, ok, result } = evt;
         if (!toolCallId) return;
         const summary = extractToolSummary(result);
+        const firstChangedLine = extractFirstChangedLine(result);
         const tool = state.tools.find((t) => t.toolCallId === toolCallId);
         if (tool) {
           tool.status = ok ? "ok" : "error";
           tool.summary = summary;
+          if (firstChangedLine !== undefined) tool.firstChangedLine = firstChangedLine;
         }
         for (const m of state.messages) {
           if (!("tools" in m)) continue;
@@ -902,9 +904,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           if (mt) {
             mt.status = ok ? "ok" : "error";
             mt.summary = summary;
+            if (firstChangedLine !== undefined) mt.firstChangedLine = firstChangedLine;
           }
         }
-        post({ type: "chat/toolEnd", toolCallId, ok, summary });
+        post({ type: "chat/toolEnd", toolCallId, ok, summary, firstChangedLine });
         return;
       }
       case "queue_update": {
@@ -1160,6 +1163,27 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/openSettings": {
         void vscode.commands.executeCommand("workbench.action.openSettings", msg.key);
+        return;
+      }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+      case "chat/openFile": {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const abs = path.isAbsolute(msg.path)
+          ? msg.path
+          : root
+            ? path.join(root, msg.path)
+            : msg.path;
+        const uri = vscode.Uri.file(abs);
+        const lineIndex =
+          typeof msg.line === "number" && Number.isFinite(msg.line) && msg.line > 0
+            ? msg.line - 1
+            : undefined;
+        const options: vscode.TextDocumentShowOptions | undefined =
+          lineIndex !== undefined
+            ? { selection: new vscode.Range(lineIndex, 0, lineIndex, 0), preview: false }
+            : undefined;
+        void vscode.window.showTextDocument(uri, options);
         return;
       }
       // @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]
@@ -2175,6 +2199,20 @@ function extractToolSummary(result: unknown): string | undefined {
   const text = first.text.trim();
   if (text.length <= TOOL_SUMMARY_MAX) return text.slice(0, TOOL_SUMMARY_MAX);
   return text.slice(0, TOOL_SUMMARY_MAX) + "…";
+}
+
+/**
+ * Extracts the first-changed line (1-indexed) from a tool result's `details`
+ * payload. pi-mono's `edit` tool emits `result.details.firstChangedLine`; other
+ * harnesses may populate the same field. Returns undefined when absent or invalid.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+ */
+function extractFirstChangedLine(result: unknown): number | undefined {
+  const r = result as { details?: { firstChangedLine?: unknown } } | undefined;
+  const v = r?.details?.firstChangedLine;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
 function truncateTextFromHead(

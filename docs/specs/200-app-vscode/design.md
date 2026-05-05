@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
+updated_at: "2026-05-05T10:04:49.000Z"
 tags: [app, vscode, extension, webview, commands, agent]
 spec: spec.md
 ---
@@ -99,6 +99,17 @@ function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewViewProvi
 // HTML generation
 function loadWebviewHtml(webview: vscode.Webview, distPath: string): string;
 ```
+
+The sidebar panel's webview message handler dispatches `ChatToAgent` variants to host services
+(`AgentManager`, settings, telemetry, shell). One additional case lives here for the composer
+modified-files strip:
+
+| Message         | Handler                                                                                                                          |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `chat/openFile` | `vscode.window.showTextDocument(uri, { selection })` — relative paths resolved against workspace; `line` (1-indexed) reveals row |
+
+@see docs/specs/211-app-chat-composer/spec.md [FR-10]
+@see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
 
 ---
 

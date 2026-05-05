@@ -132,6 +132,16 @@ export interface ChatToolView {
   summary?: string;
   /** Tool arguments (for display). */
   args?: Record<string, unknown>;
+  /**
+   * 1-indexed first-changed line from the underlying tool result. Populated by
+   * `chat/toolEnd` when the harness reports one (e.g. pi-mono
+   * `result.details.firstChangedLine`). The composer modified-files strip reads
+   * this field to jump the editor selection on pill click.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  firstChangedLine?: number;
 }
 
 /**
@@ -251,6 +261,17 @@ export type ChatToAgent =
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/send"; requestId: string; content: string; mentions?: string[] }
+  /**
+   * User clicked a pill in the composer's modified-files strip. The host opens the
+   * file in the editor via `vscode.window.showTextDocument`. Relative paths are
+   * resolved against the workspace root. When `line` is supplied (1-indexed,
+   * forwarded from `ChatToolView.firstChangedLine`), the host reveals that line
+   * via the editor selection.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  | { type: "chat/openFile"; path: string; line?: number }
   /**
    * User pressed abort.
    *
@@ -621,6 +642,15 @@ export type AgentToChat =
       toolCallId: string;
       ok: boolean;
       summary?: string;
+      /**
+       * 1-indexed first-changed line forwarded from the underlying tool result
+       * when the harness reports one (e.g. pi-mono
+       * `result.details.firstChangedLine`). Optional, harness-agnostic.
+       *
+       * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+       * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+       */
+      firstChangedLine?: number;
     }
   /**
    * Non-fatal error surfaced to the user.

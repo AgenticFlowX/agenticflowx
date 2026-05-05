@@ -4,8 +4,8 @@
  * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6] [FR-8]
  * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
- * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  */
@@ -14,6 +14,7 @@ import {
   type KeyboardEvent,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -81,6 +82,7 @@ import { cn } from "@afx/ui/lib/utils";
 import { AfxLogoIcon, AfxLogoMark } from "../components/afx-logo";
 import type { AgentRecoveryActions } from "../components/agent-recovery-card";
 import { ComposerStrip } from "../components/composer-strip";
+import { FilesStrip } from "../components/files-strip";
 import { MarkdownMessage } from "../components/markdown-message";
 import { MentionPopup } from "../components/mention-popup";
 import { ModelCombobox } from "../components/model-combobox";
@@ -90,6 +92,7 @@ import { toast } from "../components/toast";
 import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../lib/bridge";
 import type { ComposerTrigger } from "../lib/composer-detect";
 import { detectComposerTrigger } from "../lib/composer-detect";
+import { deriveModifiedFiles } from "../lib/derive-modified-files";
 import { extractMentions } from "../lib/mentions";
 import { analyzeDanger } from "../lib/system-command";
 import { toolDescriptor } from "../lib/tool-descriptor";
@@ -282,6 +285,17 @@ export default function Chat({
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
+  /**
+   * ID of the assistant message at which the user dismissed the modified-files
+   * strip. Strip stays hidden until a *later* assistant message produces an
+   * edit/write tool call.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  const [dismissedAtAssistantMessageId, setDismissedAtAssistantMessageId] = useState<string | null>(
+    null,
+  );
   const [slashOpen, setSlashOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [activeTrigger, setActiveTrigger] = useState<ComposerTrigger | null>(null);
@@ -323,6 +337,25 @@ export default function Chat({
   // The strip stays visible whenever the user has anything queued locally; the
   // dismiss / clear-all controls handle stale items if the engine drains them.
   const visibleQueued = queued;
+  // Modified files strip: derived from transcript tool calls. Strip stays hidden
+  // until a NEW assistant message produces an edit/write tool call after the user
+  // dismisses it.
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+  const { files: modifiedFiles, latestEditingAssistantMessageId } = useMemo(
+    () => deriveModifiedFiles(messages),
+    [messages],
+  );
+  const filesStripVisible =
+    modifiedFiles.length > 0 &&
+    latestEditingAssistantMessageId !== null &&
+    latestEditingAssistantMessageId !== dismissedAtAssistantMessageId;
+  const handleDismissModifiedFiles = useCallback(() => {
+    setDismissedAtAssistantMessageId(latestEditingAssistantMessageId);
+  }, [latestEditingAssistantMessageId]);
+  const handleOpenModifiedFile = useCallback((p: string, line?: number) => {
+    bridgeSend({ type: "chat/openFile", path: p, line });
+  }, []);
   const selectedModel =
     agentStatus.model == null
       ? undefined
@@ -534,6 +567,7 @@ export default function Chat({
                       ...t,
                       status: msg.ok ? "ok" : "error",
                       summary: msg.summary,
+                      firstChangedLine: msg.firstChangedLine ?? t.firstChangedLine,
                     }
                   : t,
               ),
@@ -586,6 +620,27 @@ export default function Chat({
           isStreaming: false,
         }));
         setThinking(null);
+        // Sweep any tool calls still in `running` state — when the user aborts
+        // mid-turn, pi-mono does not synthesize a `tool_execution_end` for the
+        // in-flight tool. Without this sweep the FilesStrip pulse animation
+        // would tick forever. Mark them `error` so the dot stops pulsing and
+        // the user sees the canceled state.
+        setMessages((prev) => {
+          let touched = false;
+          const next = prev.map((m) => {
+            if (!("tools" in m)) return m;
+            const tools = m.tools ?? [];
+            if (!tools.some((t) => t.status === "running")) return m;
+            touched = true;
+            return {
+              ...m,
+              tools: tools.map((t) =>
+                t.status === "running" ? { ...t, status: "error" as const } : t,
+              ),
+            };
+          });
+          return touched ? next : prev;
+        });
       }),
 
       // Model list — populates the model selector.
@@ -1155,6 +1210,14 @@ export default function Chat({
             onOpenChange={setMentionOpen}
             onSelect={selectMention}
           />
+          {/* Surface: [Composer.ModifiedFiles] */}
+          {filesStripVisible && (
+            <FilesStrip
+              files={modifiedFiles}
+              onOpenFile={handleOpenModifiedFile}
+              onDismiss={handleDismissModifiedFiles}
+            />
+          )}
           {/* Surface: [Composer.Queue] */}
           <QueueStrip
             queued={visibleQueued}

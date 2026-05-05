@@ -695,6 +695,9 @@ This is a long-running response on purpose so the queue stays visible while you 
       toolCallId,
       ok: true,
       summary: "apps/chat/src/views/chat.tsx — 3 lines changed",
+      // Forwarded from pi-mono-style `result.details.firstChangedLine` (1-indexed).
+      // Used by the composer modified-files strip to jump the editor selection.
+      firstChangedLine: 142,
     });
     await streamText(
       id,

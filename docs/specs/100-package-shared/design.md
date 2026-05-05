@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.3"
+version: "1.5"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T03:07:51.000Z"
+updated_at: "2026-05-05T10:04:49.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
 ---
@@ -60,7 +60,13 @@ type ChatToAgent =
   | { type: "chat/send"; requestId: string; content: string }
   | { type: "chat/abort" }
   | { type: "chat/newSession" }
-  | { type: "chat/getState" };
+  | { type: "chat/getState" }
+  // Composer modified-files strip pill click — host opens path in editor; if
+  // `line` is provided (1-indexed), the host reveals that line via the editor
+  // selection. Optional, harness-agnostic.
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+  | { type: "chat/openFile"; path: string; line?: number };
 
 // Extension host → Chat direction (streaming-aware event protocol)
 type AgentToChat =
@@ -70,7 +76,19 @@ type AgentToChat =
   | { type: "chat/thinkingDelta"; id: string; delta: string }
   | { type: "chat/messageEnd"; id: string; stopReason?: string }
   | { type: "chat/toolStart"; toolCallId: string; toolName: string; args: unknown }
-  | { type: "chat/toolEnd"; toolCallId: string; ok: boolean; summary?: string }
+  | {
+      type: "chat/toolEnd";
+      toolCallId: string;
+      ok: boolean;
+      summary?: string;
+      // 1-indexed first-changed line forwarded from the tool result when the
+      // harness reports one (e.g. pi-mono `edit.result.details.firstChangedLine`).
+      // The composer modified-files strip reads this to jump the editor
+      // selection on pill click. Optional and harness-agnostic.
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+      firstChangedLine?: number;
+    }
   | { type: "chat/error"; message: string; requestId?: string }
   | { type: "chat/aborted" }
   | { type: "chat/piStatus"; running: boolean; isStreaming: boolean; model?: string; info?: string }
@@ -112,6 +130,12 @@ interface ChatToolView {
   status: "running" | "ok" | "error";
   summary?: string;
   args?: Record<string, unknown>;
+  /**
+   * 1-indexed first-changed line from the underlying tool result. Populated by
+   * `chat/toolEnd` when the harness reports it. The composer modified-files
+   * strip reads this field to jump the editor selection on pill click.
+   */
+  firstChangedLine?: number;
 }
 
 interface ChatUsageView {
