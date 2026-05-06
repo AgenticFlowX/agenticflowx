@@ -1199,6 +1199,150 @@ describe("sidebar-panel host bridge", () => {
   });
 
   /**
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-CONTEXT]
+   */
+  it("treats a newly selected Code mode as immediate for the next send", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    let resolveModeChange!: () => void;
+    const modeChangeGate = new Promise<void>((resolve) => {
+      resolveModeChange = resolve;
+    });
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(async (command: string) => {
+      if (command === "afx.setMode") {
+        await modeChangeGate;
+      }
+      return undefined;
+    });
+    const inbound = setup();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    inbound.fire({ type: "chat/send", requestId: "req-send", content: "hello world" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).toHaveBeenCalledOnce();
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0];
+    expect(prompt).toContain("hello world");
+    expect(prompt).toContain('<afx_internal_control mode_transition="explore_to_code">');
+    expect(prompt).toContain("supersedes any prior AFX Explore read-only control block");
+    expect(prompt).toContain("Do not acknowledge, quote, summarize, or mention");
+    expect(prompt).not.toContain("You are now in Code mode");
+    expect(prompt).not.toContain("[AFX EXPLORE MODE: READ ONLY]");
+
+    resolveModeChange();
+    await flushAsyncWork(2);
+  });
+
+  /**
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-CONTEXT]
+   */
+  it("keeps Code mode active for the next send after the mode command settles", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const inbound = setup();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+
+    inbound.fire({ type: "chat/send", requestId: "req-send", content: "hello world" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).toHaveBeenCalledOnce();
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0];
+    expect(prompt).toContain("hello world");
+    expect(prompt).toContain('<afx_internal_control mode_transition="explore_to_code">');
+    expect(prompt).toContain("supersedes any prior AFX Explore read-only control block");
+    expect(prompt).toContain("Do not acknowledge, quote, summarize, or mention");
+    expect(prompt).not.toContain("You are now in Code mode");
+    expect(prompt).not.toContain("[AFX EXPLORE MODE: READ ONLY]");
+  });
+
+  /**
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
+   */
+  it("only sends the Code mode reset prompt once after switching from Explore", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const inbound = setup();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+
+    inbound.fire({ type: "chat/send", requestId: "req-send-1", content: "first" });
+    await flushAsyncWork(2);
+    listener?.({ type: "agent_end" });
+    inbound.fire({ type: "chat/send", requestId: "req-send-2", content: "second" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).toHaveBeenCalledTimes(2);
+    const firstPrompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0];
+    const secondPrompt = (vi.mocked(agent.send).mock.calls[1] as [string] | undefined)?.[0];
+    expect(firstPrompt).toContain('<afx_internal_control mode_transition="explore_to_code">');
+    expect(secondPrompt).toContain("second");
+    expect(secondPrompt).not.toContain('<afx_internal_control mode_transition="explore_to_code">');
+  });
+
+  /**
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
+   */
+  it("does not send the Code mode reset prompt when Code was already active", async () => {
+    mockAfxConfiguration({ "mode.active": "code" });
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+    inbound.fire({ type: "chat/send", requestId: "req-send", content: "hello" });
+    await flushAsyncWork(2);
+
+    expect(executeCommand).not.toHaveBeenCalled();
+    expect(agent.send).toHaveBeenCalledOnce();
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0];
+    expect(prompt).toContain("hello");
+    expect(prompt).not.toContain('<afx_internal_control mode_transition="explore_to_code">');
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; content?: string };
+        return (
+          posted.type === "chat/messageStart" && /Switched to Code mode/.test(posted.content ?? "")
+        );
+      }),
+    ).toBe(false);
+  });
+
+  /**
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MOCKUP-SYSTEM]
+   */
+  it("adds a compact transcript info row when the workspace mode changes", async () => {
+    const { values } = mockAfxConfiguration({ "mode.active": "explore" });
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(async (_command, mode) => {
+      values.set("mode.active", mode);
+      return undefined;
+    });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/messageStart",
+        role: "assistant",
+        content: "ℹ Switched to Code mode. Normal workspace actions are available.",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { content?: string };
+        return /afx_internal_control|You are now in Code mode/.test(posted.content ?? "");
+      }),
+    ).toBe(false);
+  });
+
+  /**
    * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
    */

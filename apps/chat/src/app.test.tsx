@@ -548,6 +548,70 @@ describe("chat App", () => {
     expect(screen.queryByText("Blocked command")).not.toBeInTheDocument();
   });
 
+  /**
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-CONTEXT]
+   */
+  it("keeps a fresh Code mode selection from being overwritten by a late Explore snapshot", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            reasoning: true,
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings-explore",
+        snapshot: createSettingsSnapshot("explore"),
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: "Mode: Explore" }));
+    await user.click(screen.getByRole("menuitemradio", { name: /^Code\b/i }));
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setMode",
+        mode: "code",
+      }),
+    );
+    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+    ).toBeInTheDocument();
+
+    act(() => {
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "settings-stale-explore",
+        snapshot: createSettingsSnapshot("explore"),
+      });
+    });
+
+    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+    ).toBeInTheDocument();
+  });
+
   it("closes the model menu before navigating to Settings", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();

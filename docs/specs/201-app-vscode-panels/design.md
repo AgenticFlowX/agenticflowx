@@ -5,7 +5,7 @@ status: Approved
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-05T15:23:18.000Z"
+updated_at: "2026-05-06T05:15:02.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -64,6 +64,7 @@ Composer/Settings mode control
   -> chat/setMode { mode }
   -> SidebarPanel.dispatchInbound
   -> vscode.commands.executeCommand("afx.setMode", mode)
+  -> append compact timeline info row when the mode actually changes
   -> extension.ts persists afx.mode.active at Workspace scope
   -> agent/settingsSnapshot refresh
   -> chat + settings surfaces rehydrate the new mode
@@ -71,7 +72,7 @@ Composer/Settings mode control
 chat/send | chat/steer | chat/followUp
   -> normalizePromptMentions()
   -> inflateMentionContext()
-  -> prefixExplorePrompt()
+  -> prefixWorkspaceModePrompt()
   -> agentManager.send(...) / steer(...) / followUp(...)
 
 chat/runCommand in Explore
@@ -80,9 +81,13 @@ chat/runCommand in Explore
   -> return without spawn()
 ```
 
-Code is the default full-access Pi-backed posture. Explore is experimental and read-only; use it
-for inspection, tracing, and planning. The guardrail prompt below is injected host-side before the
-agent sees any Explore turn.
+Code is the default full-access Pi-backed posture and should not create extra transcript noise when
+it is already active. Explore is experimental and read-only; use it for inspection, tracing, and
+planning. The guardrail prompt below is injected host-side before the agent sees any Explore turn.
+When the user switches back from Explore to Code, the next outbound prompt receives a hidden,
+one-shot Code reset prefix so the agent session does not continue obeying the prior Explore
+instruction from conversation history. The visible chat history should only show a compact timeline
+info row, for example `Switched to Code mode. Normal workspace actions are available.`
 
 ## [DES-PANELS-EXPLORE-PROMPT] Strict Explore Prompt
 
@@ -110,6 +115,32 @@ Allowed:
 - If the user wants implementation, say: "This requires Code mode."
 
 If the request cannot be answered without taking action, stop at the safest analysis-only answer.
+```
+
+When the user selects Code mode after Explore, the host prepends this internal reset prefix to the
+next `chat/send`, `chat/steer`, or `chat/followUp` only. This block is control metadata for the
+agent and must not be rendered as a user or assistant transcript message:
+
+```text
+<afx_internal_control mode_transition="explore_to_code">
+Purpose: clear a prior AFX Explore-mode guardrail from conversation history.
+
+This host control block supersedes any prior AFX Explore read-only control block.
+Current workspace mode: Code.
+
+Operational policy:
+- Normal coding-agent capabilities are restored for this and future turns.
+- You may inspect files, run appropriate shell commands, tests, builds, and git reads, and edit files when the user's request requires it and host permissions allow it.
+- Continue directly with the user's request.
+- Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
+</afx_internal_control>
+```
+
+Visible mode changes use the existing compact timeline info treatment:
+
+```text
+ℹ Switched to Explore mode. Read-only guardrails are active.
+ℹ Switched to Code mode. Normal workspace actions are available.
 ```
 
 ---
@@ -300,8 +331,12 @@ The panel keeps only a small amount of local state:
 
 - `workspaceMode()` reads `afx.mode.active` from workspace configuration and normalizes it to the
   `WorkspaceMode` union.
-- `prefixExplorePrompt()` applies the strict guardrail prompt above only when `workspaceMode() ===
-"explore"`.
+- `prefixWorkspaceModePrompt()` applies the strict guardrail prompt above when `workspaceMode() ===
+"explore"` and applies the hidden one-shot Code reset prompt only after the user switches back from
+  Explore to Code.
+- `appendInfoMessage(formatModeSwitchInfo(mode))` records a compact visible timeline row when the
+  persisted mode actually changes; re-selecting Code while Code is already active does not create a
+  row.
 - `BlockedActionView` is an ephemeral host-only shape used to tell the webview that a command was
   rejected in Explore.
 
@@ -384,22 +419,22 @@ If the panel split adds friction without improving routing, fold content back in
 
 ## [DES-PANELS-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                    | Code anchors                                                | Verification                    |
-| ----------- | --------------------------------------------------------------- | ----------------------------------------------------------- | ------------------------------- |
-| FR-1        | `[DES-PANELS-COMMAND-OPEN-SIDEBAR]`, `[DES-PANELS-LIFECYCLE]`   | `createSidebarPanel`, `afx.openSidebar` registration        | e2e activation test             |
-| FR-2        | `[DES-PANELS-COMMAND-OPEN-WORKBENCH]`, `[DES-PANELS-LIFECYCLE]` | `createWorkbenchPanel`, `afx.openWorkbench` registration    | e2e activation test             |
-| FR-3        | `[DES-PANELS-WEBVIEW-HTML]`                                     | `loadWebviewHtml`, CSP nonce + asset rewrite                | manual + future HTML smoke test |
-| FR-4        | `[DES-PANELS-LIFECYCLE]`                                        | `resolveWebviewView`, `onDidReceiveMessage`, `onDidDispose` | sidebar-panel.test.ts           |
-| FR-5        | `[DES-PANELS-LIFECYCLE]`                                        | `dispatchInbound case "chat/ready"`                         | sidebar-panel.test.ts           |
-| FR-6        | `[DES-SEC]`                                                     | webview-side architecture lint (`no-pi-imports.test.ts`)    | architecture lint test          |
-| FR-7        | `[DES-PANELS-DISPATCH]`                                         | `dispatchInbound` switch in sidebar-panel.ts                | sidebar-panel.test.ts           |
-| FR-8        | `[DES-PANELS-DISPATCH]`                                         | `handleMessage` in workbench-panel.ts                       | future workbench-panel tests    |
-| FR-9        | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/setMode`, `workspaceMode()`, `prefixExplorePrompt()`  | sidebar-panel.test.ts           |
-| FR-10       | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/send`, `chat/steer`, `chat/followUp` guardrail prefix | sidebar-panel.test.ts           |
-| FR-11       | `[DES-PANELS-MODE-WORKFLOW]`                                    | `handleRunCommand`, `agent/actionBlocked`                   | sidebar-panel.test.ts           |
-| NFR-1       | `[DES-PANELS-WEBVIEW-HTML]`                                     | nonce regeneration in `loadWebviewHtml`                     | manual review                   |
-| NFR-3       | `[DES-PANELS-WEBVIEW-HTML]`                                     | appearance class injected in HTML head                      | visual smoke (no FOUC)          |
-| NFR-5       | `[DES-PANELS-DISPATCH]`                                         | `default: const _never: never = msg;`                       | TypeScript exhaustive check     |
+| Requirement | Design nodes                                                    | Code anchors                                                     | Verification                    |
+| ----------- | --------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------- |
+| FR-1        | `[DES-PANELS-COMMAND-OPEN-SIDEBAR]`, `[DES-PANELS-LIFECYCLE]`   | `createSidebarPanel`, `afx.openSidebar` registration             | e2e activation test             |
+| FR-2        | `[DES-PANELS-COMMAND-OPEN-WORKBENCH]`, `[DES-PANELS-LIFECYCLE]` | `createWorkbenchPanel`, `afx.openWorkbench` registration         | e2e activation test             |
+| FR-3        | `[DES-PANELS-WEBVIEW-HTML]`                                     | `loadWebviewHtml`, CSP nonce + asset rewrite                     | manual + future HTML smoke test |
+| FR-4        | `[DES-PANELS-LIFECYCLE]`                                        | `resolveWebviewView`, `onDidReceiveMessage`, `onDidDispose`      | sidebar-panel.test.ts           |
+| FR-5        | `[DES-PANELS-LIFECYCLE]`                                        | `dispatchInbound case "chat/ready"`                              | sidebar-panel.test.ts           |
+| FR-6        | `[DES-SEC]`                                                     | webview-side architecture lint (`no-pi-imports.test.ts`)         | architecture lint test          |
+| FR-7        | `[DES-PANELS-DISPATCH]`                                         | `dispatchInbound` switch in sidebar-panel.ts                     | sidebar-panel.test.ts           |
+| FR-8        | `[DES-PANELS-DISPATCH]`                                         | `handleMessage` in workbench-panel.ts                            | future workbench-panel tests    |
+| FR-9        | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/setMode`, `workspaceMode()`, `prefixWorkspaceModePrompt()` | sidebar-panel.test.ts           |
+| FR-10       | `[DES-PANELS-MODE-WORKFLOW]`, `[DES-PANELS-EXPLORE-PROMPT]`     | `chat/send`, `chat/steer`, `chat/followUp` guardrail prefix      | sidebar-panel.test.ts           |
+| FR-11       | `[DES-PANELS-MODE-WORKFLOW]`                                    | `handleRunCommand`, `agent/actionBlocked`                        | sidebar-panel.test.ts           |
+| NFR-1       | `[DES-PANELS-WEBVIEW-HTML]`                                     | nonce regeneration in `loadWebviewHtml`                          | manual review                   |
+| NFR-3       | `[DES-PANELS-WEBVIEW-HTML]`                                     | appearance class injected in HTML head                           | visual smoke (no FOUC)          |
+| NFR-5       | `[DES-PANELS-DISPATCH]`                                         | `default: const _never: never = msg;`                            | TypeScript exhaustive check     |
 
 ---
 

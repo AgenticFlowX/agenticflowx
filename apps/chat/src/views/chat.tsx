@@ -292,6 +292,11 @@ export default function Chat({
   const [activeFileContext, setActiveFileContext] = useState<ActiveFileContextSnapshot | null>(
     null,
   );
+  /**
+   * Tracks the latest mode the user asked for so late host snapshots cannot
+   * rewind the composer back to an older posture.
+   */
+  const pendingWorkspaceModeRef = useRef<WorkspaceMode | null>(null);
 
   // ── agent status state ────────────────────────────────────────────────────
   // Internal status used when external status is not provided (e.g., no runtime).
@@ -445,6 +450,13 @@ export default function Chat({
     if (typeof pendingMessageCount !== "number") return;
     const normalizedCount = Math.max(0, pendingMessageCount);
     setQueued((q) => (q.length <= normalizedCount ? q : q.slice(q.length - normalizedCount)));
+  }
+
+  function acceptHostWorkspaceMode(mode: WorkspaceMode): boolean {
+    if (pendingWorkspaceModeRef.current && pendingWorkspaceModeRef.current !== mode) return false;
+    if (pendingWorkspaceModeRef.current === mode) pendingWorkspaceModeRef.current = null;
+    setWorkspaceMode(mode);
+    return true;
   }
 
   useEffect(() => {
@@ -709,12 +721,12 @@ export default function Chat({
       // Settings snapshot — mirrors the active-file context default from the host.
       bridgeOn("agent/settingsSnapshot", (msg) => {
         setIncludeActiveFileContext(msg.snapshot.context?.includeActiveFileContext ?? true);
-        setWorkspaceMode(msg.snapshot.mode?.active ?? "code");
+        acceptHostWorkspaceMode(msg.snapshot.mode?.active ?? "code");
       }),
 
       // Blocked actions — surfaces host-side guardrails when Explore rejects a command.
       bridgeOn("agent/actionBlocked", (msg) => {
-        setWorkspaceMode(msg.mode);
+        if (!acceptHostWorkspaceMode(msg.mode)) return;
         setBlockedAction({
           requestId: msg.requestId ?? uid(),
           command: msg.command?.trim() ?? "",
@@ -973,6 +985,7 @@ export default function Chat({
   }
 
   function setMode(mode: WorkspaceMode) {
+    pendingWorkspaceModeRef.current = mode;
     if (workspaceMode !== mode) {
       setWorkspaceMode(mode);
     }

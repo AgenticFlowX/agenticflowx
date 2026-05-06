@@ -130,6 +130,18 @@ Allowed:
 - If the user wants implementation, say: "This requires Code mode."
 
 If the request cannot be answered without taking action, stop at the safest analysis-only answer.`;
+const CODE_MODE_RESUME_PROMPT = `<afx_internal_control mode_transition="explore_to_code">
+Purpose: clear a prior AFX Explore-mode guardrail from conversation history.
+
+This host control block supersedes any prior AFX Explore read-only control block.
+Current workspace mode: Code.
+
+Operational policy:
+- Normal coding-agent capabilities are restored for this and future turns.
+- You may inspect files, run appropriate shell commands, tests, builds, and git reads, and edit files when the user's request requires it and host permissions allow it.
+- Continue directly with the user's request.
+- Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
+</afx_internal_control>`;
 
 export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider {
   const {
@@ -162,6 +174,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     currentTurnSawRuntimeEvent: false,
   };
   let currentModel: AgentRuntimeModel | undefined;
+  // Keep the requested posture in memory while the workspace setting write is in flight so
+  // a same-tick send uses the newly selected mode instead of the previous one.
+  // We clear it once the persisted settings snapshot catches up.
+  let workspaceModeOverride: WorkspaceMode | null = null;
+  let codeModeResetPending = false;
   let bundledSkillCountCache: number | null = null;
   const queuedUserDisplays: QueuedUserDisplay[] = [];
   let queueInjectionChain: Promise<void> = Promise.resolve();
@@ -216,6 +233,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   function workspaceMode(): WorkspaceMode {
+    if (workspaceModeOverride) return workspaceModeOverride;
+    const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code");
+    return value === "explore" ? "explore" : "code";
+  }
+
+  function persistedWorkspaceMode(): WorkspaceMode {
     const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code");
     return value === "explore" ? "explore" : "code";
   }
@@ -270,9 +293,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     return Array.from(new Set([activeFile, ...normalized]));
   }
 
-  function prefixExplorePrompt(content: string): string {
-    if (!isExploreMode()) return content;
-    return `${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
+  function prefixWorkspaceModePrompt(content: string): string {
+    if (isExploreMode()) return `${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
+    if (!codeModeResetPending) return content;
+    codeModeResetPending = false;
+    return `${CODE_MODE_RESUME_PROMPT}\n\n${content}`;
   }
 
   function computeTelemetryState(): {
@@ -1406,7 +1431,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         content,
         normalizePromptMentions(content, mentions),
       );
-      await agentManager.send(prefixExplorePrompt(inflated));
+      await agentManager.send(prefixWorkspaceModePrompt(inflated));
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
       const message = err instanceof Error ? err.message : String(err);
@@ -1576,9 +1601,29 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    * @see docs/specs/201-app-vscode-panels/spec.md [FR-9]
    */
   async function handleSetMode(requestId: string, mode: WorkspaceMode): Promise<void> {
+    const nextMode: WorkspaceMode = mode === "explore" ? "explore" : "code";
+    const previousMode = workspaceMode();
+    if (previousMode === nextMode) {
+      await handleGetSettingsSnapshot(requestId);
+      return;
+    }
+
+    const shouldResetToCode = previousMode === "explore" && nextMode === "code";
+    workspaceModeOverride = nextMode;
+    if (shouldResetToCode) {
+      codeModeResetPending = true;
+    } else if (nextMode === "explore") {
+      codeModeResetPending = false;
+    }
     try {
-      await vscode.commands.executeCommand("afx.setMode", mode);
+      await vscode.commands.executeCommand("afx.setMode", nextMode);
+      appendInfoMessage(formatModeSwitchInfo(nextMode));
+      await handleGetSettingsSnapshot(requestId);
     } catch (err) {
+      workspaceModeOverride = null;
+      if (shouldResetToCode) {
+        codeModeResetPending = false;
+      }
       log.error("setMode failed", err instanceof Error ? err : undefined, { mode });
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
     }
@@ -1713,6 +1758,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         },
       };
       post({ type: "agent/settingsSnapshot", requestId, snapshot });
+      if (workspaceModeOverride && workspaceModeOverride === persistedWorkspaceMode()) {
+        workspaceModeOverride = null;
+      }
     } catch (err) {
       log.error("settings snapshot failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
@@ -2003,7 +2051,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.steer(prefixExplorePrompt(inflated));
+        await agentManager.steer(prefixWorkspaceModePrompt(inflated));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });
@@ -2028,7 +2076,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.followUp(prefixExplorePrompt(inflated));
+        await agentManager.followUp(prefixWorkspaceModePrompt(inflated));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });
@@ -2533,6 +2581,11 @@ function formatModelSwitchInfo(model: AgentModel): string {
   const provider =
     PROVIDER_DETAILS[normalizeProviderId(model.provider)]?.displayName ?? titleCase(model.provider);
   return `Switched to ${provider} — ${model.name || model.id} (${model.id}). Runtime: ${source}.`;
+}
+
+function formatModeSwitchInfo(mode: WorkspaceMode): string {
+  if (mode === "explore") return "Switched to Explore mode. Read-only guardrails are active.";
+  return "Switched to Code mode. Normal workspace actions are available.";
 }
 
 async function updateSdkDefaultModel(provider: string, modelId: string): Promise<void> {
