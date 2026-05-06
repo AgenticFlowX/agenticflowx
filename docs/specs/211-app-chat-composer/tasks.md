@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-06T08:05:49.000Z"
+updated_at: "2026-05-06T09:12:27.000Z"
 tags: ["app", "chat", "composer", "webview", "system-command"]
 spec: spec.md
 design: design.md
@@ -280,3 +280,4 @@ Verify traceability
 | 2026-05-06T07:58:27.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                     | [x]   | []    |
 | 2026-05-06T08:03:09.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                     | [x]   | []    |
 | 2026-05-06T08:05:49.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                     | [x]   | []    |
+| 2026-05-06T08:59:51.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/components/model-combobox.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                  | [x]   | []    |

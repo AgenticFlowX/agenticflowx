@@ -5,7 +5,7 @@
  * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-RUNTIME-MENU] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-RUNTIME] [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX] [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9] [FR-10]
@@ -28,7 +28,6 @@ import {
   ArrowUp,
   AtSign,
   BookOpen,
-  Brain,
   ChevronDown,
   ChevronRight,
   Copy,
@@ -232,7 +231,12 @@ function persistChatViewState(next: PersistedChatViewState | null): void {
 // Chat (root)
 // ---------------------------------------------------------------------------
 
-/** Props for the Chat root component. */
+/**
+ * Props for the Chat root component.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11] [FR-12] [FR-13]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-RUNTIME-MENU] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND]
+ */
 export interface ChatProps {
   agentStatus?: AgentRuntimeStatus;
   recoveryActions?: AgentRecoveryActions;
@@ -261,6 +265,9 @@ export interface ChatProps {
  * - Enter submits (or steers/follow-up if streaming)
  * - Shift+Enter queues follow-up while streaming
  * - Slash/mention trigger handled by detectComposerTrigger
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11] [FR-12] [FR-13]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-RUNTIME-MENU] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND]
  */
 export default function Chat({
   agentStatus: externalAgentStatus,
@@ -384,21 +391,6 @@ export default function Chat({
   const handleOpenModifiedFile = useCallback((p: string, line?: number) => {
     bridgeSend({ type: "chat/openFile", path: p, line });
   }, []);
-  const selectedModel =
-    agentStatus.model == null
-      ? undefined
-      : models.find(
-          (m) =>
-            m.provider === agentStatus.model?.provider &&
-            m.id === agentStatus.model?.id &&
-            (m.instanceId ?? "default") === (agentStatus.model.instanceId ?? "default"),
-        );
-  const isApiProviderRuntime =
-    agentStatus.model?.source === "api-provider" || agentStatus.model?.instanceId === "pi-sdk";
-  const modelSupportsThinking = selectedModel?.reasoning ?? agentStatus.model?.reasoning ?? false;
-  const showThinkingToggle = Boolean(
-    agentStatus.model && (modelSupportsThinking || isApiProviderRuntime),
-  );
   const isExploreMode = workspaceMode === "explore";
   const activeFileDisplayName = activeFileContext?.name ?? "No active file";
   const activeFileDisplayPath = activeFileContext?.path ?? "No active editor file";
@@ -1389,31 +1381,18 @@ export default function Chat({
                   <ModelCombobox
                     models={models}
                     value={agentStatus.model}
+                    thinkingLevel={runtime.thinkingLevel}
                     disabled={isComposerDisabled}
                     onSelect={selectModel}
+                    onSelectThinkingLevel={setThinkingLevel}
                     onOpenSettings={onOpenSettings}
                   />
-                  {showThinkingToggle ? (
-                    <>
-                      <ThinkingLevelToggle
-                        level={runtime.thinkingLevel}
-                        onChange={setThinkingLevel}
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
-                      >
-                        |
-                      </span>
-                    </>
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
-                    >
-                      |
-                    </span>
-                  )}
+                  <span
+                    aria-hidden="true"
+                    className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
+                  >
+                    |
+                  </span>
                   <ModeToggle mode={workspaceMode} onChange={setMode} />
                   <ActiveFileContextToggle
                     enabled={includeActiveFileContext}
@@ -1904,19 +1883,6 @@ function AgentSetupState() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// ThinkingLevelToggle — inline dropdown to set the active runtime&apos;s thinking depth.
-// API-provider runtimes accept the same setting even when discovered models omit reasoning metadata.
-// ---------------------------------------------------------------------------
-
-const THINKING_LEVELS: ReadonlyArray<{ level: ThinkingLevel; label: string }> = [
-  { level: "minimal", label: "Minimal" },
-  { level: "low", label: "Low" },
-  { level: "medium", label: "Medium" },
-  { level: "high", label: "High" },
-  { level: "xhigh", label: "Extra-high" },
-];
-
 const WORKSPACE_MODES: ReadonlyArray<{
   value: WorkspaceMode;
   label: string;
@@ -1935,66 +1901,6 @@ const WORKSPACE_MODES: ReadonlyArray<{
     badge: "Experimental",
   },
 ];
-
-/**
- * Renders the composer thinking-effort dropdown.
- *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
- */
-function ThinkingLevelToggle({
-  level,
-  onChange,
-}: {
-  level: ThinkingLevel | undefined;
-  onChange: (level: ThinkingLevel) => void;
-}) {
-  const current = THINKING_LEVELS.find((item) => item.level === level) ?? THINKING_LEVELS[2];
-
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuPrimitive.Trigger
-            type="button"
-            aria-label="Thinking level"
-            className={cn(
-              buttonVariants({ variant: "ghost", size: "sm" }),
-              "cn-button min-w-0 max-w-full shrink-0 px-1.5",
-            )}
-          >
-            <Brain className="shrink-0 text-afx-brand-soft" />
-            <span className="hidden max-w-[4.75rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
-              {current.label}
-            </span>
-            <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
-          </DropdownMenuPrimitive.Trigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
-          Choose how much reasoning the agent uses before replying. Higher levels can help with
-          harder tasks but may take longer. Leave it low for fast edits, and raise it when you want
-          the agent to think more carefully.
-        </TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent side="top" align="start" className="min-w-[10rem]">
-        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-          Thinking level
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup
-          value={current.level}
-          onValueChange={(value) => onChange(value as ThinkingLevel)}
-        >
-          {THINKING_LEVELS.map(({ level: l, label }) => (
-            <DropdownMenuRadioItem key={l} value={l} className="text-[11px] font-medium">
-              {label}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 /**
  * Renders the workspace posture dropdown used to switch between Code and Explore.

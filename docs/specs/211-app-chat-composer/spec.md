@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.5"
+version: "1.6"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T15:18:06.000Z"
+updated_at: "2026-05-06T09:12:27.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
@@ -26,7 +26,7 @@ depends_on:
 
 ## Problem Statement
 
-The chat composer has become a dense interaction surface: input, queued content, footer hints, activity state, slash commands, mentions, model selection, workspace mode control, thinking controls, blocked Explore feedback, and send/abort/steer behavior all converge in one area. Small changes such as updating footer instructions should start from a precise spec instead of requiring a full chat source read.
+The chat composer has become a dense interaction surface: input, queued content, footer hints, activity state, slash commands, mentions, model/thinking selection, workspace mode control, blocked Explore feedback, and send/abort/steer behavior all converge in one area. Small changes such as updating footer instructions should start from a precise spec instead of requiring a full chat source read.
 
 ---
 
@@ -58,13 +58,13 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | FR-2  | Own composer footer hints, runtime readiness copy, Pi pill copy, usage tooltip copy, queue copy, and disabled-state copy                                                                                                                                                                                                                                       | Must Have   |
 | FR-3  | Own slash command and mention helper behavior that appears from composer input, including trigger detection, file listing, command formatting, and trigger replacement                                                                                                                                                                                         | Must Have   |
 | FR-4  | Own queued content strip behavior, including local mirror rows, steer/follow-up grouping, collapse, dismiss, and clear-all affordances                                                                                                                                                                                                                         | Must Have   |
-| FR-5  | Own model picker and thinking-level controls when rendered as composer controls, including API/external grouping and settings fallback                                                                                                                                                                                                                         | Should Have |
+| FR-5  | Own the combined model/thinking composer control, including a collapsed trigger label that shows the selected model plus thinking level, always-visible thinking options, nested model submenu with API/external grouping, and settings fallback                                                                                                               | Should Have |
 | FR-6  | Own prompt-history recall from the composer textarea, including ArrowUp/ArrowDown cursor policy and draft restoration                                                                                                                                                                                                                                          | Should Have |
 | FR-7  | Own composer-adjacent activity strip behavior that previews live thinking without becoming the message timeline                                                                                                                                                                                                                                                | Should Have |
 | FR-8  | Preserve host/webview boundaries; composer UI sends bridge messages but does not call VSCode APIs directly                                                                                                                                                                                                                                                     | Must Have   |
 | FR-9  | Intercept system-command prefixes (`!`) in the composer and dispatch `chat/runCommand` instead of sending to the LLM; strip the `!` prefix before routing                                                                                                                                                                                                      | Must Have   |
 | FR-10 | Render a "Modified files" strip above the composer that lists files touched by agent edit/write tool calls in the current transcript; pills open the file in the editor on click and, when the tool result reports a first-changed line, jump the editor cursor there; dismissible per assistant turn; expanded by default (user can collapse via the chevron) | Should Have |
-| FR-11 | Render a compact active-file context toggle after Thinking in the composer toolbar, default it on, and mirror the same preference with Settings                                                                                                                                                                                                                | Must Have   |
+| FR-11 | Render a compact active-file context toggle after the workspace mode control in the composer toolbar, default it on, and mirror the same preference with Settings                                                                                                                                                                                              | Must Have   |
 | FR-12 | Own the workspace mode control in the composer toolbar, including the leading icon, `Mode` label, tooltip, dropdown menu, Code default, and Explore experimental/read-only copy for inspection, tracing, and planning; the control sits after the context divider and before the file-context control                                                          | Must Have   |
 | FR-13 | Render the host-blocked Explore command strip when `agent/actionBlocked` arrives, including Switch to Code, Copy command, and Dismiss affordances                                                                                                                                                                                                              | Must Have   |
 
@@ -78,7 +78,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | NFR-4 | Composer helpers stay cheap                                   | Trigger detection is string-local and avoids bridge calls unless a picker opens                                                                                                                                     |
 | NFR-5 | Source/spec traceability is bidirectional                     | Major composer zones have local source anchors and design node references                                                                                                                                           |
 | NFR-6 | System command UX is persistent but unobtrusive               | An amber "Shell" badge appears in the composer input group when `!` is active; footer shows `"⚠ Shell · output is local only"`; these cues are always visible while the prefix is active and do not block execution |
-| NFR-7 | Toolbar controls stay compact on the smallest supported width | The active-file context toggle collapses to switch-first form like the model/thinking controls                                                                                                                      |
+| NFR-7 | Toolbar controls stay compact on the smallest supported width | The active-file context toggle collapses to switch-first form like the combined model/thinking control                                                                                                              |
 
 ---
 
@@ -88,7 +88,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 
 - [ ] Composer source files point at this spec and design
 - [ ] Footer hint changes can start from this spec without reading history/settings/message specs
-- [ ] Slash, mention, model, thinking, queue, send, steer, abort, and prompt-history behavior has a named owner
+- [ ] Slash, mention, combined model/thinking, queue, send, steer, abort, and prompt-history behavior has a named owner, including a collapsed trigger label that shows the selected model plus thinking level
 - [ ] Composer design includes ASCII UI, component/control, code locator, and trace matrix sections that map to source anchors
 
 ### System Commands
@@ -116,14 +116,22 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | | [Switch to Code] [Copy command] [Dismiss]                   |               |
 | +--------------------------------------------------------------+               |
 |                                                                                |
-| [ Brain ] [ Mode ▾ ] | [ File ctx on ] [@] [ Model ] [ Thinking ] [ Send ]    |
-|           \______/      \_____________/                                         |
-|             Mode control  Active-file context control                            |
+| [ Brain ] [ GPT-5.4 mini - Minimal ▾ ] | [ Mode ▾ ] [ File ctx on ] [ Send ]  |
+|           \___________________________/   \_____________/                      |
+|              Combined model/thinking     Mode control + context toggle          |
 |                                                                                |
-| Mode                                                                            |
-| - Code      Default. Full access. Pi can act and edit.                         |
-| - Explore   Read-only. Use it to inspect code, trace behavior, and plan changes|
-|             Experimental                                                       |
+| Model                                                                          |
+|   Thinking Level                                                               |
+|   - Minimal                                                                    |
+|   - Low                                                                        |
+|   - Medium                                                                     |
+|   - High                                                                       |
+|   - Extra High                                                                 |
+|   Model >                                                                      |
+|     Provider                                                                   |
+|       - xxx                                                                    |
+|     External Agents                                                            |
+|       - xxx                                                                    |
 +--------------------------------------------------------------------------------+
 ```
 
@@ -141,11 +149,11 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 
 ### Composer Active File Context Toggle (FR-11)
 
-- [ ] Toggle appears immediately after the Thinking control in the toolbar, with a literal `|` divider between them
+- [ ] Toggle appears immediately after the workspace mode control in the toolbar, with a literal `|` divider between them
 - [ ] Toggle shows a compact switch to the left of the active file basename and reveals the full path on hover while remaining compact on the smallest supported width
 - [ ] Toggle defaults to on when the persisted Settings preference has not yet arrived
 - [ ] Toggle mirrors the persisted Settings preference so changing it in either surface updates the other
-- [ ] Model, thinking, and file-context controls expose shadcn tooltips with concise guidance
+- [ ] Combined model/thinking and file-context controls expose shadcn tooltips with concise guidance
 - [ ] Composer source files anchor to FR-11 / DES-COMPOSER-CONTEXT
 
 ### Workspace Mode Control (FR-12)
@@ -200,13 +208,13 @@ None.
 
 | Field           | Values                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Chat composer input, footer, queue strip, activity bar, composer toolbar                                                                                                                                                                                                                                                                                                                  |
+| Owned surface   | Chat composer input, footer, queue strip, activity bar, composer toolbar, combined model/thinking control                                                                                                                                                                                                                                                                                 |
 | Owned files     | `apps/chat/src/views/chat.tsx`, `apps/chat/src/components/model-combobox.tsx`, `apps/chat/src/components/slash-popup.tsx`, `apps/chat/src/components/mention-popup.tsx`, `apps/chat/src/components/composer-strip.tsx`, `apps/chat/src/components/files-strip.tsx`, `apps/chat/src/lib/composer-detect.ts`, `apps/chat/src/lib/derive-modified-files.ts`, `apps/chat/src/lib/mentions.ts` |
-| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort/command handlers, helper popup components, model/thinking/context controls                                                                                                                                                                                                                     |
+| Local anchors   | Composer component blocks in `chat.tsx`, `FooterStrip`, queue handlers, submit/steer/abort/command handlers, helper popup components, combined model/thinking control, mode control, context control                                                                                                                                                                                      |
 | Bridge messages | Chat send/steer/abort/queue/runCommand requests, active-file context preference requests, and runtime readiness payloads consumed by composer                                                                                                                                                                                                                                             |
 | Settings keys   | Composer-visible runtime/provider/model settings plus `afx.context.includeActiveFileContext` as mirrored state                                                                                                                                                                                                                                                                            |
 | Commands        | Slash commands and composer actions, not VSCode extension commands                                                                                                                                                                                                                                                                                                                        |
-| Tests           | Chat view/composer tests, helper tests, future e2e keyboard tests, active-file context toggle tests                                                                                                                                                                                                                                                                                       |
+| Tests           | Chat view/composer tests, combined model/thinking menu tests, future e2e keyboard tests, active-file context toggle tests                                                                                                                                                                                                                                                                 |
 | Dependencies    | `212-app-chat-messages`, `214-app-chat-settings`, `215-app-chat-notes`, `131-package-ui-design-system`                                                                                                                                                                                                                                                                                    |
 | Out of scope    | Message timeline, history panel, full settings forms, host menu registration                                                                                                                                                                                                                                                                                                              |
 | Example prompts | "Update chat footer hint", "Minimize queued composer content", "Change slash popup behavior", "Adjust send keyboard policy"                                                                                                                                                                                                                                                               |

@@ -207,10 +207,11 @@ describe("chat App", () => {
       }
       expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "/afx-scaffold" })).toBeInTheDocument();
-      expect(screen.getByRole("combobox", { name: "Switch model" })).toHaveClass("min-w-0");
-      expect(screen.getByRole("combobox", { name: "Switch model" })).toHaveTextContent("GPT-5.4");
+      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveClass("min-w-0");
+      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveTextContent(
+        "GPT-5.4 - Medium",
+      );
       expect(screen.getByRole("button", { name: "Mention file" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Thinking level" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "journal.md" })).toBeChecked();
       expect(screen.getByText("journal.md")).toHaveClass("hidden", "@[260px]:inline");
       expect(screen.getByText("|")).toBeInTheDocument();
@@ -262,7 +263,7 @@ describe("chat App", () => {
     }
   });
 
-  it("shows a tooltip for the model selector at collapse width", async () => {
+  it("shows a tooltip for the combined model/thinking selector at collapse width", async () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 240, configurable: true });
 
@@ -289,6 +290,10 @@ describe("chat App", () => {
             instanceLabel: "API Providers",
           },
         },
+      });
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { thinkingLevel: "medium", runtimeConfigured: true },
       });
       transport.emit({
         type: "agent/models",
@@ -319,9 +324,9 @@ describe("chat App", () => {
     });
 
     try {
-      await user.hover(screen.getByRole("combobox", { name: "Switch model" }));
+      await user.hover(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
       expect(
-        await screen.findByText(/choose the model for the next turn/i, {
+        await screen.findByText(/choose the model and thinking level for the next turn/i, {
           selector: '[data-slot="tooltip-content"]',
         }),
       ).toBeInTheDocument();
@@ -330,7 +335,7 @@ describe("chat App", () => {
     }
   });
 
-  it("shows a tooltip for the thinking dropdown at collapse width", async () => {
+  it("opens the combined model/thinking menu and sends thinking changes", async () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 240, configurable: true });
 
@@ -359,6 +364,10 @@ describe("chat App", () => {
         },
       });
       transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { thinkingLevel: "medium", runtimeConfigured: true },
+      });
+      transport.emit({
         type: "agent/models",
         requestId: "models",
         models: [
@@ -366,6 +375,17 @@ describe("chat App", () => {
             provider: "openai",
             id: "gpt-5.4",
             name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+            reasoning: true,
+            contextWindow: 0,
+            maxTokens: 0,
+          },
+          {
+            provider: "anthropic",
+            id: "claude-opus-4-7",
+            name: "Claude Opus 4.7",
             source: "api-provider",
             instanceId: "pi-sdk",
             instanceLabel: "API Providers",
@@ -383,12 +403,22 @@ describe("chat App", () => {
     });
 
     try {
-      await user.hover(screen.getByRole("button", { name: "Thinking level" }));
-      expect(
-        await screen.findByText(/choose how much reasoning the agent uses before replying/i, {
-          selector: '[data-slot="tooltip-content"]',
+      await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
+      expect(screen.getByText("Thinking Level")).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "Model" })).toBeInTheDocument();
+
+      const send = transport.send as ReturnType<typeof vi.fn>;
+      send.mockClear();
+      await user.click(screen.getByRole("menuitemradio", { name: "Low" }));
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "chat/setThinkingLevel",
+          level: "low",
         }),
-      ).toBeInTheDocument();
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "GPT-5.4 - Low" })).toBeInTheDocument(),
+      );
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
@@ -665,23 +695,70 @@ describe("chat App", () => {
             contextWindow: 0,
             maxTokens: 0,
           },
+          {
+            provider: "anthropic",
+            id: "claude-opus-4-7",
+            name: "Claude Opus 4.7",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            instanceLabel: "API Providers",
+            reasoning: true,
+            contextWindow: 0,
+            maxTokens: 0,
+          },
+          {
+            provider: "pi",
+            id: "default",
+            name: "Pi RPC",
+            source: "external-agent",
+            instanceId: "pi",
+            instanceLabel: "Pi RPC",
+            reasoning: true,
+            contextWindow: 0,
+            maxTokens: 0,
+          },
         ],
       });
     });
 
-    await waitFor(() => expect(screen.getByText("Openai · GPT-5.4")).toBeInTheDocument());
-    screen.getByRole("combobox", { name: "Switch model" }).focus();
-    await user.keyboard("{ArrowDown}");
-    expect(screen.getByRole("button", { name: "Manage providers and agents…" })).toBeVisible();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toBeInTheDocument(),
+    );
+    await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
+    await user.hover(screen.getByRole("menuitem", { name: "Model" }));
+    await waitFor(() => expect(screen.getByText("Provider")).toBeInTheDocument());
+    expect(screen.getAllByText("External Agents").length).toBeGreaterThan(0);
+    expect(screen.getByText("Openai")).toBeInTheDocument();
+    expect(screen.getByText("Anthropic")).toBeInTheDocument();
+    expect(screen.getAllByText("Pi RPC").length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole("button", { name: "Manage providers and agents…" }));
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    fireEvent.click(screen.getByRole("menuitemradio", { name: /Claude Opus 4\.7/i }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setModel",
+        provider: "anthropic",
+        modelId: "claude-opus-4-7",
+        instanceId: "pi-sdk",
+      }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
+    await user.hover(screen.getByRole("menuitem", { name: "Model" }));
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Manage providers and agents…" })).toBeVisible(),
+    );
+
+    send.mockClear();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Manage providers and agents…" }));
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute(
         "aria-selected",
         "true",
       ),
     );
-    expect(screen.queryByRole("button", { name: "Manage providers and agents…" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Manage providers and agents…" })).toBeNull();
   }, 10_000);
 
   it("restores an unsent draft after the sidebar webview remounts", async () => {
@@ -1370,7 +1447,7 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Thinking level" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Llama 4 Scout - Medium" })).toBeEnabled();
     expect(screen.getByText("thinking")).toBeInTheDocument();
     expect(screen.queryByText("reasoning unavailable for this model")).not.toBeInTheDocument();
   });
@@ -1419,7 +1496,7 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Thinking level" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Claude Opus 4.7 - Medium" })).toBeEnabled();
   });
 
   it("recalls sent prompts with arrow keys", async () => {
