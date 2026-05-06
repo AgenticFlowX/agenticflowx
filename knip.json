@@ -1,12 +1,9 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
   "ignore": [
-    "apps/workbench/src/lib/bridge.ts",
     "apps/workbench/src/components/coming-soon.tsx",
     "apps/workbench/src/lib/documents.ts",
     "apps/workbench/src/lib/pipeline.ts",
-    "apps/vscode/src/utils/editor-utils.ts",
-    "apps/vscode/resources/pi-sdk/**",
     "scripts/conventions/vitest.config.ts"
   ],
   "ignoreExportsUsedInFile": true,
@@ -15,7 +12,7 @@
       "ignoreDependencies": ["tailwindcss"]
     },
     "apps/workbench": {
-      "ignoreDependencies": ["tailwindcss", "@testing-library/user-event", "react-resizable-panels"]
+      "ignoreDependencies": ["tailwindcss", "react-resizable-panels"]
     },
     "apps/vscode-e2e": {
       "entry": [".vscode-test.mjs", "src/**/*.test.ts"],
@@ -28,7 +25,6 @@
       "ignoreDependencies": []
     },
     "packages/agent/pi-sdk": {
-      "ignore": ["dist/**"],
       "ignoreDependencies": [
         "@mariozechner/pi-agent-core",
         "@mariozechner/pi-ai",

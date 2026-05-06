@@ -14,7 +14,6 @@
     "screenshot:ui": "node ./scripts/capture-screenshots.mjs"
   },
   "dependencies": {
-    "@base-ui/react": "^1.4.1",
     "@afx/shared": "workspace:*",
     "@afx/transport": "workspace:*",
     "@afx/ui": "workspace:*",
