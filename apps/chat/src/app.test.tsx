@@ -486,7 +486,13 @@ describe("chat App", () => {
       });
     });
 
-    const modeButton = screen.getByRole("button", { name: "Mode: Code" });
+    const modeButton = screen.getByRole("button", { name: "Workspace mode" });
+    expect(modeButton).toHaveTextContent("Code");
+    expect(modeButton).not.toHaveTextContent("Mode:");
+    expect(modeButton).not.toHaveClass("text-muted-foreground");
+    const modeIcon = modeButton.querySelector("svg");
+    expect(modeIcon).toHaveClass("text-afx-brand-soft");
+    expect(modeIcon).not.toHaveClass("text-muted-foreground");
     await user.hover(modeButton);
     expect(
       await screen.findByText(/code is the default full-access pi-backed mode/i, {
@@ -508,7 +514,12 @@ describe("chat App", () => {
         mode: "explore",
       }),
     );
-    expect(screen.getByRole("button", { name: "Mode: Explore" })).toBeInTheDocument();
+    const exploreModeButton = screen.getByRole("button", { name: "Workspace mode" });
+    expect(exploreModeButton).toHaveTextContent("Explore");
+    expect(exploreModeButton).not.toHaveClass("text-amber-600");
+    const exploreModeIcon = exploreModeButton.querySelector("svg");
+    expect(exploreModeIcon).toHaveClass("text-afx-brand-soft");
+    expect(exploreModeIcon).not.toHaveClass("text-amber-600");
     expect(screen.getByText("Read-only / Safe")).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(
@@ -541,7 +552,7 @@ describe("chat App", () => {
         mode: "code",
       }),
     );
-    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toHaveValue("! pnpm test");
@@ -583,7 +594,9 @@ describe("chat App", () => {
       });
     });
 
-    await user.click(screen.getByRole("button", { name: "Mode: Explore" }));
+    const modeButton = screen.getByRole("button", { name: "Workspace mode" });
+    expect(modeButton).toHaveTextContent("Explore");
+    await user.click(modeButton);
     await user.click(screen.getByRole("menuitemradio", { name: /^Code\b/i }));
 
     const send = transport.send as ReturnType<typeof vi.fn>;
@@ -593,7 +606,7 @@ describe("chat App", () => {
         mode: "code",
       }),
     );
-    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toBeInTheDocument();
@@ -606,7 +619,7 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Mode: Code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toBeInTheDocument();

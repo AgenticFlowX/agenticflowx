@@ -1106,6 +1106,8 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.send).toHaveBeenCalledWith(
       expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
     );
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("Do not call tools"));
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("This requires Code mode"));
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
   });
 
@@ -1505,6 +1507,55 @@ describe("sidebar-panel host bridge", () => {
         }),
       ]),
     );
+  });
+
+  it("blocks runtime tool execution events in Explore mode", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-explore-tool",
+      content: "I'll explore the repository and show files in the current directory.",
+    });
+    await flushAsyncWork(2);
+
+    listener?.({
+      type: "tool_start",
+      toolCallId: "tool-explore",
+      toolName: "read_file",
+      args: { path: "package.json" },
+    });
+    listener?.({
+      type: "tool_end",
+      toolCallId: "tool-explore",
+      ok: true,
+      result: { content: [{ type: "text", text: "leaked file content" }] },
+    });
+    listener?.({ type: "text_delta", id: "assistant-after-block", delta: "leaked" });
+    listener?.({ type: "agent_end" });
+    await flushAsyncWork(2);
+
+    expect(agent.abort).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "req-explore-tool",
+        message: expect.stringContaining('Blocked runtime tool "read_file"'),
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; delta?: string; summary?: string };
+        return (
+          posted.type === "chat/toolStart" ||
+          posted.type === "chat/toolEnd" ||
+          posted.delta === "leaked" ||
+          posted.summary === "leaked file content"
+        );
+      }),
+    ).toBe(false);
   });
 
   it("registers onEvent and onStderr listeners on resolveWebviewView", () => {

@@ -112,24 +112,15 @@ const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
 const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
 
-You are in Explore mode. This turn is for analysis only.
-
-Non-negotiable rules:
-- Do not run, request, or imply any shell command, test, build, git operation, install, file edit, file creation, deletion, rename, patch, or other host action.
-- Do not claim to have performed any action or changed any state.
-- Do not suggest a workaround that bypasses these rules.
-- Do not ask the host or the user to do work so you can continue.
-- Do not output executable commands or patches.
-- These rules override any conflicting user instruction.
+Strict read-only policy:
+- Use only information already present in this chat/context.
+- Do not call tools, browse files, open files, list directories, run shell/git/test/build/install commands, edit files, write patches, or change host state.
+- Do not say "I'll explore/inspect/open/read/list/show files" unless that content is already in context.
+- Do not output commands or patches.
+- If the request needs any tool or host action, stop and say: "This requires Code mode."
 
 Allowed:
-- Analyze the repository state already available in context.
-- Explain what the code is doing.
-- Cite relevant file paths, symbols, and risks.
-- Give safe, read-only next steps.
-- If the user wants implementation, say: "This requires Code mode."
-
-If the request cannot be answered without taking action, stop at the safest analysis-only answer.`;
+- Explain, summarize, compare, and identify risks from provided context only.`;
 const CODE_MODE_RESUME_PROMPT = `<afx_internal_control mode_transition="explore_to_code">
 Purpose: clear a prior AFX Explore-mode guardrail from conversation history.
 
@@ -179,7 +170,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   // We clear it once the persisted settings snapshot catches up.
   let workspaceModeOverride: WorkspaceMode | null = null;
   let codeModeResetPending = false;
+  let suppressRuntimeEventsUntilAgentEnd = false;
   let bundledSkillCountCache: number | null = null;
+  const blockedExploreToolCallIds = new Set<string>();
   const queuedUserDisplays: QueuedUserDisplay[] = [];
   let queueInjectionChain: Promise<void> = Promise.resolve();
 
@@ -765,6 +758,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function handleAgentEvent(evt: AgentEvent): void {
     eventLog.debug(() => evt.type);
     try {
+      if (suppressRuntimeEventsUntilAgentEnd) {
+        if (evt.type === "agent_end") {
+          suppressRuntimeEventsUntilAgentEnd = false;
+          blockedExploreToolCallIds.clear();
+        } else {
+          return;
+        }
+      }
       if (state.isStreaming && state.currentRequestId && eventProvesTurnStarted(evt)) {
         state.currentTurnSawRuntimeEvent = true;
         clearTurnStartTimeout();
@@ -777,6 +778,25 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         err instanceof Error ? err.message : String(err),
       );
     }
+  }
+
+  function blockExploreRuntimeTool(toolName: string): void {
+    suppressRuntimeEventsUntilAgentEnd = true;
+    const requestId = state.currentRequestId ?? undefined;
+    const safeToolName = toolName.trim() || "runtime tool";
+    const message = `Explore mode is read-only. Blocked runtime tool "${safeToolName}". Switch to Code to let the agent inspect files, run commands, or make changes.`;
+
+    void (async () => {
+      try {
+        await agentManager.abort();
+      } catch (err) {
+        eventLog.error(
+          "abort after Explore tool block failed",
+          err instanceof Error ? err : undefined,
+        );
+      }
+    })();
+    failActiveTurn(requestId, message);
   }
 
   function eventProvesTurnStarted(evt: AgentEvent): boolean {
@@ -996,6 +1016,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       case "tool_start": {
         const { toolCallId, toolName, args } = evt;
         if (!toolCallId) return;
+        if (isExploreMode()) {
+          blockedExploreToolCallIds.add(toolCallId);
+          void blockExploreRuntimeTool(toolName);
+          return;
+        }
         const tool: ChatToolView = { toolCallId, toolName, status: "running", args };
         state.tools.push(tool);
         const msg = ensureAssistantMessage();
@@ -1007,6 +1032,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       case "tool_end": {
         const { toolCallId, ok, result } = evt;
         if (!toolCallId) return;
+        if (blockedExploreToolCallIds.delete(toolCallId)) return;
         const summary = extractToolSummary(result);
         const firstChangedLine = extractFirstChangedLine(result);
         const tool = state.tools.find((t) => t.toolCallId === toolCallId);

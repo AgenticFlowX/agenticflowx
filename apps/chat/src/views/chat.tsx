@@ -2016,27 +2016,17 @@ function ModeToggle({
         <TooltipTrigger asChild>
           <DropdownMenuPrimitive.Trigger
             type="button"
-            aria-label={`Mode: ${current.label}`}
+            aria-label="Workspace mode"
             className={cn(
-              buttonVariants({
-                variant: current.value === "explore" ? "secondary" : "ghost",
-                size: "sm",
-              }),
+              buttonVariants({ variant: "ghost", size: "sm" }),
               "cn-button min-w-0 max-w-full shrink-0 gap-1 px-1.5",
-              current.value === "explore" ? "text-amber-600" : null,
             )}
           >
-            <SlidersHorizontal
-              size={11}
-              className={cn(
-                "shrink-0",
-                current.value === "explore" ? "text-amber-600" : "text-muted-foreground",
-              )}
-            />
+            <SlidersHorizontal size={11} className="shrink-0 text-afx-brand-soft" />
             <span className="hidden max-w-[6.5rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
-              Mode: {current.label}
+              {current.label}
             </span>
-            <span className="font-mono text-[10px] @[260px]:hidden">Mode</span>
+            <span className="font-mono text-[10px] @[260px]:hidden">{current.label}</span>
             <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
           </DropdownMenuPrimitive.Trigger>
         </TooltipTrigger>

@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.6"
+version: "1.7"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T15:33:06.000Z"
+updated_at: "2026-05-06T05:25:34.000Z"
 approved_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -195,7 +195,7 @@ quiet; Explore uses the warning tone and an `Experimental` badge in the dropdown
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Ask AFX about this workspace ...]        [^] |
-|      [Composer.Model: Anthropic . Claude] [Thinking: Medium] | [Sliders] Mode: Code [FileText] [File ctx: On] |
+|      [Composer.Model: Anthropic . Claude] [Thinking: Medium] | [Sliders] Code [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -534,7 +534,8 @@ workspace file contents itself; it sends intent, and the host performs the injec
 
 Workspace mode follows the same host-owned pattern. The composer sends `chat/setMode`, the host
 routes that to `afx.setMode`, and the persisted `afx.mode.active` value rehydrates both the chat
-toolbar and the settings card.
+toolbar and the settings card. The toolbar trigger displays only the active value (`Code` or
+`Explore`) to match the Thinking selector's compact active-value style.
 
 ### Flow: Settings Snapshot → Toolbar Toggle → Host Persistence → Snapshot Echo
 

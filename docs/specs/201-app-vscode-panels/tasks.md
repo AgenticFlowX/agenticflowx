@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-06T05:15:02.000Z"
+updated_at: "2026-05-06T05:32:45.000Z"
 tags: ["app", "vscode", "panels", "webview", "host"]
 spec: spec.md
 design: design.md
@@ -39,6 +39,7 @@ design: design.md
 
 | Date       | Task | Action                                                                                                                       | Files modified                                                                                                                         | Agent | Human |
 | ---------- | ---- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-06 | -    | Made Explore mode stricter by banning tool/file browsing in the prompt and aborting runtime tool attempts host-side.         | `apps/vscode/src/panels/sidebar-panel.ts`, `apps/vscode/src/panels/sidebar-panel.test.ts`, `docs/specs/201-app-vscode-panels/*.md`     | yes   | yes   |
 | 2026-05-06 | -    | Tightened Explore-to-Code reset UX so Code does not add noisy prompts and real mode changes get a compact timeline info row. | `apps/vscode/src/panels/sidebar-panel.ts`, `apps/vscode/src/panels/sidebar-panel.test.ts`, `docs/specs/201-app-vscode-panels/*.md`     | yes   | yes   |
 | 2026-05-06 | -    | Added a one-shot Code mode reset prompt so agent history stops carrying Explore restrictions.                                | `apps/vscode/src/panels/sidebar-panel.ts`, `apps/vscode/src/panels/sidebar-panel.test.ts`, `docs/specs/201-app-vscode-panels/*.md`     | yes   | yes   |
 | 2026-05-06 | -    | Kept mode override alive until the persisted snapshot catches up after Code/Explore switches.                                | `apps/vscode/src/panels/sidebar-panel.ts`, `apps/vscode/src/panels/sidebar-panel.test.ts`, `docs/specs/201-app-vscode-panels/tasks.md` | yes   | yes   |

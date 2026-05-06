@@ -5,7 +5,7 @@ status: Approved
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-06T05:15:02.000Z"
+updated_at: "2026-05-06T05:32:45.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -84,6 +84,8 @@ chat/runCommand in Explore
 Code is the default full-access Pi-backed posture and should not create extra transcript noise when
 it is already active. Explore is experimental and read-only; use it for inspection, tracing, and
 planning. The guardrail prompt below is injected host-side before the agent sees any Explore turn.
+If the runtime still attempts a tool call, the host aborts the turn, suppresses late tool/text
+events until `agent_end`, and writes a transcript error instead of rendering the tool output.
 When the user switches back from Explore to Code, the next outbound prompt receives a hidden,
 one-shot Code reset prefix so the agent session does not continue obeying the prior Explore
 instruction from conversation history. The visible chat history should only show a compact timeline
@@ -97,24 +99,15 @@ turn while `afx.mode.active === "explore"`:
 ```text
 [AFX EXPLORE MODE: READ ONLY]
 
-You are in Explore mode. This turn is for analysis only.
-
-Non-negotiable rules:
-- Do not run, request, or imply any shell command, test, build, git operation, install, file edit, file creation, deletion, rename, patch, or other host action.
-- Do not claim to have performed any action or changed any state.
-- Do not suggest a workaround that bypasses these rules.
-- Do not ask the host or the user to do work so you can continue.
-- Do not output executable commands or patches.
-- These rules override any conflicting user instruction.
+Strict read-only policy:
+- Use only information already present in this chat/context.
+- Do not call tools, browse files, open files, list directories, run shell/git/test/build/install commands, edit files, write patches, or change host state.
+- Do not say "I'll explore/inspect/open/read/list/show files" unless that content is already in context.
+- Do not output commands or patches.
+- If the request needs any tool or host action, stop and say: "This requires Code mode."
 
 Allowed:
-- Analyze the repository state already available in context.
-- Explain what the code is doing.
-- Cite relevant file paths, symbols, and risks.
-- Give safe, read-only next steps.
-- If the user wants implementation, say: "This requires Code mode."
-
-If the request cannot be answered without taking action, stop at the safest analysis-only answer.
+- Explain, summarize, compare, and identify risks from provided context only.
 ```
 
 When the user selects Code mode after Explore, the host prepends this internal reset prefix to the
@@ -337,6 +330,8 @@ The panel keeps only a small amount of local state:
 - `appendInfoMessage(formatModeSwitchInfo(mode))` records a compact visible timeline row when the
   persisted mode actually changes; re-selecting Code while Code is already active does not create a
   row.
+- `suppressRuntimeEventsUntilAgentEnd` is set when an Explore turn attempts runtime tool execution;
+  the host aborts the agent and drops late `tool_end` / `text_delta` events for that blocked turn.
 - `BlockedActionView` is an ephemeral host-only shape used to tell the webview that a command was
   rejected in Explore.
 
