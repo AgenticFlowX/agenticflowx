@@ -2,6 +2,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.7] - 2026-05-06
+
+### Added
+
+- Workspace **Code** and **Explore** modes selectable from chat settings, the sidebar panel, and a new `afx.setMode` command. Code is the default full-access Pi-backed mode; Explore is a read-only, experimental posture for inspection, tracing, and planning. New `afx.mode.active` setting persists the default.
+
+### Changed
+
+- Consolidated the chat composer's model picker and thinking-level menu into a single footer combobox.
+
+### Fixed
+
+- Mode switching edge cases that left the chat view and sidebar panel in an inconsistent state.
+- Experimental mode behaviour where state could drift between the chat webview and the host.
+
 ## [2.0.6] - 2026-05-05
 
 ### Added
