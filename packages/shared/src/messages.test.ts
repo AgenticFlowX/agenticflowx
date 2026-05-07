@@ -118,4 +118,53 @@ describe("chat-foundation shared protocol", () => {
 
     expect(message.snapshot?.name).toBe("journal.md");
   });
+
+  // @see docs/specs/100-package-shared/spec.md [FR-11]
+  it("supports the 'spec' workspace mode variant on chat/setMode", () => {
+    const message: ChatToAgent = {
+      type: "chat/setMode",
+      requestId: "mode-spec",
+      mode: "spec",
+    };
+    expect(message.mode).toBe("spec");
+  });
+
+  // @see docs/specs/100-package-shared/spec.md [FR-12]
+  it("supports the chat/activeDocContext host→webview message", () => {
+    const message: AgentToChat = {
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+      approvalStatus: "Draft",
+    };
+    expect(message.docKind).toBe("spec");
+    expect(message.feature).toBe("auth");
+  });
+
+  // @see docs/specs/100-package-shared/spec.md [FR-12]
+  it("admits the full docKind union (spec/design/tasks/journal/adr/research/context)", () => {
+    const kinds: Array<AgentToChat extends { type: "chat/activeDocContext" } ? never : never> = [];
+    void kinds; // type-only check; the assertion is below.
+
+    const all: ReadonlyArray<
+      NonNullable<Extract<AgentToChat, { type: "chat/activeDocContext" }>["docKind"]>
+    > = ["spec", "design", "tasks", "journal", "adr", "research", "context"];
+    expect(all).toHaveLength(7);
+  });
+
+  // @see docs/specs/100-package-shared/spec.md [FR-12]
+  it("supports chat/setOnboardingFlag mutations for the three persistent flags", () => {
+    const flags: Array<ChatToAgent> = [
+      { type: "chat/setOnboardingFlag", key: "specModeOfferDismissed", value: true },
+      { type: "chat/setOnboardingFlag", key: "specModeTooltipSeen", value: false },
+      { type: "chat/setOnboardingFlag", key: "docActionsTooltipSeen", value: true },
+    ];
+    expect(flags.map((f) => f.type === "chat/setOnboardingFlag" && f.key)).toEqual([
+      "specModeOfferDismissed",
+      "specModeTooltipSeen",
+      "docActionsTooltipSeen",
+    ]);
+  });
 });

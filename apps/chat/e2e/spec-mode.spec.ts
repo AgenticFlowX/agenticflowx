@@ -1,0 +1,89 @@
+/**
+ * Spec mode UX — Playwright e2e against the browser dev harness.
+ *
+ * Drives `chat/setMode` through the ModeToggle dropdown and asserts the
+ * end-to-end behavior: SpecModeWelcome card replaces the default empty state,
+ * the composer InputGroup picks up `data-workspace-mode="spec"`, and the
+ * footer hint flips to the planning copy. Mode switching is round-tripped
+ * through the host bridge (mock transport replays a fresh settings snapshot).
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-11]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-14] [FR-15]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+ * @see docs/specs/420-dx-testing/spec.md [FR-1]
+ */
+import { type Page, expect, test } from "@playwright/test";
+
+async function selectMode(page: Page, label: "Code" | "Explore" | "Spec"): Promise<void> {
+  await page.getByRole("button", { name: "Workspace mode" }).click();
+  await page.getByRole("menuitemradio", { name: new RegExp(label) }).click();
+}
+
+test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
+  test("Spec entry is offered in the workspace-mode dropdown", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "Workspace mode" }).click();
+    await expect(page.getByRole("menuitemradio", { name: /Spec/ })).toBeVisible();
+    // SDD framing — the description should reference Spec-Driven Development.
+    await expect(page.getByText(/Spec-Driven Development/i).first()).toBeVisible();
+  });
+
+  test("switching to Spec mode renders the SDD welcome card", async ({ page }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+
+    // Heading reads "Spec-Driven Development" — sentence case via .toContainText
+    await expect(page.getByRole("heading", { name: /Spec-Driven Development/ })).toBeVisible();
+    // The SDD loop tagline is part of the welcome banner.
+    await expect(
+      page.getByText(/Shape · Design · Slice · Build · Verify · Ship · Evolve/),
+    ).toBeVisible();
+    // Idle quick-start surfaces /afx-next, /afx-sprint new, and Open Planner.
+    await expect(page.getByRole("button", { name: /^Next$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Start Sprint$/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Open Planner$/ })).toBeVisible();
+  });
+
+  test("Spec mode applies data-workspace-mode='spec' to the InputGroup wrapper", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+
+    // The InputGroup carries .afx-surface-composer; the data attribute drives
+    // the violet border accent CSS.
+    const composer = page.locator(".afx-surface-composer").first();
+    await expect(composer).toHaveAttribute("data-workspace-mode", "spec");
+  });
+
+  test("Spec mode footer hint reads 'Planning / Docs only · ⌘⇧M to switch'", async ({ page }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+    await expect(page.getByText(/Planning \/ Docs only/)).toBeVisible();
+  });
+
+  test("clicking Idle 'Next' button inserts /afx-next into the composer draft", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+    await page.getByRole("button", { name: /^Next$/ }).click();
+    const composer = page.locator("#afx-chat-composer");
+    await expect(composer).toHaveValue(/\/afx-next/);
+  });
+
+  test("switching back to Code mode restores the default welcome", async ({ page }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+    await expect(page.getByRole("heading", { name: /Spec-Driven Development/ })).toBeVisible();
+
+    await selectMode(page, "Code");
+    // Default welcome heading is "Ready when you are." (italic h2).
+    await expect(page.getByRole("heading", { name: /Ready when you are/i })).toBeVisible({
+      timeout: 5_000,
+    });
+    // Composer accent should clear.
+    const composer = page.locator(".afx-surface-composer").first();
+    await expect(composer).toHaveAttribute("data-workspace-mode", "code");
+  });
+});

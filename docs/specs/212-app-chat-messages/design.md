@@ -115,6 +115,24 @@ The toast confirms completion only. It never uses `result.summary` as its descri
 +------------------------------------------+
 ```
 
+## [DES-MESSAGES-WELCOME-SPEC] Spec Mode Empty State
+
+When `workspaceMode === "spec"` AND the chat thread is empty, the messages surface
+replaces the default welcome with a Spec-tailored card:
+
+- Heading: `Spec mode.`
+- Subtext (idle): `Planning-only mode. Pick an entry point — or open a sprint/spec file to surface contextual actions.`
+- Subtext (doc-active): `I'll stay in your docs. Switch modes if you need code changes.`
+- Quick-start buttons (idle): `Next` → `/afx-next`, `Start Sprint` → `/afx-sprint new`,
+  `Open Planner` → `/afx-discover capabilities`, `Review Docs` → `/afx-spec review`
+- Quick-start buttons (doc-active): doc-aware `Refine` / `Validate` / `Review` (or
+  `Pick Next` / `Code` / `Verify` for tasks) routed to `/afx-spec`, `/afx-design`,
+  `/afx-task` for standard 4-file docs, or `/afx-sprint` for sprint single-files
+
+Buttons dispatch as draft inserts (`onInsert`) rather than auto-sent commands so the
+user can review before sending. The default empty-state component remains untouched
+for Code and Explore modes.
+
 ## [DES-MESSAGES-COMPONENTS] Timeline Component Anatomy
 
 ```text

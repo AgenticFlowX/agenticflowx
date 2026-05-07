@@ -149,6 +149,75 @@ describe("extension.activate", () => {
     );
   });
 
+  /**
+   * @see docs/specs/100-package-shared/spec.md [FR-11]
+   * @see docs/specs/200-app-vscode/spec.md [FR-11]
+   */
+  it("persists 'spec' as a valid workspace mode through afx.setMode", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setMode",
+    )?.[1] as ((mode?: string) => Promise<void>) | undefined;
+    await handler?.("spec");
+
+    expect(update).toHaveBeenCalledWith(
+      "mode.active",
+      "spec",
+      vscode.ConfigurationTarget.Workspace,
+    );
+  });
+
+  /**
+   * @see docs/specs/200-app-vscode/spec.md [FR-11]
+   * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
+   */
+  it("offers Code/Explore/Spec via quickPick when afx.setMode is invoked without args", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+    const showQuickPick = vi
+      .spyOn(vscode.window, "showQuickPick")
+      .mockResolvedValue({ value: "spec" } as never);
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setMode",
+    )?.[1] as ((mode?: string) => Promise<void>) | undefined;
+    await handler?.();
+
+    const offered = showQuickPick.mock.calls[0]?.[0] as Array<{ value: string }> | undefined;
+    expect(offered?.map((o) => o.value)).toEqual(["code", "explore", "spec"]);
+    expect(update).toHaveBeenCalledWith(
+      "mode.active",
+      "spec",
+      vscode.ConfigurationTarget.Workspace,
+    );
+  });
+
   it("awaits runtime reconfiguration after saving a provider key", async () => {
     const { activate } = await import("./extension");
     const ctx = makeContext();

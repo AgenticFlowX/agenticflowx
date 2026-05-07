@@ -237,6 +237,7 @@ export async function activate(
       }
       if (e.affectsConfiguration("afx.mode.active")) {
         void sidebarProvider?.refreshRuntimeConfiguration();
+        refreshStatusBarMode();
       }
       if (RUNTIME_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {
         void scheduleAgentRuntimeRebuild("configuration changed");
@@ -259,6 +260,8 @@ export async function activate(
     runtimeMonitor,
     logger,
     secretStore,
+    // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+    workspaceState: context.workspaceState,
   });
   const specsData = createSpecsDataProvider(
     () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
@@ -273,9 +276,18 @@ export async function activate(
     logger,
   });
 
-  const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
-  statusItem.text = "$(symbol-keyword) AgenticFlowX";
-  statusItem.command = "afx.openSidebar";
+  // @see docs/specs/200-app-vscode/spec.md [FR-11]
+  // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
+  const statusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  statusItem.command = "afx.setMode";
+  function refreshStatusBarMode(): void {
+    const mode = normalizeWorkspaceMode(
+      vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code"),
+    );
+    statusItem.text = formatStatusBarMode(mode);
+    statusItem.tooltip = formatStatusBarTooltip(mode);
+  }
+  refreshStatusBarMode();
   statusItem.show();
 
   context.subscriptions.push(
@@ -451,7 +463,11 @@ export async function activate(
     for (const d of disposables) context.subscriptions.push(d);
   }
 
-  const sprintContext = createSprintContextSync(logger);
+  // @see docs/specs/100-package-shared/spec.md [FR-12]
+  // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
+  const sprintContext = createSprintContextSync(logger, {
+    onDocContextChange: (ctx) => sidebarProvider?.postActiveDocContext(ctx),
+  });
   for (const d of sprintContext.disposables) context.subscriptions.push(d);
 
   void vscode.commands.executeCommand("setContext", "afx.loaded", true);
@@ -520,27 +536,58 @@ async function pickWorkspaceMode(current: WorkspaceMode): Promise<WorkspaceMode 
   const selected = await vscode.window.showQuickPick(
     [
       {
-        label: "Code",
+        label: "$(circle-filled) Code",
         description: "Default. Full access. Pi can act and edit.",
         value: "code" as const,
       },
       {
-        label: "Explore",
+        label: "$(circle-filled) Explore",
         description: "Experimental. Read-only investigation mode.",
         value: "explore" as const,
       },
+      {
+        label: "$(circle-filled) Spec",
+        description:
+          "Spec-Driven Development. Refine specs, designs, tasks, and ADRs — never your source code.",
+        value: "spec" as const,
+      },
     ],
     {
-      title: "AFX: Set Mode",
-      placeHolder: "Choose Code or Explore",
+      title: "AFX: Switch Workspace Mode",
+      placeHolder: `Current: ${current}`,
       ignoreFocusOut: true,
     },
   );
   return selected?.value ?? current;
 }
 
+// @see docs/specs/100-package-shared/spec.md [FR-11]
 function normalizeWorkspaceMode(value: string | undefined): WorkspaceMode {
-  return value === "explore" ? "explore" : "code";
+  if (value === "explore") return "explore";
+  if (value === "spec") return "spec";
+  return "code";
+}
+
+// @see docs/specs/200-app-vscode/spec.md [FR-11]
+// @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
+function formatStatusBarMode(mode: WorkspaceMode): string {
+  const dot = mode === "explore" ? "🟠" : mode === "spec" ? "🟣" : "🟢";
+  return `${dot} ${formatModeLabel(mode)}`;
+}
+
+function formatModeLabel(mode: WorkspaceMode): string {
+  return mode === "explore" ? "Explore" : mode === "spec" ? "Spec" : "Code";
+}
+
+// @see docs/specs/200-app-vscode/spec.md [FR-11]
+function formatStatusBarTooltip(mode: WorkspaceMode): string {
+  const summary =
+    mode === "explore"
+      ? "Read-only investigation. Tool calls that would write or run shell commands are blocked."
+      : mode === "spec"
+        ? "Spec-Driven Development. The agent refines specs, designs, tasks, and ADRs — never your source code."
+        : "Default full-access mode. The agent can read, write, and run shell commands.";
+  return `AgenticFlowX — ${formatModeLabel(mode)} mode\n${summary}\n\nClick to switch (⌘⇧M / Ctrl+Shift+M).`;
 }
 
 function detectExecutableOnPath(command: string): string | undefined {

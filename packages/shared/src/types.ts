@@ -15,8 +15,9 @@ export type Mode = "spec" | "design" | "dev" | "check" | "report" | "session" | 
  * Workspace posture for the chat shell and settings snapshot.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-3] [FR-9] [FR-10]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-DOMAIN-TYPES]
  */
-export type WorkspaceMode = "code" | "explore";
+export type WorkspaceMode = "code" | "explore" | "spec";
 
 export type Provider = "openai" | "anthropic" | "google" | "ollama" | "lmstudio" | "custom";
 

@@ -736,6 +736,39 @@ injects the files the user explicitly referenced in the draft.
 | Toolbar render       | toolbar block                        | none                               | Keeps the compact switch and filename label aligned on small widths | `aria-pressed`/title reflect state    |
 | Host consume setting | `sidebar-panel.ts` settings handler  | none                               | Active-file context is attached to send/steer/follow-up content     | Inflated prompt text with active file |
 
+## [DES-COMPOSER-COMPONENT-STRIP] Composer Strip Variants
+
+The composer strip slot above the InputGroup hosts a small set of conditional banner
+variants. Each variant is a pure presentational component sharing the generic
+`ComposerStrip` chrome (title row, content slot, optional CTA, dismiss icon).
+
+| Variant        | Trigger                                                                             | Purpose                                                                                                                                                |
+| -------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `queue`        | One or more queued steer/follow-up rows                                             | Show queued composer messages awaiting acceptance                                                                                                      |
+| `files`        | `agent/modifiedFiles` payload                                                       | Surface files the agent modified during a turn                                                                                                         |
+| `blocked`      | `agent/actionBlocked` payload                                                       | Show the rejected Explore-mode shell command with copy/switch affordances                                                                              |
+| `doc-actions`  | `workspaceMode === "spec"` AND active editor is an AFX doc (sprint or 4-file)       | SDD intent buttons (`Refine` / `Validate` / `Review` / `Approve` for spec/design; `Pick Next` / `Code` / `Verify` for tasks) routed by detected format |
+| `mode-suggest` | Active editor is a sprint file AND `workspaceMode !== "spec"` AND not yet dismissed | One-time Spec-mode onboarding offer; dismissal persisted via `afx.specModeOfferDismissed` workspaceState memento                                       |
+
+`doc-actions` and `mode-suggest` reuse the same chrome — no new primitives. They render
+in the slot order: queue → files → blocked → doc-actions → mode-suggest, directly above
+the InputGroup wrapper.
+
+## [DES-COMPOSER-COMPONENT-MODE-TOGGLE] Workspace Mode Control
+
+The composer toolbar exposes a single Mode dropdown that drives `chat/setMode`. The
+dropdown items map 1:1 to entries in `WORKSPACE_MODES` in `chat.tsx`. The `data-workspace-mode`
+attribute on the InputGroup wrapper drives a CSS-only border/ring accent:
+
+| Mode    | Accent token (CSS)              | Footer hint                            |
+| ------- | ------------------------------- | -------------------------------------- |
+| Code    | default `--ring`                | `⏎ follow-up · ⌘⏎ steer · …`           |
+| Explore | amber (`oklch(0.83 0.16 80)`)   | `Read-only / Safe · ⌘⇧M to switch`     |
+| Spec    | violet (`oklch(0.72 0.19 295)`) | `Planning / Docs only · ⌘⇧M to switch` |
+
+A `200ms` `border-color`/`box-shadow` transition smooths mode switches. Border colors are
+defined as CSS custom properties — no runtime JS color computation.
+
 ## [DES-COMPOSER-QUEUE] Queue Strip Behavior
 
 | Queue state     | Source anchor                         | UI/functionality                                                       |

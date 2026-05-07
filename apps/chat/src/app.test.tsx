@@ -61,6 +61,8 @@ function emitChatState(
   transport: ReturnType<typeof createControlledTransport>,
   overrides: Partial<Pick<ChatStateMessage, "isStreaming" | "messages" | "tools">> = {},
   activeFileContext: ActiveFileContextSnapshot | null = null,
+  mode: WorkspaceMode = "code",
+  snapshotOverrides: Partial<SettingsSnapshot> = {},
 ): void {
   transport.emit({
     type: "chat/state",
@@ -71,6 +73,20 @@ function emitChatState(
   transport.emit({
     type: "agent/activeFileContext",
     snapshot: activeFileContext,
+  });
+  // Mirror the real host flow: chat/state is followed by agent/settingsSnapshot.
+  // Without this, the welcome card stays in WelcomeShell (loading state) and
+  // EmptyState/SpecModeWelcome never render.
+  // @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+  const baseSnapshot = createSettingsSnapshot(mode);
+  transport.emit({
+    type: "agent/settingsSnapshot",
+    requestId: "test-snapshot",
+    snapshot: {
+      ...baseSnapshot,
+      ...snapshotOverrides,
+      engine: { ...baseSnapshot.engine, ...(snapshotOverrides.engine ?? {}) },
+    },
   });
 }
 
@@ -550,7 +566,9 @@ describe("chat App", () => {
     const exploreModeIcon = exploreModeButton.querySelector("svg");
     expect(exploreModeIcon).toHaveClass("text-afx-brand-soft");
     expect(exploreModeIcon).not.toHaveClass("text-amber-600");
-    expect(screen.getByText("Read-only / Safe")).toBeInTheDocument();
+    // Footer hint now includes the Cmd/Ctrl+Shift+M shortcut suffix in non-Code modes.
+    // @see docs/specs/211-app-chat-composer/spec.md [FR-14]
+    expect(screen.getByText(/Read-only \/ Safe/)).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText(
         "Explore mode is read-only — ask about files, risks, or the next step…",
@@ -1102,7 +1120,15 @@ describe("chat App", () => {
       });
     });
     act(() => {
-      emitChatState(transport);
+      emitChatState(transport, undefined, null, "code", {
+        engine: {
+          rpcEnabled: true,
+          agentBinary: "pi",
+          bundledSkillsPath: "resources/skills/agenticflowx",
+          bundledSkillCount: 17,
+          ephemeral: false,
+        },
+      });
     });
 
     await user.click(screen.getByRole("button", { name: "Open Settings" }));
@@ -1771,5 +1797,200 @@ describe("chat App", () => {
 
     await waitFor(() => expect(screen.queryByText("tighten now")).not.toBeInTheDocument());
     expect(screen.queryByText("then verify")).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Local-only state reset on new session / reload — covers two reported bugs:
+  //   1. Token / context counter persisted across `chat/newSession`.
+  //   2. Shell-command output persisted across reload while messages cleared.
+  // The fix routes both through chat/state with empty messages → clear
+  // commandOutputs + noteEvents + usage. Plus startNewSession does the same
+  // local clears for instant UI feedback.
+  // @see docs/specs/210-app-chat/design.md [DES-API]
+  // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+  // ---------------------------------------------------------------------------
+
+  it("clears the token/context counter when chat/state arrives with messages=[] (reload)", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    // Hydrate with some chat content + a usage counter.
+    act(() => {
+      emitChatState(transport, {
+        messages: [{ id: "m1", role: "user", content: "hi", createdAt: 1 }],
+      });
+      transport.emit({
+        type: "chat/usage",
+        tokens: { input: 1_000, output: 2_500, cacheRead: 0, cacheWrite: 0, total: 3_500 },
+        cost: 0.0012,
+        contextUsage: { tokens: 3_500, contextWindow: 200_000, percent: 2 },
+      });
+    });
+
+    expect(screen.getByText(/3\.5k tokens · ctx 2% · \$0\.0012/)).toBeInTheDocument();
+
+    // Simulate a reload: host sends a fresh chat/state with empty messages.
+    act(() => {
+      transport.emit({
+        type: "chat/state",
+        isStreaming: false,
+        messages: [],
+        tools: [],
+      });
+    });
+
+    expect(screen.queryByText(/tokens · ctx/)).not.toBeInTheDocument();
+  });
+
+  it("clears shell command output when chat/state arrives with messages=[] (reload)", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    // Seed a shell-command output via the agent/commandOutput bridge.
+    act(() => {
+      emitChatState(transport, {
+        messages: [{ id: "m1", role: "user", content: "hi", createdAt: 1 }],
+      });
+      transport.emit({
+        type: "agent/commandOutput",
+        requestId: "cmd-1",
+        delta: "README.md\npackage.json",
+        kind: "stdout",
+      });
+      transport.emit({
+        type: "agent/commandOutput",
+        requestId: "cmd-1",
+        done: true,
+        exitCode: 0,
+      });
+    });
+
+    expect(screen.getByText(/README\.md/)).toBeInTheDocument();
+
+    // Reload — host's chat/state.messages is empty → all local-only surfaces
+    // (shell output, notes, usage) must clear together.
+    act(() => {
+      transport.emit({
+        type: "chat/state",
+        isStreaming: false,
+        messages: [],
+        tools: [],
+      });
+    });
+
+    expect(screen.queryByText(/README\.md/)).not.toBeInTheDocument();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Spec mode composer-strip auto-send (FR-15)
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+  // ---------------------------------------------------------------------------
+
+  /** Bring the chat into Spec mode with a standard spec.md as the active doc. */
+  function bootSpecMode(
+    transport: ReturnType<typeof createControlledTransport>,
+    opts: { isStreaming?: boolean } = {},
+  ): void {
+    act(() => {
+      // Runtime needs a `ready` status before the composer enables itself.
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: opts.isStreaming ?? false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, { isStreaming: opts.isStreaming }, null, "spec");
+      transport.emit({
+        type: "chat/activeDocContext",
+        format: "standard",
+        section: "SPEC",
+        docKind: "spec",
+        feature: "auth",
+        approvalStatus: "Draft",
+      });
+    });
+  }
+
+  /**
+   * Click the first action button matching `label`. The same action is rendered
+   * by both DocActionsStrip (above the composer) and SpecModeWelcome (empty
+   * state) in spec mode — they share the same callbacks, so testing either is
+   * equivalent. We pick the first match to keep tests stable.
+   */
+  function clickStripAction(label: string): Promise<void> {
+    const buttons = screen
+      .getAllByRole("button")
+      .filter((el) => el.querySelector("span")?.textContent?.trim() === label);
+    const target = buttons[0];
+    if (!target) {
+      throw new Error(`No strip button labeled "${label}" found.`);
+    }
+    return userEvent.setup().click(target);
+  }
+
+  it("auto-sends Validate immediately on click (chat/send, draft stays empty)", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+    bootSpecMode(transport);
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await clickStripAction("Validate");
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "/afx-spec validate auth",
+      }),
+    );
+    // Draft must stay empty — auto-send bypasses the textarea.
+    expect(screen.getByPlaceholderText(/Spec mode/i)).toHaveValue("");
+  });
+
+  it("auto-sends Approve while streaming as a polite chat/followUp (never steer)", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+    bootSpecMode(transport, { isStreaming: true });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await clickStripAction("Approve");
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/followUp",
+        content: "/afx-spec approve auth",
+      }),
+    );
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/steer" }));
+  });
+
+  it("inserts Refine into the composer draft (never auto-sends)", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+    bootSpecMode(transport);
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await clickStripAction("Refine");
+
+    // Refine is dialogic — it lands in the textarea, not on the wire.
+    expect(screen.getByPlaceholderText(/Spec mode/i)).toHaveValue("/afx-spec refine auth");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/followUp" }));
   });
 });

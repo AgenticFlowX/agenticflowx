@@ -151,6 +151,7 @@ export const window = {
   showWarningMessage: async (_msg: string) => undefined,
   showInformationMessage: async (_msg: string) => undefined,
   showInputBox: async () => undefined,
+  showQuickPick: async <T>(_items: T | T[], _opts?: unknown): Promise<T | undefined> => undefined,
   createOutputChannel,
   createStatusBarItem,
   registerWebviewViewProvider: () => mockDisposable,

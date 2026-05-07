@@ -17,7 +17,8 @@ export const WORKSPACE = {
   groupDescription: "How AFX behaves in this workspace, across all runtimes.",
 
   modeLabel: "Mode",
-  modeDescription: "Permission gate applied before tool calls reach any runtime.",
+  modeDescription:
+    "Permission gate applied before tool calls reach any runtime. Code is full-access; Explore is read-only; Spec is for Spec-Driven Development (docs only).",
 
   codeName: "Code",
   codeDescription: "Full access. Runtimes can read, write, run shells, and edit.",
@@ -29,6 +30,12 @@ export const WORKSPACE = {
     "Read-only. Tool calls that would modify files or run shell commands are blocked by AFX before they execute.",
   exploreTooltip:
     "AFX-host-side guardrail (not a runtime setting). AFX intercepts tool calls and rejects file-write / shell-execute before they reach any runtime. Useful for reviewing unfamiliar codebases or planning.",
+
+  specName: "Spec",
+  specDescription:
+    "Spec-Driven Development. The agent refines specs, designs, tasks, journals, ADRs, and research — but never your source code. Shell-read commands stay open so it can gather context.",
+  specTooltip:
+    "AFX host-side guardrail for SDD. Writes are scoped to docs/specs/**, docs/research/**, docs/adr/**, .afx/**, and tasks.md. Powers the SDD loop — Shape → Design → Slice → Build → Verify → Ship → Evolve. Pair with /afx-spec, /afx-design, /afx-task, /afx-sprint, /afx-adr, /afx-research.",
 
   fileCtxLabel: "Active-file context",
   fileCtxDescription:

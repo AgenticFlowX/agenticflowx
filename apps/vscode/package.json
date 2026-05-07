@@ -118,10 +118,11 @@
           "type": "string",
           "enum": [
             "code",
-            "explore"
+            "explore",
+            "spec"
           ],
           "default": "code",
-          "description": "Workspace mode for the chat composer. Code is the default full-access Pi-backed mode; Explore is read-only and experimental."
+          "description": "Workspace mode for the chat composer. Code is full-access; Explore is read-only; Spec is planning-only (docs and specs only)."
         },
         "afx.debugPerf": {
           "type": "boolean",
@@ -197,7 +198,7 @@
       },
       {
         "command": "afx.setMode",
-        "title": "Set Mode",
+        "title": "Switch Workspace Mode",
         "category": "AFX"
       },
       {
@@ -448,6 +449,11 @@
         "key": "ctrl+alt+a",
         "mac": "cmd+alt+a",
         "when": "editorTextFocus"
+      },
+      {
+        "command": "afx.setMode",
+        "key": "ctrl+shift+m",
+        "mac": "cmd+shift+m"
       }
     ]
   },

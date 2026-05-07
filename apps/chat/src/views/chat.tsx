@@ -28,14 +28,19 @@ import {
   ArrowUp,
   AtSign,
   BookOpen,
+  Boxes,
   ChevronDown,
   ChevronRight,
   Copy,
   CornerDownLeft,
   Cpu,
   ExternalLink,
+  FileText,
+  FlaskConical,
+  GitBranch,
   Info,
   Layers,
+  Lightbulb,
   LoaderCircle,
   MessageSquarePlus,
   PenLine,
@@ -44,12 +49,14 @@ import {
   Scissors,
   SlidersHorizontal,
   Square,
+  StickyNote,
   Terminal,
   Trash2,
   UserRound,
   X,
   Zap,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui";
 
 import type {
@@ -100,6 +107,14 @@ import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../lib/bri
 import type { ComposerTrigger } from "../lib/composer-detect";
 import { detectComposerTrigger } from "../lib/composer-detect";
 import { deriveModifiedFiles } from "../lib/derive-modified-files";
+// Shared with the welcome card and composer strip — kept in lib/ so it's unit-testable.
+import {
+  type ActiveDocCtx,
+  type DocAction,
+  EMPTY_DOC_CTX,
+  describeDoc,
+  resolveDocActions,
+} from "../lib/doc-actions";
 import { extractMentions } from "../lib/mentions";
 import { analyzeDanger } from "../lib/system-command";
 import { toolDescriptor } from "../lib/tool-descriptor";
@@ -182,6 +197,14 @@ interface PersistedChatViewState {
   messages: ChatTimelineItem[];
   commandOutputs: ChatCommandOutputView[];
   noteEvents: ChatNoteEventView[];
+  /**
+   * Persisted workspace mode so remounts hydrate the correct welcome card on
+   * first paint instead of flashing the default Code welcome before the host
+   * settings snapshot arrives.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+   */
+  workspaceMode?: WorkspaceMode;
 }
 
 /** Webview state persisted by VS Code so remounts can hydrate instantly. */
@@ -295,10 +318,41 @@ export default function Chat({
   const [thinking, setThinking] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageStats | null>(null);
   const [includeActiveFileContext, setIncludeActiveFileContext] = useState(true);
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("code");
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(
+    () => initialPersistedChatView?.workspaceMode ?? "code",
+  );
+  /**
+   * Tracks whether the host has sent its first settings snapshot. Combined with
+   * `hasReceivedStateSnapshot` to gate the welcome card so we never flash the
+   * default Code welcome before the real workspace mode is known.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+   */
+  const [hasReceivedSettingsSnapshot, setHasReceivedSettingsSnapshot] = useState(
+    () => initialPersistedChatView?.workspaceMode != null,
+  );
   const [activeFileContext, setActiveFileContext] = useState<ActiveFileContextSnapshot | null>(
     null,
   );
+  /**
+   * Active AFX document context — drives the doc-actions strip and mode-suggest strip.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  const [activeDocContext, setActiveDocContext] = useState<ActiveDocCtx>(EMPTY_DOC_CTX);
+  /**
+   * Persistent dismissal flags surfaced via settings snapshot. Per-session strip
+   * dismissal lives in `dismissedDocActionsStrip` below.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   */
+  const [onboardingFlags, setOnboardingFlags] = useState({
+    specModeOfferDismissed: false,
+    specModeTooltipSeen: false,
+    docActionsTooltipSeen: false,
+  });
+  const [dismissedDocActionsStrip, setDismissedDocActionsStrip] = useState(false);
   /**
    * Tracks the latest mode the user asked for so late host snapshots cannot
    * rewind the composer back to an older posture.
@@ -504,6 +558,18 @@ export default function Chat({
       bridgeOn("chat/state", (msg) => {
         setHasReceivedStateSnapshot(true);
         setMessages(msg.messages);
+        // chat/state is a full snapshot. When the host says messages=[] (new
+        // session, agent reload, or compaction reset) the local-only surfaces
+        // — shell-command output, in-thread notes, and the token/cost counter
+        // — must clear with it. Without this, a reload re-hydrates them from
+        // webview state and they linger after the chat itself is empty.
+        // @see docs/specs/210-app-chat/design.md [DES-API]
+        // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+        if (msg.messages.length === 0) {
+          setCommandOutputs([]);
+          setNoteEvents([]);
+          setUsage(null);
+        }
         setInternalAgentStatus((p) => ({
           ...p,
           phase: msg.isStreaming ? "busy" : p.phase,
@@ -714,6 +780,10 @@ export default function Chat({
       bridgeOn("agent/settingsSnapshot", (msg) => {
         setIncludeActiveFileContext(msg.snapshot.context?.includeActiveFileContext ?? true);
         acceptHostWorkspaceMode(msg.snapshot.mode?.active ?? "code");
+        if (msg.snapshot.onboarding) {
+          setOnboardingFlags(msg.snapshot.onboarding);
+        }
+        setHasReceivedSettingsSnapshot(true);
       }),
 
       // Blocked actions — surfaces host-side guardrails when Explore rejects a command.
@@ -731,6 +801,30 @@ export default function Chat({
       // Active-file context — keeps the composer label synced with the current editor file.
       bridgeOn("agent/activeFileContext", (msg) => {
         setActiveFileContext(msg.snapshot);
+      }),
+
+      // @see docs/specs/100-package-shared/spec.md [FR-12]
+      // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+      bridgeOn("chat/activeDocContext", (msg) => {
+        setActiveDocContext((prev) => {
+          // Reset per-session strip dismissal whenever the active doc identity
+          // changes — dismissing on one feature/file should not suppress strips
+          // on the next one the user opens.
+          if (
+            prev.feature !== msg.feature ||
+            prev.docKind !== msg.docKind ||
+            prev.format !== msg.format
+          ) {
+            setDismissedDocActionsStrip(false);
+          }
+          return {
+            format: msg.format,
+            section: msg.section,
+            docKind: msg.docKind,
+            feature: msg.feature,
+            approvalStatus: msg.approvalStatus,
+          };
+        });
       }),
 
       // Files — populates the mention picker.
@@ -812,10 +906,15 @@ export default function Chat({
 
   // Keep the last visible chat surface in webview state so remounts can
   // hydrate directly into the transcript instead of flashing the welcome card.
+  // We also persist `workspaceMode` so the next mount can render the right
+  // welcome (Spec vs Code/Explore) on first paint, even before the host
+  // settings snapshot arrives.
+  // @see docs/specs/212-app-chat-messages/spec.md [FR-8]
   useEffect(() => {
     const hasTimelineContent =
       messages.length > 0 || commandOutputs.length > 0 || noteEvents.length > 0;
-    if (!hasReceivedStateSnapshot && !hasTimelineContent) return;
+    const shouldPersistMode = hasReceivedSettingsSnapshot;
+    if (!hasReceivedStateSnapshot && !hasTimelineContent && !shouldPersistMode) return;
 
     persistChatViewState(
       hasTimelineContent
@@ -823,10 +922,20 @@ export default function Chat({
             messages,
             commandOutputs,
             noteEvents,
+            workspaceMode,
           }
-        : null,
+        : shouldPersistMode
+          ? { messages: [], commandOutputs: [], noteEvents: [], workspaceMode }
+          : null,
     );
-  }, [commandOutputs, hasReceivedStateSnapshot, messages, noteEvents]);
+  }, [
+    commandOutputs,
+    hasReceivedStateSnapshot,
+    hasReceivedSettingsSnapshot,
+    messages,
+    noteEvents,
+    workspaceMode,
+  ]);
 
   // DEV-only: lets the debug panel pre-populate the QueueStrip for design
   // iteration without manually queueing items each time. Production builds
@@ -951,6 +1060,55 @@ export default function Chat({
       setQueued((q) => [...q, { id: uid(), mode, content: trimmed, sentAt: Date.now() }]);
     }
     getTextarea()?.focus();
+  }
+
+  /**
+   * Fire a prepared message immediately, without going through the textarea
+   * draft. Used by Spec mode composer-strip / welcome buttons whose actions
+   * don't need user-supplied content (validate, approve, verify, pick, list,
+   * load, save, recap). Mirrors `submit()`'s send path with two differences:
+   *  - falls back to inserting into the draft when the runtime isn't ready,
+   *    so the user can see what was about to send and act when it recovers
+   *  - while streaming, queues as a polite follow-up (never as a steer)
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  function sendNow(content: string): void {
+    const trimmed = content.trim();
+    if (trimmed.length === 0) return;
+
+    // Hard guard — if the runtime isn't ready, don't drop the prompt on the
+    // floor. Surface it in the draft so the user can send it once recovered.
+    if (isComposerDisabled) {
+      onDraftChange(trimmed);
+      getTextarea()?.focus();
+      return;
+    }
+
+    onPromptHistoryAppend(trimmed);
+    const requestId = uid();
+
+    if (isStreaming) {
+      // Streaming → queue as a polite follow-up. Never auto-steer, since that
+      // would interrupt the in-flight turn and surprise the user.
+      bridgeSend({
+        type: "chat/followUp",
+        requestId,
+        content: trimmed,
+      });
+      setQueued((q) => [
+        ...q,
+        { id: uid(), mode: "followUp", content: trimmed, sentAt: Date.now() },
+      ]);
+      return;
+    }
+
+    bridgeSend({
+      type: "chat/send",
+      requestId,
+      content: trimmed,
+    });
   }
 
   function startCompact() {
@@ -1186,7 +1344,13 @@ export default function Chat({
     bridgeSend({ type: "chat/newSession" });
     onDraftChange("");
     setQueued([]);
+    // Clear every local-only surface for instant feedback. The follow-up
+    // chat/state from the host (with messages=[]) will re-confirm the same
+    // reset; the duplicate clear is harmless and avoids a stale-counter flash
+    // between click and host confirmation.
     setCommandOutputs([]);
+    setNoteEvents([]);
+    setUsage(null);
     setUserScrolledUp(false);
     toast.success("New session started");
   }
@@ -1253,6 +1417,21 @@ export default function Chat({
             <Timeline messages={messages} noteEvents={noteEvents} commandOutputs={commandOutputs} />
           ) : !hasReceivedStateSnapshot ? (
             <AgentSetupState />
+          ) : !hasReceivedSettingsSnapshot ? (
+            // Logo-only shell — keeps the surface stable until we know the
+            // workspace mode, so we don't flash the Code welcome before
+            // flipping to Spec on a slow settings snapshot.
+            // @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+            <WelcomeShell />
+          ) : workspaceMode === "spec" ? (
+            <SpecModeWelcome
+              docContext={activeDocContext}
+              onInsert={(text) => {
+                onDraftChange(text);
+                composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+              }}
+              onAutoSend={sendNow}
+            />
           ) : (
             <EmptyState
               runtimeUnconfigured={runtimeUnconfigured}
@@ -1334,7 +1513,45 @@ export default function Chat({
               onDismiss={() => setBlockedAction(null)}
             />
           )}
-          <InputGroup className="afx-surface-composer @container h-auto flex-col items-stretch">
+          {/* @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+           * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+           * Doc-actions strip — surfaces SDD intent actions for the active AFX doc. */}
+          <DocActionsStrip
+            workspaceMode={workspaceMode}
+            docContext={activeDocContext}
+            dismissed={dismissedDocActionsStrip}
+            onDismiss={() => setDismissedDocActionsStrip(true)}
+            onInsert={(text) => onDraftChange(text)}
+            onAutoSend={sendNow}
+          />
+          {/* @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+           * Mode-suggest strip — one-time onboarding for sprint files outside Spec mode. */}
+          <ModeSuggestStrip
+            workspaceMode={workspaceMode}
+            docContext={activeDocContext}
+            dismissed={onboardingFlags.specModeOfferDismissed}
+            onSwitch={() => {
+              setMode("spec");
+              bridgeSend({
+                type: "chat/setOnboardingFlag",
+                key: "specModeOfferDismissed",
+                value: true,
+              });
+              setOnboardingFlags((flags) => ({ ...flags, specModeOfferDismissed: true }));
+            }}
+            onDismiss={() => {
+              bridgeSend({
+                type: "chat/setOnboardingFlag",
+                key: "specModeOfferDismissed",
+                value: true,
+              });
+              setOnboardingFlags((flags) => ({ ...flags, specModeOfferDismissed: true }));
+            }}
+          />
+          <InputGroup
+            data-workspace-mode={workspaceMode}
+            className="afx-surface-composer @container h-auto flex-col items-stretch"
+          >
             {/* Surface: [Composer.Input] */}
             <InputGroupTextarea
               id="afx-chat-composer"
@@ -1522,6 +1739,11 @@ function getComposerPlaceholder({
       ? "Explore mode is read-only — queue another analysis question…"
       : "Explore mode is read-only — ask about files, risks, or the next step…";
   }
+  if (workspaceMode === "spec") {
+    return isStreaming
+      ? "Spec mode — queue a refinement, validation, or approval question…"
+      : "Spec mode — refine specs, evolve designs, or slice tasks…";
+  }
   if (isStreaming) return "Queue a follow-up… (⌘⏎ to steer this turn)";
   return "Ask AFX about this workspace — ⌘⇧⏎ saves a note";
 }
@@ -1646,20 +1868,22 @@ function FooterStrip({
 }) {
   const hint =
     workspaceMode === "explore"
-      ? "Read-only / Safe"
-      : isSystemCommand
-        ? "⚠ Shell · output is local only"
-        : isCheckingAgent
-          ? "Checking agent runtime readiness…"
-          : runtimeUnconfigured
-            ? rpcEnabled
-              ? "Configure a provider or fix Pi RPC in Settings."
-              : "Configure an API provider or enable Pi RPC in Settings."
-            : runtimeUnavailable
-              ? "Connection recovery is required before sending."
-              : isStreaming
-                ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
-                : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
+      ? "Read-only / Safe · ⌘⇧M to switch"
+      : workspaceMode === "spec"
+        ? "Planning / Docs only · ⌘⇧M to switch"
+        : isSystemCommand
+          ? "⚠ Shell · output is local only"
+          : isCheckingAgent
+            ? "Checking agent runtime readiness…"
+            : runtimeUnconfigured
+              ? rpcEnabled
+                ? "Configure a provider or fix Pi RPC in Settings."
+                : "Configure an API provider or enable Pi RPC in Settings."
+              : runtimeUnavailable
+                ? "Connection recovery is required before sending."
+                : isStreaming
+                  ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
+                  : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
 
   const statsText = usage
     ? [
@@ -1900,6 +2124,13 @@ const WORKSPACE_MODES: ReadonlyArray<{
     description: "Read-only. Use it to inspect code, trace behavior, and plan changes.",
     badge: "Experimental",
   },
+  {
+    value: "spec",
+    label: "Spec",
+    description:
+      "Spec-Driven Development. Refine specs, designs, tasks, and ADRs — never your source code.",
+    badge: "SDD",
+  },
 ];
 
 /**
@@ -1939,7 +2170,9 @@ function ModeToggle({
         <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
           {current.value === "explore"
             ? "Explore is experimental and read-only. Use it to inspect code, trace behavior, and plan changes without running commands or edits."
-            : "Code is the default full-access Pi-backed mode."}
+            : current.value === "spec"
+              ? "Spec mode powers Spec-Driven Development: Shape → Design → Slice → Build → Verify → Ship → Evolve. The agent edits specs, designs, tasks, journals, ADRs, and research notes — your source code stays untouched."
+              : "Code is the default full-access Pi-backed mode."}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent side="top" align="start" className="min-w-[15rem]">
@@ -1947,7 +2180,7 @@ function ModeToggle({
           Mode
         </DropdownMenuLabel>
         <div className="px-2 pb-1 text-[10px] leading-relaxed text-muted-foreground">
-          Code is the default. Explore is for inspection, tracing, and planning.
+          Code is the default. Explore is read-only inspection. Spec is for Spec-Driven Development.
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuRadioGroup
@@ -2187,6 +2420,167 @@ function BlockedCommandStrip({
 }
 
 /**
+ * Visual treatment per AFX doc kind — icon + accent colour. Mirrors the
+ * Workbench palette (`apps/workbench/src/views/workbench.tsx` + `documents.tsx`)
+ * so the chat strip and the workbench tabs use the same visual vocabulary.
+ *
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ * @see docs/specs/220-app-workbench/design.md
+ */
+function docKindVisual(docKind: ActiveDocCtx["docKind"]): {
+  icon: LucideIcon;
+  accent: string;
+} {
+  switch (docKind) {
+    case "spec":
+      return { icon: StickyNote, accent: "text-afx-brand" };
+    case "design":
+      return { icon: FileText, accent: "text-purple-400" };
+    case "tasks":
+      return { icon: GitBranch, accent: "text-afx-success" };
+    case "journal":
+      return { icon: BookOpen, accent: "text-amber-400" };
+    case "adr":
+      return { icon: Lightbulb, accent: "text-blue-400" };
+    case "research":
+      return { icon: FlaskConical, accent: "text-muted-foreground" };
+    case "context":
+      return { icon: Boxes, accent: "text-cyan-400" };
+    case null:
+    default:
+      return { icon: FileText, accent: "text-muted-foreground" };
+  }
+}
+
+/**
+ * Doc-actions strip — surfaces SDD intent actions for the active AFX document.
+ *
+ * Renders when `workspaceMode === "spec"` AND an AFX doc is active. Buttons
+ * inject the routed slash command into the composer draft. Capped at 3 actions.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ */
+function DocActionsStrip({
+  workspaceMode,
+  docContext,
+  dismissed,
+  onDismiss,
+  onInsert,
+  onAutoSend,
+}: {
+  workspaceMode: WorkspaceMode;
+  docContext: ActiveDocCtx;
+  dismissed: boolean;
+  onDismiss: () => void;
+  /** Insert the slash command into the composer draft (default for dialogic verbs). */
+  onInsert: (text: string) => void;
+  /** Send the slash command immediately, bypassing the draft (deterministic verbs). */
+  onAutoSend: (text: string) => void;
+}) {
+  if (workspaceMode !== "spec") return null;
+  if (dismissed) return null;
+  if (!docContext.docKind) return null;
+
+  // Spec-mode strip surfaces up to 5 actions per doc kind. The cap keeps the
+  // strip readable on narrow VS Code sidebar widths while leaving room for the
+  // full Refine→Validate→Review→Approve flow on standard 4-file specs.
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  const actions = resolveDocActions(docContext).slice(0, 5);
+  if (actions.length === 0) return null;
+
+  const docLabel = describeDoc(docContext);
+  const status = docContext.approvalStatus
+    ? docContext.approvalStatus.charAt(0).toUpperCase() + docContext.approvalStatus.slice(1)
+    : null;
+  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+
+  return (
+    <ComposerStrip
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
+          <span>{docLabel}</span>
+          {status ? <span className="text-muted-foreground/60">· {status}</span> : null}
+        </span>
+      }
+      onDismiss={onDismiss}
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        {actions.map((action) => (
+          <Button
+            key={action.label}
+            type="button"
+            size="xs"
+            variant="outline"
+            title={action.autoSend ? "Sends immediately" : "Insert into composer draft"}
+            onClick={() =>
+              action.autoSend ? onAutoSend(action.command) : onInsert(action.command)
+            }
+          >
+            {action.autoSend ? (
+              <Zap size={11} className="shrink-0 text-amber-500" aria-hidden />
+            ) : null}
+            <span>{action.label}</span>
+          </Button>
+        ))}
+      </div>
+    </ComposerStrip>
+  );
+}
+
+/**
+ * Mode-suggest strip — one-time onboarding when an AFX file is active and the
+ * user is not yet in Spec mode. Triggers for sprint files AND standard 4-file
+ * specs / journals / ADRs / research notes. Dismissal persists via the
+ * `afx.specModeOfferDismissed` workspaceState memento.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ */
+function ModeSuggestStrip({
+  workspaceMode,
+  docContext,
+  dismissed,
+  onSwitch,
+  onDismiss,
+}: {
+  workspaceMode: WorkspaceMode;
+  docContext: ActiveDocCtx;
+  dismissed: boolean;
+  onSwitch: () => void;
+  onDismiss: () => void;
+}) {
+  if (workspaceMode === "spec") return null;
+  if (dismissed) return null;
+  if (!docContext.docKind) return null;
+
+  const detected = docContext.format === "sprint" ? "Sprint" : "AFX";
+  const docLabelHint = describeDoc(docContext);
+  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+
+  return (
+    <ComposerStrip
+      title={
+        <span className="inline-flex items-center gap-1.5">
+          <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
+          <span>
+            {detected} file detected (<span className="font-mono">{docLabelHint}</span>)
+          </span>
+        </span>
+      }
+      action={{ label: "Switch to Spec", onClick: onSwitch }}
+      onDismiss={onDismiss}
+    >
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Switch to Spec mode for Spec-Driven Development — the agent will refine docs, designs, and
+        tasks, but won&apos;t touch your source code.
+      </p>
+    </ComposerStrip>
+  );
+}
+
+/**
  * Renders one queued composer row and explains that dismissal only hides local display.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-4]
@@ -2402,6 +2796,138 @@ function EmptyState({
             </a>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Logo-only loading shell — bridges the gap between the chat snapshot arriving
+ * (which can have an empty thread) and the host settings snapshot arriving
+ * (which carries the workspace mode). Without this gate the surface flashes
+ * the default Code welcome card and then snaps to the Spec welcome a frame
+ * later, which reads as a layout glitch.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+ */
+function WelcomeShell() {
+  return (
+    <div className="mx-auto flex h-full w-full max-w-md flex-col items-center justify-center gap-3 px-1 py-6">
+      <AfxLogoMark width={168} className="h-auto max-w-full text-foreground opacity-80" />
+      <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft/60">
+        Loading workspace…
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Spec mode empty state — orient the user toward planning intents instead of
+ * generic quick commands. Idle actions when no AFX doc is active; refine actions
+ * when a sprint/standard doc is active.
+ *
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+ * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
+ */
+function SpecModeWelcome({
+  docContext,
+  onInsert,
+  onAutoSend,
+}: {
+  docContext: ActiveDocCtx;
+  /** Insert the slash command into the composer draft (default for dialogic verbs). */
+  onInsert: (text: string) => void;
+  /** Send the slash command immediately, bypassing the draft (deterministic verbs). */
+  onAutoSend: (text: string) => void;
+}) {
+  const hasActiveDoc = docContext.docKind !== null;
+
+  // Idle quick-start — when no AFX doc is open. Capped at 3 to match the strip.
+  // Next + Open Planner take no args; Start Sprint stays draft because the user
+  // needs to supply a feature name.
+  const idleActions: DocAction[] = [
+    { label: "Next", command: "/afx-next", autoSend: true },
+    { label: "Start Sprint", command: "/afx-sprint new", autoSend: false },
+    { label: "Open Planner", command: "/afx-discover capabilities", autoSend: true },
+  ];
+
+  // Doc-aware actions reuse the same routing table as the composer strip — up
+  // to 5 actions per doc kind. @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+  const docActions = hasActiveDoc ? resolveDocActions(docContext).slice(0, 5) : [];
+
+  const actions = hasActiveDoc ? docActions : idleActions;
+
+  // Per-doc subtext picks up the file kind so the welcome reads like the
+  // assistant actually noticed what you opened.
+  const subtext = hasActiveDoc
+    ? docContext.docKind === "spec"
+      ? "I'll help you sharpen the spec. We'll refine requirements, validate structure, and gate approval — without touching production code."
+      : docContext.docKind === "design"
+        ? "I'll help you evolve the design. We'll trace decisions, validate against the spec, and surface risks before code lands."
+        : docContext.docKind === "tasks"
+          ? "I'll help you slice the work. Pick the next task, scaffold its implementation, and verify it against spec + design."
+          : docContext.docKind === "journal"
+            ? "I'll help you capture decisions as you make them. Notes here promote into ADRs when a discussion crystallizes."
+            : docContext.docKind === "adr"
+              ? "I'll help you reason about this architecture decision. Review tradeoffs, supersede when context shifts, or list related ADRs."
+              : docContext.docKind === "context"
+                ? "I'll help you resume work from this handoff bundle. Load it to absorb state, save to regenerate, or analyze impact across features."
+                : "I'll help you turn research into shippable specs. Compare alternatives, summarize findings, and promote conclusions when ready."
+    : "Plan before you build. I'll refine specs, evolve designs, slice tasks, and capture decisions — without touching your source code.";
+
+  return (
+    <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
+      <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
+        <AfxLogoMark width={168} className="h-auto max-w-full text-foreground" />
+        <h2 className="font-serif text-lg italic leading-snug text-foreground">
+          Spec-Driven Development
+        </h2>
+        <p className="max-w-full break-words font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft/70">
+          Shape · Design · Slice · Build · Verify · Ship · Evolve
+        </p>
+        <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">{subtext}</p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="flex items-center gap-1.5 px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+          {hasActiveDoc ? (
+            <>
+              {(() => {
+                const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+                return <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />;
+              })()}
+              <span>Actions for {describeDoc(docContext)}</span>
+            </>
+          ) : (
+            "Start here"
+          )}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {actions.map((action) => (
+            <button
+              key={action.label}
+              type="button"
+              title={action.autoSend ? "Sends immediately" : "Insert into composer draft"}
+              onClick={() =>
+                action.autoSend ? onAutoSend(action.command) : onInsert(action.command)
+              }
+              className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted/20 px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-muted/40"
+            >
+              {action.autoSend ? (
+                <Zap size={11} className="shrink-0 text-amber-500" aria-hidden />
+              ) : null}
+              <span>{action.label}</span>
+            </button>
+          ))}
+        </div>
+        {!hasActiveDoc && (
+          <p className="mt-1 px-1 text-[10px] leading-relaxed text-muted-foreground/70">
+            Or open any <span className="font-mono">spec.md</span>,{" "}
+            <span className="font-mono">design.md</span>,{" "}
+            <span className="font-mono">tasks.md</span>, or{" "}
+            <span className="font-mono">journal.md</span> in the editor — I&apos;ll surface the
+            right actions here.
+          </p>
+        )}
       </div>
     </div>
   );

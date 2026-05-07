@@ -1344,6 +1344,189 @@ describe("sidebar-panel host bridge", () => {
     ).toBe(false);
   });
 
+  // ---------------------------------------------------------------------------
+  // Spec mode — guardrail prompt, exit reset, memento round-trip, doc-context replay.
+  // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+  // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-GUARDRAIL] [DES-PANELS-SPEC-EXIT-PROMPT]
+  // @see docs/specs/100-package-shared/spec.md [FR-11] [FR-12]
+  // ---------------------------------------------------------------------------
+
+  it("prefixes outbound sends with SPEC_MODE_PROMPT when workspace mode is Spec", async () => {
+    mockAfxConfiguration({ "mode.active": "spec" });
+    const inbound = setup();
+
+    inbound.fire({ type: "chat/send", requestId: "req-send", content: "draft a feature" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).toHaveBeenCalledOnce();
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0];
+    expect(prompt).toContain("[AFX SPEC MODE: PLANNING ONLY]");
+    expect(prompt).toContain("Strict planning-only policy");
+    expect(prompt).toContain("draft a feature");
+  });
+
+  it("emits SPEC_MODE_EXIT_PROMPT once when leaving Spec for Code", async () => {
+    const { values } = mockAfxConfiguration({ "mode.active": "spec" });
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(async (_cmd, mode) => {
+      values.set("mode.active", mode);
+      return undefined;
+    });
+    const inbound = setup();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+    inbound.fire({ type: "chat/send", requestId: "req-send-1", content: "first" });
+    await flushAsyncWork(2);
+    listener?.({ type: "agent_end" });
+    inbound.fire({ type: "chat/send", requestId: "req-send-2", content: "second" });
+    await flushAsyncWork(2);
+
+    const first = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    const second = (vi.mocked(agent.send).mock.calls[1] as [string] | undefined)?.[0] ?? "";
+    expect(first).toContain('mode_transition="spec_to_other"');
+    expect(first).toContain("supersedes any prior AFX Spec planning-only control block");
+    expect(second).not.toContain('mode_transition="spec_to_other"');
+  });
+
+  /**
+   * Regression for B1 — spec→explore must layer the spec exit reset BEFORE the
+   * explore guardrail, otherwise the agent stays in spec posture for one turn.
+   *
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-EXIT-PROMPT]
+   */
+  it("layers SPEC_MODE_EXIT_PROMPT and EXPLORE_GUARDRAIL on spec→explore transition", async () => {
+    const { values } = mockAfxConfiguration({ "mode.active": "spec" });
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(async (_cmd, mode) => {
+      values.set("mode.active", mode);
+      return undefined;
+    });
+    const inbound = setup();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "explore" });
+    await flushAsyncWork(2);
+    inbound.fire({ type: "chat/send", requestId: "req-send", content: "inspect please" });
+    await flushAsyncWork(2);
+
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(prompt).toContain('mode_transition="spec_to_other"');
+    expect(prompt).toContain("[AFX EXPLORE MODE: READ ONLY]");
+    expect(prompt.indexOf('mode_transition="spec_to_other"')).toBeLessThan(
+      prompt.indexOf("[AFX EXPLORE MODE: READ ONLY]"),
+    );
+  });
+
+  it("includes onboarding flags in the settings snapshot from workspaceState", async () => {
+    mockAfxConfiguration({ "mode.active": "spec" });
+    const stored = new Map<string, unknown>([
+      ["afx.specModeOfferDismissed", true],
+      ["afx.specModeTooltipSeen", false],
+      ["afx.docActionsTooltipSeen", true],
+    ]);
+    const memento: vscode.Memento = {
+      keys: () => Array.from(stored.keys()),
+      get: <T>(key: string, defaultValue?: T) =>
+        (stored.has(key) ? stored.get(key) : defaultValue) as T,
+      update: vi.fn(async (key: string, value: unknown) => {
+        if (value === undefined) stored.delete(key);
+        else stored.set(key, value);
+      }),
+    };
+    const { view, inbound } = makeMockView();
+    createSidebarPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      extensionVersion: "2.0.0-test",
+      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+      bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
+      agentManager: agent,
+      logger,
+      workspaceState: memento,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "req-settings" });
+    await flushAsyncWork(2);
+
+    const postMessage = view.webview.postMessage as ReturnType<typeof vi.fn>;
+    const snapshotCall = postMessage.mock.calls
+      .map(([m]) => m as { type?: string; snapshot?: { onboarding?: unknown } })
+      .find((m) => m.type === "agent/settingsSnapshot");
+    expect(snapshotCall?.snapshot?.onboarding).toEqual({
+      specModeOfferDismissed: true,
+      specModeTooltipSeen: false,
+      docActionsTooltipSeen: true,
+    });
+  });
+
+  it("writes onboarding flag updates to workspaceState via chat/setOnboardingFlag", async () => {
+    mockAfxConfiguration();
+    const memento: vscode.Memento = {
+      keys: () => [],
+      get: <T>(_key: string, defaultValue?: T) => defaultValue as T,
+      update: vi.fn(async () => {}),
+    };
+    const { view, inbound } = makeMockView();
+    createSidebarPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      extensionVersion: "2.0.0-test",
+      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+      bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
+      agentManager: agent,
+      logger,
+      workspaceState: memento,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    inbound.fire({
+      type: "chat/setOnboardingFlag",
+      key: "specModeOfferDismissed",
+      value: true,
+    });
+    await flushAsyncWork(2);
+
+    expect(memento.update).toHaveBeenCalledWith("afx.specModeOfferDismissed", true);
+  });
+
+  it("replays the cached active doc context on chat/ready", async () => {
+    mockAfxConfiguration({ "mode.active": "spec" });
+    const { view, inbound } = makeMockView();
+    const provider = createSidebarPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      extensionVersion: "2.0.0-test",
+      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+      bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
+      agentManager: agent,
+      logger,
+    });
+    // Cache a payload BEFORE the webview resolves (simulating sprint-context
+    // firing during extension activation while the chat panel is still hidden).
+    provider.postActiveDocContext({
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+      approvalStatus: "Draft",
+    });
+    provider.resolveWebviewView(view, {} as never, {} as never);
+
+    inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork(2);
+
+    const postMessage = view.webview.postMessage as ReturnType<typeof vi.fn>;
+    const replay = postMessage.mock.calls
+      .map(([m]) => m as { type?: string; docKind?: string; feature?: string })
+      .find((m) => m.type === "chat/activeDocContext");
+    expect(replay).toMatchObject({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+      approvalStatus: "Draft",
+    });
+  });
+
   /**
    * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]

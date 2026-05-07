@@ -58,6 +58,8 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 | FR-8  | Chat-to-host protocol includes a toggle mutation for the active-file context preference so the composer quick toggle and settings switch can write the same setting                                                                                | Must Have   |
 | FR-9  | Shared settings snapshot includes the workspace mode preference so chat composer and settings surfaces can stay in sync                                                                                                                            | Must Have   |
 | FR-10 | Chat-to-host protocol includes a toggle mutation for the workspace mode preference so the composer `Mode` control and Settings switch can write the same setting                                                                                   | Must Have   |
+| FR-11 | `WorkspaceMode` union admits a third `"spec"` variant — planning-only posture distinct from `"code"` (full access) and `"explore"` (read-only)                                                                                                     | Must Have   |
+| FR-12 | Host-to-webview protocol includes `chat/activeDocContext` carrying `{ format, section, docKind, feature, approvalStatus }` so the chat composer can render contextual doc-action and onboarding strips                                             | Must Have   |
 
 ### Non-Functional Requirements
 

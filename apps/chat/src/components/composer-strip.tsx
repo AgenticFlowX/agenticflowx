@@ -26,7 +26,13 @@ export interface ComposerStripAction {
 }
 
 export interface ComposerStripProps {
-  title: string;
+  /**
+   * Title rendered in the strip header. Accepts a string or any inline ReactNode
+   * (e.g. icon + label) so callers can mirror the Workbench icon vocabulary.
+   *
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  title: ReactNode;
   count?: number;
   tone?: "neutral" | "brand" | "warning";
   action?: ComposerStripAction;

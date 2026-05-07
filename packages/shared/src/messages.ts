@@ -231,6 +231,17 @@ export interface SettingsModeSnapshot {
 }
 
 /**
+ * One-time onboarding dismissal flags. Persisted in `ExtensionContext.workspaceState`.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-12]
+ */
+export interface OnboardingFlagsSnapshot {
+  specModeOfferDismissed: boolean;
+  specModeTooltipSeen: boolean;
+  docActionsTooltipSeen: boolean;
+}
+
+/**
  * Snapshot of the active editor file surfaced to the composer UI.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
@@ -258,6 +269,13 @@ export interface SettingsSnapshot {
   sdk?: SettingsSdkSnapshot;
   context: SettingsContextSnapshot;
   mode: SettingsModeSnapshot;
+  /**
+   * Optional — older transports / mock fixtures may omit this. Webview consumers
+   * default missing flags to `false` (offer/tooltip not yet dismissed).
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   */
+  onboarding?: OnboardingFlagsSnapshot;
   providers: SettingsProviderSnapshot[];
   externalAgents?: SettingsExternalAgentSnapshot[];
   diagnostics: { logLevel: string };
@@ -383,6 +401,17 @@ export type ChatToAgent =
    * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
    */
   | { type: "chat/setMode"; requestId: string; mode: WorkspaceMode }
+  /**
+   * Persist a one-time onboarding dismissal (mode-suggest strip, tooltips) to
+   * `ExtensionContext.workspaceState`.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   */
+  | {
+      type: "chat/setOnboardingFlag";
+      key: "specModeOfferDismissed" | "specModeTooltipSeen" | "docActionsTooltipSeen";
+      value: boolean;
+    }
   /**
    * Composer slash popup requests the available commands.
    *
@@ -618,6 +647,23 @@ export type AgentToChat =
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/draftAppend"; content: string }
+  /**
+   * Active AFX document context for the composer doc-actions strip and the
+   * mode-suggest onboarding strip. Posted by `sprint-context.ts` whenever the
+   * active editor changes. `format` distinguishes sprint single-doc files from
+   * standard 4-file specs; `section` is only set for sprint files.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  | {
+      type: "chat/activeDocContext";
+      format: "sprint" | "standard" | null;
+      section: "SPEC" | "DESIGN" | "TASKS" | null;
+      docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
+      feature: string | null;
+      approvalStatus: string | null;
+    }
   /**
    * Lightweight toast notification surfaced by the host.
    *

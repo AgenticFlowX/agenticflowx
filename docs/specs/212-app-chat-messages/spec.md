@@ -46,15 +46,16 @@ Chat users and developers updating the message timeline.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                              | Priority    |
-| ---- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Own chat message timeline rendering, including user, assistant, system/info, error, compaction, and note event rows                      | Must Have   |
-| FR-2 | Own streamed assistant rendering, including incremental text deltas, live thinking traces, and assistant metadata                        | Must Have   |
-| FR-3 | Own markdown rendering for assistant content, including GFM tables/lists/links, inline code, fenced code, and copy affordance            | Must Have   |
-| FR-4 | Own tool-call cards in the live chat surface, including input/output rows, running/error states, detail preview, and multiline expansion | Must Have   |
-| FR-5 | Own message metadata presentation for token/cost/context usage and friendly stop reasons                                                 | Should Have |
-| FR-6 | Own message-adjacent note/compaction row rendering when those events appear inside the live timeline                                     | Should Have |
-| FR-7 | Keep composer input behavior in `211-app-chat-composer`                                                                                  | Must Have   |
+| ID   | Requirement                                                                                                                                                                                                                                                               | Priority    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1 | Own chat message timeline rendering, including user, assistant, system/info, error, compaction, and note event rows                                                                                                                                                       | Must Have   |
+| FR-2 | Own streamed assistant rendering, including incremental text deltas, live thinking traces, and assistant metadata                                                                                                                                                         | Must Have   |
+| FR-3 | Own markdown rendering for assistant content, including GFM tables/lists/links, inline code, fenced code, and copy affordance                                                                                                                                             | Must Have   |
+| FR-4 | Own tool-call cards in the live chat surface, including input/output rows, running/error states, detail preview, and multiline expansion                                                                                                                                  | Must Have   |
+| FR-5 | Own message metadata presentation for token/cost/context usage and friendly stop reasons                                                                                                                                                                                  | Should Have |
+| FR-6 | Own message-adjacent note/compaction row rendering when those events appear inside the live timeline                                                                                                                                                                      | Should Have |
+| FR-7 | Keep composer input behavior in `211-app-chat-composer`                                                                                                                                                                                                                   | Must Have   |
+| FR-8 | When `workspaceMode === "spec"` and the chat thread is empty, render a Spec-tailored welcome with planning-oriented quick actions (idle entry actions when no AFX doc is active; doc-aware refine/validate/review actions when one is) instead of the default empty state | Must Have   |
 
 ### Non-Functional Requirements
 

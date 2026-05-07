@@ -19,6 +19,72 @@ body,
     0 0 0 2px color-mix(in srgb, var(--ring) 30%, transparent);
   /* Override InputGroup's has-disabled:opacity-50 — we control our own disabled style */
   opacity: 1 !important;
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+/* @see docs/specs/211-app-chat-composer/spec.md [FR-14]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE]
+ *
+ * Per-mode border/ring accent on the chat composer InputGroup. The InputGroup
+ * wrapper carries BOTH `.afx-surface-composer` and `data-workspace-mode` on the
+ * same element, so the selector must concatenate (no descendant space).
+ * CSS-only — no runtime color computation. */
+.afx-surface-composer[data-workspace-mode="explore"] {
+  border-color: rgb(245 158 11 / 0.6); /* amber-500 @ 60% */
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 0 0 2px rgb(245 158 11 / 0.35);
+}
+
+.afx-surface-composer[data-workspace-mode="spec"] {
+  border-color: rgb(139 92 246 / 0.6); /* violet-500 @ 60% */
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 0 0 2px rgb(139 92 246 / 0.35);
+}
+
+/* Light VS Code themes need a slightly stronger ring to read against
+ * the lighter composer background. */
+.vscode-light .afx-surface-composer[data-workspace-mode="explore"],
+.vscode-high-contrast-light .afx-surface-composer[data-workspace-mode="explore"] {
+  border-color: rgb(217 119 6 / 0.7); /* amber-600 */
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 0 0 2px rgb(245 158 11 / 0.45);
+}
+
+.vscode-light .afx-surface-composer[data-workspace-mode="spec"],
+.vscode-high-contrast-light .afx-surface-composer[data-workspace-mode="spec"] {
+  border-color: rgb(124 58 237 / 0.7); /* violet-600 */
+  box-shadow:
+    0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 0 0 2px rgb(139 92 246 / 0.45);
+}
+
+/* Dropdown menu content lacks a visible border in both light and dark VS Code
+ * themes — the upstream Shadcn primitive uses `ring-foreground/10` which is
+ * too faint against the popover surface. We can't modify packages/ui/ (it's
+ * read-only per AGENTS.md), so override at the chat-side via the data-slot
+ * attribute the primitive already exposes.
+ *
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] */
+[data-slot="dropdown-menu-content"] {
+  border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+
+.vscode-light [data-slot="dropdown-menu-content"],
+.vscode-high-contrast-light [data-slot="dropdown-menu-content"] {
+  border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--foreground) 12%, transparent),
+    0 1px 4px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.vscode-dark [data-slot="dropdown-menu-content"],
+.vscode-high-contrast [data-slot="dropdown-menu-content"] {
+  border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
 }
 
 .afx-surface-composer textarea::placeholder {

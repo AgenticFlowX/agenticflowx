@@ -716,6 +716,41 @@ export default function Settings({
                     </span>
                   </div>
                 </label>
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                    activeMode === "spec" && "border-violet-500/40 bg-violet-500/5",
+                  )}
+                  onClick={(event) => {
+                    if (
+                      (event.target as HTMLElement | null)?.closest(
+                        '[data-slot="radio-group-item"]',
+                      )
+                    ) {
+                      return;
+                    }
+                    applyMode("spec");
+                  }}
+                >
+                  <RadioGroupItem value="spec" className="mt-0.5" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-foreground">
+                        {WORKSPACE.specName}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="h-4 px-1 text-[9px] uppercase tracking-wide"
+                      >
+                        New
+                      </Badge>
+                      <InfoTooltip content={WORKSPACE.specTooltip} />
+                    </div>
+                    <span className="text-[10px] leading-relaxed text-muted-foreground">
+                      {WORKSPACE.specDescription}
+                    </span>
+                  </div>
+                </label>
               </RadioGroup>
             </div>
 

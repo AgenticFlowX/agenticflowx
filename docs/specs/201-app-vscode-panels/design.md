@@ -138,6 +138,56 @@ Visible mode changes use the existing compact timeline info treatment:
 
 ---
 
+## [DES-PANELS-SPEC-GUARDRAIL] Spec Mode Planning-Only Prompt
+
+The host prepends this exact prefix before every `chat/send`, `chat/steer`, and `chat/followUp`
+turn while `afx.mode.active === "spec"`:
+
+```text
+[AFX SPEC MODE: PLANNING ONLY]
+
+You are operating in Spec mode. Strict planning-only policy:
+- You may edit, create, or update files ONLY within docs/specs/**, docs/research/**, docs/adr/**, .afx/**, and tasks.md.
+- Do NOT edit, patch, or write any other source code files.
+- Shell-read commands (ls, cat, grep, find) are permitted for context gathering.
+- Do NOT run destructive shell commands (rm, mv, chmod, write, build, test, deploy, migrate).
+- Before deleting any research files, you MUST ask the user for explicit confirmation.
+- Prefer /afx-spec, /afx-design, /afx-task, /afx-check, /afx-session commands.
+- When referencing code, read-only analysis only — no edits, no diffs applied.
+- Reading files anywhere in the workspace is permitted for context gathering.
+```
+
+Visible mode change uses the existing compact timeline treatment:
+
+```text
+ℹ Switched to Spec mode. Planning-only guardrails are active.
+```
+
+## [DES-PANELS-SPEC-EXIT-PROMPT] Spec Mode Exit Reset
+
+When the user leaves Spec mode for any other mode, the host prepends this internal reset prefix to
+the next outbound turn only. This block is control metadata for the agent and must not be rendered
+as a user or assistant transcript message:
+
+```text
+<afx_internal_control mode_transition="spec_to_other">
+Purpose: clear a prior AFX Spec-mode planning-only guardrail from conversation history.
+
+This host control block supersedes any prior AFX Spec planning-only control block.
+The workspace mode is no longer Spec.
+
+Operational policy:
+- Capabilities appropriate for the current mode are restored for this and future turns.
+- Continue directly with the user's request.
+- Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
+</afx_internal_control>
+```
+
+The reset is one-shot — `specModeResetPending` clears after the next outbound turn or after a
+failed `handleSetMode` call.
+
+---
+
 ## [DES-PANELS-MOCKUP-SIDEBAR] Sidebar Panel ASCII
 
 Chat as it appears in VSCode sidebar with VSCode chrome.

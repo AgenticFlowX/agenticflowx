@@ -51,19 +51,20 @@ loading behavior.
 
 ### Functional Requirements
 
-| ID    | Requirement                                                                                                                                                                  | Priority  |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1  | Register the sidebar webview view (`afx-sidebar`) under the AFX activity-bar container; expose `afx.openSidebar` command                                                     | Must Have |
-| FR-2  | Register the workbench webview view (`afx-workbench`) under the bottom panel container; expose `afx.openWorkbench` command                                                   | Must Have |
-| FR-3  | Generate webview HTML with CSP nonce, restricted `localResourceRoots`, asset URI rewriting, and appearance class injection                                                   | Must Have |
-| FR-4  | Panel lifecycle: handle resolveWebviewView, onDidReceiveMessage, onDidChangeViewState, dispose                                                                               | Must Have |
-| FR-5  | Boot sequence: webview HTML applies appearance class before scripts execute; chat sends `chat/ready` to start runtime monitor; workbench sends `afxReady` to start data      | Must Have |
-| FR-6  | Webviews must not access fs/process/VSCode APIs directly; they use only `acquireVsCodeApi` plus the transport bridge                                                         | Must Have |
-| FR-7  | The sidebar panel acts as the message dispatcher for the chat webview (`dispatchInbound` switch)                                                                             | Must Have |
-| FR-8  | The workbench panel acts as the message dispatcher for the workbench webview                                                                                                 | Must Have |
-| FR-9  | The sidebar panel includes `mode.active` in the settings snapshot and routes `chat/setMode` requests to the host `afx.setMode` command                                       | Must Have |
-| FR-10 | When workspace mode is Explore, the sidebar dispatcher prepends the strict read-only prompt to `chat/send`, `chat/steer`, and `chat/followUp` before forwarding to the agent | Must Have |
-| FR-11 | When workspace mode is Explore, the sidebar dispatcher blocks `chat/runCommand` before spawning a shell and emits `agent/actionBlocked` with the rejected command            | Must Have |
+| ID    | Requirement                                                                                                                                                                                                | Priority  |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| FR-1  | Register the sidebar webview view (`afx-sidebar`) under the AFX activity-bar container; expose `afx.openSidebar` command                                                                                   | Must Have |
+| FR-2  | Register the workbench webview view (`afx-workbench`) under the bottom panel container; expose `afx.openWorkbench` command                                                                                 | Must Have |
+| FR-3  | Generate webview HTML with CSP nonce, restricted `localResourceRoots`, asset URI rewriting, and appearance class injection                                                                                 | Must Have |
+| FR-4  | Panel lifecycle: handle resolveWebviewView, onDidReceiveMessage, onDidChangeViewState, dispose                                                                                                             | Must Have |
+| FR-5  | Boot sequence: webview HTML applies appearance class before scripts execute; chat sends `chat/ready` to start runtime monitor; workbench sends `afxReady` to start data                                    | Must Have |
+| FR-6  | Webviews must not access fs/process/VSCode APIs directly; they use only `acquireVsCodeApi` plus the transport bridge                                                                                       | Must Have |
+| FR-7  | The sidebar panel acts as the message dispatcher for the chat webview (`dispatchInbound` switch)                                                                                                           | Must Have |
+| FR-8  | The workbench panel acts as the message dispatcher for the workbench webview                                                                                                                               | Must Have |
+| FR-9  | The sidebar panel includes `mode.active` in the settings snapshot and routes `chat/setMode` requests to the host `afx.setMode` command                                                                     | Must Have |
+| FR-10 | When workspace mode is Explore, the sidebar dispatcher prepends the strict read-only prompt to `chat/send`, `chat/steer`, and `chat/followUp` before forwarding to the agent                               | Must Have |
+| FR-11 | When workspace mode is Explore, the sidebar dispatcher blocks `chat/runCommand` before spawning a shell and emits `agent/actionBlocked` with the rejected command                                          | Must Have |
+| FR-12 | When workspace mode is Spec, the sidebar dispatcher prepends a planning-only guardrail prompt to outbound agent messages and emits a transient exit-prompt when the user leaves Spec mode for another mode | Must Have |
 
 ### Non-Functional Requirements
 

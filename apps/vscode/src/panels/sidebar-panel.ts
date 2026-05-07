@@ -72,12 +72,40 @@ export interface SidebarPanelDeps {
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
   secretStore?: SecretStore;
+  /**
+   * Workspace memento for one-time onboarding flags (mode-suggest, tooltips).
+   *
+   * @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-GUARDRAIL]
+   */
+  workspaceState?: vscode.Memento;
+}
+
+/**
+ * Active AFX document context payload — composer doc-actions strip trigger.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-12]
+ */
+export interface ActiveDocContextPayload {
+  format: "sprint" | "standard" | null;
+  section: "SPEC" | "DESIGN" | "TASKS" | null;
+  docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
+  feature: string | null;
+  approvalStatus: string | null;
 }
 
 export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
   sendExternalPrompt(content: string): Promise<void>;
   appendToDraft(content: string): Promise<void>;
   refreshRuntimeConfiguration(): Promise<void>;
+  /**
+   * Push the active AFX document context to the chat webview so it can render
+   * the doc-actions or mode-suggest strip variants.
+   *
+   * @see docs/specs/100-package-shared/spec.md [FR-12]
+   * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
+   */
+  postActiveDocContext(payload: ActiveDocContextPayload): void;
 }
 
 interface SidebarState {
@@ -136,6 +164,32 @@ Operational policy:
 - Continue directly with the user's request.
 - Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
 </afx_internal_control>`;
+// @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+// @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-GUARDRAIL]
+const SPEC_MODE_PROMPT = `[AFX SPEC MODE: PLANNING ONLY]
+
+You are operating in Spec mode. Strict planning-only policy:
+- You may edit, create, or update files ONLY within docs/specs/**, docs/research/**, docs/adr/**, .afx/**, and tasks.md.
+- Do NOT edit, patch, or write any other source code files.
+- Shell-read commands (ls, cat, grep, find) are permitted for context gathering.
+- Do NOT run destructive shell commands (rm, mv, chmod, write, build, test, deploy, migrate).
+- Before deleting any research files, you MUST ask the user for explicit confirmation.
+- Prefer /afx-spec, /afx-design, /afx-task, /afx-check, /afx-session commands.
+- When referencing code, read-only analysis only — no edits, no diffs applied.
+- Reading files anywhere in the workspace is permitted for context gathering.`;
+// @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+// @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-EXIT-PROMPT]
+const SPEC_MODE_EXIT_PROMPT = `<afx_internal_control mode_transition="spec_to_other">
+Purpose: clear a prior AFX Spec-mode planning-only guardrail from conversation history.
+
+This host control block supersedes any prior AFX Spec planning-only control block.
+The workspace mode is no longer Spec.
+
+Operational policy:
+- Capabilities appropriate for the current mode are restored for this and future turns.
+- Continue directly with the user's request.
+- Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
+</afx_internal_control>`;
 
 export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider {
   const {
@@ -174,6 +228,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   // We clear it once the persisted settings snapshot catches up.
   let workspaceModeOverride: WorkspaceMode | null = null;
   let codeModeResetPending = false;
+  // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-EXIT-PROMPT]
+  let specModeResetPending = false;
+  // @see docs/specs/100-package-shared/spec.md [FR-12]
+  let lastActiveDocContext: ActiveDocContextPayload = {
+    format: null,
+    section: null,
+    docKind: null,
+    feature: null,
+    approvalStatus: null,
+  };
   let suppressRuntimeEventsUntilAgentEnd = false;
   let bundledSkillCountCache: number | null = null;
   const blockedExploreToolCallIds = new Set<string>();
@@ -232,16 +296,24 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function workspaceMode(): WorkspaceMode {
     if (workspaceModeOverride) return workspaceModeOverride;
     const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code");
-    return value === "explore" ? "explore" : "code";
+    if (value === "explore") return "explore";
+    if (value === "spec") return "spec";
+    return "code";
   }
 
   function persistedWorkspaceMode(): WorkspaceMode {
     const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active", "code");
-    return value === "explore" ? "explore" : "code";
+    if (value === "explore") return "explore";
+    if (value === "spec") return "spec";
+    return "code";
   }
 
   function isExploreMode(): boolean {
     return workspaceMode() === "explore";
+  }
+
+  function isSpecMode(): boolean {
+    return workspaceMode() === "spec";
   }
 
   /**
@@ -291,10 +363,25 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   function prefixWorkspaceModePrompt(content: string): string {
-    if (isExploreMode()) return `${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
-    if (!codeModeResetPending) return content;
-    codeModeResetPending = false;
-    return `${CODE_MODE_RESUME_PROMPT}\n\n${content}`;
+    // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-EXIT-PROMPT]
+    //
+    // Layer reset prompts BEFORE the active mode's guardrail. Without this,
+    // a spec→explore transition would emit only the explore guardrail and
+    // drop SPEC_MODE_EXIT_PROMPT, so the agent would stay in spec posture
+    // for one more turn even after the user switched.
+    let prefix = "";
+    if (specModeResetPending) {
+      specModeResetPending = false;
+      prefix = `${SPEC_MODE_EXIT_PROMPT}\n\n`;
+    }
+    if (isExploreMode()) return `${prefix}${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
+    if (isSpecMode()) return `${prefix}${SPEC_MODE_PROMPT}\n\n${content}`;
+    if (codeModeResetPending) {
+      codeModeResetPending = false;
+      return `${prefix}${CODE_MODE_RESUME_PROMPT}\n\n${content}`;
+    }
+    return prefix ? `${prefix}${content}` : content;
   }
 
   function computeTelemetryState(): {
@@ -1225,6 +1312,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         postSnapshot();
         void runtimeMonitor.check();
         void broadcastRuntimeSettings();
+        // @see docs/specs/100-package-shared/spec.md [FR-12]
+        // Replay the last cached active-doc context so the doc-actions / mode-suggest
+        // strips render correctly when the webview boots while a sprint or 4-file
+        // doc is already the active editor.
+        post({
+          type: "chat/activeDocContext",
+          format: lastActiveDocContext.format,
+          section: lastActiveDocContext.section,
+          docKind: lastActiveDocContext.docKind,
+          feature: lastActiveDocContext.feature,
+          approvalStatus: lastActiveDocContext.approvalStatus,
+        });
         return;
       }
       // @see docs/specs/350-agent-manager/design.md [DES-API]
@@ -1276,6 +1375,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "chat/getSettingsSnapshot": {
         void handleGetSettingsSnapshot(msg.requestId);
+        return;
+      }
+      // @see docs/specs/100-package-shared/spec.md [FR-12]
+      // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
+      case "chat/setOnboardingFlag": {
+        void deps.workspaceState?.update(`afx.${msg.key}`, msg.value);
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
@@ -1645,7 +1750,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    * @see docs/specs/201-app-vscode-panels/spec.md [FR-9]
    */
   async function handleSetMode(requestId: string, mode: WorkspaceMode): Promise<void> {
-    const nextMode: WorkspaceMode = mode === "explore" ? "explore" : "code";
+    // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
+    const nextMode: WorkspaceMode =
+      mode === "explore" ? "explore" : mode === "spec" ? "spec" : "code";
     const previousMode = workspaceMode();
     if (previousMode === nextMode) {
       await handleGetSettingsSnapshot(requestId);
@@ -1653,11 +1761,17 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
 
     const shouldResetToCode = previousMode === "explore" && nextMode === "code";
+    const shouldResetFromSpec = previousMode === "spec" && nextMode !== "spec";
     workspaceModeOverride = nextMode;
     if (shouldResetToCode) {
       codeModeResetPending = true;
-    } else if (nextMode === "explore") {
+    } else if (nextMode === "explore" || nextMode === "spec") {
       codeModeResetPending = false;
+    }
+    if (shouldResetFromSpec) {
+      specModeResetPending = true;
+    } else if (nextMode === "spec") {
+      specModeResetPending = false;
     }
     try {
       await vscode.commands.executeCommand("afx.setMode", nextMode);
@@ -1667,6 +1781,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       workspaceModeOverride = null;
       if (shouldResetToCode) {
         codeModeResetPending = false;
+      }
+      if (shouldResetFromSpec) {
+        specModeResetPending = false;
       }
       log.error("setMode failed", err instanceof Error ? err : undefined, { mode });
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
@@ -1782,6 +1899,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         },
         mode: {
           active: mode,
+        },
+        onboarding: {
+          // @see docs/specs/100-package-shared/spec.md [FR-12]
+          specModeOfferDismissed:
+            deps.workspaceState?.get<boolean>("afx.specModeOfferDismissed", false) ?? false,
+          specModeTooltipSeen:
+            deps.workspaceState?.get<boolean>("afx.specModeTooltipSeen", false) ?? false,
+          docActionsTooltipSeen:
+            deps.workspaceState?.get<boolean>("afx.docActionsTooltipSeen", false) ?? false,
         },
         providers: await groupProviders(
           models,
@@ -2413,6 +2539,19 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
       await postAvailableModels(requestId, { reportErrors: false });
     },
+    postActiveDocContext(payload: ActiveDocContextPayload): void {
+      // @see docs/specs/100-package-shared/spec.md [FR-12]
+      lastActiveDocContext = payload;
+      if (!webview || !chatReady) return;
+      post({
+        type: "chat/activeDocContext",
+        format: payload.format,
+        section: payload.section,
+        docKind: payload.docKind,
+        feature: payload.feature,
+        approvalStatus: payload.approvalStatus,
+      });
+    },
   };
 }
 
@@ -2629,6 +2768,7 @@ function formatModelSwitchInfo(model: AgentModel): string {
 
 function formatModeSwitchInfo(mode: WorkspaceMode): string {
   if (mode === "explore") return "Switched to Explore mode. Read-only guardrails are active.";
+  if (mode === "spec") return "Switched to Spec mode. Planning-only guardrails are active.";
   return "Switched to Code mode. Normal workspace actions are available.";
 }
 
