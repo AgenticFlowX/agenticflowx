@@ -24,6 +24,33 @@ await build({
   },
 });
 
+// pi-ai's bedrock provider is the only one it lazy-loads via a runtime
+// `import("./amazon-bedrock.js")` (kept out of the main bundle to avoid pulling
+// in @aws-sdk/client-bedrock-runtime for users who don't need Bedrock). When
+// bootstrap.js runs from `apps/vscode/resources/pi-sdk/`, that relative import
+// has no file to resolve to and the SDK runtime crashes the moment a user
+// selects an Amazon Bedrock model. Pre-bundle the provider as a sibling file
+// so the dynamic import resolves at runtime.
+const bedrockEntry = resolve(
+  dirname(fileURLToPath(import.meta.resolve("@mariozechner/pi-ai"))),
+  "providers/amazon-bedrock.js",
+);
+await build({
+  entryPoints: [bedrockEntry],
+  outfile: resolve("dist/amazon-bedrock.js"),
+  bundle: true,
+  platform: "node",
+  format: "esm",
+  target: "node20",
+  sourcemap: true,
+  // AWS SDK has CommonJS deps that call `require("buffer")`, `require("util")`,
+  // etc. at runtime. esbuild stubs `require` out in ESM mode unless we provide
+  // a real one — same banner pattern as the main bootstrap.js bundle above.
+  banner: {
+    js: 'import { createRequire as __afxCreateRequire } from "node:module";\nconst require = __afxCreateRequire(import.meta.url);',
+  },
+});
+
 await copyRuntimeAssets();
 
 if (platform !== "win32") {

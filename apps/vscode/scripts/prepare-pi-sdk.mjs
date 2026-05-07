@@ -14,6 +14,14 @@ await copyFile(source, target);
 // Also copy the source map referenced by `//# sourceMappingURL=bootstrap.js.map`
 // so Vite (during tests) and any debugger don't warn about a missing map.
 await copyFile(`${source}.map`, `${target}.map`).catch(() => {});
+
+// Bedrock is the only pi-ai provider that bootstrap.js lazy-loads via a
+// runtime `import("./amazon-bedrock.js")`. Ship the pre-bundled sibling
+// produced by build.bootstrap.mjs so the dynamic import resolves at runtime.
+const bedrockSource = resolve(repoRoot, "packages/agent/pi-sdk/dist/amazon-bedrock.js");
+const bedrockTarget = resolve(resourceRoot, "amazon-bedrock.js");
+await copyFile(bedrockSource, bedrockTarget);
+await copyFile(`${bedrockSource}.map`, `${bedrockTarget}.map`).catch(() => {});
 await writeFile(
   resolve(resourceRoot, "package.json"),
   `${JSON.stringify(
