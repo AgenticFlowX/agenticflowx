@@ -105,3 +105,42 @@
   --sidebar-accent: var(--vscode-list-hoverBackground, var(--meridian-bone-2));
   --sidebar-accent-foreground: var(--vscode-editor-foreground, var(--meridian-ink-0));
 }
+
+/*
+ * Light mode component visibility fixes.
+ *
+ * The Switch thumb uses bg-background which becomes invisible against the
+ * bg-input track in light mode (both resolve to near-white VSCode colors).
+ * Force the thumb to use the foreground ink color so it contrasts on light tracks.
+ *
+ * The Switch track (OFF state) uses bg-input which may have insufficient border
+ * contrast in light mode — add an explicit border so the track outline is visible.
+ *
+ * Radio group items use dark:bg-input/30 for their fill but need a visible
+ * border in light mode since the background may be near-white.
+ */
+/* Switch: in light mode the thumb (bg-background) vanishes against the track
+ * (bg-input) since both resolve to near-white VSCode colors. Force the thumb
+ * to use the VSCode input-foreground (dark text) so it reads on the light track.
+ * When the switch is ON (data-state="checked") the track becomes --primary
+ * (brass) so the thumb reverts to the light sidebar background for contrast.
+ * Radix renders data-state="checked"/"unchecked" natively. */
+.vscode-light .cn-switch-thumb {
+  background: var(--vscode-input-foreground, var(--meridian-ink-1));
+}
+
+.vscode-light [data-slot="switch"][data-state="checked"] .cn-switch-thumb {
+  background: var(--vscode-sideBar-background, var(--meridian-bone-0));
+}
+
+.vscode-light [data-slot="switch"][data-state="unchecked"] {
+  border-color: var(--vscode-input-border, var(--meridian-alpha-border-strong));
+}
+
+.vscode-high-contrast-light .cn-switch-thumb {
+  background: var(--vscode-input-foreground, var(--meridian-ink-0));
+}
+
+.vscode-high-contrast-light [data-slot="switch"][data-state="checked"] .cn-switch-thumb {
+  background: var(--vscode-sideBar-background, var(--meridian-bone-0));
+}

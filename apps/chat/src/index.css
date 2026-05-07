@@ -13,25 +13,22 @@ body,
 
 .afx-surface-composer {
   background: color-mix(in srgb, var(--card) 92%, var(--background) 8%);
-  border-color: color-mix(in srgb, var(--foreground) 24%, var(--border) 76%);
+  border-color: color-mix(in srgb, var(--ring) 72%, var(--afx-brand-soft) 28%);
   box-shadow:
-    0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--afx-brand-soft) 24%, transparent);
-}
-
-.afx-surface-composer:focus-within {
-  border-color: color-mix(in srgb, var(--ring) 68%, var(--afx-brand-soft) 32%);
-  box-shadow:
-    0 1px 2px color-mix(in srgb, var(--foreground) 10%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--ring) 55%, transparent);
+    0 1px 3px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--ring) 30%, transparent);
+  /* Override InputGroup's has-disabled:opacity-50 — we control our own disabled style */
+  opacity: 1 !important;
 }
 
 .afx-surface-composer textarea::placeholder {
-  color: color-mix(in srgb, var(--foreground) 52%, transparent);
+  color: color-mix(in srgb, var(--foreground) 48%, transparent);
 }
 
 .afx-surface-composer:has(:disabled) {
-  box-shadow: none;
+  border-color: color-mix(in srgb, var(--border) 80%, var(--foreground) 20%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 4%, transparent);
+  opacity: 0.55 !important;
 }
 
 .afx-surface-card {
