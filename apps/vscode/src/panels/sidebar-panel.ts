@@ -487,7 +487,20 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     post({ type: "chat/messageEnd", id, stopReason: "error" });
   }
 
+  function hasConversationTranscript(): boolean {
+    return state.messages.some((message) => {
+      if (message.role !== "assistant") return true;
+      return "stopReason" in message && message.stopReason !== "info";
+    });
+  }
+
   function appendInfoMessage(message: string): void {
+    // Keep fresh sessions truly empty so the chat webview can render its
+    // onboarding/welcome surface. Mode/model controls already reflect their
+    // selected values; transcript info rows are only useful once a real
+    // conversation exists to annotate.
+    if (!hasConversationTranscript()) return;
+
     const id = cryptoRandom();
     const createdAt = Date.now();
     const content = `ℹ ${message}`;

@@ -572,13 +572,14 @@ describe("sidebar-panel host bridge", () => {
       requestId: "api-model-switch",
       model,
     });
-    expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "chat/messageStart",
-        role: "assistant",
-        content: expect.stringContaining("Switched to Anthropic"),
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; content?: string };
+        return (
+          posted.type === "chat/messageStart" && /Switched to Anthropic/.test(posted.content ?? "")
+        );
       }),
-    );
+    ).toBe(false);
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "agent/settingsSnapshot",
@@ -926,7 +927,7 @@ describe("sidebar-panel host bridge", () => {
     ).toBe(false);
   });
 
-  it("model switches clear stale streaming state and add a transcript info row", async () => {
+  it("model switches clear stale streaming state without hiding empty-session onboarding", async () => {
     mockAfxConfiguration();
     const model: AgentModel = {
       provider: "cerebras",
@@ -956,13 +957,16 @@ describe("sidebar-panel host bridge", () => {
     await flushAsyncWork();
 
     expect(agent.send).toHaveBeenCalledOnce();
-    expect(postMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "chat/messageStart",
-        role: "assistant",
-        content: expect.stringContaining("Switched to Cerebras"),
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; role?: string; content?: string };
+        return (
+          posted.type === "chat/messageStart" &&
+          posted.role === "assistant" &&
+          /Switched to Cerebras/.test(posted.content ?? "")
+        );
       }),
-    );
+    ).toBe(false);
   });
 
   it("chat/getCommands delegates to agent.getCommands", async () => {
@@ -1325,6 +1329,9 @@ describe("sidebar-panel host bridge", () => {
       return undefined;
     });
     const { inbound, postMessage } = setupWithView();
+    inbound.fire({ type: "chat/send", requestId: "seed", content: "hello" });
+    await flushAsyncWork(2);
+    postMessage.mockClear();
 
     inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
     await flushAsyncWork(2);
@@ -1340,6 +1347,27 @@ describe("sidebar-panel host bridge", () => {
       postMessage.mock.calls.some(([msg]) => {
         const posted = msg as { content?: string };
         return /afx_internal_control|You are now in Code mode/.test(posted.content ?? "");
+      }),
+    ).toBe(false);
+  });
+
+  it("does not hide empty-session onboarding with mode switch info rows", async () => {
+    const { values } = mockAfxConfiguration({ "mode.active": "explore" });
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(async (_command, mode) => {
+      values.set("mode.active", mode);
+      return undefined;
+    });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/setMode", requestId: "req-mode", mode: "code" });
+    await flushAsyncWork(2);
+
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; content?: string };
+        return (
+          posted.type === "chat/messageStart" && /Switched to Code mode/.test(posted.content ?? "")
+        );
       }),
     ).toBe(false);
   });

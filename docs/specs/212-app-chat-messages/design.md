@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T08:37:39.000Z"
+updated_at: "2026-05-07T14:29:00.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -120,18 +120,46 @@ The toast confirms completion only. It never uses `result.summary` as its descri
 When `workspaceMode === "spec"` AND the chat thread is empty, the messages surface
 replaces the default welcome with a Spec-tailored card:
 
-- Heading: `Spec mode.`
-- Subtext (idle): `Planning-only mode. Pick an entry point — or open a sprint/spec file to surface contextual actions.`
-- Subtext (doc-active): `I'll stay in your docs. Switch modes if you need code changes.`
-- Quick-start buttons (idle): `Next` → `/afx-next`, `Start Sprint` → `/afx-sprint new`,
-  `Open Planner` → `/afx-discover capabilities`, `Review Docs` → `/afx-spec review`
-- Quick-start buttons (doc-active): doc-aware `Refine` / `Validate` / `Review` (or
-  `Pick Next` / `Code` / `Verify` for tasks) routed to `/afx-spec`, `/afx-design`,
-  `/afx-task` for standard 4-file docs, or `/afx-sprint` for sprint single-files
+- Idle heading: `Spec-driven workflow`
+- Idle copy uses website/workflow language: `Spec -> design -> tasks, refined as
+you go.` and `The usual ceremony, just faster. Opt-in only.`
+- Idle teaching surface includes an inline workflow row:
+  `Spec -> Design -> Tasks -> Code -> Verify`.
+- Idle concept cards teach AFX without requiring external docs: `Living specs`,
+  `Traceability`, and `Sprint mode`.
+- Idle prompt cards: `Create first spec`, `Explore an idea`, `Start lean`, and
+  `Resume workflow`. `Create first spec` inserts a guided first-spec prompt with
+  a few replaceable starting options: landing page, workflow/tooling feature,
+  bugfix/refactor, or the user's own idea. The prompt guides clarification first,
+  then asks the assistant to recommend `/afx-spec` vs `/afx-sprint` before
+  creating anything. These dispatch as draft inserts (`onInsert`) so the user can
+  edit before sending.
+- Idle quick-command row: `/afx-next`, `/afx-sprint new`, `/afx-context load`.
+- Idle footer copy: `Same skills. Same files. Same rules.`
+- Doc-active heading: `Working on <doc label>`.
+- Doc-active actions reuse `resolveDocActions(docContext)` so draft vs
+  auto-send semantics stay centralized: dialogic actions insert into the draft;
+  deterministic actions call `onAutoSend`.
+- Doc-active surfaces one suggested prompt tailored by doc kind so the active
+  document state is useful even when the user does not know the command surface.
 
-Buttons dispatch as draft inserts (`onInsert`) rather than auto-sent commands so the
-user can review before sending. The default empty-state component remains untouched
-for Code and Explore modes.
+The default empty-state component remains the Code onboarding surface. It uses
+website-aligned product copy, keeps the logo and early-access footer, demotes
+quick commands below starter prompts, and preserves the runtime-unconfigured
+warning. Code mode must not reuse Spec pipeline copy; its supporting sentence is
+workflow-neutral: `Most coding stays in chat. Use the workflow when work needs
+traceability between intent, design, tasks, and code.`
+
+When `workspaceMode === "explore"`, the same component switches to a distinct
+read-only onboarding surface with `Inspect`, `Trace`, and `Plan` cards plus
+starter prompts that clarify when the user needs Code mode. Explore copy marks
+the mode as `Experimental` and sets the user expectation that Explore mode will
+try not to delete files or folders, run shell commands, or edit source.
+
+Host-generated mode/model switch info rows must not be inserted into an otherwise
+empty transcript. Fresh sessions stay empty until the user sends a message, so
+mode/model experimentation does not hide the onboarding surface. Once a real
+conversation exists, compact info rows may annotate the transcript.
 
 ## [DES-MESSAGES-COMPONENTS] Timeline Component Anatomy
 

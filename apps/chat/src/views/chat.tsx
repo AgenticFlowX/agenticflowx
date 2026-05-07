@@ -110,7 +110,6 @@ import { deriveModifiedFiles } from "../lib/derive-modified-files";
 // Shared with the welcome card and composer strip — kept in lib/ so it's unit-testable.
 import {
   type ActiveDocCtx,
-  type DocAction,
   EMPTY_DOC_CTX,
   describeDoc,
   resolveDocActions,
@@ -1434,6 +1433,7 @@ export default function Chat({
             />
           ) : (
             <EmptyState
+              workspaceMode={workspaceMode}
               runtimeUnconfigured={runtimeUnconfigured}
               rpcEnabled={rpcEnabled}
               onOpenSettings={onOpenSettings}
@@ -2672,10 +2672,152 @@ const QUICK_COMMANDS: ReadonlyArray<{ label: string; commands: string[] }> = [
   { label: "Session", commands: ["/afx-next", "/afx-session", "/afx-context"] },
 ];
 
+const LANDING_CARDS: ReadonlyArray<{ title: string; body: string; icon: LucideIcon }> = [
+  {
+    title: "Chat",
+    body: "Ask questions, mention files, switch models.",
+    icon: MessageSquarePlus,
+  },
+  {
+    title: "Workflow",
+    body: "Repo-native notes, tasks, docs, journal.",
+    icon: BookOpen,
+  },
+  {
+    title: "Spec",
+    body: "Opt-in traceable planning.",
+    icon: GitBranch,
+  },
+];
+
+const EXPLORE_CARDS: ReadonlyArray<{ title: string; body: string; icon: LucideIcon }> = [
+  {
+    title: "Inspect",
+    body: "Read-only questions over provided context.",
+    icon: BookOpen,
+  },
+  {
+    title: "Trace",
+    body: "Map behavior, risks, and dependencies.",
+    icon: GitBranch,
+  },
+  {
+    title: "Plan",
+    body: "Shape the next move before Code mode.",
+    icon: Lightbulb,
+  },
+];
+
+const LANDING_STARTERS: ReadonlyArray<{ label: string; prompt: string }> = [
+  {
+    label: "Ask about this repo",
+    prompt:
+      "Give me a concise orientation to this workspace: what it is, where the main app surfaces are, and what I should inspect first.",
+  },
+  {
+    label: "Start a sprint",
+    prompt:
+      "I want to start a small piece of work in AFX sprint mode. Help me shape the feature name, scope, risks, and smallest useful v1 before creating anything.",
+  },
+  { label: "What do I do next?", prompt: "/afx-next" },
+];
+
+const EXPLORE_STARTERS: ReadonlyArray<{ label: string; prompt: string }> = [
+  {
+    label: "Orient me",
+    prompt:
+      "Explore mode: orient me from the context already available. Summarize what this workspace appears to contain, what is uncertain, and what would require switching to Code mode.",
+  },
+  {
+    label: "Find risks",
+    prompt:
+      "Explore mode: review the current context for likely risks, missing requirements, and follow-up questions. Keep it read-only and do not propose code edits.",
+  },
+  {
+    label: "Plan next step",
+    prompt:
+      "Explore mode: help me plan the next useful step. Separate what can be answered from current context from what requires Code mode.",
+  },
+];
+
+const SPEC_ONBOARDING_PROMPTS: ReadonlyArray<{
+  label: string;
+  description: string;
+  prompt: string;
+}> = [
+  {
+    label: "Create first spec",
+    description: "Pick an example or bring your own idea, then choose spec or sprint.",
+    prompt:
+      "I want to create my first AFX spec. Guide me step by step. First offer me a few starting options I can pick from or replace: 1. a landing page for <product or project> aimed at <audience>, 2. a workflow/tooling feature for <user task>, 3. a bugfix or refactor around <problem area>, or 4. my own idea: <describe it>. After I choose, help me clarify the goal, users, scope, requirements, non-goals, risks, and smallest useful v1. At the end, recommend whether this should become an /afx-spec or an /afx-sprint, and explain why before creating anything.",
+  },
+  {
+    label: "Explore an idea",
+    description: "Shape a rough feature idea before creating docs. Ask clarifying questions first.",
+    prompt:
+      "I have a rough feature idea: <describe it>. Help me explore the problem, users, constraints, and possible approaches. Don't create a spec yet; ask the next useful questions.",
+  },
+  {
+    label: "Start lean",
+    description: "Use sprint mode for small work: one document, same discipline, less ceremony.",
+    prompt:
+      "Help me turn this into an AFX sprint candidate: <rough notes>. Keep it lean: one document, same discipline, less ceremony. First check what decisions are missing.",
+  },
+  {
+    label: "Resume workflow",
+    description: "Check current state, open questions, and the next useful action.",
+    prompt: "/afx-next",
+  },
+];
+
+const SPEC_GUIDE_CARDS: ReadonlyArray<{ title: string; body: string; icon: LucideIcon }> = [
+  {
+    title: "Living specs",
+    body: "Spec and design stay current; journal carries the history.",
+    icon: StickyNote,
+  },
+  {
+    title: "Traceability",
+    body: "Code links back to requirements with @see anchors.",
+    icon: GitBranch,
+  },
+  {
+    title: "Sprint mode",
+    body: "One document for small work; graduate when scope grows.",
+    icon: Boxes,
+  },
+];
+
+const SPEC_WORKFLOW_STEPS = ["Spec", "Design", "Tasks", "Code", "Verify"] as const;
+const SPEC_QUICK_COMMANDS = ["/afx-next", "/afx-sprint new", "/afx-context load"] as const;
+
+function suggestedDocPrompt(docContext: ActiveDocCtx): string {
+  switch (docContext.docKind) {
+    case "spec":
+      return "Help me refine this spec. Look for unclear requirements, hidden assumptions, missing NFRs, open questions, and places where v1 scope can be smaller.";
+    case "design":
+      return "Review this design against the spec. Look for missing decisions, risky dependencies, unclear data flow, and places where implementation could drift.";
+    case "tasks":
+      return "Help me review these tasks. Check whether each task is atomic, traceable to spec/design, and ordered so implementation can start safely.";
+    case "journal":
+      return "Summarize this journal into current decisions, open questions, and anything that should be promoted into spec, design, tasks, or ADRs.";
+    case "adr":
+      return "Review this ADR. Help me clarify context, decision, consequences, tradeoffs, and whether anything should supersede or link to it.";
+    case "research":
+      return "Summarize this research into decisions, risks, alternatives, and conclusions that are ready to promote into AFX docs.";
+    case "context":
+      return "Use this context bundle to recap current state, blockers, open questions, and the next best action.";
+    case null:
+    default:
+      return "/afx-next";
+  }
+}
+
 /** Props for EmptyState — receives the insert callback to populate the composer. */
 interface EmptyStateProps {
   /** Called with command text when a quick-command button is clicked. */
   onInsert: (text: string) => void;
+  workspaceMode: WorkspaceMode;
   runtimeUnconfigured?: boolean;
   rpcEnabled?: boolean;
   onOpenSettings?: () => void;
@@ -2683,28 +2825,32 @@ interface EmptyStateProps {
 
 /**
  * Shown when the chat has no messages and the agent is ready.
- * Displays quick-command groups and a collapsible about section.
+ * Displays the product onboarding surface, starter prompts, and demoted quick
+ * commands while preserving the runtime setup and early-access affordances.
  */
 function EmptyState({
   onInsert,
+  workspaceMode,
   runtimeUnconfigured = false,
   rpcEnabled = false,
   onOpenSettings,
 }: EmptyStateProps) {
+  const isExplore = workspaceMode === "explore";
+  const cards = isExplore ? EXPLORE_CARDS : LANDING_CARDS;
+  const starters = isExplore ? EXPLORE_STARTERS : LANDING_STARTERS;
+  const intro = isExplore
+    ? "Read-only. Use it to inspect code, trace behavior, and plan changes."
+    : "Chat-first by default. Repo-backed notes, tasks, and docs you can actually see.";
+  const detail = isExplore
+    ? "Experimental. Explore mode will try not to delete files or folders, run shell commands, or edit source. Switch to Code mode when the next step needs action."
+    : "Most coding stays in chat. Use the workflow when work needs traceability between intent, design, tasks, and code.";
+
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
       <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
         <AfxLogoMark width={168} className="h-auto max-w-full text-foreground" />
-        <h2 className="font-serif text-lg italic leading-snug text-foreground">
-          {runtimeUnconfigured ? "Connect a model to start." : "Ready when you are."}
-        </h2>
-        <p className="max-w-full break-words font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft/70">
-          {runtimeUnconfigured
-            ? "No runtime configured"
-            : rpcEnabled
-              ? "Pi CLI + API providers"
-              : "API providers"}
-        </p>
+        <p className="max-w-prose text-[12px] leading-relaxed text-foreground">{intro}</p>
+        <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">{detail}</p>
       </div>
 
       {runtimeUnconfigured ? (
@@ -2733,33 +2879,55 @@ function EmptyState({
         </div>
       ) : null}
 
+      <div className="grid grid-cols-3 gap-1.5">
+        {cards.map(({ title, body, icon: Icon }) => (
+          <div
+            key={title}
+            className="afx-field-surface min-w-0 rounded-md border px-2 py-2 text-left"
+          >
+            <div className="flex items-center gap-1.5">
+              <Icon size={12} className="shrink-0 text-afx-brand-soft" aria-hidden />
+              <p className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground">
+                {title}
+              </p>
+            </div>
+            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
+          </div>
+        ))}
+      </div>
+
       {!runtimeUnconfigured ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            Start here
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {starters.map((starter) => (
+              <button
+                key={starter.label}
+                type="button"
+                onClick={() => onInsert(starter.prompt)}
+                className="rounded-sm border border-border bg-muted/20 px-2.5 py-1 text-[11px] text-foreground transition-colors hover:bg-muted/40 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                {starter.label}
+              </button>
+            ))}
+          </div>
           <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
             Quick commands
           </p>
-          {QUICK_COMMANDS.map((group) => (
-            <div
-              key={group.label}
-              className="afx-field-surface group flex flex-col items-stretch gap-2 rounded-md border px-2.5 py-2"
-            >
-              <span className="font-mono text-[10px] font-medium uppercase tracking-[0.1em] text-afx-brand-soft">
-                {group.label}
-              </span>
-              <div className="flex min-w-0 flex-wrap gap-1.5">
-                {group.commands.map((cmd) => (
-                  <button
-                    key={cmd}
-                    type="button"
-                    onClick={() => onInsert(cmd)}
-                    className="inline-flex max-w-full min-w-0 items-center gap-1 break-all rounded-sm border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 transition-colors hover:border-afx-brand-soft/40 hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
-                  >
-                    {cmd}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
+          <div className="flex flex-wrap gap-1.5 px-1">
+            {QUICK_COMMANDS.flatMap((group) => group.commands).map((cmd) => (
+              <button
+                key={cmd}
+                type="button"
+                onClick={() => onInsert(cmd)}
+                className="inline-flex max-w-full min-w-0 items-center gap-1 break-all rounded-sm border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 transition-colors hover:border-afx-brand-soft/40 hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                {cmd}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
@@ -2842,20 +3010,9 @@ function SpecModeWelcome({
 }) {
   const hasActiveDoc = docContext.docKind !== null;
 
-  // Idle quick-start — when no AFX doc is open. Capped at 3 to match the strip.
-  // Next + Open Planner take no args; Start Sprint stays draft because the user
-  // needs to supply a feature name.
-  const idleActions: DocAction[] = [
-    { label: "Next", command: "/afx-next", autoSend: true },
-    { label: "Start Sprint", command: "/afx-sprint new", autoSend: false },
-    { label: "Open Planner", command: "/afx-discover capabilities", autoSend: true },
-  ];
-
   // Doc-aware actions reuse the same routing table as the composer strip — up
   // to 5 actions per doc kind. @see docs/specs/212-app-chat-messages/spec.md [FR-8]
   const docActions = hasActiveDoc ? resolveDocActions(docContext).slice(0, 5) : [];
-
-  const actions = hasActiveDoc ? docActions : idleActions;
 
   // Per-doc subtext picks up the file kind so the welcome reads like the
   // assistant actually noticed what you opened.
@@ -2873,36 +3030,122 @@ function SpecModeWelcome({
               : docContext.docKind === "context"
                 ? "I'll help you resume work from this handoff bundle. Load it to absorb state, save to regenerate, or analyze impact across features."
                 : "I'll help you turn research into shippable specs. Compare alternatives, summarize findings, and promote conclusions when ready."
-    : "Plan before you build. I'll refine specs, evolve designs, slice tasks, and capture decisions — without touching your source code.";
+    : null;
+
+  if (!hasActiveDoc) {
+    return (
+      <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
+        <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
+          <AfxLogoMark width={168} className="h-auto max-w-full text-foreground" />
+          <h2 className="font-serif text-lg italic leading-snug text-foreground">
+            Spec-driven workflow
+          </h2>
+          <p className="max-w-prose text-[12px] leading-relaxed text-foreground">
+            Spec -&gt; design -&gt; tasks, refined as you go.
+          </p>
+          <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">
+            The usual ceremony, just faster. Opt-in only.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            How AFX moves work
+          </p>
+          <div className="flex flex-wrap items-center gap-1.5 px-1">
+            {SPEC_WORKFLOW_STEPS.map((step, index) => (
+              <div key={step} className="flex items-center gap-1.5">
+                <span className="rounded-sm border border-border/60 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80">
+                  {step}
+                </span>
+                {index < SPEC_WORKFLOW_STEPS.length - 1 ? (
+                  <ChevronRight size={10} className="text-muted-foreground/50" aria-hidden />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1.5">
+          {SPEC_GUIDE_CARDS.map(({ title, body, icon: Icon }) => (
+            <div
+              key={title}
+              className="afx-field-surface min-w-0 rounded-md border px-2 py-2 text-left"
+            >
+              <div className="flex items-center gap-1.5">
+                <Icon size={12} className="shrink-0 text-afx-brand-soft" aria-hidden />
+                <p className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground">
+                  {title}
+                </p>
+              </div>
+              <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            Start here
+          </p>
+          {SPEC_ONBOARDING_PROMPTS.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onInsert(item.prompt)}
+              className="afx-field-surface group rounded-md border px-3 py-2 text-left transition-colors hover:border-afx-brand-soft/40 hover:bg-muted/20 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+            >
+              <span className="block text-[12px] font-medium text-foreground">{item.label}</span>
+              <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
+                {item.description}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div className="border-t border-border/50 pt-3">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            Quick commands
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5 px-1">
+            {SPEC_QUICK_COMMANDS.map((cmd) => (
+              <button
+                key={cmd}
+                type="button"
+                onClick={() => onInsert(cmd)}
+                className="inline-flex max-w-full min-w-0 items-center gap-1 break-all rounded-sm border border-border/60 bg-muted/40 px-1.5 py-0.5 font-mono text-[10px] text-foreground/80 transition-colors hover:border-afx-brand-soft/40 hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                {cmd}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <p className="border-t border-border/50 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground/70">
+          Same skills. Same files. Same rules.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
       <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
         <AfxLogoMark width={168} className="h-auto max-w-full text-foreground" />
         <h2 className="font-serif text-lg italic leading-snug text-foreground">
-          Spec-Driven Development
+          Working on {describeDoc(docContext)}
         </h2>
-        <p className="max-w-full break-words font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft/70">
-          Shape · Design · Slice · Build · Verify · Ship · Evolve
-        </p>
         <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">{subtext}</p>
       </div>
       <div className="flex flex-col gap-2">
         <p className="flex items-center gap-1.5 px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
-          {hasActiveDoc ? (
-            <>
-              {(() => {
-                const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
-                return <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />;
-              })()}
-              <span>Actions for {describeDoc(docContext)}</span>
-            </>
-          ) : (
-            "Start here"
-          )}
+          {(() => {
+            const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+            return <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />;
+          })()}
+          <span>Actions for {describeDoc(docContext)}</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
-          {actions.map((action) => (
+          {docActions.map((action) => (
             <button
               key={action.label}
               type="button"
@@ -2919,16 +3162,22 @@ function SpecModeWelcome({
             </button>
           ))}
         </div>
-        {!hasActiveDoc && (
-          <p className="mt-1 px-1 text-[10px] leading-relaxed text-muted-foreground/70">
-            Or open any <span className="font-mono">spec.md</span>,{" "}
-            <span className="font-mono">design.md</span>,{" "}
-            <span className="font-mono">tasks.md</span>, or{" "}
-            <span className="font-mono">journal.md</span> in the editor — I&apos;ll surface the
-            right actions here.
-          </p>
-        )}
       </div>
+      <div className="border-t border-border/50 pt-3">
+        <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+          Suggested prompt
+        </p>
+        <button
+          type="button"
+          onClick={() => onInsert(suggestedDocPrompt(docContext))}
+          className="mt-2 w-full rounded-md border border-border bg-muted/20 px-3 py-2 text-left text-[11px] leading-relaxed text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+        >
+          {suggestedDocPrompt(docContext)}
+        </button>
+      </div>
+      <p className="border-t border-border/50 pt-3 text-center text-[10px] leading-relaxed text-muted-foreground/70">
+        Same skills. Same files. Same rules.
+      </p>
     </div>
   );
 }

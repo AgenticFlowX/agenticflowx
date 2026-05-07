@@ -221,7 +221,7 @@ describe("chat App", () => {
       for (const label of ["Chat", "History", "Settings"]) {
         expect(screen.getByRole("tab", { name: label })).toHaveClass("min-w-0", "flex-1");
       }
-      expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
+      expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "/afx-scaffold" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveClass("min-w-0");
       expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveTextContent(
@@ -889,7 +889,7 @@ describe("chat App", () => {
       emitChatState(transport);
     });
 
-    expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
+    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toBeEnabled();
@@ -897,7 +897,7 @@ describe("chat App", () => {
     // Tab switch should not flash the empty state — thread content is preserved.
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     await user.click(screen.getByRole("tab", { name: "Chat" }));
-    expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
+    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
   });
 
   it("rehydrates the previous transcript immediately after remount", async () => {
@@ -946,7 +946,7 @@ describe("chat App", () => {
     expect(screen.getAllByText("Past session answer").length).toBeGreaterThan(0);
     expect(screen.queryByText("Loading workspace state")).not.toBeInTheDocument();
     expect(screen.queryByText("Connecting to agent…")).not.toBeInTheDocument();
-    expect(screen.queryByText("Ready when you are.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chat-first by default/i)).not.toBeInTheDocument();
 
     act(() => {
       transport.emit({
@@ -1047,7 +1047,7 @@ describe("chat App", () => {
     // Chat keeps its quick-commands empty state — no takeover card.
     // Runtime issues surface via the Pi pill in FooterStrip (when rpc.enabled=true)
     // and via the AgentRecoveryCard in History/Settings.
-    expect(screen.getByText("Ready when you are.")).toBeInTheDocument();
+    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
     expect(screen.queryByText("Welcome to AFX")).not.toBeInTheDocument();
 
     // Recovery affordance still reachable via History/Settings (forceMount-ed tabs).
@@ -1085,7 +1085,7 @@ describe("chat App", () => {
       emitChatState(transport);
     });
 
-    expect(screen.getByText("Connect a model to start.")).toBeInTheDocument();
+    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
     expect(screen.getByText("No active runtime")).toBeInTheDocument();
     expect(
       screen.getByPlaceholderText("Configure an API provider or enable Pi RPC to continue…"),
@@ -1096,6 +1096,145 @@ describe("chat App", () => {
     await user.click(screen.getByRole("button", { name: "Open Settings" }));
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("No active runtime configured")).toBeInTheDocument();
+  });
+
+  it("uses the empty chat landing as editable onboarding, not auto-send", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport);
+    });
+
+    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
+    expect(screen.getByText(/Repo-backed notes, tasks, and docs/i)).toBeInTheDocument();
+    expect(screen.getByText(/Most coding stays in chat/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Spec -> design -> tasks/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Chat").length).toBeGreaterThan(1);
+    expect(screen.getByText("Workflow")).toBeInTheDocument();
+    expect(screen.getAllByText("Spec").length).toBeGreaterThan(1);
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    const composer = screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note");
+
+    await user.click(screen.getByRole("button", { name: "Ask about this repo" }));
+    expect((composer as HTMLTextAreaElement).value).toContain("Give me a concise orientation");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+
+    await user.click(screen.getByRole("button", { name: "Start a sprint" }));
+    expect((composer as HTMLTextAreaElement).value).toContain("AFX sprint mode");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+
+    await user.click(screen.getByRole("button", { name: "What do I do next?" }));
+    expect(composer).toHaveValue("/afx-next");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+  });
+
+  it("shows Explore mode read-only onboarding as a distinct empty state", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, {}, null, "explore");
+    });
+
+    expect(screen.getByText(/Read-only\. Use it to inspect code/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Experimental/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/try not to delete files or folders/i)).toBeInTheDocument();
+    expect(screen.getByText("Inspect")).toBeInTheDocument();
+    expect(screen.getByText("Trace")).toBeInTheDocument();
+    expect(screen.getByText("Plan")).toBeInTheDocument();
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: "Find risks" }));
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    const exploreComposer = screen.getByPlaceholderText(
+      /Explore mode is read-only/i,
+    ) as HTMLTextAreaElement;
+    expect(exploreComposer.value).toContain("Explore mode: review the current context");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+  });
+
+  it("shows Spec mode guided onboarding when no AFX doc is active", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, {}, null, "spec");
+    });
+
+    expect(screen.getByRole("heading", { name: "Spec-driven workflow" })).toBeInTheDocument();
+    expect(screen.getByText(/Spec -> design -> tasks/i)).toBeInTheDocument();
+    expect(screen.getByText("How AFX moves work")).toBeInTheDocument();
+    expect(screen.getByText("Living specs")).toBeInTheDocument();
+    expect(screen.getByText("Traceability")).toBeInTheDocument();
+    expect(screen.getByText("Sprint mode")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create first spec/i })).toBeInTheDocument();
+    expect(screen.getByText(/Pick an example or bring your own idea/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Explore an idea/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Start lean/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Resume workflow/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "/afx-context load" })).toBeInTheDocument();
+    expect(screen.getByText("Same skills. Same files. Same rules.")).toBeInTheDocument();
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    const specComposer = (): HTMLTextAreaElement =>
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      screen.getByPlaceholderText(/Spec mode/i) as HTMLTextAreaElement;
+    await user.click(screen.getByRole("button", { name: /Create first spec/i }));
+    expect(specComposer().value).toContain("I want to create my first AFX spec");
+    expect(specComposer().value).toContain("a landing page for <product or project>");
+    expect(specComposer().value).toContain("a workflow/tooling feature");
+    expect(specComposer().value).toContain(
+      "recommend whether this should become an /afx-spec or an /afx-sprint",
+    );
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+
+    await user.click(screen.getByRole("button", { name: /Explore an idea/i }));
+    expect(specComposer().value).toContain("I have a rough feature idea");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
   });
 
   it("shows Pi RPC recovery controls when Pi RPC is enabled but missing", async () => {
