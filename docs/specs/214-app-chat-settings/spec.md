@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T15:18:06.000Z"
+updated_at: "2026-05-07T08:58:58.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode"]
 depends_on:
@@ -56,7 +56,7 @@ Users configuring chat providers and developers maintaining settings UX.
 
 | ID   | Requirement                                                                                                                                                                   | Priority    |
 | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Own chat settings panel layout, provider cards, API key form states, and runtime readiness copy                                                                               | Must Have   |
+| FR-1 | Own chat settings panel layout, per-runtime instance cards, provider cards, API key form states, and runtime readiness copy across all registered runtimes (Pi RPC, Pi SDK)   | Must Have   |
 | FR-2 | Own settings snapshot consumption and presentation inside the chat webview                                                                                                    | Must Have   |
 | FR-3 | Own theme preview UX inside settings while shared theme contracts remain in `131-package-ui-design-system`                                                                    | Should Have |
 | FR-4 | Keep runtime selection contracts aligned with `350-agent-manager`                                                                                                             | Must Have   |
@@ -65,10 +65,11 @@ Users configuring chat providers and developers maintaining settings UX.
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                                     | Target                                                                  |
-| ----- | --------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| NFR-1 | Sensitive provider data is never exposed in UI logs or examples | No API keys in logs/docs                                                |
-| NFR-2 | Settings UX remains recoverable                                 | Failed snapshots/provider updates show clear retry/configuration states |
+| ID    | Requirement                                                                                                                         | Target                                                                                                                                                     |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NFR-1 | Sensitive provider data is never exposed in UI logs or examples                                                                     | No API keys in logs/docs                                                                                                                                   |
+| NFR-2 | Settings UX remains recoverable                                                                                                     | Failed snapshots/provider updates show clear retry/configuration states                                                                                    |
+| NFR-3 | Every visible control surfaces label, description, and tooltip in-place; no behaviour requires external documentation to understand | Reviewer test: a first-time user with no docs can identify what each control does, what it changes, and the default value, by reading on-screen text alone |
 
 ---
 
@@ -81,6 +82,8 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Theme preview UI uses `131-package-ui-design-system` for shared appearance contract
 - [ ] Active-file context preference is surfaced in Settings and mirrored into the composer default
 - [ ] Workspace mode card is surfaced in Settings and mirrors the host snapshot
+- [ ] Each registered `AgentInstance` (Pi RPC, Pi SDK) renders its own card under the Runtimes group; Behaviour controls show an explicit "Active: …" scope label per `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`
+- [ ] Models tab is sub-tabbed (`Built-in` / `Custom Models`); Custom Models carries a `Track: [Pi SDK] [Pi RPC]` selector with v1 placeholders per `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`
 
 ---
 

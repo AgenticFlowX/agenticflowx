@@ -1,8 +1,9 @@
 /**
- * External local-agent settings card.
+ * External local-agent settings card (Pi RPC and future adapters).
+ * Used in the Runtimes group when the new InstanceCard pattern is not available.
  *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD] [DES-SETTINGS-MOCKUP-PROVIDERS]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD] [DES-SETTINGS-INSTANCE-CARDS]
  */
 import { CircleCheck, ExternalLink, Folder, PlugZap, Server } from "lucide-react";
 
@@ -33,7 +34,7 @@ export interface ExternalAgentCardProps {
  * Renders one external/local-agent provider card for Pi RPC and future adapters.
  *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-EXTERNAL-AGENT-CARD] [DES-SETTINGS-INSTANCE-CARDS]
  */
 export function ExternalAgentCard({
   id,

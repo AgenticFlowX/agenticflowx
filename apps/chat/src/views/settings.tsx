@@ -1,14 +1,13 @@
 /**
- * Settings view — runtime snapshot, diagnostics, and available skill discovery.
+ * Settings view — 5-group layout: Workspace, Runtimes, Models, Look, Support.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-MOCKUP-MODE] [DES-SETTINGS-MOCKUP-RUNTIME] [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-SURFACE-MODE] [DES-SETTINGS-FLOW] [DES-SETTINGS-SURFACE-CONTEXT]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  Activity,
   AlertTriangle,
   Brain,
   Brush,
@@ -52,14 +51,20 @@ import { NativeSelect, NativeSelectOption } from "@afx/ui/components/native-sele
 import { RadioGroup, RadioGroupItem } from "@afx/ui/components/radio-group";
 import { Switch } from "@afx/ui/components/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@afx/ui/components/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { type AgentRecoveryActions, AgentRecoveryCard } from "../components/agent-recovery-card";
-import { ExternalAgentCard } from "../components/external-agent-card";
 import { ProviderCard } from "../components/provider-card";
 import { displayCommandName } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
+import { HEADER, LOOK, MODELS, RUNTIMES, SUPPORT, WORKSPACE } from "../lib/settings-copy";
 import { applyRuntimeAppearance } from "../lib/theme-preview";
 
 type RuntimeSettings = Pick<
@@ -81,29 +86,28 @@ const ACTIONS = [
 ];
 
 const THINKING_LEVELS: ReadonlyArray<{ value: ThinkingLevel; label: string }> = [
-  { value: "minimal", label: "Minimal" },
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "xhigh", label: "Extra-high" },
+  { value: "minimal", label: RUNTIMES.thinkingMinimal.label },
+  { value: "low", label: RUNTIMES.thinkingLow.label },
+  { value: "medium", label: RUNTIMES.thinkingMedium.label },
+  { value: "high", label: RUNTIMES.thinkingHigh.label },
+  { value: "xhigh", label: RUNTIMES.thinkingXhigh.label },
 ];
 
 const QUEUE_MODES: ReadonlyArray<{ value: QueueMode; label: string }> = [
-  { value: "all", label: "All — apply queued messages together" },
-  { value: "one-at-a-time", label: "One at a time" },
+  { value: "all", label: `${RUNTIMES.steeringAll.label} — ${RUNTIMES.steeringAll.description}` },
+  { value: "one-at-a-time", label: RUNTIMES.steeringOne.label },
 ];
 
+/** 5-group navigation — replaces the previous 9-section nav. */
 const SETTINGS_SECTIONS = [
-  { id: "mode", label: "Mode", shortLabel: "Mode" },
-  { id: "runtime", label: "Runtime", shortLabel: "Run" },
-  { id: "context", label: "Context", shortLabel: "Ctx" },
-  { id: "identity", label: "Identity", shortLabel: "ID" },
-  { id: "style", label: "Style", shortLabel: "Look" },
-  { id: "providers", label: "Providers", shortLabel: "Models" },
-  { id: "skills", label: "Skills", shortLabel: "Skills" },
-  { id: "diagnostics", label: "Diagnostics", shortLabel: "Logs" },
-  { id: "about", label: "About", shortLabel: "About" },
+  { id: "workspace", label: "Workspace", shortLabel: "Work" },
+  { id: "runtimes", label: "Runtimes", shortLabel: "Run" },
+  { id: "models", label: "Models", shortLabel: "Mdl" },
+  { id: "look", label: "Look", shortLabel: "Look" },
+  { id: "support", label: "Support", shortLabel: "Help" },
 ] as const;
+
+type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
 
 type ProviderFilter = "all" | "ready" | "needs-key";
 
@@ -135,7 +139,7 @@ export interface SettingsProps {
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [NFR-3]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW]
  */
 export default function Settings({
@@ -149,13 +153,13 @@ export default function Settings({
   const [runtime, setRuntime] = useState<RuntimeSettings>({});
   const [stderr, setStderr] = useState("");
   const [showStderr, setShowStderr] = useState(false);
-  const [activeSection, setActiveSection] =
-    useState<(typeof SETTINGS_SECTIONS)[number]["id"]>("mode");
-  const [providerTab, setProviderTab] = useState<"api" | "external">("api");
+  const [activeSection, setActiveSection] = useState<SectionId>("workspace");
+  const [modelsSubTab, setModelsSubTab] = useState<"builtin" | "custom">("builtin");
+  const [customModelsTrack, setCustomModelsTrack] = useState<"sdk" | "rpc">("sdk");
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [providerSearch, setProviderSearch] = useState("");
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
 
-  // Pending requestIds that should fire a success toast when their reply lands.
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
   const pendingModeMutations = useRef<Map<string, string>>(new Map());
   const pendingAppearanceMutations = useRef<Map<string, string>>(new Map());
@@ -238,8 +242,6 @@ export default function Settings({
     ];
     bridgeSend({ type: "chat/getSettingsSnapshot", requestId: uid() });
     bridgeSend({ type: "chat/getCommands", requestId: uid() });
-    // chat/getState is the only message that re-broadcasts agent/runtimeSettings,
-    // so we trigger it here to populate the toggles after a tab switch.
     bridgeSend({ type: "chat/getState" });
     return () => offs.forEach((off) => off());
   }, []);
@@ -269,9 +271,19 @@ export default function Settings({
       { total: 0, ready: 0, needsKey: 0, models: 0 },
     );
   }, [providers]);
+
+  // Sort: active/configured first, then needs-key
+  const sortedProviders = useMemo(() => {
+    return [...providers].sort((a, b) => {
+      const aReady = a.state === "configured" || a.state === "no-key-needed" ? 0 : 1;
+      const bReady = b.state === "configured" || b.state === "no-key-needed" ? 0 : 1;
+      return aReady - bReady;
+    });
+  }, [providers]);
+
   const visibleProviders = useMemo(() => {
     const search = providerSearch.trim().toLowerCase();
-    return providers.filter((provider) => {
+    return sortedProviders.filter((provider) => {
       const ready = provider.state === "configured" || provider.state === "no-key-needed";
       if (providerFilter === "ready" && !ready) return false;
       if (providerFilter === "needs-key" && ready) return false;
@@ -288,17 +300,12 @@ export default function Settings({
         .toLowerCase();
       return haystack.includes(search);
     });
-  }, [providerFilter, providerSearch, providers]);
+  }, [providerFilter, providerSearch, sortedProviders]);
+
   const sdkEnabled = snapshot?.sdk?.enabled !== false;
   const rpcEnabled = snapshot?.engine.rpcEnabled ?? agentStatus.rpcEnabled === true;
   const piAgent = snapshot?.externalAgents?.find((agent) => agent.id === "pi");
   const rpcStatus = piAgent?.status ?? (rpcEnabled ? "unavailable" : "disabled");
-  const apiProviderSummary =
-    providerStats.ready > 0
-      ? `${providerStats.ready} ready · ${providerStats.models} models`
-      : providerStats.total > 0
-        ? `${providerStats.needsKey} need keys`
-        : "No providers reported yet";
 
   function trackRuntimeMutation(label: string): string {
     const requestId = uid();
@@ -330,6 +337,7 @@ export default function Settings({
     pendingTelemetryMutations.current.set(requestId, label);
     return requestId;
   }
+
   function applyThinkingLevel(level: ThinkingLevel) {
     setRuntime((r) => ({ ...r, thinkingLevel: level }));
     bridgeSend({
@@ -396,15 +404,11 @@ export default function Settings({
       mode,
     });
   }
-  function jumpToSection(id: string) {
-    setActiveSection(id as (typeof SETTINGS_SECTIONS)[number]["id"]);
+  function jumpToSection(id: SectionId) {
+    setActiveSection(id);
     document
       .getElementById(`settings-${id}`)
       ?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }
-  function jumpToProviders(tab: "api" | "external") {
-    setProviderTab(tab);
-    jumpToSection("providers");
   }
   function applyTheme(theme: AfxThemeId) {
     const appearance = snapshot?.appearance;
@@ -456,12 +460,11 @@ export default function Settings({
     });
     return Promise.resolve();
   }
-  function detectPiBinary(): Promise<void> {
+  function detectPiBinary(): void {
     bridgeSend({
       type: "external/detectPiBinary",
       requestId: trackProviderMutation("Pi CLI detection complete"),
     });
-    return Promise.resolve();
   }
   function setEphemeralSession(enabled: boolean): void {
     bridgeSend({
@@ -497,785 +500,1036 @@ export default function Settings({
       enabled,
     });
   }
-  function openSetting(
-    key:
-      | "afx.agentBinaryPath"
-      | "afx.agentEphemeralSession"
-      | "afx.rpc.enabled"
-      | "afx.sessionDir"
-      | "afx.sdk.enabled"
-      | "afx.sdk.defaultModel"
-      | "afx.sdk.ollamaBaseUrl"
-      | "afx.debugPerf"
-      | "afx.logLevel"
-      | "afx.theme"
-      | "afx.style"
-      | "afx.telemetry.enabled",
-  ): void {
-    bridgeSend({ type: "chat/openSettings", requestId: uid(), key });
-  }
   function requestStderr(): void {
     setShowStderr(true);
     bridgeSend({ type: "chat/getStderr", requestId: uid(), maxLines: 200 });
   }
+  function openModelsJson(): void {
+    bridgeSend({ type: "chat/openModelsJson", requestId: uid() });
+  }
+
+  const fileCtxOn = contextSettings.includeActiveFileContext;
+  const sdkReady = sdkEnabled && providerStats.ready > 0;
+  const rpcConnected = rpcStatus === "connected";
 
   return (
-    <div className="afx-surface-subtle @container h-full overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
-      <div className="flex min-w-0 flex-col gap-3 px-2 py-3">
-        {/* Surface: [ChatSettings.Nav] */}
-        <div className="sticky top-0 z-20 -mx-2 -mt-3 border-b bg-background/95 px-2 py-3 backdrop-blur">
-          <div className="mb-3 flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
-                <span className="afx-surface-card flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-afx-brand-soft">
-                  <Settings2 size={15} />
-                </span>
-                Settings
-              </h2>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Runtime paths, context, providers, appearance
-              </p>
+    <TooltipProvider>
+      <div className="afx-surface-subtle @container h-full overflow-y-auto overflow-x-hidden [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
+        <div className="flex min-w-0 flex-col gap-3 px-2 py-3">
+          {/* Surface: [ChatSettings.Header] — sticky header strip */}
+          <div className="sticky top-0 z-20 -mx-2 -mt-3 border-b bg-background/95 px-2 py-3 backdrop-blur">
+            <div className="mb-2 flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h2 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                  <span className="afx-surface-card flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-afx-brand-soft">
+                    <Settings2 size={15} />
+                  </span>
+                  {HEADER.title}
+                </h2>
+                <p className="mt-1 text-[11px] text-muted-foreground">{HEADER.subtitle}</p>
+              </div>
+            </div>
+
+            {/* Instance status strip */}
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-sm border bg-muted/20 px-2 py-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusPill
+                  on={sdkReady}
+                  label={HEADER.sdkPillLabel}
+                  tooltip={sdkReady ? HEADER.sdkPillOnTooltip : HEADER.sdkPillOffTooltip}
+                  onClick={() => jumpToSection("runtimes")}
+                />
+                {rpcEnabled && (
+                  <StatusPill
+                    on={rpcConnected}
+                    label={HEADER.rpcPillLabel}
+                    tooltip={rpcConnected ? HEADER.rpcPillOnTooltip : HEADER.rpcPillOffTooltip}
+                    onClick={() => jumpToSection("runtimes")}
+                  />
+                )}
+                {!sdkReady && !rpcEnabled && (
+                  <StatusPill
+                    on={false}
+                    label={HEADER.notConfiguredLabel}
+                    tooltip={HEADER.notConfiguredTooltip}
+                  />
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="outline"
+                  title={HEADER.restartActiveTooltip}
+                  disabled={!recoveryActions?.onRestartAgent}
+                  onClick={recoveryActions?.onRestartAgent}
+                  aria-label={HEADER.restartActiveTooltip}
+                >
+                  <Zap size={11} />
+                  <span className="truncate">{HEADER.restartActiveLabel}</span>
+                </Button>
+                <button
+                  type="button"
+                  title={fileCtxOn ? HEADER.fileCtxOnTooltip : HEADER.fileCtxOffTooltip}
+                  aria-label={fileCtxOn ? HEADER.fileCtxOnTooltip : HEADER.fileCtxOffTooltip}
+                  aria-pressed={fileCtxOn}
+                  onClick={() => applyIncludeActiveFileContext(!fileCtxOn)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-sm border px-1.5 py-1 text-[10px] transition-colors",
+                    fileCtxOn
+                      ? "border-afx-brand/40 bg-afx-brand/10 text-afx-brand"
+                      : "border-border/70 bg-card/35 text-muted-foreground hover:bg-muted/50",
+                  )}
+                >
+                  <FileText size={11} />
+                  <span>{HEADER.fileCtxLabel}</span>
+                  {fileCtxOn && <span className="text-afx-brand">✓</span>}
+                </button>
+              </div>
+            </div>
+
+            {/* 5-group nav */}
+            <div className="grid grid-cols-5 gap-1">
+              {SETTINGS_SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  type="button"
+                  aria-label={section.label}
+                  className={cn(
+                    "h-6 min-w-0 shrink-0 rounded-sm border border-transparent px-1 font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground",
+                    activeSection === section.id &&
+                      "border-border bg-muted text-foreground shadow-sm ring-1 ring-foreground/10",
+                  )}
+                  onClick={() => jumpToSection(section.id)}
+                >
+                  <span aria-hidden="true" className="hidden @[250px]:inline">
+                    {section.label}
+                  </span>
+                  <span aria-hidden="true" className="@[250px]:hidden">
+                    {section.shortLabel}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-1 @[250px]:flex @[250px]:flex-wrap">
-            {SETTINGS_SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                aria-label={section.label}
-                className={cn(
-                  "h-6 min-w-0 shrink-0 rounded-sm border border-transparent px-1 font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground @[250px]:px-1.5",
-                  activeSection === section.id &&
-                    "border-border bg-muted text-foreground shadow-sm ring-1 ring-foreground/10",
-                )}
-                onClick={() => jumpToSection(section.id)}
-              >
-                <span aria-hidden="true" className="hidden @[250px]:inline">
-                  {section.label}
-                </span>
-                <span aria-hidden="true" className="@[250px]:hidden">
-                  {section.shortLabel}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
 
-        {/* Surface: [ChatSettings.Readiness] */}
-        {isCheckingAgent ? <SettingsSetupCard /> : null}
-        {runtimeUnconfigured ? (
-          <RuntimeConfigurationNotice
-            apiProvidersEnabled={sdkEnabled}
-            rpcEnabled={rpcEnabled}
-            recoveryActions={recoveryActions}
-            onOpenApiProviders={() => jumpToProviders("api")}
-            onOpenExternalAgents={() => jumpToProviders("external")}
-            onViewLogs={requestStderr}
-          />
-        ) : null}
-        {runtimeUnavailable ? (
-          <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
-        ) : null}
+          {/* Surface: [ChatSettings.Readiness] */}
+          {isCheckingAgent ? <SettingsSetupCard /> : null}
+          {runtimeUnconfigured ? (
+            <RuntimeConfigurationNotice
+              apiProvidersEnabled={sdkEnabled}
+              rpcEnabled={rpcEnabled}
+              recoveryActions={recoveryActions}
+              onOpenApiProviders={() => {
+                setModelsSubTab("builtin");
+                jumpToSection("models");
+              }}
+              onOpenExternalAgents={() => jumpToSection("runtimes")}
+              onViewLogs={requestStderr}
+            />
+          ) : null}
+          {runtimeUnavailable ? (
+            <AgentRecoveryCard status={agentStatus} actions={recoveryActions} />
+          ) : null}
 
-        {/* Surface: [ChatSettings.Mode] */}
-        <SettingsCard
-          id="mode"
-          icon={SlidersHorizontal}
-          title="Mode"
-          description="Choose the workspace posture. Code is the default full-access Pi-backed mode; Explore is read-only and best for inspection, tracing, and planning."
-        >
-          <RadioGroup
-            value={activeMode}
-            onValueChange={(value) => applyMode(value as WorkspaceMode)}
-            className="grid gap-2"
+          {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Workspace]                                 */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="workspace"
+            icon={SlidersHorizontal}
+            title={WORKSPACE.groupTitle}
+            description={WORKSPACE.groupDescription}
           >
-            <label
-              className={cn(
-                "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
-                activeMode === "code" && "border-border bg-muted/40",
-              )}
-              onClick={(event) => {
-                if (
-                  (event.target as HTMLElement | null)?.closest('[data-slot="radio-group-item"]')
-                ) {
-                  return;
-                }
-                applyMode("code");
-              }}
-            >
-              <RadioGroupItem value="code" className="mt-0.5" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                <span className="text-[11px] font-medium text-foreground">Code</span>
-                <span className="text-[10px] leading-relaxed text-muted-foreground">
-                  Default. Full access. Pi can act and edit.
-                </span>
+            {/* Mode */}
+            <div className="flex flex-col gap-1.5">
+              <div>
+                <p className="text-[11px] font-semibold text-foreground">{WORKSPACE.modeLabel}</p>
+                <p className="text-[10px] text-muted-foreground">{WORKSPACE.modeDescription}</p>
               </div>
-            </label>
-            <label
-              className={cn(
-                "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
-                activeMode === "explore" && "border-amber-500/40 bg-amber-500/5",
-              )}
-              onClick={(event) => {
-                if (
-                  (event.target as HTMLElement | null)?.closest('[data-slot="radio-group-item"]')
-                ) {
-                  return;
-                }
-                applyMode("explore");
-              }}
-            >
-              <RadioGroupItem value="explore" className="mt-0.5" />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-foreground">Explore</span>
-                  <Badge variant="outline" className="h-4 px-1 text-[9px] uppercase tracking-wide">
-                    Experimental
-                  </Badge>
-                </div>
-                <span className="text-[10px] leading-relaxed text-muted-foreground">
-                  Read-only investigation mode for inspection, tracing, and planning. The host
-                  blocks shell commands before they spawn.
-                </span>
-              </div>
-            </label>
-          </RadioGroup>
-          <p className="rounded-sm border border-border/60 bg-muted/25 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
-            The model stays shared across both modes.
-          </p>
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.RuntimeSetup] */}
-        <SettingsCard
-          id="runtime"
-          icon={PlugZap}
-          title="Runtime Setup"
-          description="Pick the model path first. Hosted SDK keys and Pi RPC opt-in are both reachable here."
-        >
-          <div className="flex flex-col gap-2.5">
-            <div className="grid gap-2 @[520px]:grid-cols-2">
-              <RuntimeChoiceBlock
-                icon={KeyRound}
-                title="API Provider SDK"
-                badge={sdkEnabled ? "Default" : "Off"}
-                description="Recommended first-run path: paste a provider key and start without a local Pi install."
+              <RadioGroup
+                value={activeMode}
+                onValueChange={(value) => applyMode(value as WorkspaceMode)}
+                className="grid gap-2"
               >
-                <div className="grid grid-cols-3 gap-1">
-                  <ProviderStat label="Ready" value={providerStats.ready} />
-                  <ProviderStat label="Needs key" value={providerStats.needsKey} />
-                  <ProviderStat label="Models" value={providerStats.models} />
-                </div>
-                <p className="text-[10px] leading-relaxed text-muted-foreground">
-                  {apiProviderSummary}
-                </p>
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                    activeMode === "code" && "border-border bg-muted/40",
+                  )}
+                  onClick={(event) => {
+                    if (
+                      (event.target as HTMLElement | null)?.closest(
+                        '[data-slot="radio-group-item"]',
+                      )
+                    ) {
+                      return;
+                    }
+                    applyMode("code");
+                  }}
+                >
+                  <RadioGroupItem value="code" className="mt-0.5" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-foreground">
+                        {WORKSPACE.codeName}
+                      </span>
+                      <InfoTooltip content={WORKSPACE.codeTooltip} />
+                    </div>
+                    <span className="text-[10px] leading-relaxed text-muted-foreground">
+                      {WORKSPACE.codeDescription}
+                    </span>
+                  </div>
+                </label>
+                <label
+                  className={cn(
+                    "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                    activeMode === "explore" && "border-amber-500/40 bg-amber-500/5",
+                  )}
+                  onClick={(event) => {
+                    if (
+                      (event.target as HTMLElement | null)?.closest(
+                        '[data-slot="radio-group-item"]',
+                      )
+                    ) {
+                      return;
+                    }
+                    applyMode("explore");
+                  }}
+                >
+                  <RadioGroupItem value="explore" className="mt-0.5" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-foreground">
+                        {WORKSPACE.exploreName}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="h-4 px-1 text-[9px] uppercase tracking-wide"
+                      >
+                        Experimental
+                      </Badge>
+                      <InfoTooltip content={WORKSPACE.exploreTooltip} />
+                    </div>
+                    <span className="text-[10px] leading-relaxed text-muted-foreground">
+                      {WORKSPACE.exploreDescription}
+                    </span>
+                  </div>
+                </label>
+              </RadioGroup>
+            </div>
+
+            {/* Active-file context — workspace default, mirrored in header chip */}
+            <SwitchRow
+              id="active-file-context"
+              label={WORKSPACE.fileCtxLabel}
+              description={WORKSPACE.fileCtxDescription}
+              tooltip={WORKSPACE.fileCtxTooltip}
+              checked={fileCtxOn}
+              onCheckedChange={applyIncludeActiveFileContext}
+            />
+          </SettingsCard>
+
+          {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Runtimes]                                  */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="runtimes"
+            icon={PlugZap}
+            title={RUNTIMES.groupTitle}
+            description={RUNTIMES.groupDescription}
+          >
+            <div className="flex flex-col gap-2">
+              {/* SDK instance card — always rendered */}
+              <InstanceCard
+                title={RUNTIMES.sdkCardTitle}
+                description={RUNTIMES.sdkCardDescription}
+                tooltip={RUNTIMES.sdkCardTooltip}
+                status={sdkReady ? "ready" : "off"}
+                statusLabel={
+                  sdkReady
+                    ? `${providerStats.ready} key${providerStats.ready === 1 ? "" : "s"} · ${providerStats.models} models`
+                    : providerStats.total > 0
+                      ? "Keys needed"
+                      : "No keys configured"
+                }
+              >
                 <div className="flex flex-wrap gap-1.5">
                   <Button
                     type="button"
                     size="xs"
-                    className="min-w-0"
-                    onClick={() => jumpToProviders("api")}
+                    variant="outline"
+                    title={RUNTIMES.sdkRestartTooltip}
+                    disabled={!recoveryActions?.onRestartAgent}
+                    onClick={recoveryActions?.onRestartAgent}
                   >
-                    {providerStats.ready > 0 ? "Manage keys" : "Paste API key"}
+                    <Zap size={11} />
+                    Restart
                   </Button>
                   <Button
                     type="button"
                     size="xs"
                     variant="outline"
-                    className="min-w-0"
-                    onClick={() => openSetting("afx.sdk.enabled")}
+                    title={RUNTIMES.sdkViewLogsTooltip}
+                    onClick={requestStderr}
                   >
-                    SDK setting
+                    <FileText size={11} />
+                    View logs
                   </Button>
                 </div>
-              </RuntimeChoiceBlock>
+                <p className="text-[10px] text-muted-foreground">
+                  {RUNTIMES.sdkManageNote}{" "}
+                  <button
+                    type="button"
+                    className="text-afx-brand hover:underline"
+                    onClick={() => jumpToSection("models")}
+                  >
+                    Models tab →
+                  </button>
+                </p>
+                <TroubleshootDisclosure actions={recoveryActions} onViewLogs={requestStderr} />
+              </InstanceCard>
 
-              <RuntimeChoiceBlock
-                icon={PlugZap}
-                title="Pi RPC"
-                badge={rpcEnabled ? "On" : "Off"}
-                description="Opt in only when you want AFX to spawn your installed Pi CLI with --mode rpc."
+              {/* RPC instance card — always rendered so toggle is discoverable */}
+              <InstanceCard
+                title={RUNTIMES.rpcCardTitle}
+                description={RUNTIMES.rpcCardDescription}
+                tooltip=""
+                status={
+                  rpcEnabled
+                    ? rpcStatus === "connected"
+                      ? "ready"
+                      : rpcStatus === "unavailable"
+                        ? "warn"
+                        : "off"
+                    : "off"
+                }
+                statusLabel={
+                  rpcEnabled
+                    ? rpcStatus === "connected"
+                      ? `Connected · ${piAgent?.modelCount ?? 0} models`
+                      : "Enabled · not connected"
+                    : "Off"
+                }
               >
                 <SwitchRow
-                  id="runtime-setup-pi-rpc"
-                  label="Enable Pi RPC"
-                  description={
-                    rpcEnabled
-                      ? "AFX can use models reported by the local Pi RPC process."
-                      : "Keep this off for SDK-only provider keys."
-                  }
+                  id="rpc-enable"
+                  label={RUNTIMES.rpcEnableLabel}
+                  description={RUNTIMES.rpcEnableDescription}
+                  tooltip={RUNTIMES.rpcEnableTooltip}
                   checked={rpcEnabled}
                   onCheckedChange={setRpcEnabled}
                 />
-                <div className="flex items-center gap-1.5 rounded-sm border bg-muted/30 px-2 py-1.5 text-[11px]">
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full",
-                      rpcStatus === "connected" ? "bg-afx-success" : "bg-muted-foreground",
-                    )}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {rpcStatus === "connected"
-                      ? `${piAgent?.modelCount ?? 0} Pi models available`
-                      : rpcEnabled
-                        ? "Pi RPC enabled; detect or set the binary if it is missing."
-                        : "Pi RPC is disabled."}
-                  </span>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    className="min-w-0"
-                    onClick={() => void detectPiBinary()}
-                  >
-                    Detect Pi
-                  </Button>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    className="min-w-0"
-                    onClick={() => openSetting("afx.agentBinaryPath")}
-                  >
-                    Binary path
-                  </Button>
-                </div>
-              </RuntimeChoiceBlock>
+                {rpcEnabled && (
+                  <>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        title={RUNTIMES.rpcRestartTooltip}
+                        disabled={!recoveryActions?.onRestartAgent}
+                        onClick={recoveryActions?.onRestartAgent}
+                      >
+                        <Zap size={11} />
+                        Restart
+                      </Button>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        title={RUNTIMES.rpcReconnectTooltip}
+                        disabled={!recoveryActions?.onRetryConnection}
+                        onClick={recoveryActions?.onRetryConnection}
+                      >
+                        <RefreshCw size={11} />
+                        Reconnect
+                      </Button>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        title={RUNTIMES.rpcViewLogsTooltip}
+                        onClick={requestStderr}
+                      >
+                        <FileText size={11} />
+                        View logs
+                      </Button>
+                    </div>
+
+                    {/* Session controls */}
+                    <SwitchRow
+                      id="ephemeral-session"
+                      label={RUNTIMES.rpcEphemeralLabel}
+                      description={RUNTIMES.rpcEphemeralDescription}
+                      tooltip={RUNTIMES.rpcEphemeralTooltip}
+                      checked={snapshot?.engine.ephemeral ?? false}
+                      onCheckedChange={setEphemeralSession}
+                    />
+                    {/* Advanced paths */}
+                    <details className="group rounded-md border bg-card/25 px-2.5 py-2">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[11px] font-semibold text-foreground marker:hidden">
+                        <span>Advanced paths</span>
+                        <ChevronDown
+                          size={13}
+                          className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+                        />
+                      </summary>
+                      <div className="mt-2 flex flex-col gap-2">
+                        <div className="flex items-end gap-1.5">
+                          <div className="min-w-0 flex-1">
+                            <ConfigField
+                              label="Pi binary path"
+                              value={snapshot?.engine.agentBinary ?? "pi"}
+                              settingKey="afx.agentBinaryPath"
+                              hint="Command or absolute path used to spawn Pi when RPC is enabled."
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            className="mb-[1px] shrink-0"
+                            onClick={detectPiBinary}
+                          >
+                            Detect
+                          </Button>
+                        </div>
+                        <ConfigField
+                          label="Session directory"
+                          value={snapshot?.sdk?.sessionDir || "extension-managed storage"}
+                          settingKey="afx.sessionDir"
+                          hint="Where Pi writes session JSONL. Default: ~/.pi/sessions/"
+                        />
+                        <ConfigField
+                          label="Bundled Pi npm"
+                          value={snapshot?.about.bundledPiNpmVersion ?? "?"}
+                          hint="Pi version compiled into AFX. Read-only — update AFX to change."
+                        />
+                      </div>
+                    </details>
+
+                    <TroubleshootDisclosure actions={recoveryActions} onViewLogs={requestStderr} />
+                  </>
+                )}
+              </InstanceCard>
             </div>
 
-            <details className="group rounded-md border bg-card/25 px-2.5 py-2">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[11px] font-semibold text-foreground marker:hidden">
-                <span>Advanced paths and defaults</span>
-                <ChevronDown
-                  size={13}
-                  className="shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
-                />
-              </summary>
-              <div className="mt-2 flex flex-col gap-2.5">
-                <RuntimePathBlock
-                  icon={KeyRound}
-                  title="API Provider SDK"
-                  badge={snapshot?.sdk?.enabled === false ? "Off" : "Default"}
-                  description="Uses the bundled Pi SDK bootstrap with provider keys stored by VS Code. No local Pi install is required."
-                >
-                  <ConfigField
-                    label="SDK runtime"
-                    value={snapshot?.sdk?.enabled === false ? "disabled" : "enabled"}
-                    settingKey="afx.sdk.enabled"
-                    hint="Turn this off only when you want AFX to ignore hosted API providers."
-                  />
-                  <ConfigField
-                    label="Default model"
-                    value={snapshot?.sdk?.defaultModel || "anthropic:claude-opus-4-5"}
-                    settingKey="afx.sdk.defaultModel"
-                    hint="Used when that provider is configured; otherwise AFX starts with the first ready provider."
-                  />
-                  <ConfigField
-                    label="Ollama base URL"
-                    value={snapshot?.sdk?.ollamaBaseUrl || "not configured"}
-                    settingKey="afx.sdk.ollamaBaseUrl"
-                    hint="Optional local OpenAI-compatible endpoint for the SDK provider path."
-                  />
-                </RuntimePathBlock>
-
-                <RuntimePathBlock
-                  icon={PlugZap}
-                  title="Pi RPC"
-                  badge={snapshot?.engine.rpcEnabled ? "Opted in" : "Off"}
-                  description="Launches a local Pi CLI subprocess in --mode rpc. Keep it off unless you want your installed Pi runtime."
-                >
-                  <ConfigField
-                    label="Pi RPC"
-                    value={snapshot?.engine.rpcEnabled ? "enabled" : "disabled"}
-                    settingKey="afx.rpc.enabled"
-                    hint="Disabled by default. When enabled, chat can use models reported by the local Pi RPC process."
-                  />
-                  <ConfigField
-                    label="Agent binary"
-                    value={snapshot?.engine.agentBinary ?? "pi"}
-                    settingKey="afx.agentBinaryPath"
-                    hint="Command or absolute path used to spawn Pi when RPC is enabled."
-                  />
-                  <ConfigField
-                    label="Ephemeral mode"
-                    value={snapshot?.engine.ephemeral ? "on" : "off"}
-                    settingKey="afx.agentEphemeralSession"
-                    hint="Maps to Pi --no-session. Leave off to keep resumable sessions in the configured directory."
-                  />
-                </RuntimePathBlock>
-
-                <RuntimePathBlock
-                  icon={Folder}
-                  title="Shared Session + Skills"
-                  badge={`${snapshot?.engine.bundledSkillCount ?? 0} skills`}
-                  description="Both runtime paths receive the bundled AFX skill pack and share the session directory unless ephemeral mode is on."
-                >
-                  <ConfigField
-                    label="Session directory"
-                    value={snapshot?.sdk?.sessionDir || "extension-managed storage"}
-                    settingKey="afx.sessionDir"
-                    hint="Used for saved Pi sessions by both the API Provider SDK path and Pi RPC path."
-                  />
-                  <ConfigField
-                    label="Bundled skills"
-                    value={`${snapshot?.engine.bundledSkillsPath ?? "resources/skills/agenticflowx"} (${snapshot?.engine.bundledSkillCount ?? 0} skills)`}
-                    hint="Extension-managed AFX skills appended to the agent runtime at startup."
-                  />
-                </RuntimePathBlock>
-              </div>
-            </details>
-          </div>
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.RuntimeControls] */}
-        <SettingsCard
-          icon={Cpu}
-          title="Runtime"
-          description="Live runtime controls — apply immediately to the active session."
-        >
-          <div className="flex flex-col gap-3">
-            <SelectRow
-              id="thinking-level"
-              labelIcon={<Brain size={11} className="text-afx-brand-soft" />}
-              label="Thinking level"
-              description="Reasoning effort. Models without reasoning ignore this."
-              value={runtime.thinkingLevel ?? ""}
-              onChange={(v) => applyThinkingLevel(v as ThinkingLevel)}
-              disabled={runtimeControlsDisabled}
-              placeholderShown={!runtime.thinkingLevel}
-              options={THINKING_LEVELS}
-            />
-            <SelectRow
-              id="steering-mode"
-              label="Steering mode"
-              description="How the runtime handles messages you send while a turn is streaming."
-              value={runtime.steeringMode ?? ""}
-              onChange={(v) => applySteeringMode(v as QueueMode)}
-              disabled={runtimeControlsDisabled}
-              placeholderShown={!runtime.steeringMode}
-              options={QUEUE_MODES}
-            />
-            <SelectRow
-              id="followup-mode"
-              label="Follow-up mode"
-              description="How the runtime processes messages queued for after the current turn."
-              value={runtime.followUpMode ?? ""}
-              onChange={(v) => applyFollowUpMode(v as QueueMode)}
-              disabled={runtimeControlsDisabled}
-              placeholderShown={!runtime.followUpMode}
-              options={QUEUE_MODES}
-            />
-            <SwitchRow
-              id="auto-compaction"
-              label="Auto-compaction"
-              description="The runtime compacts message history when the context window fills."
-              checked={runtime.autoCompactionEnabled ?? false}
-              onCheckedChange={applyAutoCompaction}
-              disabled={runtimeControlsDisabled}
-            />
-            <SwitchRow
-              id="auto-retry"
-              label="Auto-retry"
-              description="The runtime retries on transient provider failures (rate limits, 5xx)."
-              checked={runtime.autoRetryEnabled ?? false}
-              onCheckedChange={applyAutoRetry}
-              disabled={runtimeControlsDisabled}
-            />
-          </div>
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.Context] */}
-        <SettingsCard
-          id="context"
-          icon={FileText}
-          title="Context"
-          description="Default context attachment for new chat turns."
-        >
-          <SwitchRow
-            id="active-file-context"
-            label="Include active file context"
-            description="Attaches the active editor file to new turns. The composer toggle mirrors this default."
-            checked={contextSettings.includeActiveFileContext}
-            onCheckedChange={applyIncludeActiveFileContext}
-            disabled={!snapshot}
-          />
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.Appearance] */}
-        <SettingsCard
-          id="identity"
-          icon={SwatchBook}
-          title="Identity"
-          description="Product accent layer. Ordinary surfaces still follow VS Code."
-        >
-          <SelectRow
-            id="appearance-theme"
-            label="Theme identity"
-            description="AFX/Meridian supplies product accents over the editor theme."
-            value={snapshot?.appearance.theme ?? "meridian"}
-            onChange={(value) => applyTheme(value as AfxThemeId)}
-            disabled={!snapshot?.appearance}
-            options={
-              snapshot?.appearance.themes.map((theme) => ({
-                value: theme.id,
-                label: `${theme.label}${theme.implemented ? "" : " — unavailable"}`,
-              })) ?? [{ value: "meridian", label: "AFX / Meridian" }]
-            }
-          />
-          <ConfigField label="VS Code setting" value="afx.theme" settingKey="afx.theme" />
-        </SettingsCard>
-
-        <SettingsCard
-          id="style"
-          icon={Brush}
-          title="Style"
-          description="Runtime treatment for radius, density, borders, and control feel."
-        >
-          <SelectRow
-            id="appearance-style"
-            label="Style treatment"
-            description="Switches CSS runtime classes; shadcn components are not regenerated."
-            value={snapshot?.appearance.style ?? "lyra"}
-            onChange={(value) => applyStyle(value as AfxStyleId)}
-            disabled={!snapshot?.appearance}
-            options={
-              snapshot?.appearance.styles.map((style) => ({
-                value: style.id,
-                label: `${style.label}${style.implemented ? "" : " — unavailable"}`,
-              })) ?? [{ value: "lyra", label: "Lyra" }]
-            }
-          />
-          <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
-            Host colors stay authoritative for background, foreground, input, border, and focus.
-          </p>
-          <ConfigField label="VS Code setting" value="afx.style" settingKey="afx.style" />
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.Providers] */}
-        <SettingsCard
-          id="providers"
-          icon={KeyRound}
-          title="Providers"
-          description="Configure hosted API providers and the opt-in local Pi RPC runtime side-by-side."
-        >
-          <Tabs
-            value={providerTab}
-            onValueChange={(value) => setProviderTab(value as "api" | "external")}
-          >
-            <TabsList className="w-full min-w-0">
-              <TabsTrigger value="api" className="min-w-0 flex-1 px-1.5 text-[11px]">
-                <KeyRound size={11} className="shrink-0" />
-                <span className="truncate">API Providers</span>
-              </TabsTrigger>
-              <TabsTrigger value="external" className="min-w-0 flex-1 px-1.5 text-[11px]">
-                <Server size={11} className="shrink-0" />
-                <span className="truncate">External Agents</span>
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="api" className="flex flex-col gap-2">
-              <SettingsHint
-                icon={KeyRound}
-                title="API Provider SDK"
-                description="Default path for OpenAI, Anthropic, Google, Cerebras, Groq, and Ollama. Provider cards are expanded so you can paste or replace keys directly."
-              />
-              {/* Surface: [ChatSettings.Providers.Api] */}
-              <div className="rounded-md border bg-muted/20 p-2">
-                <div className="grid grid-cols-3 gap-1">
-                  <ProviderStat label="Providers" value={providerStats.total} />
-                  <ProviderStat label="Ready" value={providerStats.ready} />
-                  <ProviderStat label="Models" value={providerStats.models} />
+            {/* Behaviour card — scoped to active instance */}
+            <div className="mt-2 flex flex-col gap-2 rounded-md border bg-muted/10 px-2.5 py-2.5">
+              <div className="flex items-start gap-2">
+                <Cpu size={13} className="mt-0.5 shrink-0 text-afx-brand-soft" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-[11px] font-semibold text-foreground">
+                      {RUNTIMES.behaviourCardTitle}
+                    </p>
+                    <InfoTooltip content={RUNTIMES.behaviourCardTooltip} />
+                  </div>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                    {RUNTIMES.behaviourCardDescription}
+                  </p>
                 </div>
-                <Input
-                  value={providerSearch}
-                  onChange={(event) => setProviderSearch(event.currentTarget.value)}
-                  placeholder="Find provider or model…"
-                  aria-label="Find provider or model"
-                  className="mt-2 h-8 text-xs"
+              </div>
+              <div className="rounded-sm border border-afx-brand-soft/20 bg-afx-brand-soft/5 px-2 py-1.5 text-[10px] text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {RUNTIMES.behaviourScopePrefix}
+                </span>{" "}
+                {rpcEnabled && rpcConnected
+                  ? `${RUNTIMES.rpcCardTitle} · ${piAgent?.name ?? "Pi RPC"}`
+                  : sdkEnabled
+                    ? `${RUNTIMES.sdkCardTitle}`
+                    : "Not configured"}
+                <p className="mt-0.5">{RUNTIMES.behaviourScopeNote}</p>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <SelectRow
+                  id="thinking-level"
+                  labelIcon={<Brain size={11} className="text-afx-brand-soft" />}
+                  label={RUNTIMES.thinkingLabel}
+                  sublabel={RUNTIMES.thinkingSublabel}
+                  description={RUNTIMES.thinkingDescription}
+                  tooltip={RUNTIMES.thinkingTooltip}
+                  value={runtime.thinkingLevel ?? ""}
+                  onChange={(v) => applyThinkingLevel(v as ThinkingLevel)}
+                  disabled={runtimeControlsDisabled}
+                  placeholderShown={!runtime.thinkingLevel}
+                  options={THINKING_LEVELS}
                 />
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {PROVIDER_FILTERS.map((filter) => (
-                    <ProviderFilterButton
-                      key={filter.value}
-                      label={filter.label}
-                      count={
-                        filter.value === "ready"
-                          ? providerStats.ready
-                          : filter.value === "needs-key"
-                            ? providerStats.needsKey
-                            : providerStats.total
+                <SelectRow
+                  id="steering-mode"
+                  label={RUNTIMES.steeringLabel}
+                  sublabel={RUNTIMES.steeringSublabel}
+                  description={RUNTIMES.steeringDescription}
+                  tooltip={RUNTIMES.steeringTooltip}
+                  value={runtime.steeringMode ?? ""}
+                  onChange={(v) => applySteeringMode(v as QueueMode)}
+                  disabled={runtimeControlsDisabled}
+                  placeholderShown={!runtime.steeringMode}
+                  options={QUEUE_MODES}
+                />
+                <SelectRow
+                  id="followup-mode"
+                  label={RUNTIMES.followUpLabel}
+                  sublabel={RUNTIMES.followUpSublabel}
+                  description={RUNTIMES.followUpDescription}
+                  tooltip={RUNTIMES.followUpTooltip}
+                  value={runtime.followUpMode ?? ""}
+                  onChange={(v) => applyFollowUpMode(v as QueueMode)}
+                  disabled={runtimeControlsDisabled}
+                  placeholderShown={!runtime.followUpMode}
+                  options={QUEUE_MODES}
+                />
+                <SwitchRow
+                  id="auto-compaction"
+                  label={RUNTIMES.compactionLabel}
+                  sublabel={RUNTIMES.compactionSublabel}
+                  description={RUNTIMES.compactionDescription}
+                  tooltip={RUNTIMES.compactionTooltip}
+                  checked={runtime.autoCompactionEnabled ?? false}
+                  onCheckedChange={applyAutoCompaction}
+                  disabled={runtimeControlsDisabled}
+                />
+                <SwitchRow
+                  id="auto-retry"
+                  label={RUNTIMES.retryLabel}
+                  sublabel={RUNTIMES.retrySublabel}
+                  description={RUNTIMES.retryDescription}
+                  tooltip={RUNTIMES.retryTooltip}
+                  checked={runtime.autoRetryEnabled ?? false}
+                  onCheckedChange={applyAutoRetry}
+                  disabled={runtimeControlsDisabled}
+                />
+              </div>
+            </div>
+          </SettingsCard>
+
+          {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Models]                                     */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="models"
+            icon={KeyRound}
+            title={MODELS.groupTitle}
+            description={MODELS.groupDescription}
+          >
+            <Tabs
+              value={modelsSubTab}
+              onValueChange={(v) => setModelsSubTab(v as "builtin" | "custom")}
+            >
+              <TabsList className="w-full min-w-0">
+                <TabsTrigger value="builtin" className="min-w-0 flex-1 px-1.5 text-[11px]">
+                  <KeyRound size={11} className="shrink-0" />
+                  <span className="truncate">{MODELS.builtinTabLabel}</span>
+                </TabsTrigger>
+                <TabsTrigger value="custom" className="min-w-0 flex-1 px-1.5 text-[11px]">
+                  <Server size={11} className="shrink-0" />
+                  <span className="truncate">{MODELS.customTabLabel}</span>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Surface: [ChatSettings.Models.Builtin] */}
+              <TabsContent value="builtin" className="flex flex-col gap-2">
+                <div className="rounded-md border bg-muted/20 p-2">
+                  <div className="grid grid-cols-3 gap-1">
+                    <ProviderStat label="Providers" value={providerStats.total} />
+                    <ProviderStat label="Ready" value={providerStats.ready} />
+                    <ProviderStat label="Models" value={providerStats.models} />
+                  </div>
+                  <Input
+                    value={providerSearch}
+                    onChange={(event) => setProviderSearch(event.currentTarget.value)}
+                    placeholder={MODELS.searchPlaceholder}
+                    aria-label={MODELS.searchLabel}
+                    className="mt-2 h-8 text-xs"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {PROVIDER_FILTERS.map((filter) => (
+                      <ProviderFilterButton
+                        key={filter.value}
+                        label={filter.label}
+                        count={
+                          filter.value === "ready"
+                            ? providerStats.ready
+                            : filter.value === "needs-key"
+                              ? providerStats.needsKey
+                              : providerStats.total
+                        }
+                        active={providerFilter === filter.value}
+                        onClick={() => setProviderFilter(filter.value)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                {/* Provider tile grid — single-active accordion, no 52vh cap */}
+                <div className="grid gap-2 @[380px]:grid-cols-2">
+                  {visibleProviders.map((provider) => (
+                    <ProviderCard
+                      key={provider.id}
+                      provider={provider.id}
+                      displayName={provider.displayName ?? providerLabel(provider.id)}
+                      modelHint={provider.modelHint ?? "Models available from this provider"}
+                      state={provider.state}
+                      configuredModelCount={provider.modelCount}
+                      defaultModel={provider.defaultModel}
+                      modelOptions={provider.models}
+                      helpUrl={provider.helpUrl}
+                      compact={expandedProvider !== provider.id}
+                      onExpand={() =>
+                        setExpandedProvider(expandedProvider === provider.id ? null : provider.id)
                       }
-                      active={providerFilter === filter.value}
-                      onClick={() => setProviderFilter(filter.value)}
+                      onSaveKey={(key) => saveProviderKey(provider.id, key)}
+                      onClearKey={() => clearProviderKey(provider.id)}
+                      onChangeDefault={(modelId) => setProviderDefaultModel(provider.id, modelId)}
                     />
                   ))}
+                  {providers.length === 0 ? (
+                    <p className="col-span-2 rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
+                      Add a provider key to enable hosted models without installing a local agent.
+                    </p>
+                  ) : null}
+                  {providers.length > 0 && visibleProviders.length === 0 ? (
+                    <p className="col-span-2 rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
+                      No providers match this search/filter.
+                    </p>
+                  ) : null}
                 </div>
-              </div>
-              <div className="grid max-h-[52vh] gap-2 overflow-y-auto pr-1 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent]">
-                {visibleProviders.map((provider) => (
-                  <ProviderCard
-                    key={provider.id}
-                    provider={provider.id}
-                    displayName={provider.displayName ?? providerLabel(provider.id)}
-                    modelHint={provider.modelHint ?? "Models available from this provider"}
-                    state={provider.state}
-                    configuredModelCount={provider.modelCount}
-                    defaultModel={provider.defaultModel}
-                    modelOptions={provider.models}
-                    helpUrl={provider.helpUrl}
-                    onSaveKey={(key) => saveProviderKey(provider.id, key)}
-                    onClearKey={() => clearProviderKey(provider.id)}
-                    onChangeDefault={(modelId) => setProviderDefaultModel(provider.id, modelId)}
-                  />
-                ))}
-                {providers.length === 0 ? (
-                  <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
-                    Add a provider key to enable hosted models without installing a local agent.
-                  </p>
-                ) : null}
-                {providers.length > 0 && visibleProviders.length === 0 ? (
-                  <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
-                    No providers match this search/filter.
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border bg-muted/30 px-2 py-2">
-                <span className="text-[11px] text-muted-foreground">Prefer a local CLI?</span>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="link"
-                  className="px-0"
-                  onClick={() => setProviderTab("external")}
-                >
-                  View External Agents
-                </Button>
-              </div>
-              <ConfigField
-                label="Ollama base URL"
-                value={snapshot?.sdk?.ollamaBaseUrl || "not configured"}
-                settingKey="afx.sdk.ollamaBaseUrl"
-                hint="Used only by the API Provider SDK path; Pi RPC reads its own local Pi configuration."
-              />
-            </TabsContent>
-            <TabsContent value="external" className="flex flex-col gap-2">
-              <SettingsHint
-                icon={Server}
-                title="Pi RPC and local agents"
-                description="Pi RPC is off by default. Enable it when you want AFX to spawn a local Pi CLI process and use models reported over JSONL RPC."
-              />
-              {/* Surface: [ChatSettings.Providers.External] */}
-              {(snapshot?.externalAgents ?? []).map((agent) => (
-                <ExternalAgentCard
-                  key={agent.id}
-                  id={agent.id}
-                  name={agent.name}
-                  status={agent.status}
-                  modelCount={agent.modelCount}
-                  binaryPath={agent.binaryPath}
-                  versionLabel={agent.versionLabel}
-                  enabled={agent.enabled}
-                  ephemeral={agent.ephemeral}
-                  onDetectBinary={detectPiBinary}
-                  onOpenBinarySetting={() => openSetting("afx.agentBinaryPath")}
-                  onToggleEnabled={setRpcEnabled}
-                  onToggleEphemeral={setEphemeralSession}
+                <ConfigField
+                  label="Ollama base URL"
+                  value={snapshot?.sdk?.ollamaBaseUrl || "not configured"}
+                  settingKey="afx.sdk.ollamaBaseUrl"
+                  hint="Used only by the API Provider SDK path; Pi RPC reads its own local Pi configuration."
                 />
-              ))}
-              <ExternalAgentCard
-                id="future-agents"
-                name="More local agents"
-                status="coming-soon"
-                modelCount={0}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border bg-muted/30 px-2 py-2">
-                <span className="text-[11px] text-muted-foreground">Need hosted models?</span>
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="link"
-                  className="px-0"
-                  onClick={() => setProviderTab("api")}
-                >
-                  View API Providers
-                </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </SettingsCard>
+              </TabsContent>
 
-        {/* Surface: [ChatSettings.ChatSkills] */}
-        <SettingsCard icon={Info} title="Chat" description="Composer behavior.">
-          <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
-            Switching the model from the chat composer updates the runtime default for future runs.
-          </p>
-        </SettingsCard>
-
-        <SettingsCard
-          id="skills"
-          icon={Settings2}
-          title="Available Skills"
-          description="Commands discovered through the agent runtime plus AFX chat actions."
-          badge={`${skillCount}`}
-        >
-          <CommandGroup
-            title="AFX skills"
-            commands={groups.afx}
-            disabled={runtimeControlsDisabled}
-            onInsertCommand={onInsertCommand}
-          />
-          <CommandGroup
-            title="Other skills"
-            commands={groups.otherSkills}
-            disabled={runtimeControlsDisabled}
-            onInsertCommand={onInsertCommand}
-          />
-          <CommandGroup
-            title="Extension commands"
-            commands={groups.extension}
-            disabled={runtimeControlsDisabled}
-            onInsertCommand={onInsertCommand}
-          />
-          <CommandGroup
-            title="Prompt templates"
-            commands={groups.prompt}
-            disabled={runtimeControlsDisabled}
-            onInsertCommand={onInsertCommand}
-          />
-          <div className="flex flex-col gap-1">
-            <GroupTitle label="Actions" count={ACTIONS.length} />
-            {ACTIONS.map((action) => (
-              <button
-                key={action.name}
-                type="button"
-                onClick={() => bridgeSend({ type: action.message })}
-                disabled={runtimeControlsDisabled}
-                className="flex items-center justify-between gap-2 border-b border-border/50 px-0.5 py-1.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50 last:border-b-0"
-              >
-                <span className="min-w-0">
-                  <span className="block font-mono text-[11px]">{action.name}</span>
-                  <span className="block text-[10px] text-muted-foreground">
-                    {action.description}
-                  </span>
-                </span>
-                <Badge variant="outline" className="shrink-0 text-[9px]">
-                  action
-                </Badge>
-              </button>
-            ))}
-          </div>
-        </SettingsCard>
-
-        {/* Surface: [ChatSettings.Diagnostics] */}
-        <SettingsCard
-          id="diagnostics"
-          icon={FileText}
-          title="Diagnostics"
-          description="Runtime recovery, logs, and session reset."
-        >
-          <div className="flex flex-col gap-2">
-            <ConfigField
-              label="Log level"
-              value={snapshot?.diagnostics.logLevel ?? "info"}
-              settingKey="afx.logLevel"
-            />
-            <div className="rounded-md border bg-muted/20 px-2.5 py-2">
-              <div className="flex items-start gap-2">
-                <PlugZap size={13} className="mt-0.5 shrink-0 text-afx-brand-soft" />
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold text-foreground">
-                    Runtime recovery controls
-                  </p>
+              {/* Surface: [ChatSettings.Models.Custom] */}
+              <TabsContent value="custom" className="flex flex-col gap-2">
+                <div className="rounded-md border bg-muted/20 px-2.5 py-2">
+                  <p className="text-[11px] font-semibold text-foreground">{MODELS.customTitle}</p>
                   <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
-                    Always visible for debugging Pi RPC and API-provider startup state.
+                    {MODELS.customDescription}
                   </p>
                 </div>
-              </div>
-              <RuntimeRecoveryButtonGrid
-                actions={recoveryActions}
-                className="mt-2"
-                onViewLogs={requestStderr}
-              />
+                {/* Track selector */}
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Track:</span>
+                  <div className="flex gap-1">
+                    {(["sdk", "rpc"] as const).map((track) => (
+                      <button
+                        key={track}
+                        type="button"
+                        aria-pressed={customModelsTrack === track}
+                        onClick={() => setCustomModelsTrack(track)}
+                        className={cn(
+                          "rounded-sm border px-2 py-1 text-[10px] transition-colors",
+                          customModelsTrack === track
+                            ? "border-afx-brand/40 bg-afx-brand/10 text-afx-brand"
+                            : "border-border/70 bg-card/35 text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                        )}
+                      >
+                        {track === "sdk" ? MODELS.customSdkTrackLabel : MODELS.customRpcTrackLabel}
+                      </button>
+                    ))}
+                  </div>
+                  <InfoTooltip content={MODELS.customTrackTooltip} />
+                </div>
+
+                {customModelsTrack === "sdk" && (
+                  <div className="rounded-md border bg-muted/20 px-2.5 py-2.5">
+                    <p className="text-[11px] font-semibold text-foreground">
+                      {MODELS.customSdkTitle}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      {MODELS.customSdkPlaceholder}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      {MODELS.customSdkInterim}
+                    </p>
+                  </div>
+                )}
+
+                {customModelsTrack === "rpc" && (
+                  <div className="rounded-md border bg-muted/20 px-2.5 py-2.5">
+                    <p className="text-[11px] font-semibold text-foreground">
+                      {MODELS.customRpcTitle}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      {MODELS.customRpcDescription}
+                    </p>
+                    {!rpcEnabled && (
+                      <p className="mt-1 rounded-sm border border-amber-500/30 bg-amber-500/5 px-2 py-1.5 text-[10px] text-amber-600">
+                        {MODELS.customRpcRpcOff}
+                      </p>
+                    )}
+                    <div className="mt-2">
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="outline"
+                        title={MODELS.customRpcOpenTooltip}
+                        onClick={openModelsJson}
+                      >
+                        <ExternalLink size={11} />
+                        {MODELS.customRpcOpenLabel}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </SettingsCard>
+
+          {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Look]                                       */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="look"
+            icon={SwatchBook}
+            title={LOOK.groupTitle}
+            description={LOOK.groupDescription}
+          >
+            <SelectRow
+              id="appearance-theme"
+              labelIcon={<SwatchBook size={11} className="text-afx-brand-soft" />}
+              label={LOOK.themeLabel}
+              description={LOOK.themeDescription}
+              tooltip={LOOK.themeTooltip}
+              value={snapshot?.appearance.theme ?? "meridian"}
+              onChange={(value) => applyTheme(value as AfxThemeId)}
+              disabled={!snapshot?.appearance}
+              options={
+                snapshot?.appearance.themes.map((theme) => ({
+                  value: theme.id,
+                  label: `${theme.label}${theme.implemented ? "" : " — unavailable"}`,
+                })) ?? [{ value: "meridian", label: "AFX / Meridian" }]
+              }
+            />
+            <SelectRow
+              id="appearance-style"
+              labelIcon={<Brush size={11} className="text-afx-brand-soft" />}
+              label={LOOK.styleLabel}
+              description={LOOK.styleDescription}
+              tooltip={LOOK.styleTooltip}
+              value={snapshot?.appearance.style ?? "lyra"}
+              onChange={(value) => applyStyle(value as AfxStyleId)}
+              disabled={!snapshot?.appearance}
+              options={
+                snapshot?.appearance.styles.map((style) => ({
+                  value: style.id,
+                  label: `${style.label}${style.implemented ? "" : " — unavailable"}`,
+                })) ?? [{ value: "lyra", label: "Lyra" }]
+              }
+            />
+            <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] leading-relaxed text-muted-foreground">
+              {LOOK.settingNote}
+            </p>
+            <div className="flex gap-2">
+              <ConfigField label="Theme setting" value="afx.theme" settingKey="afx.theme" />
+              <ConfigField label="Style setting" value="afx.style" settingKey="afx.style" />
             </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" size="xs" variant="outline" onClick={requestStderr}>
-              View buffered stderr
-            </Button>
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              disabled={runtimeControlsDisabled}
-              onClick={() => bridgeSend({ type: "chat/newSession" })}
-            >
-              New session
-            </Button>
-          </div>
-          {showStderr && (
+          </SettingsCard>
+
+          {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Support]                                    */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="support"
+            icon={Info}
+            title={SUPPORT.groupTitle}
+            description={SUPPORT.groupDescription}
+            badge={`${skillCount}`}
+          >
+            {/* Skills & commands */}
             <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  Runtime stderr
-                </span>
+              <p className="text-[11px] font-semibold text-foreground">{SUPPORT.skillsTitle}</p>
+              <p className="text-[10px] text-muted-foreground">{SUPPORT.skillsDescription}</p>
+            </div>
+            <CommandGroup
+              title={SUPPORT.afxSkillsLabel}
+              titleTooltip={SUPPORT.afxSkillsTooltip}
+              commands={groups.afx}
+              disabled={runtimeControlsDisabled}
+              onInsertCommand={onInsertCommand}
+            />
+            <CommandGroup
+              title="Pi skills"
+              titleTooltip={SUPPORT.piSkillsTooltip}
+              commands={groups.otherSkills}
+              disabled={runtimeControlsDisabled}
+              onInsertCommand={onInsertCommand}
+            />
+            <CommandGroup
+              title={SUPPORT.extensionCommandsLabel}
+              titleTooltip={SUPPORT.extensionCommandsTooltip}
+              commands={groups.extension}
+              disabled={runtimeControlsDisabled}
+              onInsertCommand={onInsertCommand}
+            />
+            <CommandGroup
+              title={SUPPORT.promptTemplatesLabel}
+              titleTooltip={SUPPORT.promptTemplatesTooltip}
+              commands={groups.prompt}
+              disabled={runtimeControlsDisabled}
+              onInsertCommand={onInsertCommand}
+            />
+            <div className="flex flex-col gap-1">
+              <GroupTitle label="Actions" count={ACTIONS.length} />
+              {ACTIONS.map((action) => (
+                <button
+                  key={action.name}
+                  type="button"
+                  onClick={() => bridgeSend({ type: action.message })}
+                  disabled={runtimeControlsDisabled}
+                  title={action.name === "/new" ? SUPPORT.newSessionTooltip : SUPPORT.abortTooltip}
+                  className="flex items-center justify-between gap-2 border-b border-border/50 px-0.5 py-1.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50 last:border-b-0"
+                >
+                  <span className="min-w-0">
+                    <span className="block font-mono text-[11px]">{action.name}</span>
+                    <span className="block text-[10px] text-muted-foreground">
+                      {action.description}
+                    </span>
+                  </span>
+                  <Badge variant="outline" className="shrink-0 text-[9px]">
+                    action
+                  </Badge>
+                </button>
+              ))}
+            </div>
+
+            {/* Diagnostics */}
+            <div className="mt-2 flex flex-col gap-2 border-t pt-2">
+              <p className="text-[11px] font-semibold text-foreground">
+                {SUPPORT.diagnosticsTitle}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{SUPPORT.diagnosticsDescription}</p>
+              <ConfigField
+                label={SUPPORT.logLevelLabel}
+                value={snapshot?.diagnostics.logLevel ?? "info"}
+                settingKey="afx.logLevel"
+                hint={SUPPORT.logLevelTooltip}
+              />
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   size="xs"
-                  variant="ghost"
-                  onClick={() => void navigator.clipboard?.writeText(stderr)}
+                  variant="outline"
+                  title={SUPPORT.stderrTooltip}
+                  onClick={requestStderr}
                 >
-                  Copy
+                  {SUPPORT.stderrLabel}
                 </Button>
               </div>
-              <pre className="max-h-56 overflow-auto rounded-sm border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-                {stderr || "No stderr captured."}
-              </pre>
+              {showStderr && (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                      Runtime stderr
+                    </span>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => void navigator.clipboard?.writeText(stderr)}
+                    >
+                      {SUPPORT.stderrCopyLabel}
+                    </Button>
+                  </div>
+                  <pre className="max-h-56 overflow-auto rounded-sm border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
+                    {stderr || "No stderr captured."}
+                  </pre>
+                </div>
+              )}
             </div>
-          )}
-        </SettingsCard>
 
-        {/* Surface: [ChatSettings.AboutTelemetry] */}
-        <SettingsCard
-          id="about"
-          icon={Activity}
-          title="About"
-          description="Extension metadata, privacy, and product-level preferences."
-        >
-          <div className="flex flex-col gap-2">
-            <SwitchRow
-              id="telemetry-enabled"
-              label="Anonymous UI analytics"
-              description={
-                telemetrySettings.vscodeTelemetryEnabled === false
-                  ? "AFX preference is saved, but VS Code telemetry is off so Clarity stays disabled."
-                  : "Anonymous Clarity analytics for Chat and Workbench."
-              }
-              checked={telemetrySettings.enabled}
-              onCheckedChange={setTelemetryEnabled}
-              disabled={!snapshot}
-            />
-            <ConfigField
-              label="Analytics status"
-              value={telemetrySettings.effectiveEnabled ? "enabled" : "disabled"}
-              settingKey="afx.telemetry.enabled"
-              hint={
-                telemetrySettings.vscodeTelemetryEnabled === false
-                  ? "VS Code telemetry is disabled, so AFX analytics stays off."
-                  : "Respects this AFX toggle, VS Code telemetry, Do Not Track, and dashboard masking rules."
-              }
-            />
-            <ConfigField label="Version" value={snapshot?.about.extensionVersion ?? "?"} />
-            <ConfigField
-              label="Bundled Pi npm"
-              value={snapshot?.about.bundledPiNpmVersion ?? "?"}
-              hint="The @mariozechner/pi-coding-agent package version bundled into the extension resources."
-            />
-          </div>
-        </SettingsCard>
+            {/* Privacy */}
+            <div className="mt-2 flex flex-col gap-2 border-t pt-2">
+              <p className="text-[11px] font-semibold text-foreground">{SUPPORT.privacyTitle}</p>
+              <SwitchRow
+                id="telemetry-enabled"
+                label={SUPPORT.telemetryLabel}
+                description={
+                  telemetrySettings.vscodeTelemetryEnabled === false
+                    ? "AFX preference is saved, but VS Code telemetry is off so Clarity stays disabled."
+                    : SUPPORT.telemetryDescription
+                }
+                tooltip={SUPPORT.telemetryTooltip}
+                checked={telemetrySettings.enabled}
+                onCheckedChange={setTelemetryEnabled}
+                disabled={!snapshot}
+              />
+              <ConfigField
+                label="Analytics status"
+                value={telemetrySettings.effectiveEnabled ? "enabled" : "disabled"}
+                settingKey="afx.telemetry.enabled"
+                hint={
+                  telemetrySettings.vscodeTelemetryEnabled === false
+                    ? "VS Code telemetry is disabled, so AFX analytics stays off."
+                    : "Respects this AFX toggle, VS Code telemetry, Do Not Track, and dashboard masking rules."
+                }
+              />
+            </div>
+
+            {/* About */}
+            <div className="mt-2 flex flex-col gap-2 border-t pt-2">
+              <p className="text-[11px] font-semibold text-foreground">{SUPPORT.aboutTitle}</p>
+              <ConfigField label="Version" value={snapshot?.about.extensionVersion ?? "?"} />
+              <ConfigField
+                label="Bundled Pi npm"
+                value={snapshot?.about.bundledPiNpmVersion ?? "?"}
+                hint="The Pi coding-agent package version bundled into the extension resources."
+              />
+              <p
+                className="text-[10px] leading-relaxed text-muted-foreground"
+                title={SUPPORT.piTelemetryTooltip}
+              >
+                {SUPPORT.piTelemetryNote}
+              </p>
+              <a
+                href="https://github.com/AgenticFlowX/agenticflowx/issues"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10px] text-afx-brand hover:underline"
+              >
+                <ExternalLink size={11} />
+                {SUPPORT.reportIssueLabel}
+              </a>
+            </div>
+          </SettingsCard>
+        </div>
       </div>
+    </TooltipProvider>
+  );
+}
+
+// ─── Info tooltip ────────────────────────────────────────────────────────────
+
+function InfoTooltip({
+  content,
+  side = "top",
+}: {
+  content: string;
+  side?: "top" | "bottom" | "left" | "right";
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={content}
+          className="inline-flex shrink-0 items-center justify-center text-muted-foreground/70 hover:text-muted-foreground focus-visible:outline-none"
+        >
+          <Info size={11} />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={side} className="max-w-[220px] text-[11px] leading-snug">
+        {content}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+// ─── Status pill ─────────────────────────────────────────────────────────────
+
+function StatusPill({
+  on,
+  label,
+  tooltip,
+  onClick,
+}: {
+  on: boolean;
+  label: string;
+  tooltip: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title={tooltip}
+      aria-label={tooltip}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px] transition-colors",
+        on
+          ? "border-afx-success/40 bg-afx-success/10 text-afx-success"
+          : "border-border/70 bg-card/35 text-muted-foreground",
+        onClick && "cursor-pointer hover:bg-muted/50",
+        !onClick && "cursor-default",
+      )}
+    >
+      <span
+        className={cn("h-1.5 w-1.5 rounded-full", on ? "bg-afx-success" : "bg-muted-foreground")}
+      />
+      {label}
+    </button>
+  );
+}
+
+// ─── Instance card ────────────────────────────────────────────────────────────
+
+function InstanceCard({
+  title,
+  description,
+  tooltip,
+  status,
+  statusLabel,
+  children,
+}: {
+  title: string;
+  description: string;
+  tooltip: string;
+  status: "ready" | "warn" | "off";
+  statusLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-md border bg-card/25 px-2.5 py-2.5">
+      <div className="mb-2 flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[12px] font-semibold text-foreground">{title}</span>
+            {tooltip && <InfoTooltip content={tooltip} />}
+            <Badge
+              variant={status === "ready" ? "default" : "outline"}
+              className={cn(
+                "shrink-0 text-[9px]",
+                status === "ready" && "bg-afx-success/20 text-afx-success",
+                status === "warn" && "border-amber-500/40 text-amber-500",
+              )}
+            >
+              {statusLabel}
+            </Badge>
+          </div>
+          <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">{children}</div>
     </div>
   );
 }
+
+// ─── Troubleshoot disclosure ──────────────────────────────────────────────────
+
+function TroubleshootDisclosure({
+  actions,
+  onViewLogs,
+}: {
+  actions?: AgentRecoveryActions;
+  onViewLogs: () => void;
+}) {
+  return (
+    <details className="group rounded-md border bg-card/25 px-2.5 py-2">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[11px] text-muted-foreground marker:hidden hover:text-foreground">
+        <span>{RUNTIMES.troubleshootLabel} ▾</span>
+      </summary>
+      <div className="mt-2">
+        <RuntimeRecoveryButtonGrid actions={actions} onViewLogs={onViewLogs} />
+      </div>
+    </details>
+  );
+}
+
+// ─── Setup/readiness cards ───────────────────────────────────────────────────
 
 function SettingsSetupCard() {
   return (
@@ -1329,8 +1583,8 @@ function RuntimeConfigurationNotice({
               API Providers
             </Button>
             <Button type="button" size="xs" variant="outline" onClick={onOpenExternalAgents}>
-              <Server size={12} />
-              External Agents
+              <PlugZap size={12} />
+              Runtimes
             </Button>
           </div>
           {rpcEnabled ? (
@@ -1375,6 +1629,7 @@ function RuntimeRecoveryButtonGrid({
         size="xs"
         variant="outline"
         className="min-w-0 justify-start"
+        title={RUNTIMES.rpcReconnectTooltip}
         disabled={!actions?.onRetryConnection}
         onClick={actions?.onRetryConnection}
       >
@@ -1386,6 +1641,7 @@ function RuntimeRecoveryButtonGrid({
         size="xs"
         variant="outline"
         className="min-w-0 justify-start"
+        title={RUNTIMES.rpcRestartTooltip}
         disabled={!actions?.onRestartAgent}
         onClick={actions?.onRestartAgent}
       >
@@ -1397,6 +1653,7 @@ function RuntimeRecoveryButtonGrid({
         size="xs"
         variant="outline"
         className="min-w-0 justify-start"
+        title={SUPPORT.stderrTooltip}
         onClick={onViewLogs}
       >
         <FileText size={12} />
@@ -1407,6 +1664,7 @@ function RuntimeRecoveryButtonGrid({
         size="xs"
         variant="outline"
         className="min-w-0 justify-start"
+        title={RUNTIMES.rpcReloadTooltip}
         disabled={!actions?.onReloadHost}
         onClick={actions?.onReloadHost}
       >
@@ -1417,97 +1675,7 @@ function RuntimeRecoveryButtonGrid({
   );
 }
 
-function RuntimeChoiceBlock({
-  icon: Icon,
-  title,
-  badge,
-  description,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  badge: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-md border border-afx-brand-soft/25 bg-afx-brand-soft/5 px-2.5 py-2.5">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-background/60">
-          <Icon size={13} className="text-afx-brand-soft" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="min-w-0 truncate text-[12px] font-semibold text-foreground">
-              {title}
-            </span>
-            <Badge variant="secondary" className="shrink-0 text-[9px]">
-              {badge}
-            </Badge>
-          </div>
-          <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <div className="mt-2 flex flex-col gap-2">{children}</div>
-    </div>
-  );
-}
-
-function RuntimePathBlock({
-  icon: Icon,
-  title,
-  badge,
-  description,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  badge: string;
-  description: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-md border bg-card/35 px-2.5 py-2.5">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border bg-muted/30">
-          <Icon size={13} className="text-afx-brand-soft" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <span className="min-w-0 truncate text-[12px] font-semibold text-foreground">
-              {title}
-            </span>
-            <Badge variant="outline" className="shrink-0 text-[9px]">
-              {badge}
-            </Badge>
-          </div>
-          <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      <div className="mt-2 flex flex-col gap-2">{children}</div>
-    </div>
-  );
-}
-
-function SettingsHint({
-  icon: Icon,
-  title,
-  description,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-2 rounded-md border bg-muted/20 px-2.5 py-2">
-      <Icon size={13} className="mt-0.5 shrink-0 text-afx-brand-soft" />
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">{description}</p>
-      </div>
-    </div>
-  );
-}
+// ─── Shared UI primitives ────────────────────────────────────────────────────
 
 /**
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
@@ -1591,10 +1759,6 @@ function ProviderFilterButton({
 }
 
 /**
- * Read-only key/value row. Layout is narrow-friendly: label + optional icon-button
- * sit on the same row (label flex-1, button shrink-0), and the value wraps below.
- * Works at VSCode sidebar minimum width (170px) without overflow or stretched controls.
- *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS]
  */
@@ -1652,24 +1816,24 @@ function ConfigField({
 }
 
 /**
- * Toggle row — horizontal at all widths. Label/desc on the left (flex-1, min-w-0
- * to allow text wrap), Switch on the right (shrink-0). Designed for VSCode sidebar
- * minimum width (170px).
- *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS] [DES-SETTINGS-SURFACE-RUNTIME]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS]
  */
 function SwitchRow({
   id,
   label,
+  sublabel,
   description,
+  tooltip,
   checked,
   onCheckedChange,
   disabled,
 }: {
   id: string;
   label: string;
+  sublabel?: string;
   description: string;
+  tooltip?: string;
   checked: boolean;
   onCheckedChange: (checked: boolean) => void;
   disabled?: boolean;
@@ -1677,9 +1841,13 @@ function SwitchRow({
   return (
     <div className="afx-field-surface flex items-start justify-between gap-3 rounded-md border px-2.5 py-2">
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 leading-snug">
-        <Label htmlFor={id} className="text-[11px]">
-          {label}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={id} className="text-[11px]">
+            {label}
+          </Label>
+          {sublabel && <span className="text-[9px] text-muted-foreground">{sublabel}</span>}
+          {tooltip && <InfoTooltip content={tooltip} />}
+        </div>
         <p className="text-[10px] text-muted-foreground">{description}</p>
       </div>
       <Switch
@@ -1696,17 +1864,16 @@ function SwitchRow({
 }
 
 /**
- * Select row — vertical at all widths so the dropdown gets full width for long
- * option labels. Designed for VSCode sidebar minimum width (170px).
- *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS] [DES-SETTINGS-SURFACE-RUNTIME]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS]
  */
 function SelectRow({
   id,
   label,
   labelIcon,
+  sublabel,
   description,
+  tooltip,
   value,
   onChange,
   disabled,
@@ -1716,7 +1883,9 @@ function SelectRow({
   id: string;
   label: string;
   labelIcon?: ReactNode;
+  sublabel?: string;
   description: string;
+  tooltip?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
@@ -1726,10 +1895,14 @@ function SelectRow({
   return (
     <div className="afx-field-surface flex flex-col gap-1.5 rounded-md border px-2.5 py-2">
       <div className="flex flex-col gap-0.5 leading-snug">
-        <Label htmlFor={id} className="flex items-center gap-1.5 text-[11px]">
-          {labelIcon}
-          {label}
-        </Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={id} className="flex items-center gap-1.5 text-[11px]">
+            {labelIcon}
+            {label}
+          </Label>
+          {sublabel && <span className="text-[9px] text-muted-foreground">{sublabel}</span>}
+          {tooltip && <InfoTooltip content={tooltip} />}
+        </div>
         <p className="text-[10px] text-muted-foreground">{description}</p>
       </div>
       <NativeSelect
@@ -1758,11 +1931,13 @@ function SelectRow({
  */
 function CommandGroup({
   title,
+  titleTooltip,
   commands,
   disabled,
   onInsertCommand,
 }: {
   title: string;
+  titleTooltip?: string;
   commands: readonly AgentCommand[];
   disabled?: boolean;
   onInsertCommand?: (commandText: string) => void;
@@ -1770,7 +1945,7 @@ function CommandGroup({
   if (commands.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">
-      <GroupTitle label={title} count={commands.length} />
+      <GroupTitle label={title} tooltip={titleTooltip} count={commands.length} />
       {commands.map((command) => {
         const display = displayCommandName(command);
         return (
@@ -1799,10 +1974,13 @@ function CommandGroup({
   );
 }
 
-function GroupTitle({ label, count }: { label: string; count: number }) {
+function GroupTitle({ label, tooltip, count }: { label: string; tooltip?: string; count: number }) {
   return (
     <div className="flex items-center justify-between px-1 pt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-      <span>{label}</span>
+      <div className="flex items-center gap-1">
+        <span>{label}</span>
+        {tooltip && <InfoTooltip content={tooltip} />}
+      </div>
       <span>{count}</span>
     </div>
   );

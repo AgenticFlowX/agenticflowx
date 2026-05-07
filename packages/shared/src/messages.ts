@@ -308,6 +308,13 @@ export type ChatToAgent =
    */
   | { type: "chat/openFile"; path: string; line?: number }
   /**
+   * Open Pi's models.json in the editor, creating it with an empty skeleton if absent.
+   * The host resolves the path via PI_CODING_AGENT_DIR or ~/.pi/agent/models.json.
+   *
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | { type: "chat/openModelsJson"; requestId: string }
+  /**
    * User pressed abort.
    *
    * @see docs/specs/212-app-chat-messages/spec.md [FR-1]

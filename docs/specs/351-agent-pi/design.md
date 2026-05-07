@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T09:00:31.000Z"
+updated_at: "2026-05-07T08:58:58.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "skills"]
 spec: spec.md
 ---
@@ -119,17 +119,63 @@ Failures: if the subprocess exits before completing a turn, `rpc-manager` emits 
 `messageEnd` with `stopReason: "error"` plus `agent/status` -> `unhealthy`. Restart goes through
 `runtimeMonitor.restart` (see `350-agent-manager [DES-AGENT-PHASE-MACHINE]`).
 
+### [DES-PI-CUSTOM-PROVIDERS] Pi Custom Providers (RPC vs SDK)
+
+Pi RPC and Pi SDK resolve custom providers (DeepSeek, Together, Groq, Ollama, LM Studio, vLLM, proxies, …) through _different_ mechanisms. Both end up running Pi's model-resolution logic, but the configuration source diverges.
+
+#### Pi RPC
+
+The Pi binary reads `~/.pi/agent/models.json` natively via `getAgentDir()` (pi-mono `packages/coding-agent/src/config.ts` lines 402-417). Pi's documented auth resolution applies (env-var name, `!shell-cmd`, or literal in the file).
+
+**AFX's role**: deep-link only. AFX does not read or write this file. The Settings UI provides an "Open models.json" button (with create-if-missing) that opens it in VSCode for direct editing. See `214-app-chat-settings [DES-SETTINGS-CUSTOM-MODELS]`.
+
+#### Pi SDK
+
+The SDK process is a Node bootstrap subprocess (not the Pi binary). At spawn, AFX injects provider config via env vars in `buildBootstrapEnv` ([packages/agent/pi-sdk/src/sdk-rpc-manager.ts](packages/agent/pi-sdk/src/sdk-rpc-manager.ts) lines 676-712):
+
+| Env var                                                    | Purpose                                                           |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| `AFX_PROVIDER`                                             | Active provider id                                                |
+| `AFX_MODEL_ID`                                             | Active model id                                                   |
+| `AFX_API_KEY_<PROVIDER>` (and aliases)                     | Per-provider API key sourced from VSCode SecretStorage            |
+| `AFX_OLLAMA_BASE_URL`                                      | Ollama base URL (the only custom-provider shortcut shipped today) |
+| `PI_PACKAGE_DIR`, `AFX_SESSION_DIR`, `PI_CODING_AGENT_DIR` | Path injection                                                    |
+
+**Today's gap**: SDK users cannot configure DeepSeek or other custom OpenAI-compat endpoints — only Ollama is parameterisable. The interim path is to enable Pi RPC and use its track of the Settings → Models → Custom Models UI.
+
+**Phase-1 (follow-up PR, not this PR)**: extend `buildBootstrapEnv` to accept `secretEnv: Record<string, string>` and inject `AFX_API_KEY_<PROVIDER>` for each AFX-managed custom provider. AFX writes a **`models.json`-shaped config** (its own file under workspace `.afx/` or VSCode global state) where `apiKey` fields use env-var indirection (`"apiKey": "AFX_API_KEY_DEEPSEEK"`). Pi's documented env-var resolution then resolves the key at request time. Secrets stay in VSCode SecretStorage; the on-disk config carries only the env-var _name_.
+
+#### Why two tracks, not one shared list
+
+Conflating them would force AFX to either (a) duplicate Pi's secret resolution logic and race with Pi on writes to `models.json`, or (b) abandon SecretStorage for SDK custom providers (regression vs the chosen secret strategy). The Settings UI separates the two via a `Track: [ Pi SDK ] [ Pi RPC ]` selector under Custom Models.
+
+**v1 deliverables (this PR):**
+
+- AFX deep-link to `~/.pi/agent/models.json` for the Pi RPC track.
+- Placeholder for the Pi SDK track explaining the upcoming AFX-managed config + JSON ↔ Mapped UI editor.
+- Pi-side code unchanged.
+
+**Phase-1 (follow-up PR) deliverables:**
+
+- `secretEnv` extension to `buildBootstrapEnv` (concrete file paths added at that time).
+- AFX-managed config reader/writer/watcher (host-side, in `apps/vscode/src/`).
+- Mapped UI editor + raw JSON editor in the Pi SDK track of `apps/chat/src/views/settings.tsx`.
+
+@see `docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]`
+@see `docs/research/pi/res-pi-models-json-settings-ui.md`
+
 ---
 
 ## [DES-FILES] File Structure
 
-| File                                    | Purpose                                                                                                     |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `packages/agent/pi/src/rpc-client.ts`   | JSONL subprocess transport                                                                                  |
-| `packages/agent/pi/src/rpc-manager.ts`  | Pi `AgentManager` implementation                                                                            |
-| `packages/agent/pi-sdk/src/index.ts`    | SDK bundle/bootstrap surface                                                                                |
-| `apps/vscode/src/pi-sdk-bundle.test.ts` | Host bundle verification                                                                                    |
-| `apps/vscode/scripts/sync-skills.mjs`   | Skills sync utility (`pnpm sync:skills`) that fetches upstream AFX skills and refreshes the vendored bundle |
+| File                                                               | Purpose                                                                                                                        |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/agent/pi/src/rpc-client.ts`                              | JSONL subprocess transport                                                                                                     |
+| `packages/agent/pi/src/rpc-manager.ts`                             | Pi `AgentManager` implementation                                                                                               |
+| `packages/agent/pi-sdk/src/index.ts`                               | SDK bundle/bootstrap surface                                                                                                   |
+| `apps/vscode/src/pi-sdk-bundle.test.ts`                            | Host bundle verification                                                                                                       |
+| `apps/vscode/scripts/sync-skills.mjs`                              | Skills sync utility (`pnpm sync:skills`) that fetches upstream AFX skills and refreshes the vendored bundle                    |
+| `packages/agent/pi-sdk/src/sdk-rpc-manager.ts` `buildBootstrapEnv` | Bootstrap env injection for SDK; `secretEnv` extension for custom providers lands in phase-1 (see `[DES-PI-CUSTOM-PROVIDERS]`) |
 
 ---
 

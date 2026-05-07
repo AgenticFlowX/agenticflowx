@@ -14,6 +14,7 @@
  * @see docs/specs/201-app-vscode-panels/spec.md [FR-9] [FR-10] [FR-11]
  */
 import { existsSync } from "node:fs";
+import { homedir } from "node:os";
 import { delimiter, extname, isAbsolute, join } from "node:path";
 
 import * as vscode from "vscode";
@@ -253,6 +254,7 @@ export async function activate(
     extensionMode: context.extensionMode,
     extensionVersion: packageJSON.version ?? "?",
     bundledSkillsPath,
+    piAgentDir: process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent"),
     agentManager,
     runtimeMonitor,
     logger,

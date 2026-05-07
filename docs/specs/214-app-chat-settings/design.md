@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T15:23:18.000Z"
+updated_at: "2026-05-07T08:58:58.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode"]
 spec: spec.md
@@ -58,102 +58,165 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 
 ## [DES-SETTINGS-MOCKUPS] ASCII UI Mockups
 
-### [DES-SETTINGS-MOCKUP-MODE] Workspace Mode Card
+### [DES-SETTINGS-MOCKUP-HEADER] Sticky Header Strip + Tabs
 
 ```text
 +----------------------------------------------------------------+
-| Settings                                                       |
-| Runtime paths, providers, appearance                           |
-| [Mode] [Run] [ID] [Look] [Models] [Skills] [Logs] [About]      |
+|  Settings                                                      |
+|  Configure AFX in this workspace                               |
+|  ---------------------------------------------------------     |
+|  ● API SDK · ● Pi RPC          [↻ Active]   [⚙ File ctx ✓]    |
+|  Active: Pi RPC · claude-opus-4-5                              |
+|  ---------------------------------------------------------     |
+|  [Workspace] [Runtimes] [Models] [Look]          [Support]     |
++----------------------------------------------------------------+
+```
+
+### [DES-SETTINGS-MOCKUP-WORKSPACE] Workspace Group
+
+```text
++----------------------------------------------------------------+
+| Workspace                                                      |
+| How AFX behaves in this workspace, across all runtimes         |
 +----------------------------------------------------------------+
 | Mode                                                           |
-| (*) Code      Default. Full access. Pi can act and edit.      |
-| ( ) Explore   Experimental. Read-only. Inspect, trace, plan.  |
+| Permission gate applied before tool calls reach any runtime.   |
 |                                                                |
-| The model stays shared across both modes.                      |
+| (●) Code     [?]                                               |
+|     Full access. Runtimes can read, write, run shells, edit.   |
+|                                                                |
+| ( ) Explore  [?]                                               |
+|     Read-only. Tool calls that would modify files or run       |
+|     shell commands are blocked by AFX before they execute.    |
++----------------------------------------------------------------+
+| Default context                                                |
+|                                                                |
+| Active-file context                          ( ●———)   [?]     |
+| Include the file you're editing in the prompt context.        |
+| Default: on. Mirrored in the chat composer toolbar.            |
 +----------------------------------------------------------------+
 ```
 
-### [DES-SETTINGS-MOCKUP-RUNTIME] Runtime Setup And Controls
+### [DES-SETTINGS-MOCKUP-RUNTIMES] Runtimes Group (Per-instance cards + Behaviour)
 
 ```text
 +----------------------------------------------------------------+
-| Settings                                                       |
-| Runtime paths, providers, appearance                           |
-| [Run] [ID] [Look] [Models] [Skills] [Logs] [About]             |
+| Runtimes                                                       |
+| Coding-agent instances available in this workspace.            |
 +----------------------------------------------------------------+
-| Runtime Setup                                                  |
-| +--------------------------+ +-------------------------------+ |
-| | API Provider SDK Default | | Pi RPC On/Off                 | |
-| | Ready 2  Needs key 4     | | Enable Pi RPC [toggle]        | |
-| | [Manage keys] [Setting]  | | Missing/connected status      | |
-| +--------------------------+ +-------------------------------+ |
-| [Advanced paths and defaults v]                                |
+|                                                                |
+| ┌── API Providers (bundled SDK) ─────────── ●Active ───────┐  |
+| │ In-process. Calls cloud APIs using your saved keys.       │  |
+| │                                                           │  |
+| │ Status: 2 keys configured · 4 models available            │  |
+| │ Active model: claude-opus-4-5  [change in composer →]     │  |
+| │                                                           │  |
+| │ [↻ Restart] [View logs] [?]                               │  |
+| │ [Troubleshoot ▾]                                          │  |
+| │   [Reconnect] [↻ Restart] [View logs] [Reload]            │  |
+| └───────────────────────────────────────────────────────────┘  |
+|                                                                |
+| ┌── Pi RPC (subprocess) ──────────────── ○Off ──────────────┐  |
+| │ Enable Pi RPC                              ( ○———) [?]    │  |
+| │ Default: off. Turn on to add Pi RPC alongside the SDK.    │  |
+| └───────────────────────────────────────────────────────────┘  |
+|                                                                |
 +----------------------------------------------------------------+
-| Runtime                                                        |
-| Thinking level       [Medium v]                                |
-| Steering mode        [All v]                                   |
-| Follow-up mode       [One at a time v]                         |
-| Auto-compaction      [toggle]                                  |
-| Auto-retry           [toggle]                                  |
-+----------------------------------------------------------------+
-| Context                                                        |
-| Include active file context [toggle]                           |
-| Default on; mirrored in the composer toolbar                   |
+| Behaviour                                                      |
+| How the agent reasons, queues, and recovers.                   |
+|                                                                |
+| ⓘ Active: ● Pi RPC · claude-opus-4-5                          |
+|   These settings apply to the runtime that owns your model.    |
+|                                                                |
+| Thinking level                            (also in composer)   |
+| [ off                                                  ▾ ]    |
+|                                                                |
+| Steering mode                              (settings only)     |
+| [ one-at-a-time                                        ▾ ]    |
+|                                                                |
+| Follow-up mode                             (settings only)     |
+| [ one-at-a-time                                        ▾ ]    |
+|                                                                |
+| Auto-compaction                ( ●———)     (settings only)     |
+| Auto-retry                     ( ●———)     (settings only)     |
 +----------------------------------------------------------------+
 ```
 
-### [DES-SETTINGS-MOCKUP-PROVIDERS] API And External Provider Tabs
+### [DES-SETTINGS-MOCKUP-MODELS] Models Group (Built-in + Custom Models two-track)
 
 ```text
 +----------------------------------------------------------------+
-| Providers                                                      |
-| [API Providers] [External Agents]                              |
-| API Provider SDK hint                                          |
-| Providers 7 | Ready 2 | Models 14                              |
-| [Find provider or model...]                                    |
+| Models                                                         |
+| API providers and credentials. Used by the API SDK runtime.    |
++----------------------------------------------------------------+
+| [ Built-in ]  [ Custom Models · — ]                            |
++----------------------------------------------------------------+
+| Providers 7 · Ready 2 · Models 14                              |
+| [ 🔍 Find provider or model…                              ]    |
 | [All 7] [Ready 2] [Needs key 5]                                |
 |                                                                |
-| +---------------- ProviderCard: Anthropic -------------------+ |
-| | Claude models available        [2 models] [Collapse v]      | |
-| | ******** saved                         [Remove]             | |
-| | Default model [claude-opus-4-5 v]                           | |
-| | [Get a key]                                                 | |
-| +-------------------------------------------------------------+ |
+| +---------------------------+ +---------------------------+   |
+| | ● Anthropic       Active  | | ● OpenAI          Ready   |   |
+| | claude-opus-4-5           | | 3 models                ▸ |   |
+| | 4 models                ▸ | +---------------------------+   |
+| +---------------------------+                                   |
 +----------------------------------------------------------------+
-| External Agents tab                                            |
-| +---------------- ExternalAgentCard: Pi CLI -----------------+ |
-| | 3 models / Missing / Off                                    | |
-| | Enable Pi RPC [toggle]                                      | |
-| | Binary path [Auto-detect from PATH] [Detect] [folder]       | |
-| | Ephemeral sessions [toggle]                                 | |
-| +-------------------------------------------------------------+ |
+
+Custom Models sub-tab (two tracks):
++----------------------------------------------------------------+
+| Custom Models                                                  |
+| Track:  [ Pi SDK ◀ ]   [ Pi RPC ]                              |
++----------------------------------------------------------------+
+| Pi SDK track (v1 placeholder):                                 |
+| AFX-managed custom providers — coming in next PR.              |
+| Today: use Pi RPC track for DeepSeek / custom endpoints.       |
++----------------------------------------------------------------+
+| Pi RPC track:                                                  |
+| Pi-native models.json at ~/.pi/agent/models.json               |
+| [ Open models.json ]                              [?]          |
 +----------------------------------------------------------------+
 ```
 
-### [DES-SETTINGS-MOCKUP-RECOVERY] Readiness, Diagnostics, And Telemetry
+### [DES-SETTINGS-MOCKUP-LOOK] Look Group
 
 ```text
 +----------------------------------------------------------------+
-| No active runtime configured                                    |
-| API Provider SDK is enabled, but no provider key is configured. |
-| [API Providers] [External Agents]                               |
-| Pi RPC recovery controls when RPC is enabled                    |
-| [Reconnect] [Restart] [View logs] [Reload]                      |
+| Look                                                           |
+| Theme and visual treatment for the chat webview                |
 +----------------------------------------------------------------+
-| Diagnostics                                                     |
-| Log level info                         [open setting]           |
-| Runtime recovery controls                                      |
-| [View buffered stderr] [New session]                            |
-| Runtime stderr                                                 |
-| +------------------------------------------------------------+ |
-| | stderr lines...                                             | |
-| +------------------------------------------------------------+ |
+| Theme                                                [?]       |
+| Color palette for chat surfaces.                               |
+| Meridian  (only theme available)                               |
+|                                                                |
+| Style                                                [?]       |
+| Visual treatment: density, corners, shadows.                   |
+| Lyra  (only style available)                                   |
++----------------------------------------------------------------+
+```
+
+### [DES-SETTINGS-MOCKUP-SUPPORT] Support Group
+
+```text
++----------------------------------------------------------------+
+| Support                                                        |
+| Skills, diagnostics, privacy, version                          |
++----------------------------------------------------------------+
+| Skills & commands                                              |
+| AFX skills (12)               [Show ▾]               [?]       |
+| Pi skills (5)                 [Show ▾]               [?]       |
+| Extension commands (5)        [Show ▾]               [?]       |
++----------------------------------------------------------------+
+| Diagnostics                                                    |
+| Log level: info                            [open setting]      |
+| [ View buffered stderr ]   [ Copy stderr ]           [?]       |
++----------------------------------------------------------------+
+| Privacy                                                        |
+| Anonymous UI analytics                      ( ●———)  [?]       |
 +----------------------------------------------------------------+
 | About                                                          |
-| Anonymous UI analytics [toggle]                                |
-| Analytics status enabled              [open setting]           |
-| Version 0.x                                                   |
+| AFX VSCode extension v2.x                                      |
+| Bundled Pi npm v1.x                                            |
+| Report an issue → github.com/anthropics/afx-vscode/issues      |
 +----------------------------------------------------------------+
 ```
 
@@ -162,36 +225,43 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 ```text
 [ChatSettings.Root]
 +----------------------------------------------------------------+
-| [ChatSettings.Nav] sticky title + section shortcuts             |
+| [ChatSettings.Header] sticky title + per-instance status pills  |
+|                       + Active line + Restart-active + File-ctx |
++----------------------------------------------------------------+
+| [ChatSettings.Nav] [Workspace][Runtimes][Models][Look][Support] |
 +----------------------------------------------------------------+
 | [ChatSettings.Readiness] setup/recovery cards when unavailable  |
 +----------------------------------------------------------------+
-| [ChatSettings.Mode] workspace posture card                      |
+| [ChatSettings.Workspace]                                        |
+|   Mode (Code/Explore) + Active-file context default             |
 +----------------------------------------------------------------+
-| [ChatSettings.RuntimeSetup] API Provider SDK + Pi RPC choice    |
-| [ChatSettings.RuntimeControls] thinking, queue, compaction      |
+| [ChatSettings.Runtimes]                                         |
+|   [ChatSettings.Runtimes.Sdk]   API Providers (SDK) instance    |
+|   [ChatSettings.Runtimes.Rpc]   Pi RPC instance (toggle + body) |
+|   [ChatSettings.Runtimes.Behaviour] Thinking/Steering/etc.      |
+|     scoped to active instance per                               |
+|     350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]             |
 +----------------------------------------------------------------+
-| [ChatSettings.Context] active file context toggle               |
+| [ChatSettings.Models]                                           |
+|   [ChatSettings.Models.Builtin]  API providers tile grid        |
+|   [ChatSettings.Models.Custom]   sub-tabbed:                    |
+|     Track [Pi SDK] (v1 placeholder)                             |
+|     Track [Pi RPC] (Open models.json deep-link)                 |
 +----------------------------------------------------------------+
-| [ChatSettings.Appearance] identity/theme + style treatment      |
+| [ChatSettings.Look]   Theme + Style                             |
 +----------------------------------------------------------------+
-| [ChatSettings.Providers]                                       |
-|   [ChatSettings.Providers.Api] provider cards/search/filter     |
-|   [ChatSettings.Providers.External] Pi CLI/local agent cards    |
-+----------------------------------------------------------------+
-| [ChatSettings.ChatSkills] composer behavior + available skills  |
-| [ChatSettings.Diagnostics] stderr/log/debug actions             |
-| [ChatSettings.AboutTelemetry] about copy + telemetry toggle     |
+| [ChatSettings.Support]                                          |
+|   Skills/commands + Diagnostics + Privacy + About               |
 +----------------------------------------------------------------+
 ```
 
 ### [DES-SETTINGS-SURFACE-NAV] Sticky Navigation
 
-| Code anchor                         | UI/functionality                                                                                     |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `SETTINGS_SECTIONS`                 | Defines mode, runtime, identity, style, providers, skills, diagnostics, and about section ids/labels |
-| Sticky header JSX                   | Keeps the settings title and section shortcuts visible while scrolling                               |
-| `jumpToSection` / `jumpToProviders` | Updates active nav state and scrolls to `settings-<id>` cards                                        |
+| Code anchor         | UI/functionality                                                                                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------- |
+| `SETTINGS_SECTIONS` | Defines workspace, runtimes, models, look, support section ids/labels (5 groups)                     |
+| Sticky header JSX   | Keeps the settings title, per-instance pills, active line, restart-active, and file-ctx chip visible |
+| `jumpToSection`     | Updates active nav state and scrolls to `settings-<id>` cards                                        |
 
 ### [DES-SETTINGS-SURFACE-MODE] Workspace Posture
 
@@ -257,6 +327,44 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | `AgentRecoveryActions`      | Shared action contract for retry, restart, settings, logs, and reload                  |
 | `AgentRecoveryCard`         | Renders confirmed long-disconnect/error state and gates retry when restart is required |
 | `RuntimeRecoveryButtonGrid` | Settings-local compact recovery grid for diagnostics and setup cards                   |
+
+### [DES-SETTINGS-INSTANCE-CARDS] Per-Instance Runtime Cards
+
+The Runtimes group renders one card per registered `AgentInstance` from `MultiplexedAgentManager.instances` ([apps/vscode/src/multiplex-agent-manager.ts](apps/vscode/src/multiplex-agent-manager.ts)). v1 has up to two:
+
+| Card                | Renders when                                                                         | Body                                                                                                                  |
+| ------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| API Providers (SDK) | Always rendered. Status flips between `Ready` (key configured) and `No keys` (none). | Active model line, Restart, View logs, link to Models tab for credentials, Troubleshoot disclosure.                   |
+| Pi RPC              | Always rendered (toggle is discoverable). Body collapses when toggle is off.         | Enable toggle, status pill, Restart, Reconnect, View logs, Session controls, Advanced paths, Troubleshoot disclosure. |
+
+Below the cards, a single **Behaviour** card hosts the five Pi knobs (Thinking, Steering, Follow-up, Auto-compaction, Auto-retry). It carries a scope label `Active: ● <instance> · model <id>` that updates live when the user switches model in the composer. The label exists because behaviour mutations route to `requireActive()` only — see `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`.
+
+**Plural-readiness:** the card list iterates `instances[]`. A future third instance simply registers and gets a third card.
+
+@see `apps/vscode/src/multiplex-agent-manager.ts`
+@see `apps/vscode/src/agent-factory.ts` `createConfiguredAgentInstances`
+
+### [DES-SETTINGS-COPY] Copy Source-of-Truth
+
+All visible labels, descriptions, dropdown sub-labels, and tooltips live in `apps/chat/src/lib/settings-copy.ts` as named exports keyed by surface ID. The Settings view imports these and renders them without inlining strings.
+
+This satisfies NFR-3 (self-documentation) and gives copy editors a single file to change without diffing JSX. Verified Pi-runtime values (Thinking enum, default reserveTokens, retry-backoff numbers) are captured here with source citations to `pi-mono/packages/coding-agent/src/`.
+
+@see `apps/chat/src/lib/settings-copy.ts`
+
+### [DES-SETTINGS-CUSTOM-MODELS] Custom Models Sub-Tab (Two Tracks)
+
+Custom providers are runtime-specific: Pi RPC reads its own `models.json`; Pi SDK uses AFX-managed env-var injection. The sub-tab carries a `Track: [ Pi SDK ] [ Pi RPC ]` selector accordingly. See `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]` for the full architecture rationale.
+
+| Track      | v1 (this PR)                                                                                                            | Phase-1 (follow-up PR)                                                                                                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Pi SDK** | Read-only placeholder explaining the upcoming AFX-managed config. Default selected.                                     | Full editor: preset picker, structured forms, raw JSON editor. Secrets in VSCode SecretStorage via env-var indirection. |
+| **Pi RPC** | Working `[ Open models.json ]` deep-link. Create-if-missing seeds canonical empty shape. Honours `PI_CODING_AGENT_DIR`. | Optional parsed read-only view; AFX still doesn't write Pi's file.                                                      |
+
+Track selection persists per webview via localStorage.
+
+@see `docs/research/pi/res-pi-models-json-settings-ui.md`
+@see `351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]`
 
 ### [DES-SETTINGS-COMPONENT-FORM-ROWS] Narrow Form Rows
 
@@ -474,19 +582,19 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 
 ## [DES-SETTINGS-LOC] Code Locator Map
 
-| Map ID                              | Code anchor                                                            | Messages/settings/commands                                                   | Tests                                                 |
-| ----------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `[ChatSettings.Nav]`                | `apps/chat/src/views/settings.tsx` sticky header, `SETTINGS_SECTIONS`  | section ids: runtime, identity, style, providers, skills, diagnostics        | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard` | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`            | `external-agent-card.test.tsx`                        |
-| `[ChatSettings.Mode]`               | `SettingsCard`, `RadioGroup`, `applyMode`, `pendingModeMutations`      | `chat/setMode`, `agent/settingsSnapshot`, `chat/error`                       | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.RuntimeSetup]`       | `RuntimeChoiceBlock`, `RuntimePathBlock`, `ConfigField`                | `chat/openSettings`, `external/setRpcEnabled`, `external/setEphemeral`       | `settings-snapshot.test.ts`                           |
-| `[ChatSettings.RuntimeControls]`    | `SelectRow`, `SwitchRow`, runtime mutation handlers                    | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`      | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Appearance]`         | identity/style cards, `theme-preview.ts`                               | `appearance/update`, `afx.theme`, `afx.style`                                | `theme-preview.ts` helper tests when introduced       |
-| `[ChatSettings.Providers.Api]`      | `ProviderCard`, provider filter/search block, `settings-snapshot.ts`   | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`     | `provider-card.test.tsx`, `settings-snapshot.test.ts` |
-| `[ChatSettings.Providers.External]` | `ExternalAgentCard`, external agents tab                               | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral` | `external-agent-card.test.tsx`                        |
-| `[ChatSettings.ChatSkills]`         | Chat settings card, skills card, command grouping                      | `chat/getCommands`, `/new`, `/abort`, `onInsertCommand`                      | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Diagnostics]`        | diagnostics card, stderr viewer, runtime debug actions                 | `chat/getStderr`, `agent/reload`, `agent/restart`                            | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.AboutTelemetry]`     | about card and telemetry switch                                        | `telemetry/setEnabled`, `afx.telemetry.enabled`                              | telemetry tests when changed                          |
+| Map ID                              | Code anchor                                                            | Messages/settings/commands                                                                                             | Tests                                                 |
+| ----------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `[ChatSettings.Header]`             | `apps/chat/src/views/settings.tsx` sticky header                       | `agent/settingsSnapshot`, `chat/setIncludeActiveFileContext`, `agent/restart`                                          | `apps/chat/src/app.test.tsx`                          |
+| `[ChatSettings.Nav]`                | `SETTINGS_SECTIONS`, sticky tab row                                    | section ids: workspace, runtimes, models, look, support                                                                | `apps/chat/src/app.test.tsx`                          |
+| `[ChatSettings.Workspace]`          | `SettingsCard` (Mode), `SwitchRow` (Active-file context)               | `chat/setMode`, `chat/setIncludeActiveFileContext`                                                                     | `apps/chat/src/app.test.tsx`                          |
+| `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard` | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`                                                      | `external-agent-card.test.tsx`                        |
+| `[ChatSettings.Runtimes.Sdk]`       | SDK instance card                                                      | `chat/setModel`, `chat/getStderr {instanceId:"pi-sdk"}`                                                                | future SDK card test                                  |
+| `[ChatSettings.Runtimes.Rpc]`       | `ExternalAgentCard`                                                    | `external/setRpcEnabled`, `external/detectPiBinary`, `external/setEphemeral`                                           | `external-agent-card.test.tsx`                        |
+| `[ChatSettings.Runtimes.Behaviour]` | Behaviour card (`SelectRow`, `SwitchRow`)                              | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | `apps/chat/src/app.test.tsx`                          |
+| `[ChatSettings.Models.Builtin]`     | `ProviderCard` tile grid                                               | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | `provider-card.test.tsx`, `settings-snapshot.test.ts` |
+| `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                 | (v1) `chat/openSettings` for `~/.pi/agent/models.json`                                                                 | future custom-models tests                            |
+| `[ChatSettings.Look]`               | identity/style cards, `theme-preview.ts`                               | `appearance/update`, `afx.theme`, `afx.style`                                                                          | `theme-preview.ts` helper tests                       |
+| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                | `chat/getCommands`, `chat/getStderr`, `telemetry/setEnabled`                                                           | `apps/chat/src/app.test.tsx`                          |
 
 ## [DES-SETTINGS-TRACE] Functional Trace Matrix
 

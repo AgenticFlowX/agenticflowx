@@ -13,7 +13,8 @@
  * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-13]
  */
-import { readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import * as path from "node:path";
 
 import { spawn } from "child_process";
@@ -65,6 +66,8 @@ export interface SidebarPanelDeps {
   extensionVersion?: string;
   bundledPiNpmVersion?: string;
   bundledSkillsPath?: string;
+  /** Resolved Pi agent directory (honours PI_CODING_AGENT_DIR). Defaults to ~/.pi/agent. */
+  piAgentDir?: string;
   agentManager: AgentManager;
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
@@ -142,6 +145,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     bundledPiNpmVersion = readBundledPiNpmVersion(extensionUri),
     bundledSkillsPath = vscode.Uri.joinPath(extensionUri, "resources", "skills", "agenticflowx")
       .fsPath,
+    piAgentDir = path.join(homedir(), ".pi", "agent"),
     agentManager,
     runtimeMonitor: providedRuntimeMonitor,
     logger: parentLogger,
@@ -1339,6 +1343,20 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
             ? { selection: new vscode.Range(lineIndex, 0, lineIndex, 0), preview: false }
             : undefined;
         void vscode.window.showTextDocument(uri, options);
+        return;
+      }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+      case "chat/openModelsJson": {
+        const modelsJsonPath = path.join(piAgentDir, "models.json");
+        if (!existsSync(modelsJsonPath)) {
+          mkdirSync(piAgentDir, { recursive: true });
+          writeFileSync(
+            modelsJsonPath,
+            JSON.stringify({ providers: [], modelOverrides: {} }, null, 2) + "\n",
+            "utf-8",
+          );
+        }
+        void vscode.window.showTextDocument(vscode.Uri.file(modelsJsonPath));
         return;
       }
       // @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]

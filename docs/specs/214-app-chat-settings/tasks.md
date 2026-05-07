@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-05T12:03:56.000Z"
+updated_at: "2026-05-07T08:58:58.000Z"
 tags: ["app", "chat", "settings", "providers"]
 spec: spec.md
 design: design.md
@@ -92,10 +92,11 @@ Verify settings behavior
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date                     | Task | Action      | Files Modified                                                                                                                                    | Agent | Human |
-| ------------------------ | ---- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-05-02               | 1.1  | Scaffolded  | docs/specs/214-app-chat-settings/                                                                                                                 | [x]   | []    |
-| 2026-05-03               | 1.2  | Coded       | design.md, apps/chat/src/views/settings.tsx                                                                                                       | [x]   | []    |
-| 2026-05-05               | 2.2  | In progress | spec.md, design.md                                                                                                                                | [x]   | []    |
-| 2026-05-05T11:53:21.000Z | 2.2  | Coded       | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx | [x]   | []    |
-| 2026-05-05T12:03:56.000Z | 2.2  | Completed   | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx | [x]   | []    |
+| Date                     | Task | Action      | Files Modified                                                                                                                                                                                                                                                                                                                         | Agent | Human |
+| ------------------------ | ---- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1  | Scaffolded  | docs/specs/214-app-chat-settings/                                                                                                                                                                                                                                                                                                      | [x]   | []    |
+| 2026-05-03               | 1.2  | Coded       | design.md, apps/chat/src/views/settings.tsx                                                                                                                                                                                                                                                                                            | [x]   | []    |
+| 2026-05-05               | 2.2  | In progress | spec.md, design.md                                                                                                                                                                                                                                                                                                                     | [x]   | []    |
+| 2026-05-05T11:53:21.000Z | 2.2  | Coded       | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx                                                                                                                                                                                      | [x]   | []    |
+| 2026-05-05T12:03:56.000Z | 2.2  | Completed   | apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx                                                                                                                                                                                      | [x]   | []    |
+| 2026-05-07T08:58:58.000Z | UX   | In progress | docs/specs/350-agent-manager/design.md, docs/specs/351-agent-pi/design.md, docs/specs/214-app-chat-settings/{spec,design,tasks}.md, apps/chat/src/lib/settings-copy.ts, apps/chat/src/views/settings.tsx, apps/chat/src/components/{provider-card,external-agent-card,agent-recovery-card}.tsx, apps/chat/src/lib/settings-snapshot.ts | [x]   | []    |

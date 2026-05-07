@@ -44,19 +44,19 @@ test("can switch to Settings tab", async ({ page }) => {
   );
 });
 
-test("Settings exposes runtime choice and direct key/RPC actions", async ({ page }) => {
+test("Settings exposes runtime instance cards and RPC toggle", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Settings" }).click();
 
-  await expect(page.getByText("Runtime Setup")).toBeVisible();
-  await expect(page.getByRole("button", { name: /paste api key|manage keys/i })).toBeVisible();
-  await expect(page.getByRole("switch", { name: "Enable Pi RPC" })).toBeVisible();
-  await expect(page.getByText("Advanced paths and defaults")).toBeVisible();
-  await expect(page.getByText("SDK runtime", { exact: true })).toBeHidden();
+  // Navigate to the Runtimes group
+  await page.getByRole("button", { name: "Runtimes", exact: true }).click();
 
-  await page.getByText("Advanced paths and defaults").click();
-  await expect(page.getByText("SDK runtime", { exact: true })).toBeVisible();
-  await expect(page.getByText("Bundled skills", { exact: true })).toBeVisible();
+  // SDK instance card is always rendered
+  await expect(page.getByText("API Providers (bundled SDK)").first()).toBeVisible();
+  // RPC card is always rendered with a toggle to enable it
+  await expect(page.getByRole("switch", { name: "Enable Pi RPC" })).toBeVisible();
+  // Behaviour card is always visible below the instance cards
+  await expect(page.getByText("Thinking level")).toBeVisible();
 });
 
 test("active tab has visible ::after strip indicator", async ({ page }) => {

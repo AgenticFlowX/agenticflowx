@@ -22,8 +22,8 @@ describe("ProviderCard", () => {
       />,
     );
 
-    expect(screen.getByLabelText(/paste api key/i)).toHaveAttribute("data-clarity-mask", "true");
-    fireEvent.change(screen.getByLabelText(/paste api key/i), { target: { value: "secret-key" } });
+    expect(screen.getByLabelText(/api key/i)).toHaveAttribute("data-clarity-mask", "true");
+    fireEvent.change(screen.getByLabelText(/api key/i), { target: { value: "secret-key" } });
     fireEvent.click(screen.getByRole("button", { name: /save key/i }));
 
     expect(onSaveKey).toHaveBeenCalledWith("secret-key");

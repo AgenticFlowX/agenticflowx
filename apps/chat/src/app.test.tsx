@@ -255,9 +255,9 @@ describe("chat App", () => {
 
       await user.click(screen.getByRole("tab", { name: "Settings" }));
       expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Runtime" })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "API Providers" })).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: "External Agents" })).toBeInTheDocument();
+      // 5-group nav: Workspace, Runtimes, Models, Look, Support
+      expect(screen.getByRole("button", { name: "Runtimes" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Models" })).toBeInTheDocument();
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
@@ -840,7 +840,8 @@ describe("chat App", () => {
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     expect(screen.getByText("Connecting to agent…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View buffered stderr" })).toBeEnabled();
-    expect(screen.getByText("Runtime recovery controls")).toBeInTheDocument();
+    // Troubleshoot disclosure is always rendered inside each instance card.
+    expect(screen.getAllByText("Troubleshoot ▾").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: "History" }));
     // The History view always renders an "History" heading; the subtitle
@@ -974,22 +975,27 @@ describe("chat App", () => {
     });
 
     await user.click(screen.getByRole("tab", { name: "Settings" }));
-    expect(screen.getByText("Runtime recovery controls")).toBeInTheDocument();
+    // Troubleshoot disclosure is always rendered inside the SDK instance card.
+    expect(screen.getAllByText("Troubleshoot ▾").length).toBeGreaterThan(0);
 
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
 
-    await user.click(screen.getByRole("button", { name: "Reconnect" }));
+    // Open the SDK instance card Troubleshoot disclosure to reveal the buttons.
+    const troubleshootButtons = screen.getAllByText("Troubleshoot ▾");
+    await user.click(troubleshootButtons[0]);
+
+    await user.click(screen.getAllByRole("button", { name: "Reconnect" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/checkStatus" }));
 
-    await user.click(screen.getByRole("button", { name: "Restart" }));
+    await user.click(screen.getAllByRole("button", { name: "Restart" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/restart" }));
 
-    await user.click(screen.getByRole("button", { name: "View logs" }));
+    await user.click(screen.getAllByRole("button", { name: "View logs" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "chat/getStderr" }));
     expect(screen.getByText("Runtime stderr")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Reload" }));
+    await user.click(screen.getAllByRole("button", { name: "Reload" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/reload" }));
   });
 
@@ -1140,11 +1146,16 @@ describe("chat App", () => {
 
     await user.click(screen.getByRole("tab", { name: "Settings" }));
 
-    expect(screen.getByText("Runtime Setup")).toBeInTheDocument();
-    expect(screen.getByText(/Default\. Full access\. Pi can act and edit\./)).toBeInTheDocument();
+    // Workspace group: 5-group nav with Workspace, Runtimes, Models, Look, Support
+    expect(screen.getByRole("button", { name: "Workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Runtimes" })).toBeInTheDocument();
+    // Mode card: Code / Explore with new copy from settings-copy.ts
+    expect(
+      screen.getByText(/Full access\. Runtimes can read, write, run shells, and edit\./),
+    ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /Read-only investigation mode for inspection, tracing, and planning\. The host blocks shell commands/i,
+        /Read-only\. Tool calls that would modify files or run shell commands are blocked/i,
       ),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Experimental").length).toBeGreaterThan(0);
@@ -1157,10 +1168,9 @@ describe("chat App", () => {
         mode: "explore",
       }),
     );
-    expect(screen.getByRole("button", { name: /paste api key/i })).toBeInTheDocument();
-    expect(screen.getByText("Advanced paths and defaults")).toBeInTheDocument();
+    // Active-file context switch is in the Workspace group
     const includeActiveFileContext = screen.getByRole("switch", {
-      name: "Include active file context",
+      name: "Active-file context",
     });
     expect(includeActiveFileContext).toBeChecked();
     send.mockClear();
@@ -1171,6 +1181,10 @@ describe("chat App", () => {
         enabled: false,
       }),
     );
+    // Runtimes group: SDK and RPC instance cards
+    await user.click(screen.getByRole("button", { name: "Runtimes" }));
+    expect(screen.getAllByText("API Providers (bundled SDK)").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Pi RPC (subprocess)").length).toBeGreaterThan(0);
     const piRpcSwitch = screen.getByRole("switch", { name: "Enable Pi RPC" });
     expect(piRpcSwitch).not.toBeChecked();
     fireEvent.click(piRpcSwitch);
@@ -1180,16 +1194,8 @@ describe("chat App", () => {
         enabled: true,
       }),
     );
-    expect(screen.getAllByText("API Provider SDK").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Uses the bundled Pi SDK bootstrap/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Launches a local Pi CLI subprocess in --mode rpc/),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/Both runtime paths receive the bundled AFX skill pack/),
-    ).toBeInTheDocument();
-    expect(screen.getByText("SDK runtime")).toBeInTheDocument();
-    expect(screen.getByText("Default model")).toBeInTheDocument();
+    // Support group: About + telemetry toggle
+    await user.click(screen.getByRole("button", { name: "Support" }));
     expect(screen.getByText("Bundled Pi npm")).toBeInTheDocument();
     expect(screen.getByText("@mariozechner/pi-coding-agent@0.70.2")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Anonymous UI analytics" })).toBeChecked();
@@ -1201,9 +1207,6 @@ describe("chat App", () => {
         enabled: false,
       }),
     );
-
-    await user.click(screen.getByRole("tab", { name: "External Agents" }));
-    expect(screen.getByText(/Starts Pi with --mode rpc/)).toBeInTheDocument();
   });
 
   it("keeps the composer footer visible when usage stats appear", () => {
