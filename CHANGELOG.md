@@ -2,6 +2,29 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.8] - 2026-05-08
+
+### Added
+
+- **Spec mode** — third workspace posture for Spec-Driven Development. The agent refines specs, designs, tasks, journals, ADRs, and research notes while leaving source code untouched. Includes a doc-aware composer strip with action buttons that auto-send (e.g. "Save spec", "Open design") and a guided onboarding card with `Create first spec`, `Explore an idea`, `Start lean`, and `Resume workflow` starters.
+- **Per-runtime instance cards in Settings** — API Providers (bundled SDK) and Pi RPC each render their own card with status pill, restart, view-logs, and lifecycle controls. Reflects the multi-instance reality of `MultiplexedAgentManager` instead of presenting SDK and RPC as a mutually exclusive choice.
+- **Models tab sub-tabs** — `Built-in` (provider tile grid) and `Custom Models` (placeholder for the upcoming Pi SDK / Pi RPC two-track editor; the Pi RPC track ships a working `Open models.json` deep-link with create-if-missing).
+
+### Changed
+
+- **Settings UX consolidated to 5 groups** — Workspace, Runtimes, Models, Look, Support (down from 11 sections). Sticky header strip surfaces per-instance status pills, restart-active, and a file-context chip. Every control gets an inline description plus a shadcn-backed `[?]` tooltip so settings is self-documenting until external docs ship.
+- **Composer always renders the active style** — the chat composer keeps its ring/border on idle, empty, and unfocused states. Disabled state gets a clearly muted treatment so users can tell the box is dormant rather than just bored.
+- **Onboarding refresh** — Code, Explore, and Spec modes each show their own welcome card and starter prompts; the legacy "Ready when you are" copy was retired.
+- **Light/dark theme visibility** — Switch thumbs and tracks now read against both VS Code light and dark themes; dropdown borders strengthened so popovers don't blend into the surface.
+
+### Fixed
+
+- **Amazon Bedrock crashed the runtime on first request** — pi-ai's Bedrock provider is intentionally lazy-loaded, but the resolver `import("./amazon-bedrock.js")` had no file to find inside the extension bundle. Bedrock is now pre-bundled as a sibling file (3.3 MB) and only loaded into memory when a user picks a Bedrock model.
+- Settings "Open models.json" opened the VS Code Settings UI instead of the file. It now opens (and creates with the canonical empty shape if missing) `~/.pi/agent/models.json`, honouring `PI_CODING_AGENT_DIR`.
+- "Report an issue" links pointed at the wrong repo; corrected to `github.com/AgenticFlowX/agenticflowx/issues`.
+- Removed the non-functional "+ New session" button from the Pi RPC card. `/new` in the Support tab continues to work.
+- `knip` cleanup — removed unused exports flagged by the unused-symbol auditor.
+
 ## [2.0.7] - 2026-05-06
 
 ### Added
