@@ -351,6 +351,16 @@ export default function Chat({
     specModeTooltipSeen: false,
     docActionsTooltipSeen: false,
   });
+  /**
+   * Provider id → user-set display name from AFX-managed custom providers. Used
+   * by the model-combobox to label dropdown groups with the user's preferred name
+   * (e.g. "Kimi SDK") instead of the title-cased provider id ("MOONSHOT").
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   */
+  const [customProviderLabels, setCustomProviderLabels] = useState<
+    Readonly<Record<string, string>>
+  >({});
   const [dismissedDocActionsStrip, setDismissedDocActionsStrip] = useState(false);
   /**
    * Tracks the latest mode the user asked for so late host snapshots cannot
@@ -782,6 +792,15 @@ export default function Chat({
         if (msg.snapshot.onboarding) {
           setOnboardingFlags(msg.snapshot.onboarding);
         }
+        // Build provider id → displayName map from AFX-managed custom providers
+        // so the model picker can label groups with the user's chosen name.
+        // @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+        const piSdkProviders = msg.snapshot.customModels?.piSdk.providers ?? [];
+        const labels: Record<string, string> = {};
+        for (const summary of piSdkProviders) {
+          if (summary.displayName) labels[summary.id] = summary.displayName;
+        }
+        setCustomProviderLabels(labels);
         setHasReceivedSettingsSnapshot(true);
       }),
 
@@ -1603,6 +1622,7 @@ export default function Chat({
                     onSelect={selectModel}
                     onSelectThinkingLevel={setThinkingLevel}
                     onOpenSettings={onOpenSettings}
+                    customProviderLabels={customProviderLabels}
                   />
                   <span
                     aria-hidden="true"

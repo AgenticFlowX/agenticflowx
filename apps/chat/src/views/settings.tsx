@@ -5,7 +5,7 @@
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AlertTriangle,
@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   type LucideIcon,
   PlugZap,
+  Plus,
   RefreshCw,
   RotateCcw,
   Server,
@@ -41,6 +42,7 @@ import type {
   ThinkingLevel,
   WorkspaceMode,
 } from "@afx/shared";
+import type { CustomProviderPreset, CustomProviderSummary } from "@afx/shared";
 import { createCheckingAgentRuntimeStatus } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
@@ -60,6 +62,12 @@ import {
 import { cn } from "@afx/ui/lib/utils";
 
 import { type AgentRecoveryActions, AgentRecoveryCard } from "../components/agent-recovery-card";
+import { CustomModelCard } from "../components/custom-model-card";
+import {
+  CustomProviderForm,
+  type CustomProviderFormSubmit,
+} from "../components/custom-provider-form";
+import { PresetPicker } from "../components/preset-picker";
 import { ProviderCard } from "../components/provider-card";
 import { displayCommandName } from "../components/slash-popup";
 import { toast } from "../components/toast";
@@ -159,6 +167,15 @@ export default function Settings({
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [providerSearch, setProviderSearch] = useState("");
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+  type CustomSdkMode =
+    | { kind: "list" }
+    | { kind: "preset" }
+    | { kind: "edit"; providerId: string }
+    | { kind: "create"; preset: CustomProviderPreset };
+  const [customSdkMode, setCustomSdkMode] = useState<CustomSdkMode>({ kind: "list" });
+  const [customSdkBusy, setCustomSdkBusy] = useState(false);
+  const [customSdkError, setCustomSdkError] = useState<string | null>(null);
 
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
   const pendingModeMutations = useRef<Map<string, string>>(new Map());
@@ -459,6 +476,172 @@ export default function Settings({
       modelId,
     });
     return Promise.resolve();
+  }
+
+  // ─── Custom Models · Pi SDK track ─────────────────────────────────────────
+  // @see docs/specs/214-app-chat-settings/spec.md [FR-9] [FR-10]
+  // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+
+  function submitCustomProviderUpsert(submission: CustomProviderFormSubmit): Promise<void> {
+    setCustomSdkBusy(true);
+    setCustomSdkError(null);
+    return new Promise<void>((resolve) => {
+      const requestId = trackProviderMutation(`Custom provider ${submission.id} saved`);
+      const off = bridgeOn("customModels/result", (msg) => {
+        if (msg.requestId !== requestId) return;
+        off();
+        setCustomSdkBusy(false);
+        if (msg.ok) {
+          setCustomSdkMode({ kind: "list" });
+          resolve();
+        } else {
+          setCustomSdkError(msg.error ?? "Failed to save custom provider");
+          resolve();
+        }
+      });
+      bridgeSend({
+        type: "customModels/upsertProvider",
+        requestId,
+        provider: {
+          id: submission.id,
+          ...(submission.displayName ? { displayName: submission.displayName } : {}),
+          baseUrl: submission.baseUrl,
+          api: submission.api,
+          apiKeyRef: submission.apiKeyRef,
+          ...(submission.apiKeyValue ? { apiKeyValue: submission.apiKeyValue } : {}),
+          ...(submission.authHeader !== undefined ? { authHeader: submission.authHeader } : {}),
+          models: submission.models,
+          ...(submission.compat && Object.keys(submission.compat).length > 0
+            ? { compat: submission.compat }
+            : {}),
+        },
+      });
+    });
+  }
+
+  /**
+   * Tracks which provider id is awaiting an inline "Are you sure?" confirmation.
+   * `window.confirm` is unreliable in VSCode webviews (some contexts return
+   * undefined, blocking the delete entirely), so the card surfaces a two-step
+   * inline confirm instead — first click arms the action, second click executes.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   */
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const removeConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const removeCustomProvider = useCallback(
+    (providerId: string): void => {
+      if (removeConfirmTimerRef.current) {
+        clearTimeout(removeConfirmTimerRef.current);
+        removeConfirmTimerRef.current = null;
+      }
+      if (pendingRemoveId === providerId) {
+        // Second click within the arm window — actually delete.
+        setPendingRemoveId(null);
+        setCustomSdkError(null);
+        const requestId = trackProviderMutation(`Custom provider ${providerId} removed`);
+        const off = bridgeOn("customModels/result", (msg) => {
+          if (msg.requestId !== requestId) return;
+          off();
+          if (!msg.ok) setCustomSdkError(msg.error ?? "Failed to remove custom provider");
+        });
+        bridgeSend({ type: "customModels/removeProvider", requestId, providerId });
+        return;
+      }
+      // First click — arm the confirm; auto-disarm after 4s so users can't accidentally
+      // delete by double-tapping much later.
+      setPendingRemoveId(providerId);
+      removeConfirmTimerRef.current = setTimeout(() => setPendingRemoveId(null), 4_000);
+    },
+    [pendingRemoveId],
+  );
+
+  function renderCustomSdkList(): JSX.Element {
+    const providers: readonly CustomProviderSummary[] =
+      snapshot?.customModels?.piSdk.providers ?? [];
+    return (
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            onClick={() => setCustomSdkMode({ kind: "preset" })}
+            disabled={customSdkBusy}
+          >
+            <Plus size={11} />
+            {MODELS.customSdkAddLabel}
+          </Button>
+        </div>
+        {providers.length === 0 ? (
+          <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
+            {MODELS.customSdkEmpty}
+          </p>
+        ) : (
+          <div className="grid gap-2 @[380px]:grid-cols-2">
+            {providers.map((summary) => (
+              <CustomModelCard
+                key={summary.id}
+                summary={summary}
+                onEdit={() => setCustomSdkMode({ kind: "edit", providerId: summary.id })}
+                onRemove={() => removeCustomProvider(summary.id)}
+                removeArmed={pendingRemoveId === summary.id}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  function renderCustomSdkEdit(providerId: string): JSX.Element {
+    const summary = snapshot?.customModels?.piSdk.providers.find((p) => p.id === providerId);
+    if (!summary) {
+      return (
+        <p className="rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
+          Provider not found. It may have been removed.
+        </p>
+      );
+    }
+    return (
+      <CustomProviderForm
+        initial={{
+          id: summary.id,
+          ...(summary.displayName ? { displayName: summary.displayName } : {}),
+          baseUrl: summary.baseUrl,
+          api: summary.api,
+          apiKeySource: summary.apiKeySource,
+          ...(summary.apiKeyLabel ? { apiKeyLabel: summary.apiKeyLabel } : {}),
+          ...(summary.authHeader !== undefined ? { authHeader: summary.authHeader } : {}),
+          ...(summary.compatFlags ? { compatFlags: summary.compatFlags } : {}),
+          // Models[] is hydrated from the redacted summary — id/name/contextWindow
+          // only. Cost/headers/per-model compat are not echoed via the snapshot
+          // (per NFR-1). The user can re-enter them on edit if they need to.
+          // @see docs/specs/214-app-chat-settings/spec.md [NFR-1]
+          models: summary.models.map((m) => {
+            const entry: {
+              id: string;
+              name: string;
+              api?: typeof m.api;
+              contextWindow?: number;
+              maxTokens?: number;
+              capabilities?: typeof m.capabilities;
+            } = {
+              id: m.id,
+              name: m.name,
+            };
+            if (m.api) entry.api = m.api;
+            if (m.contextWindow !== undefined) entry.contextWindow = m.contextWindow;
+            if (m.maxTokens !== undefined) entry.maxTokens = m.maxTokens;
+            if (m.capabilities) entry.capabilities = { ...m.capabilities };
+            return entry;
+          }),
+        }}
+        onSubmit={(submission) => submitCustomProviderUpsert(submission)}
+        onCancel={() => setCustomSdkMode({ kind: "list" })}
+      />
+    );
   }
   function detectPiBinary(): void {
     bridgeSend({
@@ -1053,13 +1236,13 @@ export default function Settings({
               value={modelsSubTab}
               onValueChange={(v) => setModelsSubTab(v as "builtin" | "custom")}
             >
-              <TabsList className="w-full min-w-0">
-                <TabsTrigger value="builtin" className="min-w-0 flex-1 px-1.5 text-[11px]">
-                  <KeyRound size={11} className="shrink-0" />
+              <TabsList className="w-full">
+                <TabsTrigger value="builtin">
+                  <KeyRound />
                   <span className="truncate">{MODELS.builtinTabLabel}</span>
                 </TabsTrigger>
-                <TabsTrigger value="custom" className="min-w-0 flex-1 px-1.5 text-[11px]">
-                  <Server size={11} className="shrink-0" />
+                <TabsTrigger value="custom">
+                  <Server />
                   <span className="truncate">{MODELS.customTabLabel}</span>
                 </TabsTrigger>
               </TabsList>
@@ -1171,16 +1354,40 @@ export default function Settings({
                 </div>
 
                 {customModelsTrack === "sdk" && (
-                  <div className="rounded-md border bg-muted/20 px-2.5 py-2.5">
-                    <p className="text-[11px] font-semibold text-foreground">
-                      {MODELS.customSdkTitle}
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                      {MODELS.customSdkPlaceholder}
-                    </p>
-                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
-                      {MODELS.customSdkInterim}
-                    </p>
+                  <div className="flex flex-col gap-2">
+                    <div className="rounded-md border bg-muted/20 px-2.5 py-2">
+                      <p className="text-[11px] font-semibold text-foreground">
+                        {MODELS.customSdkTitle}
+                      </p>
+                      <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                        {MODELS.customSdkDescription}
+                      </p>
+                    </div>
+
+                    {customSdkMode.kind === "list" && renderCustomSdkList()}
+                    {customSdkMode.kind === "preset" && (
+                      <PresetPicker
+                        onSelect={(preset) => setCustomSdkMode({ kind: "create", preset })}
+                        onCancel={() => setCustomSdkMode({ kind: "list" })}
+                      />
+                    )}
+                    {customSdkMode.kind === "create" && (
+                      <CustomProviderForm
+                        preset={customSdkMode.preset}
+                        onSubmit={(submission) => submitCustomProviderUpsert(submission)}
+                        onCancel={() => setCustomSdkMode({ kind: "list" })}
+                      />
+                    )}
+                    {customSdkMode.kind === "edit" && renderCustomSdkEdit(customSdkMode.providerId)}
+
+                    {customSdkError ? (
+                      <p
+                        role="alert"
+                        className="rounded-sm border border-destructive/40 bg-destructive/5 px-2 py-1 text-[10px] text-destructive"
+                      >
+                        {customSdkError}
+                      </p>
+                    ) : null}
                   </div>
                 )}
 

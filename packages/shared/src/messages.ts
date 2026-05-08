@@ -15,6 +15,13 @@ import type {
   QueueMode,
   ThinkingLevel,
 } from "./agent";
+import type {
+  CustomProviderApiKeySource,
+  CustomProviderApiKind,
+  CustomProviderModel,
+  CustomProviderSummary,
+  HarnessId,
+} from "./custom-providers";
 import type { WorkspaceMode } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -253,8 +260,30 @@ export interface ActiveFileContextSnapshot {
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6]
- * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-CONTEXT]
+ * Custom-provider snapshot fragment — drives the Custom Models sub-tab.
+ * Only carries `CustomProviderSummary` (redacted); never apiKey, models[],
+ * headers, or compat. See `assertNoSecretLeak` in `@afx/shared/custom-providers`.
+ *
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10] [NFR-1]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+ */
+export interface SettingsCustomModelsSnapshot {
+  /** Active harness id — drives which adapter the host uses for translation. */
+  activeHarness: HarnessId;
+  /** Pi SDK track — AFX-managed providers from VSCode SecretStorage. */
+  piSdk: { providers: CustomProviderSummary[] };
+  /** Pi RPC track — read-only display of `~/.pi/agent/models.json`. Optional when not surfaced. */
+  piRpc?: {
+    path: string;
+    status: "ready" | "parse-error" | "missing";
+    error?: string;
+    providers: CustomProviderSummary[];
+  };
+}
+
+/**
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6] [FR-8]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-CONTEXT] [DES-SETTINGS-CUSTOM-MODELS]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 export interface SettingsSnapshot {
@@ -278,6 +307,12 @@ export interface SettingsSnapshot {
   onboarding?: OnboardingFlagsSnapshot;
   providers: SettingsProviderSnapshot[];
   externalAgents?: SettingsExternalAgentSnapshot[];
+  /**
+   * Custom Models snapshot. Optional — older transports / fixtures may omit this.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-8]
+   */
+  customModels?: SettingsCustomModelsSnapshot;
   diagnostics: { logLevel: string };
   telemetry: {
     enabled: boolean;
@@ -612,7 +647,65 @@ export type ChatToAgent =
    * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
    * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW]
    */
-  | { type: "chat/saveNote"; content: string };
+  | { type: "chat/saveNote"; content: string }
+  /**
+   * Webview asks the host to re-read both Custom Models tracks (SecretStorage + ~/.pi/agent/models.json).
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-8]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | { type: "customModels/refresh"; requestId: string }
+  /**
+   * Add or update an AFX-managed custom provider in VSCode SecretStorage. Pi SDK track only.
+   * The `apiKeyValue` is the literal secret if `apiKeyRef.source === "vscode-secret"`; never echoed back.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9] [FR-10]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | {
+      type: "customModels/upsertProvider";
+      requestId: string;
+      provider: {
+        id: string;
+        displayName?: string;
+        baseUrl: string;
+        api: CustomProviderApiKind;
+        apiKeyRef: { source: CustomProviderApiKeySource; label?: string };
+        apiKeyValue?: string;
+        /** Whether the resolved key should be sent as Authorization: Bearer at runtime. */
+        authHeader?: boolean;
+        models: CustomProviderModel[];
+        headers?: Record<string, string>;
+        compat?: Record<string, unknown>;
+      };
+    }
+  /**
+   * Remove an AFX-managed custom provider from VSCode SecretStorage. Pi SDK track only.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | { type: "customModels/removeProvider"; requestId: string; providerId: string }
+  /**
+   * Add or update a single model on an existing AFX-managed provider. Convenience message
+   * used by the Add Model form to avoid round-tripping the entire provider record.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | {
+      type: "customModels/upsertModel";
+      requestId: string;
+      providerId: string;
+      model: CustomProviderModel;
+    }
+  /**
+   * Remove a single model from an existing AFX-managed provider.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | { type: "customModels/removeModel"; requestId: string; providerId: string; modelId: string };
 
 // ---------------------------------------------------------------------------
 // Agent → Chat (inbound: events from the engine to the chat UI)
@@ -947,7 +1040,21 @@ export type AgentToChat =
    * @see docs/specs/211-app-chat-composer/spec.md [NFR-6]
    * @see docs/specs/211-app-chat-composer/design.md [DES-ERR]
    */
-  | { type: "agent/dangerousConfirmed"; requestId: string; confirmed: boolean };
+  | { type: "agent/dangerousConfirmed"; requestId: string; confirmed: boolean }
+  /**
+   * Acknowledgement for any `customModels/*` mutation. Never echoes the apiKey value or
+   * any non-public field. The webview reconciles state via a fresh `agent/settingsSnapshot`.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9] [FR-10] [NFR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  | {
+      type: "customModels/result";
+      requestId: string;
+      ok: boolean;
+      /** When `ok === false`, a short non-secret error message. */
+      error?: string;
+    };
 
 // ---------------------------------------------------------------------------
 // Workbench — placeholders, not yet used

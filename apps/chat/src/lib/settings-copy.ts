@@ -219,10 +219,36 @@ export const MODELS = {
 
   customSdkTrackLabel: "Pi SDK",
   customSdkTitle: "AFX-managed custom providers (Pi SDK)",
-  customSdkPlaceholder:
-    "AFX-managed custom providers for the SDK runtime are coming in the next PR. Keys will live in VSCode SecretStorage, never on disk.",
-  customSdkInterim:
-    "Need DeepSeek today? Switch to the Pi RPC track and edit ~/.pi/agent/models.json. Pi RPC must be enabled in the Runtimes tab.",
+  customSdkDescription:
+    "Stored in VSCode SecretStorage. Injected into the Pi SDK runtime in-process — your ~/.pi/agent/models.json is never modified.",
+  customSdkAddLabel: "Add Provider",
+  customSdkEmpty:
+    "No AFX-managed custom providers yet. Click Add Provider to start with a preset (Ollama, OpenRouter, Moonshot…).",
+  customSdkBadge: "AFX-managed",
+  customSdkEditLabel: "Edit",
+  customSdkRemoveLabel: "Remove",
+  customSdkPresetTitle: "Choose a preset to start with",
+  customSdkPresetSubtitle:
+    "Each preset fills baseUrl, api type, and sensible compatibility defaults. You provide URL, key, and at least one model.",
+  customSdkProviderIdLabel: "Provider id",
+  customSdkProviderIdHint:
+    "Lowercase letters, digits, hyphens, underscores. Used internally and as the env-var slug for VSCode-secret keys.",
+  customSdkDisplayNameLabel: "Display name",
+  customSdkBaseUrlLabel: "Base URL",
+  customSdkApiKindLabel: "API type",
+  customSdkApiKeyLabel: "API key",
+  customSdkApiKeySourceLabel: "Source",
+  customSdkApiKeySourceVscode: "VSCode Secret",
+  customSdkApiKeySourceEnv: "Env var",
+  customSdkApiKeySourceShell: "Shell cmd",
+  customSdkApiKeySourceNone: "No key",
+  customSdkVscodeSecretHint: "Stored in OS keychain · injected as {envVar} at runtime",
+  customSdkEnvVarHint: "Reads from process env var with the given name at runtime.",
+  customSdkShellCmdHint: "Pi runs the command per request and uses stdout as the key.",
+  customSdkModelsLabel: "Models",
+  customSdkAddModelLabel: "Add Model",
+  customSdkSaveLabel: "Save",
+  customSdkCancelLabel: "Cancel",
 
   customRpcTrackLabel: "Pi RPC",
   customRpcTitle: "Pi-native custom providers (Pi RPC)",

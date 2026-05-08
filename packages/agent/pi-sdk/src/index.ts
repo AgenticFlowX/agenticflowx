@@ -6,3 +6,5 @@
  */
 export * from "./options";
 export * from "./sdk-rpc-manager";
+export * from "./secret-env";
+export * from "./custom-providers-adapter";

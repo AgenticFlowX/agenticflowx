@@ -92,6 +92,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       packageDir: dirname(opts.bootstrapPath),
       sessionDir: opts.sessionDir,
       ollamaBaseUrl: opts.ollamaBaseUrl,
+      extraEnv: opts.extraEnv,
     });
 
     const client = createPiClient({
@@ -680,6 +681,8 @@ export function buildBootstrapEnv(input: {
   packageDir?: string;
   sessionDir?: string;
   ollamaBaseUrl?: string;
+  /** Extra env entries (e.g. AFX_CUSTOM_PROVIDERS_JSON, AFX_<ID>_KEY). */
+  extraEnv?: Record<string, string>;
 }): Record<string, string> {
   return {
     AFX_PROVIDER: input.provider,
@@ -693,6 +696,7 @@ export function buildBootstrapEnv(input: {
     ...(input.sessionDir ? { AFX_SESSION_DIR: input.sessionDir } : {}),
     ...(input.sessionDir ? { PI_CODING_AGENT_DIR: input.sessionDir } : {}),
     ...(input.ollamaBaseUrl ? { AFX_OLLAMA_BASE_URL: input.ollamaBaseUrl } : {}),
+    ...(input.extraEnv ?? {}),
   };
 }
 

@@ -21,6 +21,9 @@ export default defineConfig({
         "src/types.ts",
         "src/workbench-protocol.ts",
         "src/workbench-types.ts",
+        "src/custom-providers/index.ts",
+        "src/custom-providers/types.ts",
+        "src/custom-providers/harness-adapter.ts",
       ],
       reporter: ["text", "lcov", "html"],
       thresholds: {
