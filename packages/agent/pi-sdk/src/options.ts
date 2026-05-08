@@ -25,4 +25,13 @@ export interface PiSdkManagerOptions {
   ollamaBaseUrl?: string;
   /** Absolute path to a default .afx.yaml bundled with the extension. */
   defaultConfigPath?: string;
+  /**
+   * Extra env entries merged into the bootstrap process env. Used by the AFX
+   * custom-providers service to ship `AFX_CUSTOM_PROVIDERS_JSON` and per-provider
+   * `AFX_<ID>_KEY` to the bootstrap.
+   *
+   * @see docs/specs/351-agent-pi/spec.md [FR-5]
+   * @see docs/specs/351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]
+   */
+  extraEnv?: Record<string, string>;
 }

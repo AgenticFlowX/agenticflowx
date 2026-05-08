@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildBootstrapArgs } from "./bootstrap";
+import { buildAfxCustomProvidersExtensionFactory, buildBootstrapArgs } from "./bootstrap";
 
 vi.mock("@mariozechner/pi-coding-agent", () => ({
   main: vi.fn(),
@@ -55,5 +55,36 @@ describe("buildBootstrapArgs", () => {
       "minimax",
     ]);
     expect(env["MINIMAX_API_KEY"]).toBe("secret");
+  });
+});
+
+describe("buildAfxCustomProvidersExtensionFactory", () => {
+  it("returns undefined when AFX_CUSTOM_PROVIDERS_JSON is unset", () => {
+    expect(buildAfxCustomProvidersExtensionFactory({})).toBeUndefined();
+  });
+
+  it("returns a factory when AFX_CUSTOM_PROVIDERS_JSON is set", () => {
+    const factory = buildAfxCustomProvidersExtensionFactory({
+      AFX_CUSTOM_PROVIDERS_JSON: JSON.stringify({
+        providers: {
+          ollama: {
+            baseUrl: "http://localhost:11434/v1",
+            api: "openai-completions",
+            models: [
+              {
+                id: "qwen3:30b",
+                name: "Qwen3 30B",
+                reasoning: false,
+                input: ["text"],
+                contextWindow: 32_000,
+                maxTokens: 8_000,
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+              },
+            ],
+          },
+        },
+      }),
+    });
+    expect(typeof factory).toBe("function");
   });
 });

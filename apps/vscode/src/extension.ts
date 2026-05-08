@@ -32,7 +32,11 @@ import {
   outputChannelSink,
 } from "@afx/shared";
 
-import { type AgentInstance, createConfiguredAgentInstances } from "./agent-factory";
+import {
+  type AgentInstance,
+  createConfiguredAgentInstances,
+  createCustomProvidersAdapter,
+} from "./agent-factory";
 import { createAgentRuntimeMonitor } from "./agent-runtime-monitor";
 import { MultiplexedAgentManager } from "./multiplex-agent-manager";
 import {
@@ -51,6 +55,7 @@ import { createSpecCodeLensProvider } from "./providers/spec-codelens";
 import { createSpecDefinitionProvider } from "./providers/spec-definition";
 import { createSpecHoverProvider } from "./providers/spec-hover";
 import { SecretStore } from "./secret-store";
+import { createCustomProvidersService } from "./services/custom-providers-service";
 import { createSpecsDataProvider } from "./services/specs-data";
 import { createSprintContextSync } from "./services/sprint-context";
 import { resolveAfxSessionDir } from "./session-dir";
@@ -91,6 +96,26 @@ export interface AfxExtensionTestApi {
   onAgentEvent(listener: AgentEventListener): Disposable;
   reconfigureAgentRuntimes(reason?: string): Promise<void>;
   stopAgentRuntime(): Promise<void>;
+  /**
+   * Custom-providers test surface — used by the e2e suite to verify that
+   * AFX-managed records make it into the Pi SDK spawn env without ever
+   * touching `~/.pi/agent/models.json`.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-10]
+   * @see docs/specs/351-agent-pi/spec.md [FR-5] [FR-6]
+   */
+  getCustomProvidersSnapshot(): Promise<unknown>;
+  buildCustomProvidersSpawnEnv(): Promise<Record<string, string>>;
+  upsertCustomProvider(input: {
+    id: string;
+    displayName?: string;
+    baseUrl: string;
+    api: "openai-completions" | "openai-responses" | "anthropic-messages" | "google-generative-ai";
+    apiKeyRef: { source: "vscode-secret" | "env-var" | "shell-cmd" | "none"; label?: string };
+    apiKeyValue?: string;
+    models: Array<{ id: string; name: string; contextWindow?: number; maxTokens?: number }>;
+  }): Promise<{ ok: boolean; error?: string }>;
+  removeCustomProvider(providerId: string): Promise<{ ok: boolean; error?: string }>;
 }
 
 export async function activate(
@@ -105,6 +130,15 @@ export async function activate(
 
   const packageJSON = context.extension.packageJSON as { version?: string };
   const secretStore = new SecretStore(context);
+  // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-9] [FR-10]
+  // @see docs/specs/351-agent-pi/spec.md [FR-5] [FR-6]
+  const customProvidersAdapter = createCustomProvidersAdapter();
+  const customProvidersService = createCustomProvidersService({
+    context,
+    secretStore,
+    adapter: customProvidersAdapter,
+    logger,
+  });
   logger.info(() => `activated v${packageJSON.version ?? "?"}`, {
     mode: vscode.ExtensionMode[context.extensionMode],
   });
@@ -145,6 +179,10 @@ export async function activate(
     const piBinaryPath = rpcEnabled
       ? resolvePiBinaryPath(configuredPiBinary, workspaceRoot)
       : undefined;
+    const [piSdkExtraEnv, customDescriptor] = await Promise.all([
+      customProvidersService.buildEnvForPiSdkSpawn(),
+      customProvidersService.describeForSpawn(),
+    ]);
     return createConfiguredAgentInstances({
       logger,
       binaryPath: piBinaryPath,
@@ -160,6 +198,9 @@ export async function activate(
       sdkEnabled: cfg.get<boolean>("sdk.enabled", true),
       sdkDefaultModel: cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5"),
       ollamaBaseUrl: cfg.get<string>("sdk.ollamaBaseUrl", "").trim() || undefined,
+      piSdkExtraEnv: Object.keys(piSdkExtraEnv).length > 0 ? piSdkExtraEnv : undefined,
+      piSdkCustomProviderIds: customDescriptor.ids.length > 0 ? customDescriptor.ids : undefined,
+      piSdkCustomInitial: customDescriptor.initial,
     });
   }
 
@@ -248,6 +289,13 @@ export async function activate(
       if (consumeCommandOwnedProviderCredentialChange(e.key)) return;
       void scheduleAgentRuntimeRebuild("provider credential changed");
     }),
+    // @see docs/specs/214-app-chat-settings/spec.md [FR-10]
+    // @see docs/specs/351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]
+    customProvidersService.onDidChange(() => {
+      void scheduleAgentRuntimeRebuild("custom providers updated");
+      void sidebarProvider?.refreshCustomModelsSnapshot();
+    }),
+    customProvidersService,
   );
 
   sidebarProvider = createSidebarPanel({
@@ -262,6 +310,8 @@ export async function activate(
     secretStore,
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     workspaceState: context.workspaceState,
+    // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
+    customProvidersService,
   });
   const specsData = createSpecsDataProvider(
     () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
@@ -481,6 +531,12 @@ export async function activate(
     onAgentEvent: (listener) => requireAgentManager().onEvent(listener),
     reconfigureAgentRuntimes: (reason = "test api") => scheduleAgentRuntimeRebuild(reason),
     stopAgentRuntime: () => requireAgentManager().stop(),
+    getCustomProvidersSnapshot: () => customProvidersService.getSnapshot(),
+    buildCustomProvidersSpawnEnv: () => customProvidersService.buildEnvForPiSdkSpawn(),
+    upsertCustomProvider: (input) =>
+      customProvidersService.applyMutation({ kind: "upsertProvider", provider: input }),
+    removeCustomProvider: (providerId) =>
+      customProvidersService.applyMutation({ kind: "removeProvider", providerId }),
   };
 }
 

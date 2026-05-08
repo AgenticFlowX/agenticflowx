@@ -40,6 +40,14 @@ export interface ModelComboboxProps {
   onSelect: (model: AgentModel) => void;
   onSelectThinkingLevel: (level: ThinkingLevel) => void;
   onOpenSettings?: () => void;
+  /**
+   * Map of provider id → user-set display name from the AFX-managed custom-providers
+   * snapshot. When a provider id matches a key in this map, the dropdown group label
+   * uses the display name instead of the title-cased id.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
+   */
+  customProviderLabels?: Readonly<Record<string, string>>;
 }
 
 const THINKING_LEVELS: ReadonlyArray<{ level: ThinkingLevel; label: string }> = [
@@ -64,6 +72,7 @@ export function ModelCombobox({
   onSelect,
   onSelectThinkingLevel,
   onOpenSettings,
+  customProviderLabels,
 }: ModelComboboxProps) {
   const [open, setOpen] = useState(false);
   const selectedModel = models.find((m) => isSameModel(m, value)) ?? null;
@@ -157,7 +166,7 @@ export function ModelCombobox({
                         <div key={provider}>
                           {index > 0 ? <DropdownMenuSeparator /> : null}
                           <DropdownMenuLabel className="px-2 py-2 font-mono uppercase tracking-[0.14em]">
-                            {formatProviderLabel(provider)}
+                            {customProviderLabels?.[provider] ?? formatProviderLabel(provider)}
                           </DropdownMenuLabel>
                           {providerModels.map((model) => renderModelItem(model))}
                         </div>

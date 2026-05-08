@@ -3,11 +3,11 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-07T08:58:58.000Z"
+updated_at: "2026-05-08T12:18:59.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
-tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode"]
+tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
 ---
 
@@ -38,17 +38,67 @@ Settings view
   -> agent/settingsSnapshot | agent/runtimeSettings | agent/appearanceUpdated
 ```
 
-| Flow               | Source anchor                                                                                           | Bridge message                                                                                                         | Host-owned result                                                    | Returned state                                                      |
-| ------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Hydrate panel      | mount effect in `Settings`                                                                              | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                        | Host broadcasts settings, commands, runtime settings                 | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings` |
-| Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry` | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | Active `AgentManager` runtime setting update                         | `agent/runtimeSettings` or `chat/error`                             |
-| Context preference | `applyIncludeActiveFileContext`                                                                         | `chat/setIncludeActiveFileContext`                                                                                     | Host persists `afx.context.includeActiveFileContext` + snapshot      | `agent/settingsSnapshot` or `chat/error`                            |
-| Workspace mode     | `applyMode`                                                                                             | `chat/setMode`                                                                                                         | Host persists `afx.mode.active` + snapshot via shared `afx.setMode`  | `agent/settingsSnapshot` or `chat/error`                            |
-| Appearance         | `applyTheme`, `applyStyle`                                                                              | `appearance/update`                                                                                                    | Host persists `afx.theme` / `afx.style` and emits runtime appearance | `agent/appearanceUpdated` or `chat/error`                           |
-| API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                        | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Host SecretStore/settings mutation                                   | `agent/settingsSnapshot` or `chat/error`                            |
-| Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Host config + runtime discovery                                      | `agent/settingsSnapshot` or `chat/error`                            |
-| Diagnostics        | `requestStderr`, recovery buttons                                                                       | `chat/getStderr`, recovery callbacks                                                                                   | Runtime log/recovery actions                                         | `agent/stderr`, runtime status events                               |
-| Telemetry          | `setTelemetryEnabled`                                                                                   | `telemetry/setEnabled`                                                                                                 | Host persists analytics preference                                   | `agent/settingsSnapshot` or `chat/error`                            |
+| Flow               | Source anchor                                                                                            | Bridge message                                                                                                                               | Host-owned result                                                                         | Returned state                                                                    |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| Hydrate panel      | mount effect in `Settings`                                                                               | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                                              | Host broadcasts settings, commands, runtime settings                                      | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings`               |
+| Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry`  | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`                       | Active `AgentManager` runtime setting update                                              | `agent/runtimeSettings` or `chat/error`                                           |
+| Context preference | `applyIncludeActiveFileContext`                                                                          | `chat/setIncludeActiveFileContext`                                                                                                           | Host persists `afx.context.includeActiveFileContext` + snapshot                           | `agent/settingsSnapshot` or `chat/error`                                          |
+| Workspace mode     | `applyMode`                                                                                              | `chat/setMode`                                                                                                                               | Host persists `afx.mode.active` + snapshot via shared `afx.setMode`                       | `agent/settingsSnapshot` or `chat/error`                                          |
+| Appearance         | `applyTheme`, `applyStyle`                                                                               | `appearance/update`                                                                                                                          | Host persists `afx.theme` / `afx.style` and emits runtime appearance                      | `agent/appearanceUpdated` or `chat/error`                                         |
+| API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                         | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                     | Host SecretStore/settings mutation                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
+| Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                 | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                                                 | Host config + runtime discovery                                                           | `agent/settingsSnapshot` or `chat/error`                                          |
+| Diagnostics        | `requestStderr`, recovery buttons                                                                        | `chat/getStderr`, recovery callbacks                                                                                                         | Runtime log/recovery actions                                                              | `agent/stderr`, runtime status events                                             |
+| Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
+| Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack |
+
+---
+
+## [DES-SETTINGS-CUSTOM-MODELS] Custom Models Sub-Tab
+
+Custom Models sub-tab inside the Models tab carries a `Track: [Pi SDK] [Pi RPC]` selector. The two tracks have **different sources of truth** — not different views of the same data — and never alias.
+
+### Pi SDK track — full CRUD over SecretStorage
+
+- **Source of truth:** VSCode SecretStorage records keyed `afx.customProvider.${id}` (full `CustomProviderRecord` JSON, including apiKey value). Index entry `afx.customProviders.index` enumerates ids.
+- **Reads `~/.pi/agent/models.json`?** Never.
+- **Writes `~/.pi/agent/models.json`?** Never.
+- **Runtime delivery:** at Pi SDK spawn, the host calls `customProvidersService.buildEnvForPiSdkSpawn()` which reads SecretStorage and uses the active `HarnessAdapter` (Pi SDK adapter) to produce a JSON envelope plus an env map. The envelope is shipped as `AFX_CUSTOM_PROVIDERS_JSON` and the env map carries `AFX_<PROVIDER>_KEY=<value>` entries. The Pi SDK bootstrap reads these, builds an empty `ModelRegistry`, calls `registerProvider(...)` per record, and hands the registry to `createAgentSessionRuntime({ modelRegistry })` followed by `runRpcMode(runtime)`. See `[351-agent-pi DES-PI-CUSTOM-PROVIDERS]`.
+- **UI:** Add/Edit/Delete cards (`apps/chat/src/components/custom-model-card.tsx` mode `editable`) backed by `customModels/upsertProvider` / `customModels/removeProvider` bridge messages. Preset picker for new providers, structured form for edit, model sub-form for add-model. All using `@afx/ui/components/*` and Lucide React icons.
+
+### Pi RPC track — read-only display of `~/.pi/agent/models.json`
+
+- **Source of truth:** the user's hand-edited file at `~/.pi/agent/models.json` (or `${PI_CODING_AGENT_DIR}/models.json` if set).
+- **Reads:** yes, via `vscode.workspace.createFileSystemWatcher` in the host service, parsed by the active adapter's `parseHandEdited(text)`.
+- **Writes:** never. AFX has zero write paths into this file.
+- **UI:** Read-only cards (mode `readonly`) listing each entry's id / baseUrl / api kind / model count, with an "Open in editor" button per row that re-uses the existing `chat/openModelsJson` handler. A top-of-track button opens the whole file. A parse-error banner with file path + error message and the same CTA appears when the file is malformed.
+- **Provided as user awareness:** Pi RPC reads this file directly at runtime regardless of AFX. The track is informational so users see what Pi RPC will load.
+
+### Snapshot shape (from `[100-package-shared]`)
+
+```ts
+SettingsSnapshot.customModels?: {
+  activeHarness: 'pi-sdk' | 'oh-my-pi' | 'opencode';
+  piSdk: { providers: CustomProviderSummary[] };          // from SecretStorage
+  piRpc?: {
+    path: string;
+    status: 'ready' | 'parse-error' | 'missing';
+    error?: string;
+    providers: CustomProviderSummary[];                   // from ~/.pi/agent/models.json
+  };
+}
+```
+
+`CustomProviderSummary` is the **only** shape the webview ever sees: `{ id, displayName?, baseUrl, api, modelCount, models[], apiKeySource, apiKeyLabel?, hasApiKey, authHeader?, compatFlags?, origin, hasLiteralApiKeyOnDisk? }`. The redacted `models[]` carries non-secret structural fields per entry (`id, name, api?, contextWindow?, maxTokens?, capabilities?`); `compatFlags` carries booleans only for keys listed in `COMPAT_FLAGS_BY_API[provider.api]`. The apiKey value, full opaque `compat`, headers, and per-model cost never cross the bridge. Verified by `assertNoSecretLeak` runtime guard in tests + `~/.pi/agent/models.json` mtime check in e2e.
+
+### Refresh contract
+
+| Trigger                                                                | Host action                                                    | Pi SDK restart?                                 |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| SecretStorage CRUD on `afx.customProvider.*` (UI mutation OR external) | Recompute Pi SDK summaries; broadcast `agent/settingsSnapshot` | Yes (debounced — `scheduleAgentRuntimeRebuild`) |
+| `~/.pi/agent/models.json` watcher fires                                | Recompute Pi RPC summaries; broadcast `agent/settingsSnapshot` | No                                              |
+| UI mutation that doesn't alter apiKey or schema (display name only)    | Update record; broadcast                                       | No                                              |
+
+Hot-reload during an active Pi SDK turn is out of scope — restart deferred until idle.
 
 ---
 
@@ -162,18 +212,120 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | +---------------------------+                                   |
 +----------------------------------------------------------------+
 
-Custom Models sub-tab (two tracks):
+Custom Models sub-tab — Pi SDK track active:
 +----------------------------------------------------------------+
 | Custom Models                                                  |
-| Track:  [ Pi SDK ◀ ]   [ Pi RPC ]                              |
+| Track:  ( ● Pi SDK )    ( ○ Pi RPC )                           |
 +----------------------------------------------------------------+
-| Pi SDK track (v1 placeholder):                                 |
-| AFX-managed custom providers — coming in next PR.              |
-| Today: use Pi RPC track for DeepSeek / custom endpoints.       |
+| AFX-managed custom providers for the Pi SDK runtime.           |
+| Stored in VSCode SecretStorage. Injected into the runtime      |
+| in-process — your ~/.pi/agent/models.json is not touched.      |
+|                                                                |
+|                                       [ + Add Provider ]      |
+| +-------------------------------------------------------------+|
+| | ⊕ ollama                  AFX-MANAGED          ✎    ✕      ||
+| |   http://localhost:11434/v1               2 models          ||
+| |   🔓 No key needed                                          ||
+| +-------------------------------------------------------------+|
+| +-------------------------------------------------------------+|
+| | ⊕ openrouter              AFX-MANAGED          ✎    ✕      ||
+| |   https://openrouter.ai/api/v1            5 models          ||
+| |   🔐 VSCode Secret · AFX_OPENROUTER_KEY                     ||
+| +-------------------------------------------------------------+|
 +----------------------------------------------------------------+
-| Pi RPC track:                                                  |
-| Pi-native models.json at ~/.pi/agent/models.json               |
-| [ Open models.json ]                              [?]          |
+
+Custom Models sub-tab — Pi RPC track active (read-only):
++----------------------------------------------------------------+
+| Track:  ( ○ Pi SDK )    ( ● Pi RPC )                           |
++----------------------------------------------------------------+
+| Custom providers in ~/.pi/agent/models.json (read-only).       |
+| Pi RPC reads this file directly at runtime. Edit in editor —   |
+| AFX never modifies this file.                                  |
+|                                                                |
+|                       [ Open models.json ]    [ ⟳ Refresh ]   |
+| +-------------------------------------------------------------+|
+| | ⊕ moonshot-open           READ-ONLY        ↗ Open in editor||
+| |   https://api.moonshot.ai/v1              2 models          ||
+| |   ⚠️  Literal API key on disk                                ||
+| +-------------------------------------------------------------+|
++----------------------------------------------------------------+
+```
+
+### [DES-SETTINGS-MOCKUP-CUSTOM-PRESET] Add Provider preset picker (Pi SDK track)
+
+```text
++----------------------------------------------------------------+
+| Add Provider · Pi SDK Track                                    |
+| Choose a preset to start with:                                 |
++----------------------------------------------------------------+
+| [   Ollama   ]  [ LM Studio ]  [    vLLM    ]                  |
+| no key needed   no key needed   no key needed                  |
+|                                                                |
+| [ OpenRouter ]  [Vercel Gw.  ]  [  Moonshot  ]                 |
+|                                                                |
+| [  Anthropic  ]  [  Google   ]  [   Custom   ]                 |
+| proxy            AI Studio       blank                         |
+|                                                                |
+| Each preset fills baseUrl, api type, sensible compat defaults. |
+| You provide URL, key, and at least one model.                  |
+|                                                                |
+|                            [ Cancel ]   [ Continue ]           |
++----------------------------------------------------------------+
+```
+
+### [DES-SETTINGS-MOCKUP-CUSTOM-PROVIDER-FORM] Edit custom provider (Pi SDK track)
+
+```text
++----------------------------------------------------------------+
+| Edit · ⊕ openrouter (Pi SDK)                                   |
++----------------------------------------------------------------+
+| Provider id     [ openrouter                              ]    |
+| Display name    [ OpenRouter                              ]    |
+| Base URL        [ https://openrouter.ai/api/v1            ]    |
+| API type        ( ● openai-completions  )                      |
+|                 ( ○ openai-responses    )                      |
+|                 ( ○ anthropic-messages  )                      |
+|                 ( ○ google-generative-ai)                      |
+|                                                                |
+| API key         Source: [ VSCode Secret ▾ ]                    |
+|                 [ ●●●●●●●●●●●●●●●●●●●●●●● ]   👁                |
+|                 Stored in OS keychain · injected as            |
+|                 AFX_OPENROUTER_KEY at runtime                  |
+|                                                                |
+| Models                                       [ + Add Model ]   |
+| +------------------------------------------------------------+ |
+| | anthropic/claude-sonnet-4   200k ctx       ✎    ✕         | |
+| | anthropic/claude-opus-4-5   200k ctx       ✎    ✕         | |
+| +------------------------------------------------------------+ |
+|                                                                |
+| ▸ Custom headers      ▸ Advanced compat                        |
+|                                                                |
+|                            [ Cancel ]   [ Save ]               |
++----------------------------------------------------------------+
+```
+
+### [DES-SETTINGS-MOCKUP-CUSTOM-MODEL-FORM] Add / Edit custom model
+
+```text
++----------------------------------------------------------------+
+| Add Model · openrouter                                         |
++----------------------------------------------------------------+
+| Model id *      [ anthropic/claude-sonnet-4               ]    |
+| Display name    [ Claude Sonnet 4                         ]    |
+|                                                                |
+| API             ( ● Use provider · openai-completions )        |
+|                 ( ○ Override for this model           )        |
+|                     [ openai-completions ▾ ]                   |
+|                                                                |
+| Capabilities    [✓] reasoning   [✓] image input                |
+| Context window  [ 200,000 ] tokens                             |
+| Max output      [  16,000 ] tokens                             |
+| Cost per 1M     in [ 3.00  ]   out [ 15.00 ]                   |
+|                 cR [ 0.30  ]   cW [ 3.75  ]                    |
+|                                                                |
+| ▸ Compat overrides                                             |
+|                                                                |
+|                            [ Cancel ]   [ Add ]                |
 +----------------------------------------------------------------+
 ```
 

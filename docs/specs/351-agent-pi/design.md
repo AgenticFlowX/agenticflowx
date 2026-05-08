@@ -3,10 +3,10 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-07T08:58:58.000Z"
-tags: ["agent", "pi", "rpc", "sdk", "skills"]
+updated_at: "2026-05-08T12:18:59.000Z"
+tags: ["agent", "pi", "rpc", "sdk", "skills", "custom-providers"]
 spec: spec.md
 ---
 
@@ -72,6 +72,70 @@ Pi RPC uses JSONL request/response frames, process lifecycle state, runtime capa
 ## [DES-API] API Contracts
 
 The Pi adapter implements `AgentManager` and exposes adapter factory/config options. RPC framing is internal to the adapter package.
+
+---
+
+## [DES-PI-CUSTOM-PROVIDERS] Pi SDK Custom Providers Adapter
+
+The Pi SDK adapter is the first concrete `HarnessAdapter` implementation (per `[ADR-0008]`). It bridges AFX-managed canonical `CustomProviderRecord` data from `100-package-shared` to pi-mono's in-process `ModelRegistry.registerProvider(name, config)` API.
+
+### Bootstrap envelope protocol
+
+The host injects two env vars at Pi SDK spawn:
+
+- `AFX_CUSTOM_PROVIDERS_JSON` — JSON envelope `{ providers: Record<id, PiMonoProviderConfig> }`. Each provider config has `apiKey: "AFX_<SLUG>_KEY"` (env-var reference, never literal).
+- `AFX_<SLUG>_KEY=<actual-secret>` — one entry per provider whose API key source is `vscode-secret`. Slug is uppercase, hyphens→underscores, validated `[A-Z][A-Z0-9_]*`.
+
+The Pi SDK bootstrap (`packages/agent/pi-sdk/bootstrap/bootstrap.ts`) branches on `AFX_CUSTOM_PROVIDERS_JSON`:
+
+```text
+if (env.AFX_CUSTOM_PROVIDERS_JSON) {
+  const envelope = parseEnvelope(env.AFX_CUSTOM_PROVIDERS_JSON);
+  const registry = buildRegistry(envelope);   // empty registry + registerProvider per record
+  const runtime = await createAgentSessionRuntime({ modelRegistry: registry, ...derived });
+  await runRpcMode(runtime);
+} else {
+  await main(buildBootstrapArgs(process.argv.slice(2)));   // existing path, unchanged
+}
+```
+
+### Adapter contract
+
+`packages/agent/pi-sdk/src/custom-providers-adapter.ts` exports `createPiSdkCustomProvidersAdapter(): HarnessAdapter` with:
+
+- `id: 'pi-sdk'`
+- `displayName: 'Pi SDK'`
+- `materialization: 'in-process-register'`
+- `handEditedConfigPath()` — `~/.pi/agent/models.json` (used by host service for the Pi RPC track read-only display in `214-app-chat-settings`).
+- `encodeForBootstrap(records)` — translates canonical records into the JSON envelope + env map shipped via `AFX_CUSTOM_PROVIDERS_JSON` and `AFX_<SLUG>_KEY` entries. Threads `record.displayName` into pi-mono `ProviderConfig.name` so the chat model picker labels groups with the user's chosen name. Layers pi-mono compat defaults onto the canonical compat (e.g. `supportsDeveloperRole: false` for Ollama / vLLM). When `apiKeyRef.source === "none"` (local providers like Ollama) the adapter emits `apiKey: "no-key"` + `authHeader: false` to satisfy pi-mono's `registerProvider` validation, which rejects providers that define `models[]` without `apiKey`. The placeholder is never sent over the wire because `authHeader: false` suppresses the Authorization header.
+- `parseHandEdited(text)` — tolerant parse of pi-native `models.json`. Classifies entries: those with own `models[]` become canonical CUSTOM records; entries without `models[]` (OVERRIDE/TWEAKS patterns) are emitted as `warnings` and skipped — never surfaced in Pi SDK CRUD.
+
+### Source-of-truth boundaries
+
+```text
+                                   ┌──────────────────────────────────────┐
+Pi SDK track (AFX-managed)         │  VSCode SecretStorage                │
+  └─ host service                  │  afx.customProvider.${id}            │
+  └─ bootstrap envelope            │  afx.customProviders.index           │
+  └─ pi-mono registry overlay      └──────────────────────────────────────┘
+
+Pi RPC track (read-only display)   ┌──────────────────────────────────────┐
+  └─ host FileSystemWatcher        │  ~/.pi/agent/models.json (user-      │
+  └─ adapter.parseHandEdited       │  edited; AFX never writes)           │
+                                   └──────────────────────────────────────┘
+```
+
+The Pi SDK runtime path **never** reads `~/.pi/agent/models.json` when AFX-managed records exist. The empty `ModelRegistry` is overlaid only with AFX records. Pi RPC's runtime path is unchanged and continues to read the file directly.
+
+### Refresh contract
+
+| Trigger                                                            | Pi SDK action                                                                                                       |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| `secretStore.onDidChange('afx.customProvider.*')` (UI or external) | Host re-reads SecretStorage; rebuilds runtime (`scheduleAgentRuntimeRebuild('custom providers updated')`) debounced |
+| `~/.pi/agent/models.json` watcher fires                            | Pi RPC track display recomputed; **Pi SDK runtime untouched**                                                       |
+| Display-only field edit (display name, etc.)                       | Snapshot rebroadcast; no runtime restart                                                                            |
+
+---
 
 ### [DES-PI-RUNTIME-CONTROLS] Pi Runtime Controls
 

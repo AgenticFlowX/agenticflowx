@@ -55,6 +55,10 @@ import type {
 
 import { type AgentRuntimeMonitor, createAgentRuntimeMonitor } from "../agent-runtime-monitor";
 import type { SecretStore } from "../secret-store";
+import type {
+  CustomProvidersMutation,
+  CustomProvidersService,
+} from "../services/custom-providers-service";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
 import { getAppDistPath, loadWebviewHtml } from "./webview-html";
 
@@ -79,6 +83,14 @@ export interface SidebarPanelDeps {
    * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-GUARDRAIL]
    */
   workspaceState?: vscode.Memento;
+  /**
+   * Custom-providers service — owns AFX-managed records (Pi SDK track) and the
+   * read-only Pi RPC track display. Optional so older entry points compile.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  customProvidersService?: CustomProvidersService;
 }
 
 /**
@@ -106,6 +118,16 @@ export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
    * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
    */
   postActiveDocContext(payload: ActiveDocContextPayload): void;
+  /**
+   * Recompute the custom-models snapshot fragment and broadcast a fresh
+   * `agent/settingsSnapshot`. Called by the host when SecretStorage changes
+   * for `afx.customProvider.*` or when the hand-edited `~/.pi/agent/models.json`
+   * file watcher fires.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  refreshCustomModelsSnapshot(): Promise<void>;
 }
 
 interface SidebarState {
@@ -204,6 +226,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     runtimeMonitor: providedRuntimeMonitor,
     logger: parentLogger,
     secretStore,
+    customProvidersService,
   } = deps;
   const log = parentLogger.child("sidebar");
   const runtimeMonitor =
@@ -1552,6 +1575,53 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleConfirmDangerous(msg.requestId, msg.command, msg.reason);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-9] [FR-10]
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+      case "customModels/refresh": {
+        void handleCustomModelsMutation(msg.requestId, { kind: "refresh" });
+        return;
+      }
+      case "customModels/upsertProvider": {
+        void handleCustomModelsMutation(msg.requestId, {
+          kind: "upsertProvider",
+          provider: {
+            id: msg.provider.id,
+            displayName: msg.provider.displayName,
+            baseUrl: msg.provider.baseUrl,
+            api: msg.provider.api,
+            apiKeyRef: msg.provider.apiKeyRef,
+            apiKeyValue: msg.provider.apiKeyValue,
+            authHeader: msg.provider.authHeader,
+            models: msg.provider.models,
+            headers: msg.provider.headers,
+            compat: msg.provider.compat,
+          },
+        });
+        return;
+      }
+      case "customModels/removeProvider": {
+        void handleCustomModelsMutation(msg.requestId, {
+          kind: "removeProvider",
+          providerId: msg.providerId,
+        });
+        return;
+      }
+      case "customModels/upsertModel": {
+        void handleCustomModelsMutation(msg.requestId, {
+          kind: "upsertModel",
+          providerId: msg.providerId,
+          model: msg.model,
+        });
+        return;
+      }
+      case "customModels/removeModel": {
+        void handleCustomModelsMutation(msg.requestId, {
+          kind: "removeModel",
+          providerId: msg.providerId,
+          modelId: msg.modelId,
+        });
+        return;
+      }
       default: {
         const _never: never = msg;
         inboundLog.warn("unknown inbound", { msg: _never });
@@ -1697,6 +1767,38 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       "Cancel",
     );
     post({ type: "agent/dangerousConfirmed", requestId, confirmed: confirmed === "Run anyway" });
+  }
+
+  /**
+   * Apply a `customModels/*` mutation against the custom-providers service and
+   * broadcast a fresh settings snapshot so the webview reconciles state.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-9] [FR-10]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+   */
+  async function handleCustomModelsMutation(
+    requestId: string,
+    mutation: CustomProvidersMutation,
+  ): Promise<void> {
+    if (!customProvidersService) {
+      post({
+        type: "customModels/result",
+        requestId,
+        ok: false,
+        error: "customProvidersService unavailable",
+      });
+      return;
+    }
+    const result = await customProvidersService.applyMutation(mutation);
+    post({
+      type: "customModels/result",
+      requestId,
+      ok: result.ok,
+      ...(result.error ? { error: result.error } : {}),
+    });
+    if (result.ok) {
+      await handleGetSettingsSnapshot(requestId);
+    }
   }
 
   async function handleGetModels(requestId: string): Promise<void> {
@@ -1929,6 +2031,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           secretStore,
         ),
         externalAgents: groupExternalAgents(models, { agentBinary, rpcEnabled, ephemeral }),
+        // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
+        // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+        ...(customProvidersService
+          ? { customModels: await customProvidersService.getSnapshot() }
+          : {}),
         diagnostics: { logLevel: cfg.get<string>("logLevel", "info") },
         telemetry: {
           enabled: telemetryEnabled,
@@ -2564,6 +2671,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         feature: payload.feature,
         approvalStatus: payload.approvalStatus,
       });
+    },
+    async refreshCustomModelsSnapshot(): Promise<void> {
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
+      if (!webview) return;
+      const requestId = cryptoRandom();
+      await handleGetSettingsSnapshot(requestId);
     },
   };
 }

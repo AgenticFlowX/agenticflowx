@@ -1,12 +1,22 @@
 #!/usr/bin/env node
+/**
+ * Pi SDK bootstrap entry. Translates AFX_* env vars into pi CLI args and, when
+ * AFX-managed custom providers are present, attaches an `extensionFactory` that
+ * registers them via `pi.registerProvider(...)` at runtime startup.
+ *
+ * @see docs/specs/351-agent-pi/spec.md [FR-2] [FR-5] [FR-6]
+ * @see docs/specs/351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]
+ */
 import { fileURLToPath } from "node:url";
 
-import { createAgentSessionRuntime, main, runRpcMode } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
+import { main } from "@mariozechner/pi-coding-agent";
 
 import { applyProviderEnv, getApiKey } from "./auth";
-
-void runRpcMode;
-void createAgentSessionRuntime;
+import {
+  type PiExtensionApiLike,
+  createCustomProvidersExtensionFactory,
+} from "./custom-providers-bootstrap";
 
 export function buildBootstrapArgs(
   args: readonly string[],
@@ -51,8 +61,34 @@ function hasOption(args: readonly string[], option: string): boolean {
   return args.includes(option) || args.some((arg) => arg.startsWith(`${option}=`));
 }
 
+/**
+ * Build the pi `extensionFactory` that registers AFX-managed custom providers.
+ * Returns `undefined` when there's nothing to register (so we don't add a no-op
+ * extension to pi's pipeline).
+ *
+ * @see docs/specs/351-agent-pi/spec.md [FR-5]
+ */
+export function buildAfxCustomProvidersExtensionFactory(
+  env: NodeJS.ProcessEnv = process.env,
+  onDiagnostic?: (message: string) => void,
+): ExtensionFactory | undefined {
+  if (!env["AFX_CUSTOM_PROVIDERS_JSON"]) return undefined;
+  const innerFactory = createCustomProvidersExtensionFactory(env, onDiagnostic);
+  return (pi: ExtensionAPI) => {
+    // The pi-mono ExtensionAPI is a superset of `PiExtensionApiLike`; cast
+    // narrows the surface for the helper without losing type safety in tests.
+    innerFactory(pi as unknown as PiExtensionApiLike);
+  };
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main(buildBootstrapArgs(process.argv.slice(2))).catch((err: unknown) => {
+  const customProvidersFactory = buildAfxCustomProvidersExtensionFactory(process.env, (msg) =>
+    process.stderr.write(`${msg}\n`),
+  );
+  const mainOptions = customProvidersFactory
+    ? { extensionFactories: [customProvidersFactory] }
+    : undefined;
+  main(buildBootstrapArgs(process.argv.slice(2)), mainOptions).catch((err: unknown) => {
     const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
     console.error(message);
     process.exitCode = 1;

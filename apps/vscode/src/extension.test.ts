@@ -15,6 +15,29 @@ import { type MockAgentManager, createMockAgentManager } from "./__fixtures__/mo
 
 vi.mock("./agent-factory", () => ({
   createConfiguredAgentInstances: vi.fn(),
+  createCustomProvidersAdapter: vi.fn(() => ({
+    id: "pi-sdk",
+    displayName: "Pi SDK",
+    materialization: "in-process-register",
+    handEditedConfigPath: () => "/tmp/test-models.json",
+    encodeForBootstrap: () => ({ envelopeJson: '{"providers":{}}', env: {} }),
+    parseHandEdited: () => ({ records: [], warnings: [] }),
+  })),
+}));
+
+vi.mock("./services/custom-providers-service", () => ({
+  createCustomProvidersService: vi.fn(() => ({
+    activeHarness: "pi-sdk",
+    getSnapshot: vi.fn(async () => ({
+      activeHarness: "pi-sdk",
+      piSdk: { providers: [] },
+    })),
+    applyMutation: vi.fn(async () => ({ ok: true })),
+    buildEnvForPiSdkSpawn: vi.fn(async () => ({})),
+    describeForSpawn: vi.fn(async () => ({ ids: [] })),
+    onDidChange: vi.fn(() => ({ dispose: vi.fn() })),
+    dispose: vi.fn(),
+  })),
 }));
 
 vi.mock("./panels/sidebar-panel", () => ({
@@ -22,8 +45,10 @@ vi.mock("./panels/sidebar-panel", () => ({
   createSidebarPanel: vi.fn(() => ({
     resolveWebviewView: vi.fn(),
     refreshRuntimeConfiguration: vi.fn(),
+    refreshCustomModelsSnapshot: vi.fn(),
     sendExternalPrompt: vi.fn(),
     appendToDraft: vi.fn(),
+    postActiveDocContext: vi.fn(),
   })),
 }));
 
