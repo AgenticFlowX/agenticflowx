@@ -257,7 +257,9 @@ body,
 }
 
 .vscode-dark .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger[data-state="active"],
-.vscode-high-contrast .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger[data-state="active"] {
+.vscode-high-contrast
+  .cn-tabs-list:not([data-variant="line"])
+  .cn-tabs-trigger[data-state="active"] {
   background: var(--background);
   border-color: var(--border);
 }
