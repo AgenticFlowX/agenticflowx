@@ -2,6 +2,20 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.10] - 2026-05-09
+
+### Added
+
+- **Spec-mode composer strip enhancements** — workflow-position breadcrumb showing Spec → Design → Tasks → Code progress with status indicators; Sign Off button that surfaces on tasks.md when all body checkboxes and Work Sessions Agent cells are ticked and at least one Human cell remains, with a confirm popover previewing the atomic edit (`Tick N Human cells` + `Promote status to Living` + `Update updated_at`); Session Memory anchor in the strip header with a dropdown of memory-recap and memory-context options; compact action set for Code/Explore modes that trims Review/Approve/Status into the More overflow; WBS-indexed task dropdowns for Code and Pick that filter completed items while keeping "Code all" always available; fallback WBS computation from task row positions when explicit IDs are missing; sprint format routing that threads the feature name through `/afx-sprint code <feature> <wbsId>`.
+
+### Changed
+
+- **Light and dark theme visibility** — checkbox, radio, switch, tabs, and input surfaces now render with guaranteed contrast in both VS Code light and dark themes. Dropdown menu borders are strengthened so popovers don't blend into the background.
+
+### Fixed
+
+- **Style format consistency** — cleaned up formatting throughout the chat UI layer.
+
 ## [2.0.9] - 2026-05-09
 
 ### Added
