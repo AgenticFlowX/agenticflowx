@@ -1126,6 +1126,10 @@ function actionHelp(action: DocAction): { description: string; modeLabel: string
       /\/afx-spec validate|\/afx-design validate/,
       "Checks document structure and required sections.",
     ],
+    [/\/afx-design author/, "Authors design.md from the approved spec."],
+    [/\/afx-task plan/, "Authors tasks.md from the approved design."],
+    [/\/afx-sprint design/, "Authors the sprint Design section from the approved Spec."],
+    [/\/afx-sprint task/, "Authors the sprint Tasks section from the approved Design."],
     [/\/afx-spec review|\/afx-design review/, "Reviews the document for gaps and risks."],
     [/\/afx-spec approve|\/afx-design approve|--approve/, "Approves the current SDD stage."],
     [/\/afx-sprint verify/, "Verifies the sprint document and task traceability."],
@@ -1189,7 +1193,7 @@ const CATALOG_INTENT_ORDER: readonly CatalogIntentGroup[] = ["quality", "state",
 
 /**
  * Select the visible primary action set per docKind + workspace mode. Spec
- * mode keeps the full 3–4 button set defined by `resolveDocActions`; Code /
+ * mode keeps the full spec/design lifecycle set defined by `resolveDocActions`; Code /
  * Explore mode trims to the per-docKind compact set documented by the
  * compact-mode primary table in the canonical composer design:
  *
@@ -1213,6 +1217,9 @@ function selectPrimaryActions(
   workspaceMode: WorkspaceMode,
 ): DocAction[] {
   if (workspaceMode === "spec") {
+    if (docContext.docKind === "spec" || docContext.docKind === "design") {
+      return actions.slice(0, 5);
+    }
     return actions.slice(0, docContext.docKind === "tasks" ? 4 : 3);
   }
 

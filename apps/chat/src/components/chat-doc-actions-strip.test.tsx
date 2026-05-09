@@ -383,6 +383,77 @@ describe("ChatDocActionsStrip", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("surfaces Author and Approve as one-click Spec-mode actions for standard specs", () => {
+    const onInsert = vi.fn();
+    const onAutoSend = vi.fn();
+
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Draft",
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={onInsert}
+        onAutoSend={onAutoSend}
+      />,
+    );
+
+    const compose = screen.getByTestId("doc-actions-compose-group");
+    const run = screen.getByTestId("doc-actions-run-group");
+    expect(compose).toHaveTextContent("Refine");
+    expect(compose).toHaveTextContent("Author");
+    expect(run).toHaveTextContent("Validate");
+    expect(run).toHaveTextContent("Review");
+    expect(run).toHaveTextContent("Approve");
+
+    fireEvent.click(screen.getByRole("button", { name: /Author: Draft first/i }));
+    expect(onInsert).toHaveBeenCalledWith("/afx-design author auth");
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve: Auto-send/i }));
+    expect(onAutoSend).toHaveBeenCalledWith("/afx-spec approve auth");
+  });
+
+  it("surfaces Author and Approve as one-click Spec-mode actions for sprint design", () => {
+    const onInsert = vi.fn();
+    const onAutoSend = vi.fn();
+
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "sprint",
+          section: "DESIGN",
+          docKind: "design",
+          feature: "auth",
+          approvalStatus: "Draft",
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={onInsert}
+        onAutoSend={onAutoSend}
+      />,
+    );
+
+    const compose = screen.getByTestId("doc-actions-compose-group");
+    const run = screen.getByTestId("doc-actions-run-group");
+    expect(compose).toHaveTextContent("Refine");
+    expect(compose).toHaveTextContent("Author");
+    expect(run).toHaveTextContent("Verify");
+    expect(run).toHaveTextContent("Approve");
+
+    fireEvent.click(screen.getByRole("button", { name: /Author: Draft first/i }));
+    expect(onInsert).toHaveBeenCalledWith("/afx-sprint task auth");
+
+    fireEvent.click(screen.getByRole("button", { name: /Approve: Auto-send/i }));
+    expect(onAutoSend).toHaveBeenCalledWith("/afx-sprint design auth --approve");
+  });
+
   it("trims primary actions to the compact set outside Spec workspace mode", () => {
     render(
       <ChatDocActionsStrip
