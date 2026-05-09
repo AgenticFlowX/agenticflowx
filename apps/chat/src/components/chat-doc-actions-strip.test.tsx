@@ -110,7 +110,12 @@ describe("ChatDocActionsStrip", () => {
               line: 10,
               items: [
                 { text: "Already done", completed: true, line: 11, wbsId: "1.1" },
-                { text: "Wire command menu", completed: false, line: 12, wbsId: "1.2" },
+                {
+                  text: "Wire the document command menu without letting long target labels expand the row",
+                  completed: false,
+                  line: 12,
+                  wbsId: "1.2",
+                },
                 { text: "Add e2e coverage", completed: false, line: 13, wbsId: "1.3" },
               ],
             },
@@ -130,8 +135,20 @@ describe("ChatDocActionsStrip", () => {
     expect(screen.queryByText("Code 1.1")).not.toBeInTheDocument();
     expect(screen.getByText("Code 1.2")).toBeInTheDocument();
     expect(screen.getByText("Code 1.3")).toBeInTheDocument();
+    const taskText = screen.getByText(
+      "Wire the document command menu without letting long target labels expand the row",
+    );
+    expect(taskText).toHaveClass("truncate");
 
-    await user.click(screen.getByText("Code 1.2"));
+    const taskItem = taskText.closest('[role="menuitem"]');
+    expect(taskItem).not.toBeNull();
+    fireEvent.focus(taskItem as HTMLElement);
+    await waitFor(() => {
+      expect(screen.getAllByText("Line 12").length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText("/afx-task code 1.2").length).toBeGreaterThan(0);
+
+    await user.click(screen.getAllByText("Code 1.2")[0]);
     expect(onInsert).toHaveBeenCalledWith("/afx-task code 1.2");
 
     await user.click(screen.getByRole("button", { name: "Pick options" }));
@@ -253,9 +270,10 @@ describe("ChatDocActionsStrip", () => {
           parsedFocuses: [
             {
               id: "performance",
-              label: "Performance",
+              label: "Performance Budget With A Long Label That Truncates",
               slug: "performance",
               commandSuffix: "performance",
+              excerpt: "Measure response time under extension-host load.",
               line: 42,
             },
           ],
@@ -272,11 +290,24 @@ describe("ChatDocActionsStrip", () => {
     expect(await screen.findByText("Insert In Chat Box")).toBeInTheDocument();
     expect(screen.getByText("Refine all")).toBeInTheDocument();
     expect(screen.getByText("From This Doc")).toBeInTheDocument();
-    expect(screen.getByText("Performance")).toBeInTheDocument();
+    const focusLabel = screen.getByText("Performance Budget With A Long Label That Truncates");
+    expect(focusLabel).toBeInTheDocument();
+    expect(focusLabel).toHaveClass("truncate");
     expect(screen.getByText("Common Focuses")).toBeInTheDocument();
     expect(screen.getByText("Discuss")).toBeInTheDocument();
 
-    await user.click(screen.getByText("Performance"));
+    const focusItem = focusLabel.closest('[role="menuitem"]');
+    expect(focusItem).not.toBeNull();
+    expect(focusItem).not.toHaveAttribute("title");
+    fireEvent.focus(focusItem as HTMLElement);
+    await waitFor(() => {
+      expect(
+        screen.getAllByText("Measure response time under extension-host load.").length,
+      ).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText("/afx-spec refine auth performance").length).toBeGreaterThan(0);
+
+    await user.click(focusLabel);
     expect(onInsert).toHaveBeenCalledWith("/afx-spec refine auth performance");
   });
 

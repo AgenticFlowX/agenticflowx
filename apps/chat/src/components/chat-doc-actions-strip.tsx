@@ -4,7 +4,7 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { BadgeCheck, ChevronDown, MoreHorizontal, PenLine, Scissors, Zap } from "lucide-react";
 
@@ -225,21 +225,33 @@ export function ChatDocActionsStrip({
                         focus.commandSuffix ?? focus.slug
                       }`.trim();
                       return (
-                        <DropdownMenuItem
+                        <DropdownRowTooltip
                           key={focus.id}
-                          className="items-start gap-2 px-2 py-2"
-                          onSelect={() => onInsert(command)}
+                          title={focus.label}
+                          line={focus.line}
+                          description={focus.excerpt}
+                          command={command}
+                          modeLabel="Draft"
                         >
-                          <Scissors size={11} className="mt-0.5 text-afx-brand-soft" aria-hidden />
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-[11px] font-medium">
-                              {focus.label}
+                          <DropdownMenuItem
+                            className="items-start gap-2 px-2 py-2"
+                            onSelect={() => onInsert(command)}
+                          >
+                            <Scissors
+                              size={11}
+                              className="mt-0.5 text-afx-brand-soft"
+                              aria-hidden
+                            />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[11px] font-medium">
+                                {focus.label}
+                              </span>
+                              <span className="block font-mono text-[10px] text-muted-foreground">
+                                Line {focus.line}
+                              </span>
                             </span>
-                            <span className="block font-mono text-[10px] text-muted-foreground">
-                              Line {focus.line}
-                            </span>
-                          </span>
-                        </DropdownMenuItem>
+                          </DropdownMenuItem>
+                        </DropdownRowTooltip>
                       );
                     })}
                     <DropdownMenuSeparator />
@@ -252,31 +264,44 @@ export function ChatDocActionsStrip({
                       {group.label}
                     </DropdownMenuLabel>
                     {group.items.map((item) => (
-                      <DropdownMenuItem
+                      <DropdownRowTooltip
                         key={item.command}
-                        className="items-start gap-2 px-2 py-2"
-                        onSelect={() =>
-                          item.autoSend ? onAutoSend(item.command) : onInsert(item.command)
-                        }
+                        title={item.label}
+                        description={item.description}
+                        command={item.command}
+                        modeLabel={item.autoSend ? "Auto" : "Draft"}
                       >
-                        {item.autoSend ? (
-                          <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
-                        ) : (
-                          <PenLine size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
-                        )}
-                        <span className="min-w-0 flex-1">
-                          <span className="block text-[11px] font-medium">{item.label}</span>
-                          <span className="block text-[10px] leading-snug text-muted-foreground">
-                            {item.description}
+                        <DropdownMenuItem
+                          className="items-start gap-2 px-2 py-2"
+                          onSelect={() =>
+                            item.autoSend ? onAutoSend(item.command) : onInsert(item.command)
+                          }
+                        >
+                          {item.autoSend ? (
+                            <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
+                          ) : (
+                            <PenLine
+                              size={11}
+                              className="mt-0.5 text-muted-foreground"
+                              aria-hidden
+                            />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] font-medium">
+                              {item.label}
+                            </span>
+                            <span className="block truncate text-[10px] leading-snug text-muted-foreground">
+                              {item.description}
+                            </span>
+                            <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                              {item.command}
+                            </span>
                           </span>
-                          <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                            {item.command}
+                          <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                            {item.autoSend ? "Auto" : "Draft"}
                           </span>
-                        </span>
-                        <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                          {item.autoSend ? "Auto" : "Draft"}
-                        </span>
-                      </DropdownMenuItem>
+                        </DropdownMenuItem>
+                      </DropdownRowTooltip>
                     ))}
                   </DropdownMenuGroup>
                 ))}
@@ -418,6 +443,46 @@ function ActionButton({
   );
 }
 
+function DropdownRowTooltip({
+  children,
+  title,
+  line,
+  description,
+  command,
+  modeLabel,
+}: {
+  children: ReactElement;
+  title: string;
+  line?: number;
+  description?: string;
+  command?: string;
+  modeLabel?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        align="start"
+        sideOffset={8}
+        className="max-w-[300px] flex-col items-start gap-1 text-left"
+      >
+        <span className="font-medium leading-snug">{title}</span>
+        {line ? <span className="font-mono text-[10px] opacity-75">Line {line}</span> : null}
+        {description ? (
+          <span className="text-[11px] leading-snug opacity-85">{description}</span>
+        ) : null}
+        {command ? <span className="font-mono text-[10px] opacity-75">{command}</span> : null}
+        {modeLabel ? (
+          <span className="font-mono text-[9px] uppercase opacity-70">{modeLabel}</span>
+        ) : null}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 function FocusMenuActionButton({
   action,
   docContext,
@@ -492,22 +557,30 @@ function FocusMenuActionButton({
         {targets
           .filter((target) => target.origin === "parsed")
           .map((target) => (
-            <DropdownMenuItem
+            <DropdownRowTooltip
               key={target.id}
-              className="items-start gap-2 px-2 py-2"
-              onSelect={() => onInsert(focusCommand(action, target))}
+              title={target.label}
+              line={target.line}
+              description={target.excerpt ?? target.description}
+              command={focusCommand(action, target)}
+              modeLabel="Draft"
             >
-              <Scissors size={11} className="mt-0.5 text-afx-brand-soft" aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[11px] font-medium">{target.label}</span>
-                <span className="block text-[10px] leading-snug text-muted-foreground">
-                  {target.description}
+              <DropdownMenuItem
+                className="items-start gap-2 px-2 py-2"
+                onSelect={() => onInsert(focusCommand(action, target))}
+              >
+                <Scissors size={11} className="mt-0.5 text-afx-brand-soft" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-medium">{target.label}</span>
+                  <span className="block text-[10px] leading-snug text-muted-foreground">
+                    {target.description}
+                  </span>
+                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                    {focusCommand(action, target)}
+                  </span>
                 </span>
-                <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                  {focusCommand(action, target)}
-                </span>
-              </span>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
+            </DropdownRowTooltip>
           ))}
         {targets.some((target) => target.origin === "common") ? (
           <>
@@ -518,22 +591,29 @@ function FocusMenuActionButton({
             {targets
               .filter((target) => target.origin === "common")
               .map((target) => (
-                <DropdownMenuItem
+                <DropdownRowTooltip
                   key={target.id}
-                  className="items-start gap-2 px-2 py-2"
-                  onSelect={() => onInsert(focusCommand(action, target))}
+                  title={target.label}
+                  description={target.description}
+                  command={focusCommand(action, target)}
+                  modeLabel="Draft"
                 >
-                  <Scissors size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[11px] font-medium">{target.label}</span>
-                    <span className="block text-[10px] leading-snug text-muted-foreground">
-                      {target.description}
+                  <DropdownMenuItem
+                    className="items-start gap-2 px-2 py-2"
+                    onSelect={() => onInsert(focusCommand(action, target))}
+                  >
+                    <Scissors size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[11px] font-medium">{target.label}</span>
+                      <span className="block text-[10px] leading-snug text-muted-foreground">
+                        {target.description}
+                      </span>
+                      <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                        {focusCommand(action, target)}
+                      </span>
                     </span>
-                    <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                      {focusCommand(action, target)}
-                    </span>
-                  </span>
-                </DropdownMenuItem>
+                  </DropdownMenuItem>
+                </DropdownRowTooltip>
               ))}
           </>
         ) : null}
@@ -636,24 +716,33 @@ function TaskMenuActionButton({
         </DropdownMenuLabel>
         {showAllTarget ? (
           <>
-            <DropdownMenuItem
-              className="items-start gap-2 px-2 py-2"
-              onSelect={() => selectCommand(action.command)}
+            <DropdownRowTooltip
+              title={`${action.label} all`}
+              description="Use all open tasks in the active tasks document."
+              command={action.command}
+              modeLabel={modeLabel}
             >
-              <ModeIcon size={11} className={cn("mt-0.5", modeIconClassName)} aria-hidden />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[11px] font-medium">{`${action.label} all`}</span>
-                <span className="block text-[10px] leading-snug text-muted-foreground">
-                  Use all open tasks in the active tasks document.
+              <DropdownMenuItem
+                className="items-start gap-2 px-2 py-2"
+                onSelect={() => selectCommand(action.command)}
+              >
+                <ModeIcon size={11} className={cn("mt-0.5", modeIconClassName)} aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-medium">
+                    {`${action.label} all`}
+                  </span>
+                  <span className="block truncate text-[10px] leading-snug text-muted-foreground">
+                    Use all open tasks in the active tasks document.
+                  </span>
+                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                    {action.command}
+                  </span>
                 </span>
-                <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                  {action.command}
+                <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                  {modeLabel}
                 </span>
-              </span>
-              <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                {modeLabel}
-              </span>
-            </DropdownMenuItem>
+              </DropdownMenuItem>
+            </DropdownRowTooltip>
             <DropdownMenuSeparator />
           </>
         ) : null}
@@ -668,34 +757,42 @@ function TaskMenuActionButton({
               {phaseTargets.slice(0, 8).map((target) => {
                 const command = taskCommand(action, docContext, target);
                 return (
-                  <DropdownMenuItem
+                  <DropdownRowTooltip
                     key={`${verb}-${target.wbsId}`}
-                    className="items-start gap-2 px-2 py-2"
-                    onSelect={() => selectCommand(command)}
+                    title={`${action.label} ${target.wbsId}`}
+                    line={target.line}
+                    description={target.text}
+                    command={command}
+                    modeLabel={modeLabel}
                   >
-                    <ModeIcon
-                      size={11}
-                      className={cn(
-                        "mt-0.5",
-                        action.autoSend ? "text-amber-500" : "text-afx-brand-soft",
-                      )}
-                      aria-hidden
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-[11px] font-medium">
-                        {`${action.label} ${target.wbsId}`}
+                    <DropdownMenuItem
+                      className="items-start gap-2 px-2 py-2"
+                      onSelect={() => selectCommand(command)}
+                    >
+                      <ModeIcon
+                        size={11}
+                        className={cn(
+                          "mt-0.5",
+                          action.autoSend ? "text-amber-500" : "text-afx-brand-soft",
+                        )}
+                        aria-hidden
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[11px] font-medium">
+                          {`${action.label} ${target.wbsId}`}
+                        </span>
+                        <span className="block truncate text-[10px] leading-snug text-muted-foreground">
+                          {target.text}
+                        </span>
+                        <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                          {command}
+                        </span>
                       </span>
-                      <span className="block truncate text-[10px] leading-snug text-muted-foreground">
-                        {target.text}
+                      <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                        {modeLabel}
                       </span>
-                      <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                        {command}
-                      </span>
-                    </span>
-                    <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                      {modeLabel}
-                    </span>
-                  </DropdownMenuItem>
+                    </DropdownMenuItem>
+                  </DropdownRowTooltip>
                 );
               })}
               {phaseTargets.length > 8 ? (
@@ -1067,6 +1164,8 @@ type FocusActionTarget = {
   label: string;
   suffix: string;
   description: string;
+  line?: number;
+  excerpt?: string;
   origin: "parsed" | "common";
 };
 
@@ -1233,6 +1332,8 @@ function focusActionTargets(
     label: focus.label,
     suffix: focus.commandSuffix ?? focus.slug,
     description: focus.line ? `Line ${focus.line}` : "Parsed from the active document.",
+    line: focus.line,
+    excerpt: focus.excerpt,
     origin: "parsed" as const,
   }));
   const parsedSuffixes = new Set(parsed.map((focus) => focus.suffix.toLowerCase()));

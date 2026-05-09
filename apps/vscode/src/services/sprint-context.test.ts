@@ -52,6 +52,7 @@ status: Draft
 # Spec
 
 ## Functional Requirements
+The composer keeps long labels compact while tooltips show the body preview.
 
 ## Non-Functional Requirements
 `;
@@ -73,6 +74,7 @@ const SPRINT_WITH_FOCUSES_BODY = [
   "<!-- SPRINT-SECTION-START: DESIGN -->",
   "## 2. Design",
   "## [DES-DATA] Data Model",
+  "Design body preview for the active section.",
   "```md",
   "## [DES-FAKE] Fake",
   "```",
@@ -395,6 +397,7 @@ describe("createSprintContextSync — onDocContextChange", () => {
           id: "functional-requirements",
           label: "Functional Requirements",
           slug: "functional-requirements",
+          excerpt: "The composer keeps long labels compact while tooltips show the body preview.",
           line: 9,
         },
       ],
@@ -443,6 +446,7 @@ describe("createSprintContextSync — onDocContextChange", () => {
           label: "DES-DATA: Data Model",
           slug: "des-data-data-model",
           commandSuffix: "des-data",
+          excerpt: "Design body preview for the active section.",
           line: 16,
         },
       ],

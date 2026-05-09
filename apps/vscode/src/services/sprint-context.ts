@@ -668,6 +668,7 @@ function sameFocuses(left: FocusOption[] | undefined, right: FocusOption[] | und
       focus.label === other.label &&
       focus.slug === other.slug &&
       focus.commandSuffix === other.commandSuffix &&
+      focus.excerpt === other.excerpt &&
       focus.line === other.line
     );
   });

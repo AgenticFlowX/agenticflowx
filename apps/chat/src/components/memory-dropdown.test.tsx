@@ -2,7 +2,7 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { MEMORY_CATALOG } from "../lib/doc-actions";
@@ -60,6 +60,24 @@ describe("MemoryDropdown", () => {
     expect(
       screen.getByRole("menuitem", { name: /Save: \/afx-context save Draft first/i }),
     ).not.toHaveAttribute("title");
+  });
+
+  it("shows workflow tooltip details for memory commands on focus", async () => {
+    renderDropdown("Memory");
+
+    const saveItem = screen.getByRole("menuitem", {
+      name: /Save: \/afx-context save Draft first/i,
+    });
+
+    fireEvent.focus(saveItem);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("/afx-context save [feature]").length).toBeGreaterThan(0);
+    });
+    expect(
+      screen.getAllByText(/Generate a detailed \.afx\/context\.md bundle/).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getAllByText("Draft").length).toBeGreaterThan(0);
   });
 
   it("keeps Save and Log draft-first when selected", () => {

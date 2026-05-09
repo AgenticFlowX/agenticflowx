@@ -17,6 +17,7 @@ const HEADING_RE = /^(#{2,6})\s+(.+?)\s*#*\s*$/;
 const DESIGN_ID_RE = /\[([A-Z]{2,}-[A-Z0-9][A-Z0-9-]*)\]/;
 const PHASE_RE = /^(?:\[[^\]]+\]\s*)?(?:phase\s+(\d+|[ivxlcdm]+)\b[:.\-\s]*(.*))$/i;
 const FENCE_RE = /^\s*(```+|~~~+)/;
+const EXCERPT_MAX_CHARS = 180;
 
 const SKIPPED_HEADINGS = new Set([
   "acceptance criteria",
@@ -62,8 +63,9 @@ export function parseFocuses(
   const seen = new Set<string>();
   let fence: string | null = null;
   const lineOffset = options.lineOffset ?? 0;
+  const lines = text.split(/\r?\n/);
 
-  text.split(/\r?\n/).forEach((line, index) => {
+  lines.forEach((line, index) => {
     const fenceMatch = line.match(FENCE_RE);
     if (fenceMatch) {
       const marker = fenceMatch[1]?.startsWith("~") ? "~" : "`";
@@ -100,6 +102,8 @@ export function parseFocuses(
       line: lineOffset + index + 1,
     };
     if (commandSuffix) focus.commandSuffix = commandSuffix;
+    const excerpt = sectionExcerpt(lines, index + 1, level);
+    if (excerpt) focus.excerpt = excerpt;
     focuses.push(focus);
   });
 
@@ -127,6 +131,64 @@ function shouldSkipHeading(title: string): boolean {
 function formatLabel(title: string, designId: string | undefined): string {
   if (!designId) return title;
   return title.replace(`[${designId}]`, `${designId}:`).replace(/\s+/g, " ").trim();
+}
+
+function sectionExcerpt(
+  lines: string[],
+  startIndex: number,
+  headingLevel: number,
+): string | undefined {
+  const chunks: string[] = [];
+  let fence: string | null = null;
+
+  for (let index = startIndex; index < lines.length; index++) {
+    const line = lines[index] ?? "";
+    const fenceMatch = line.match(FENCE_RE);
+    if (fenceMatch) {
+      const marker = fenceMatch[1]?.startsWith("~") ? "~" : "`";
+      if (!fence) fence = marker;
+      else if (fence === marker) fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const nestedHeading = line.match(HEADING_RE);
+    if (nestedHeading) {
+      const nestedLevel = nestedHeading[1]?.length ?? 0;
+      if (nestedLevel <= headingLevel) break;
+      continue;
+    }
+
+    const cleaned = cleanExcerptLine(line);
+    if (!cleaned) continue;
+    chunks.push(cleaned);
+
+    const joined = chunks.join(" ");
+    if (joined.length >= EXCERPT_MAX_CHARS) return truncateExcerpt(joined);
+  }
+
+  const excerpt = chunks.join(" ");
+  return excerpt ? truncateExcerpt(excerpt) : undefined;
+}
+
+function cleanExcerptLine(line: string): string {
+  return line
+    .replace(/<!--.*?-->/g, "")
+    .replace(/^\s*[-*+]\s+\[[ xX]?\]\s+/, "")
+    .replace(/^\s*[-*+]\s+/, "")
+    .replace(/^\s*\d+\.\s+/, "")
+    .replace(/^\s*>\s?/, "")
+    .replace(/!\[([^\]]*)\]\([^)]+\)/g, "$1")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/[*_~#|]/g, "")
+    .replace(/^-{3,}$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function truncateExcerpt(value: string): string {
+  if (value.length <= EXCERPT_MAX_CHARS) return value;
+  return `${value.slice(0, EXCERPT_MAX_CHARS - 3).trimEnd()}...`;
 }
 
 /**
