@@ -32,19 +32,20 @@ describe("resolveDocActions", () => {
     }
   });
 
-  it("routes standard spec.md to /afx-spec refine|validate|review|approve", () => {
+  it("routes standard spec.md to /afx-spec refine plus design authoring and approval", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "spec", format: "standard", section: "SPEC", feature: "auth" }),
     );
     expect(actions).toEqual([
       { label: "Refine", command: "/afx-spec refine auth", autoSend: false },
+      { label: "Author", command: "/afx-design author auth", autoSend: false },
       { label: "Validate", command: "/afx-spec validate auth", autoSend: true },
       { label: "Review", command: "/afx-spec review auth", autoSend: true },
       { label: "Approve", command: "/afx-spec approve auth", autoSend: true },
     ]);
   });
 
-  it("routes sprint SPEC section to /afx-sprint spec|verify|spec --approve (verify replaces validate+review)", () => {
+  it("routes sprint SPEC section to refine, author next section, verify, and approve", () => {
     const actions = resolveDocActions(
       ctx({
         docKind: "spec",
@@ -55,6 +56,7 @@ describe("resolveDocActions", () => {
     );
     expect(actions).toEqual([
       { label: "Refine", command: "/afx-sprint spec chat-foundation", autoSend: false },
+      { label: "Author", command: "/afx-sprint design chat-foundation", autoSend: false },
       { label: "Verify", command: "/afx-sprint verify chat-foundation", autoSend: true },
       {
         label: "Approve",
@@ -64,12 +66,13 @@ describe("resolveDocActions", () => {
     ]);
   });
 
-  it("routes standard design.md to /afx-design refine|validate|review|approve", () => {
+  it("routes standard design.md to refine plus task authoring and approval", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "design", format: "standard", section: "DESIGN", feature: "auth" }),
     );
     expect(actions.map((a) => a.command)).toEqual([
       "/afx-design refine auth",
+      "/afx-task plan auth",
       "/afx-design validate auth",
       "/afx-design review auth",
       "/afx-design approve auth",
@@ -238,7 +241,9 @@ describe("resolveDocActions", () => {
   ]);
   const DRAFT_PAIRS = new Set([
     "spec/Refine",
+    "spec/Author",
     "design/Refine",
+    "design/Author",
     "tasks/Refine",
     "tasks/Code",
     "tasks/Graduate",

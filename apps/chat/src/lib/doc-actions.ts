@@ -190,14 +190,19 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
 
   switch (docContext.docKind) {
     case "spec":
-      // Standard 4-file spec.md exposes the full Refine→Validate→Review→Approve
+      // Standard 4-file spec.md exposes the full Refine→Author→Validate→Review→Approve
       // pipeline. Sprint sections collapse Validate+Review into a single
-      // `verify` subcommand, so the sprint variant has 3 buttons instead of 4.
+      // `verify` subcommand while Author advances to the next sprint section.
       return isSprint
         ? [
             {
               label: "Refine",
               command: `/afx-sprint spec${featureArg}`,
+              autoSend: false,
+            },
+            {
+              label: "Author",
+              command: `/afx-sprint design${featureArg}`,
               autoSend: false,
             },
             {
@@ -213,6 +218,7 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
           ]
         : [
             { label: "Refine", command: `/afx-spec refine${featureArg}`, autoSend: false },
+            { label: "Author", command: `/afx-design author${featureArg}`, autoSend: false },
             { label: "Validate", command: `/afx-spec validate${featureArg}`, autoSend: true },
             { label: "Review", command: `/afx-spec review${featureArg}`, autoSend: true },
             { label: "Approve", command: `/afx-spec approve${featureArg}`, autoSend: true },
@@ -223,6 +229,11 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
             {
               label: "Refine",
               command: `/afx-sprint design${featureArg}`,
+              autoSend: false,
+            },
+            {
+              label: "Author",
+              command: `/afx-sprint task${featureArg}`,
               autoSend: false,
             },
             {
@@ -238,6 +249,7 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
           ]
         : [
             { label: "Refine", command: `/afx-design refine${featureArg}`, autoSend: false },
+            { label: "Author", command: `/afx-task plan${featureArg}`, autoSend: false },
             { label: "Validate", command: `/afx-design validate${featureArg}`, autoSend: true },
             { label: "Review", command: `/afx-design review${featureArg}`, autoSend: true },
             { label: "Approve", command: `/afx-design approve${featureArg}`, autoSend: true },
