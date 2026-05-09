@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: [dx, quality, eslint, prettier, knip, size-limit]
 spec: spec.md
 design: design.md
@@ -23,5 +23,5 @@ design: design.md
 
 | Date       | Task                         | Action    | Files Modified                                                                | Agent | Human |
 | ---------- | ---------------------------- | --------- | ----------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 2                      | Completed | docs/specs/410-dx-quality/ (scaffolded)                                       | [x]   | []    |
-| 2026-04-26 | Generated test-host excludes | Completed | eslint.config.mjs, vitest.config.ts, package.json, docs/specs/410-dx-quality/ | [x]   | []    |
+| 2026-04-26 | Phase 2                      | Completed | docs/specs/410-dx-quality/ (scaffolded)                                       | [x]   | [x]   |
+| 2026-04-26 | Generated test-host excludes | Completed | eslint.config.mjs, vitest.config.ts, package.json, docs/specs/410-dx-quality/ | [x]   | [x]   |

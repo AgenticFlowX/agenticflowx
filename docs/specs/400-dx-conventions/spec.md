@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T01:30:59.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["dx", "conventions", "commitlint", "commit-log", "kebab-case", "editorconfig"]
 ---
 

@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:34:22.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "vscode", "see-navigation", "traceability"]
 spec: spec.md
 design: design.md
@@ -83,5 +83,5 @@ Verify providers
 
 | Date       | Task | Action     | Files Modified                            | Agent | Human |
 | ---------- | ---- | ---------- | ----------------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/203-app-vscode-see-navigation/ | [x]   | []    |
-| 2026-05-03 | 1.2  | Coded      | design.md, @see provider source comments  | [x]   | []    |
+| 2026-05-02 | 1.1  | Scaffolded | docs/specs/203-app-vscode-see-navigation/ | [x]   | [x]   |
+| 2026-05-03 | 1.2  | Coded      | design.md, @see provider source comments  | [x]   | [x]   |

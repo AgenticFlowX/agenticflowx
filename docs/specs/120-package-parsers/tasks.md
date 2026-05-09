@@ -66,5 +66,5 @@ design: design.md
 
 | Date       | Task    | Action    | Files Modified                                                                                                              | Agent | Human |
 | ---------- | ------- | --------- | --------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 1 | Completed | packages/parsers/src/{frontmatter,spec,tasks,journal,index}.ts, packages/parsers/src/parsers.test.ts                        | [x]   | []    |
-| 2026-04-27 | audit   | Reviewed  | Backfilled phase breakdown from `> Package is implemented` placeholder; all FRs cross-referenced to actual files and tests. | [x]   | []    |
+| 2026-04-26 | Phase 1 | Completed | packages/parsers/src/{frontmatter,spec,tasks,journal,index}.ts, packages/parsers/src/parsers.test.ts                        | [x]   | [x]   |
+| 2026-04-27 | audit   | Reviewed  | Backfilled phase breakdown from `> Package is implemented` placeholder; all FRs cross-referenced to actual files and tests. | [x]   | [x]   |

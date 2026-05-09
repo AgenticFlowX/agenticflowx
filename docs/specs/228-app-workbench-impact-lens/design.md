@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "0.1"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-03T03:28:22.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "workbench", "impact-lens", "traceability", "intent-ledger"]
 spec: spec.md
 ---

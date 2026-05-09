@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-08T12:18:59.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "skills", "custom-providers"]
 spec: spec.md
 ---

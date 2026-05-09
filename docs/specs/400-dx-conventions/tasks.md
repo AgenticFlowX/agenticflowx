@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T01:30:59.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["dx", "conventions", "commitlint", "commit-log", "editorconfig", "husky"]
 spec: spec.md
 design: design.md
@@ -23,5 +23,5 @@ design: design.md
 
 | Date       | Task    | Action    | Files Modified                                                                         | Agent | Human |
 | ---------- | ------- | --------- | -------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 2 | Completed | docs/specs/400-dx-conventions/ (scaffolded)                                            | [x]   | []    |
-| 2026-05-03 | 1.1     | Coded     | spec.md, design.md, tasks.md, .gitmessage, .github/PULL_REQUEST_TEMPLATE.md, AGENTS.md | [x]   | []    |
+| 2026-04-26 | Phase 2 | Completed | docs/specs/400-dx-conventions/ (scaffolded)                                            | [x]   | [x]   |
+| 2026-05-03 | 1.1     | Coded     | spec.md, design.md, tasks.md, .gitmessage, .github/PULL_REQUEST_TEMPLATE.md, AGENTS.md | [x]   | [x]   |

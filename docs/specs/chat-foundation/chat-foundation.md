@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPRINT
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T14:58:19.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["chat-foundation", "sprint", "skill-bundling", "models", "slash-commands", "pi-rpc"]
 approval:
   spec: Approved

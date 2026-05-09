@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T15:24:30.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "chat", "webview", "streaming", "devoverlay", "code-spec-alignment", "hydration"]
 spec: spec.md
 ---

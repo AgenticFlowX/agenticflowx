@@ -58,9 +58,9 @@ design: design.md
 
 | Date                     | Task                                   | Action      | Files Modified                                                                                                 | Agent | Human |
 | ------------------------ | -------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26               | Phase 1 — scaffold                     | Completed   | docs/specs/100-package-shared/ (scaffolded)                                                                    | [x]   | []    |
-| 2026-04-26               | Phase 2 — AgentManager (ADR-002)       | Completed   | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002 | [x]   | []    |
-| 2026-04-26               | Review fixes                           | Completed   | packages/shared/src/agent.ts, spec.md, design.md                                                               | [x]   | []    |
-| 2026-05-05               | Phase 4 — active file context          | In progress | spec.md, design.md, packages/shared/src/messages.ts, messages.test.ts                                          | [x]   | []    |
-| 2026-05-05T11:53:21.000Z | Phase 4 — active file context snapshot | Coded       | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | []    |
-| 2026-05-05T12:03:56.000Z | Phase 4 — active file context snapshot | Completed   | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | []    |
+| 2026-04-26               | Phase 1 — scaffold                     | Completed   | docs/specs/100-package-shared/ (scaffolded)                                                                    | [x]   | [x]   |
+| 2026-04-26               | Phase 2 — AgentManager (ADR-002)       | Completed   | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002 | [x]   | [x]   |
+| 2026-04-26               | Review fixes                           | Completed   | packages/shared/src/agent.ts, spec.md, design.md                                                               | [x]   | [x]   |
+| 2026-05-05               | Phase 4 — active file context          | In progress | spec.md, design.md, packages/shared/src/messages.ts, messages.test.ts                                          | [x]   | [x]   |
+| 2026-05-05T11:53:21.000Z | Phase 4 — active file context snapshot | Coded       | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | [x]   |
+| 2026-05-05T12:03:56.000Z | Phase 4 — active file context snapshot | Completed   | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | [x]   |

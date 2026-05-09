@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-09T04:53:28.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: [infra, scripts, commitlint, scope-enum]
 spec: spec.md
 design: design.md
@@ -91,8 +91,8 @@ Tasks use WBS numbering `Phase.Task` (e.g. `1.1`, `1.2`). All tasks in this docu
 
 | Date       | Task              | Action    | Files Modified                                   | Agent | Human |
 | ---------- | ----------------- | --------- | ------------------------------------------------ | ----- | ----- |
-| 2026-04-26 | Phase 2           | Completed | docs/specs/320-infra-scripts/ (scaffolded)       | [x]   | []    |
-| 2026-05-09 | Design refinement | Updated   | docs/specs/320-infra-scripts/design.md, tasks.md | [x]   | []    |
-| 2026-05-09 | 1.1–1.5           | Coded     | scripts/generate-scope-enum.mjs                  | [x]   | []    |
-| 2026-05-09 | 1.1–1.5           | Verified  | scripts/generate-scope-enum.mjs                  | [x]   | []    |
-| 2026-05-09 | 1.1–1.5           | Completed | scripts/generate-scope-enum.mjs                  | [x]   | []    |
+| 2026-04-26 | Phase 2           | Completed | docs/specs/320-infra-scripts/ (scaffolded)       | [x]   | [x]   |
+| 2026-05-09 | Design refinement | Updated   | docs/specs/320-infra-scripts/design.md, tasks.md | [x]   | [x]   |
+| 2026-05-09 | 1.1–1.5           | Coded     | scripts/generate-scope-enum.mjs                  | [x]   | [x]   |
+| 2026-05-09 | 1.1–1.5           | Verified  | scripts/generate-scope-enum.mjs                  | [x]   | [x]   |
+| 2026-05-09 | 1.1–1.5           | Completed | scripts/generate-scope-enum.mjs                  | [x]   | [x]   |

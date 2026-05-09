@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: [ci, code-qa, pr-gate, lint, types, e2e]
 spec: spec.md
 design: design.md
@@ -23,4 +23,4 @@ design: design.md
 
 | Date       | Task    | Action    | Files Modified                          | Agent | Human |
 | ---------- | ------- | --------- | --------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 2 | Completed | docs/specs/500-ci-code-qa/ (scaffolded) | [x]   | []    |
+| 2026-04-26 | Phase 2 | Completed | docs/specs/500-ci-code-qa/ (scaffolded) | [x]   | [x]   |

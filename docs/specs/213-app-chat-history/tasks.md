@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-02T23:56:50.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "chat", "history"]
 spec: spec.md
 design: design.md
@@ -83,4 +83,4 @@ Verify event/list states
 
 | Date       | Task | Action     | Files Modified                   | Agent | Human |
 | ---------- | ---- | ---------- | -------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/213-app-chat-history/ | [x]   | []    |
+| 2026-05-02 | 1.1  | Scaffolded | docs/specs/213-app-chat-history/ | [x]   | [x]   |

@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-08T12:18:59.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "custom-providers"]
 depends_on: ["100-package-shared", "300-infra-pi", "350-agent-manager"]
 ---

@@ -39,5 +39,5 @@ design: design.md
 
 | Date       | Task                                     | Action    | Files Modified                                                                               | Agent | Human |
 | ---------- | ---------------------------------------- | --------- | -------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 1 — scaffold                       | Completed | docs/specs/310-infra-build/ (scaffolded)                                                     | [x]   | []    |
-| 2026-04-26 | Phase 2 — workspace expansion (ADR-0002) | Completed | pnpm-workspace.yaml (packages/agent/\* added), vitest.workspace.ts, spec.md (v1.1 FR-5/FR-6) | [x]   | []    |
+| 2026-04-26 | Phase 1 — scaffold                       | Completed | docs/specs/310-infra-build/ (scaffolded)                                                     | [x]   | [x]   |
+| 2026-04-26 | Phase 2 — workspace expansion (ADR-0002) | Completed | pnpm-workspace.yaml (packages/agent/\* added), vitest.workspace.ts, spec.md (v1.1 FR-5/FR-6) | [x]   | [x]   |

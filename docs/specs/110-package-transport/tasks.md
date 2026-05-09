@@ -72,6 +72,6 @@ design: design.md
 
 | Date       | Task    | Action    | Files Modified                                                                                                              | Agent | Human |
 | ---------- | ------- | --------- | --------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 1 | Completed | packages/transport/src/{types,vscode,mock,index}.ts, packages/transport/src/mock.test.ts                                    | [x]   | []    |
-| 2026-04-26 | 2.1     | Completed | packages/transport/src/mock.ts (added 6 chat-foundation scenarios)                                                          | [x]   | []    |
-| 2026-04-27 | audit   | Reviewed  | Backfilled phase breakdown from `> Package is implemented` placeholder; all FRs cross-referenced to actual files and tests. | [x]   | []    |
+| 2026-04-26 | Phase 1 | Completed | packages/transport/src/{types,vscode,mock,index}.ts, packages/transport/src/mock.test.ts                                    | [x]   | [x]   |
+| 2026-04-26 | 2.1     | Completed | packages/transport/src/mock.ts (added 6 chat-foundation scenarios)                                                          | [x]   | [x]   |
+| 2026-04-27 | audit   | Reviewed  | Backfilled phase breakdown from `> Package is implemented` placeholder; all FRs cross-referenced to actual files and tests. | [x]   | [x]   |
