@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T00:00:44.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "chat", "notes"]
 spec: spec.md
 design: design.md
@@ -84,4 +84,4 @@ Verify chat/editor notes paths
 
 | Date       | Task | Action     | Files Modified                 | Agent | Human |
 | ---------- | ---- | ---------- | ------------------------------ | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/215-app-chat-notes/ | [x]   | []    |
+| 2026-05-02 | 1.1  | Scaffolded | docs/specs/215-app-chat-notes/ | [x]   | [x]   |

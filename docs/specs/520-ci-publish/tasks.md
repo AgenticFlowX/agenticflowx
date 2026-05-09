@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: [ci, publish, vsix]
 spec: spec.md
 design: design.md
@@ -60,6 +60,6 @@ design: design.md
 
 | Date       | Task      | Action    | Files Modified                                                                | Agent | Human |
 | ---------- | --------- | --------- | ----------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 2   | Completed | docs/specs/520-ci-publish/ (scaffolded)                                       | [x]   | []    |
-| 2026-04-26 | Spec v1.1 | Completed | spec.md, design.md, tasks.md — manual marketplace, build-vsix.yml scope       | [x]   | []    |
-| 2026-04-26 | 1.1–1.5   | Coded     | .github/workflows/build-vsix.yml (created), marketplace-publish.yml (deleted) | [x]   | []    |
+| 2026-04-26 | Phase 2   | Completed | docs/specs/520-ci-publish/ (scaffolded)                                       | [x]   | [x]   |
+| 2026-04-26 | Spec v1.1 | Completed | spec.md, design.md, tasks.md — manual marketplace, build-vsix.yml scope       | [x]   | [x]   |
+| 2026-04-26 | 1.1–1.5   | Coded     | .github/workflows/build-vsix.yml (created), marketplace-publish.yml (deleted) | [x]   | [x]   |

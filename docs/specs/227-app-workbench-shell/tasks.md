@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-03T03:28:22.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "workbench", "shell", "tabs", "bridge", "layout"]
 spec: spec.md
 design: design.md

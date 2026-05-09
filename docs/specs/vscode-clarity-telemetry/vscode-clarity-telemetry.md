@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPRINT
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-01T17:09:27.000Z"
-updated_at: "2026-05-02T00:02:41.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["vscode-clarity-telemetry", "sprint"]
 approval:
   spec: Draft # Draft | Approved

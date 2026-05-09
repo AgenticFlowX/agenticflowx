@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-03T00:34:22.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["overview", "afx", "spec-driven", "routing", "taxonomy", "traceability"]
 spec: spec.md
 design: design.md
@@ -24,9 +24,9 @@ design: design.md
 
 | Date       | Task               | Action    | Files Modified                                                                                         | Agent | Human |
 | ---------- | ------------------ | --------- | ------------------------------------------------------------------------------------------------------ | ----- | ----- |
-| 2026-04-26 | Phase 1            | Completed | AGENTS.md, docs/adr/ADR-0001-pi-engine-integration.md, docs/research/pi/res-pi-integration-strategy.md | [x]   | []    |
-| 2026-04-26 | Phase 2            | Completed | docs/specs/001-overview/ (scaffolded)                                                                  | [x]   | []    |
-| 2026-05-02 | Routing taxonomy   | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | []    |
-| 2026-05-03 | Local traceability | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | []    |
-| 2026-05-03 | Question pruning   | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | []    |
-| 2026-05-03 | ASCII map routing  | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | []    |
+| 2026-04-26 | Phase 1            | Completed | AGENTS.md, docs/adr/ADR-0001-pi-engine-integration.md, docs/research/pi/res-pi-integration-strategy.md | [x]   | [x]   |
+| 2026-04-26 | Phase 2            | Completed | docs/specs/001-overview/ (scaffolded)                                                                  | [x]   | [x]   |
+| 2026-05-02 | Routing taxonomy   | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | [x]   |
+| 2026-05-03 | Local traceability | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | [x]   |
+| 2026-05-03 | Question pruning   | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | [x]   |
+| 2026-05-03 | ASCII map routing  | Coded     | docs/specs/001-overview/spec.md, docs/specs/001-overview/design.md, docs/specs/001-overview/tasks.md   | [x]   | [x]   |

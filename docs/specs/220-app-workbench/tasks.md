@@ -23,5 +23,5 @@ design: design.md
 
 | Date       | Task             | Action    | Files Modified                                              | Agent | Human |
 | ---------- | ---------------- | --------- | ----------------------------------------------------------- | ----- | ----- |
-| 2026-04-26 | Phase 2          | Completed | docs/specs/220-app-workbench/ (scaffolded)                  | [x]   | []    |
-| 2026-05-02 | Workbench polish | Fixed     | notes timestamps/filters; board optimistic UX; host refresh | [x]   | []    |
+| 2026-04-26 | Phase 2          | Completed | docs/specs/220-app-workbench/ (scaffolded)                  | [x]   | [x]   |
+| 2026-05-02 | Workbench polish | Fixed     | notes timestamps/filters; board optimistic UX; host refresh | [x]   | [x]   |

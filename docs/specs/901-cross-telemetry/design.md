@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:25:11.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["cross-cutting", "telemetry", "clarity"]
 spec: spec.md
 ---

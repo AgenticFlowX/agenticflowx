@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: [ci, release, release-please, changelog, semver, changelogen]
 spec: spec.md
 design: design.md
@@ -67,8 +67,8 @@ design: design.md
 
 | Date       | Task      | Action    | Files Modified                                                                 | Agent | Human |
 | ---------- | --------- | --------- | ------------------------------------------------------------------------------ | ----- | ----- |
-| 2026-04-26 | Phase 2   | Completed | docs/specs/510-ci-release/ (scaffolded)                                        | [x]   | []    |
-| 2026-04-26 | Spec v1.1 | Completed | spec.md, design.md, tasks.md — workflow_dispatch + changelogen + DES-CHANGELOG | [x]   | []    |
-| 2026-04-26 | 1.1, 1.2  | Coded     | .github/workflows/release-please.yml                                           | [x]   | []    |
-| 2026-04-26 | 2.1, 2.2  | Coded     | package.json, pnpm-lock.yaml                                                   | [x]   | []    |
-| 2026-04-26 | 2.3       | Verified  | -                                                                              | [x]   | []    |
+| 2026-04-26 | Phase 2   | Completed | docs/specs/510-ci-release/ (scaffolded)                                        | [x]   | [x]   |
+| 2026-04-26 | Spec v1.1 | Completed | spec.md, design.md, tasks.md — workflow_dispatch + changelogen + DES-CHANGELOG | [x]   | [x]   |
+| 2026-04-26 | 1.1, 1.2  | Coded     | .github/workflows/release-please.yml                                           | [x]   | [x]   |
+| 2026-04-26 | 2.1, 2.2  | Coded     | package.json, pnpm-lock.yaml                                                   | [x]   | [x]   |
+| 2026-04-26 | 2.3       | Verified  | -                                                                              | [x]   | [x]   |

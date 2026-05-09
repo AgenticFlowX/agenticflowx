@@ -32,4 +32,4 @@ design: design.md
 
 | Date       | Task | Action                                                      | Files modified                                                   | Agent | Human |
 | ---------- | ---- | ----------------------------------------------------------- | ---------------------------------------------------------------- | ----- | ----- |
-| 2026-05-03 | -    | Scaffold spec/design/tasks per audit Wave 2 recommendation. | `docs/specs/204-app-vscode-spec-services/{spec,design,tasks}.md` | yes   | yes   |
+| 2026-05-03 | -    | Scaffold spec/design/tasks per audit Wave 2 recommendation. | `docs/specs/204-app-vscode-spec-services/{spec,design,tasks}.md` | yes   | [x]   |

@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-07T14:17:10.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 depends_on: ["100-package-shared", "110-package-transport", "130-package-ui", "210-app-chat"]
 ---

@@ -1,11 +1,11 @@
 ---
 afx: true
 type: TASKS
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-08T12:18:59.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "custom-providers"]
 spec: spec.md
 design: design.md
@@ -113,6 +113,6 @@ Pi SDK Custom Providers adapter + bootstrap branch
 
 | Date                     | Task | Action     | Files Modified                                                                                                      | Agent | Human |
 | ------------------------ | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-05-02               | 1.1  | Scaffolded | docs/specs/351-agent-pi/                                                                                            | [x]   | []    |
-| 2026-05-03               | 1.2  | Coded      | design.md, Pi adapter source comments                                                                               | [x]   | []    |
-| 2026-05-08T12:18:59.000Z | 4.x  | Scaffolded | docs/specs/351-agent-pi/{spec,design,tasks}.md, docs/adr/ADR-0008-afx-custom-providers-adapter-pattern.md (planned) | [x]   | []    |
+| 2026-05-02               | 1.1  | Scaffolded | docs/specs/351-agent-pi/                                                                                            | [x]   | [x]   |
+| 2026-05-03               | 1.2  | Coded      | design.md, Pi adapter source comments                                                                               | [x]   | [x]   |
+| 2026-05-08T12:18:59.000Z | 4.x  | Scaffolded | docs/specs/351-agent-pi/{spec,design,tasks}.md, docs/adr/ADR-0008-afx-custom-providers-adapter-pattern.md (planned) | [x]   | [x]   |

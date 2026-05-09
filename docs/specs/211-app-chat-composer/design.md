@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.10"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T09:28:04.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 approved_at: "2026-05-05T08:37:39.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md

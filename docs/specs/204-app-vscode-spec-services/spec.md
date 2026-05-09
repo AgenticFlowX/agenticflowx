@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Draft
+status: Approved
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-03T07:46:18.000Z"
+updated_at: "2026-05-09T12:21:59.000Z"
 tags: ["app", "vscode", "spec-services", "sprint", "parsers", "host"]
 depends_on: ["120-package-parsers", "200-app-vscode", "220-app-workbench"]
 ---
