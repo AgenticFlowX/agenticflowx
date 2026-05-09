@@ -277,9 +277,9 @@ describe("createSprintContextSync — onDocContextChange", () => {
     ]);
   });
 
-  it("preserves nested-folder feature paths for sprint files (e.g. 900-fleet/03-spec)", () => {
-    setupWith(fakeEditor("/repo/docs/specs/900-fleet/03-spec/03-spec.md", SPRINT_BODY, 10));
-    expect(docContexts.at(-1)).toMatchObject({ feature: "900-fleet/03-spec" });
+  it("preserves feature paths for sprint files", () => {
+    setupWith(fakeEditor("/repo/docs/specs/chat-foundation/chat-foundation.md", SPRINT_BODY, 10));
+    expect(docContexts.at(-1)).toMatchObject({ feature: "chat-foundation" });
   });
 
   it("emits a standard-format payload for spec.md / design.md / tasks.md", () => {

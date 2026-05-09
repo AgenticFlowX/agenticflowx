@@ -189,8 +189,8 @@ export function createSprintContextSync(
  * Extract the feature slug from a docs/specs/** path. Returns the *full* path
  * under `docs/specs/` (preserving group nesting), so:
  *   - `docs/specs/100-package-shared/spec.md` → `100-package-shared`
- *   - `docs/specs/900-fleet/03-spec/03-spec.md` → `900-fleet/03-spec`
- *   - `docs/specs/900-fleet/229-x/research/foo.md` → `900-fleet/229-x` (walks up out of /research/)
+ *   - `docs/specs/chat-foundation/chat-foundation.md` → `chat-foundation`
+ *   - `docs/specs/000-plans/plan-pi-hybrid-runtime.md` → `000-plans/plan-pi-hybrid-runtime`
  *
  * Returns null when the file lives outside `docs/specs/` (e.g. global
  * `docs/adr/**` or `docs/research/**`).
