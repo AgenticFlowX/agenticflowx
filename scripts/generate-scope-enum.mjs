@@ -43,20 +43,26 @@ for (const pattern of patterns) {
 // Hand-maintained UI subsystems and cross-cutting scopes (C-1)
 // deps / ci: needed for Dependabot PR title validation
 const handMaintained = [
-  "chat",
-  "workbench",
-  "workbench/notes",
-  "workbench/journal",
+  "chat/history",
+  "chat/settings",
+  "workbench/analytics",
   "workbench/board",
+  "workbench/documents",
+  "workbench/impact-lens",
+  "workbench/journal",
+  "workbench/notes",
   "workbench/pipeline",
+  "workbench/shell",
   "bottom-panel",
-  "deps",
   "ci",
-  "release",
+  "deps",
   "docs",
-  "infra",
   "dx",
+  "e2e",
+  "infra",
+  "release",
   "repo",
+  "scripts",
   "spec",
 ];
 
