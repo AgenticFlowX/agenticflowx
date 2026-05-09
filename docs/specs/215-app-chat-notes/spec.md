@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:25:11.000Z"
+updated_at: "2026-05-09T00:00:44.000Z"
 tags: ["app", "chat", "notes"]
 depends_on:
   [
@@ -73,7 +73,7 @@ Users capturing notes from chat/editor context and developers wiring notes actio
 
 ### Notes Ownership
 
-- [ ] Missing `900-fleet` references are retargeted here
+- [ ] Legacy sprint references are retargeted here
 - [ ] Chat note bridge messages and editor notes actions have a numbered spec home
 - [ ] Workbench notes surface remains a separate workbench child route when needed
 

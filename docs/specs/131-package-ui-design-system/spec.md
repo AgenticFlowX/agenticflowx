@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:25:11.000Z"
+updated_at: "2026-05-09T00:00:44.000Z"
 tags: ["package", "ui", "design-system", "storybook", "theme"]
 depends_on: ["130-package-ui"]
 ---
@@ -46,21 +46,23 @@ Developers, design-system maintainers, and AI agents updating shared UI behavior
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                      | Priority    |
-| ---- | ------------------------------------------------------------------------------------------------ | ----------- |
-| FR-1 | Own shared design tokens, theme primitives, style helpers, and UI package contracts used by apps | Must Have   |
-| FR-2 | Own Storybook stories and documentation when they describe shared UI components or tokens        | Must Have   |
-| FR-3 | Define the boundary between design-system behavior and app-specific layout/interaction behavior  | Must Have   |
-| FR-4 | Route app appearance bridge work here when the behavior is shared across chat/workbench surfaces | Should Have |
-| FR-5 | Preserve package UI as browser-only shared React/UI code with no VSCode or Node runtime imports  | Must Have   |
+| ID   | Requirement                                                                                                              | Priority    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| FR-1 | Own shared design tokens, theme primitives, style helpers, and UI package contracts used by apps                         | Must Have   |
+| FR-2 | Own Storybook stories and documentation when they describe shared UI components or tokens                                | Must Have   |
+| FR-3 | Define the boundary between design-system behavior and app-specific layout/interaction behavior                          | Must Have   |
+| FR-4 | Route app appearance bridge work here when the behavior is shared across chat/workbench surfaces                         | Should Have |
+| FR-5 | Preserve package UI as browser-only shared React/UI code with no VSCode or Node runtime imports                          | Must Have   |
+| FR-6 | Ensure Meridian light and high-contrast-light themes keep primitive controls visible across chat and workbench consumers | Must Have   |
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                                                                  | Target                                                         |
-| ----- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| NFR-1 | Component and token docs remain easy to preview in Storybook                                 | New shared UI components include stories once Storybook exists |
-| NFR-2 | Design-system changes remain app-agnostic                                                    | No chat/workbench-only state machines in `packages/ui`         |
-| NFR-3 | Styling changes preserve existing app visual contracts unless an app child spec changes them | No accidental app regressions                                  |
+| ID    | Requirement                                                                                  | Target                                                                             |
+| ----- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| NFR-1 | Component and token docs remain easy to preview in Storybook                                 | New shared UI components include stories once Storybook exists                     |
+| NFR-2 | Design-system changes remain app-agnostic                                                    | No chat/workbench-only state machines in `packages/ui`                             |
+| NFR-3 | Styling changes preserve existing app visual contracts unless an app child spec changes them | No accidental app regressions                                                      |
+| NFR-4 | Theme contrast overrides preserve component variants                                         | Line tabs remain underline-only; segmented/default controls remain visibly bounded |
 
 ---
 
@@ -71,6 +73,8 @@ Developers, design-system maintainers, and AI agents updating shared UI behavior
 - [ ] Shared tokens, styles, and component contracts point at this spec
 - [ ] App-specific composer, message, settings, and workbench behavior remains in app child specs
 - [ ] `130-package-ui` routes readers here instead of duplicating all design-system details
+- [ ] Meridian contrast fixes for shared primitives are documented here instead of sprint/fleet docs
+- [ ] Chat and workbench consumer CSS reference this spec for cross-app primitive contrast overrides
 
 ### Storybook
 
