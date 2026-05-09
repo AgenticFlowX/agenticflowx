@@ -3,10 +3,10 @@ afx: true
 type: SPEC
 status: Approved
 owner: "@rixrix"
-version: "1.7"
+version: "1.8"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T09:28:04.000Z"
-approved_at: "2026-05-05T15:15:37.000Z"
+updated_at: "2026-05-09T13:10:17.000Z"
+approved_at: "2026-05-09T13:10:17.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
   [
@@ -17,6 +17,8 @@ depends_on:
     "210-app-chat",
   ]
 ---
+
+<!-- APPROVED: 2026-05-09T13:10:17.000Z - Do not edit without version bump -->
 
 ## References
 
@@ -56,7 +58,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | FR-1  | Own the composer root layout, input group, textarea placeholder, send/abort/steer buttons, and keyboard submission policy                                                                                                                                                                                                                                                                                                                                                                                       | Must Have   |
 | FR-2  | Own composer footer hints, runtime readiness copy, Pi pill copy, usage tooltip copy, queue copy, and disabled-state copy                                                                                                                                                                                                                                                                                                                                                                                        | Must Have   |
-| FR-3  | Own slash command and mention helper behavior that appears from composer input, including trigger detection, file listing, command formatting, and trigger replacement                                                                                                                                                                                                                                                                                                                                          | Must Have   |
+| FR-3  | Own slash command and mention helper behavior that appears from composer input, including trigger detection, incremental live filtering as the user types after `/`, Tab focus transfer into the dropdown, file listing, command formatting, and trigger replacement                                                                                                                                                                                                                                            | Must Have   |
 | FR-4  | Own queued content strip behavior, including local mirror rows, steer/follow-up grouping, collapse, dismiss, and clear-all affordances                                                                                                                                                                                                                                                                                                                                                                          | Must Have   |
 | FR-5  | Own the combined model/thinking composer control, including a collapsed trigger label that shows the selected model plus thinking level, always-visible thinking options, nested model submenu with API/external grouping, and settings fallback                                                                                                                                                                                                                                                                | Should Have |
 | FR-6  | Own prompt-history recall from the composer textarea, including ArrowUp/ArrowDown cursor policy and draft restoration                                                                                                                                                                                                                                                                                                                                                                                           | Should Have |
@@ -96,6 +98,15 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Footer hint changes can start from this spec without reading history/settings/message specs
 - [ ] Slash, mention, combined model/thinking, queue, send, steer, abort, and prompt-history behavior has a named owner, including a collapsed trigger label that shows the selected model plus thinking level
 - [ ] Composer design includes ASCII UI, component/control, code locator, and trace matrix sections that map to source anchors
+
+### Slash Command Auto-Complete (FR-3)
+
+- [ ] Typing `/` opens the full slash command list in a popup
+- [ ] Each subsequent keystroke after `/` incrementally narrows the list (case-insensitive prefix/substring match against command names)
+- [ ] Pressing `Tab` while the slash popup is open moves focus from the textarea to the first selectable command row
+- [ ] Arrow keys navigate within the popup after focus transfer; `Enter` selects the highlighted command
+- [ ] When no commands match the typed filter, the popup shows an empty state instead of closing
+- [ ] The popup stays open until the user selects a command, presses `Escape`, or clears the `/` trigger
 
 ### System Commands
 
@@ -178,6 +189,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Every doc-action button has an intent icon from `lucide-react`: `PenLine` for compose/draft controls and `Zap` for run-now controls
 - [ ] Memory actions render from one shared catalog opened by a single compact top-right/composer-toolbar trigger
 - [ ] More menu exposes overflow doc actions, focus targets parsed from the active AFX doc, and command-context presets when enough context exists
+- [ ] Long doc-action dropdown labels may truncate visually, but every parsed focus/task/command target exposes full title, line/command metadata, and available body context through shadcn tooltip content
 - [ ] Completed assistant messages parse supported `/afx-*` follow-up commands from `Next:` output and surface them as draft/send action chips
 - [ ] Icons come from `lucide-react` and match the command intent; no bespoke icon set is introduced for these controls
 - [ ] Unit tests cover command catalog, doc actions, memory dropdown, context presets, result-action parsing/rendering, and host active-doc context parsing
@@ -235,7 +247,7 @@ None.
 | Bridge messages | Chat send/steer/abort/queue/runCommand requests, active-file context preference requests, and runtime readiness payloads consumed by composer                                                                                                                                                                                                                                             |
 | Settings keys   | Composer-visible runtime/provider/model settings plus `afx.context.includeActiveFileContext` as mirrored state                                                                                                                                                                                                                                                                            |
 | Commands        | Slash commands and composer actions, not VSCode extension commands                                                                                                                                                                                                                                                                                                                        |
-| Tests           | Chat view/composer tests, combined model/thinking menu tests, future e2e keyboard tests, active-file context toggle tests                                                                                                                                                                                                                                                                 |
+| Tests           | Chat view/composer tests, combined model/thinking menu tests, slash-popup filter + keyboard focus tests, future e2e keyboard tests, active-file context toggle tests                                                                                                                                                                                                                      |
 | Dependencies    | `212-app-chat-messages`, `214-app-chat-settings`, `215-app-chat-notes`, `131-package-ui-design-system`                                                                                                                                                                                                                                                                                    |
 | Out of scope    | Message timeline, history panel, full settings forms, host menu registration                                                                                                                                                                                                                                                                                                              |
 | Example prompts | "Update chat footer hint", "Minimize queued composer content", "Change slash popup behavior", "Adjust send keyboard policy"                                                                                                                                                                                                                                                               |

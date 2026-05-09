@@ -3,12 +3,12 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.10"
+version: "1.11"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
-approved_at: "2026-05-05T08:37:39.000Z"
+updated_at: "2026-05-09T13:19:54.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
+approved_at: "2026-05-09T13:19:54.000Z"
 ---
 
 <!-- APPROVED: 2026-05-05T08:37:39.000Z - Do not edit without version bump -->
@@ -256,6 +256,45 @@ and the switch/copy/dismiss affordances.
 +--------------------------------------------------------------------+
 ```
 
+### [DES-COMPOSER-MOCKUP-SLASH-FILTER] Slash Command Auto-Complete
+
+Typing `/` opens the full command list; each subsequent keystroke narrows the list in real time.
+Pressing `Tab` while the popup is open moves focus from the textarea into the dropdown so the
+user can navigate with arrow keys and select with `Enter`. The popup stays open until the user
+selects a command, presses `Escape`, or clears the `/` trigger.
+
+```text
++--------------------------------------------------------------------+
+| [Composer.InputGroup]                                              |
+|  [@] [Composer.Input: /afx-s                                   ]   |
+|      +----------------------------------------------------------+  |
+|      | AFX skills                                               |  |
+|      |   /afx-spec    Validate and manage spec lifecycle        |  |
+|      |   /afx-sprint  Single-document SDD for fast feature work |  |
+|      |   /afx-session Capture session context and notes         |  |
+|      |                                                          |  |
+|      | Other commands                                           |  |
+|      |   /abort       Stop the current agent run                |  |
+|      |                                                          |  |
+|      | Actions                                                  |  |
+|      |   /new         Start a new chat session                  |  |
+|      +----------------------------------------------------------+  |
+|                                                                    |
+|  [Tab] focuses first row · [↑↓] navigate · [Enter] select          |
++--------------------------------------------------------------------+
+```
+
+When no commands match the typed filter, the popup shows an empty state instead of closing:
+
+```text
++--------------------------------------------------------------------+
+|  [@] [Composer.Input: /xyz                                      ]  |
+|      +----------------------------------------------------------+  |
+|      | No commands match "/xyz"                                 |  |
+|      +----------------------------------------------------------+  |
++--------------------------------------------------------------------+
+```
+
 ## [DES-COMPOSER-COMPONENTS] Composer Component And Control Anatomy
 
 ```text
@@ -467,12 +506,16 @@ System commands **never reach the LLM**. The `!` prefix is detected before any `
 
 ### [DES-COMPOSER-COMPONENT-SLASH-POPUP] SlashPopup
 
-| Code anchor          | Component contract                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------ |
-| `SlashPopup`         | Owns command popover placement, command groups, empty state, and action group                          |
-| `SlashAction`        | Only host actions that bypass textarea insertion: `chat/newSession`, `chat/abort`                      |
-| `CommandRow`         | Renders command name and optional description as a selectable cmdk row                                 |
-| `displayCommandName` | Converts skill ids like `skill:afx-task` to `/afx-task` and normalizes plain commands with leading `/` |
+| Code anchor          | Component contract                                                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `SlashPopup`         | Owns command popover placement, command groups, empty state, action group, and live incremental filter                      |
+| `filterQuery`        | Substring after the `/` trigger; narrows groups in real time as the user types                                              |
+| `filteredCommands`   | Derived from `AgentCommand[]` by matching `displayCommandName` against `filterQuery` (case-insensitive prefix or substring) |
+| `SlashAction`        | Only host actions that bypass textarea insertion: `chat/newSession`, `chat/abort`                                           |
+| `CommandRow`         | Renders command name and optional description as a selectable cmdk row                                                      |
+| `displayCommandName` | Converts skill ids like `skill:afx-task` to `/afx-task` and normalizes plain commands with leading `/`                      |
+| `onFilterChange`     | Updates `filterQuery` from draft changes after the `/` trigger without closing the popup                                    |
+| `focusPopupOnTab`    | When `Tab` is pressed while slash popup is open, moves focus from textarea to first `CommandRow`                            |
 
 ### [DES-COMPOSER-COMPONENT-MENTION-POPUP] MentionPopup
 
@@ -497,6 +540,7 @@ System commands **never reach the LLM**. The `!` prefix is detected before any `
 | ------------------------------------------ | -------------------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Slash/mention popup open                   | `Escape`                   | `onKeyDown`                                  | Close both helper popups and keep draft                                             |
 | Slash/mention popup open                   | Arrow/Home/End/plain Enter | `onKeyDown`                                  | Forward keydown to `[cmdk-root]`; plain Enter selects helper item                   |
+| Slash/mention popup open                   | `Tab`                      | `onKeyDown`                                  | Move focus from textarea to first `CommandRow` in the open popup; popup stays open  |
 | Textarea at start or history cursor active | `ArrowUp`/`ArrowDown`      | `navigatePromptHistory`, `applyHistoryDraft` | Recall prior submitted/user prompts and restore original draft on forward traversal |
 | Idle composer                              | `Enter`                    | `onKeyDown`, `submit`                        | Send `chat/send`                                                                    |
 | Idle composer                              | `Shift+Enter`              | `onKeyDown`                                  | Insert newline                                                                      |
@@ -512,10 +556,13 @@ System commands **never reach the LLM**. The `!` prefix is detected before any `
 ```text
 [Composer.Helpers.Slash]
 draft before caret -> detectComposerTrigger("/", not inside fence, slash at command position)
-  -> SlashPopup
-     AFX skills group
-     Other commands group
-     Actions: /new, /abort
+  -> SlashPopup opens with full command list
+  -> each keystroke after "/" updates filterQuery
+     AFX skills group (filtered live)
+     Other commands group (filtered live)
+     Actions: /new, /abort (filtered live)
+     Empty state shown when no match
+  -> Tab moves focus into popup for keyboard selection
   -> selectCommand inserts text OR selectSlashAction dispatches host message
 
 [Composer.Helpers.Mention]
@@ -527,13 +574,15 @@ draft before caret -> detectComposerTrigger("@", not escaped, not inside fence)
   -> selectMention inserts @path at trigger range
 ```
 
-| Function/component      | Functionality                                                                                                                              |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `detectComposerTrigger` | Finds `/` or `@` token before the caret, rejects fenced code blocks, escaped mentions, and slash commands that are not at command position |
-| `extractMentions`       | Extracts unique `@path` mentions from sent content, strips trailing punctuation, and passes `mentions` to host send/queue messages         |
-| `insertAtTrigger`       | Replaces the active trigger range with command or `@file` text, appends a space, and restores caret/focus                                  |
-| `SlashPopup`            | Renders command groups from `AgentCommand`, formats AFX skills as slash commands, and distinguishes host actions from text insertions      |
-| `MentionPopup`          | Splits files into recent/workspace groups and inserts the chosen path                                                                      |
+| Function/component      | Functionality                                                                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detectComposerTrigger` | Finds `/` or `@` token before the caret, rejects fenced code blocks, escaped mentions, and slash commands that are not at command position                    |
+| `filterQuery`           | Live substring after `/` used to incrementally narrow `SlashPopup` command groups                                                                             |
+| `extractMentions`       | Extracts unique `@path` mentions from sent content, strips trailing punctuation, and passes `mentions` to host send/queue messages                            |
+| `insertAtTrigger`       | Replaces the active trigger range with command or `@file` text, appends a space, and restores caret/focus                                                     |
+| `SlashPopup`            | Renders command groups from `AgentCommand`, formats AFX skills as slash commands, distinguishes host actions from text insertions, and applies live filtering |
+| `MentionPopup`          | Splits files into recent/workspace groups and inserts the chosen path                                                                                         |
+| `focusPopupOnTab`       | Transfers focus from textarea to the first selectable item in `SlashPopup` when `Tab` is pressed while the popup is open                                      |
 
 ## [DES-COMPOSER-RUNTIME] Combined Model, Thinking, And Runtime Control Map
 
@@ -762,6 +811,13 @@ draft-first Compose commands before deterministic Run Now commands, with parsed 
 lucide `ChevronDown`; do not render a detached caret beside a separate action button. Spec/design `Refine`
 opens a focus menu when targets are available. The menu starts with `Insert In Chat Box` → `Refine all`,
 then exposes `From This Doc`, `Common Focuses`, and spec-only `Discuss`.
+Dropdown rows stay compact: long visible labels and command previews may ellipsize, but hover/focus uses
+shadcn Tooltip content to expose the full target title, source line when known, command, draft/auto mode,
+and the parsed section excerpt when the host provides one.
+The shared Memory catalog follows the same tooltip rule for `/afx-context` and `/afx-session`
+commands, using workflow-derived details for Save, Load, History, Impact, Note, Log, Recap,
+Promote, and Capture so first-time users can understand what each memory action does before
+running it.
 On tasks.md, the visible strip is split by behavior, not by command family: Compose controls (`Code`,
 task-phase `Review` / sprint `Refine`) render first, followed by a literal `|` divider and Run Now
 controls (`Verify`, `Pick`, `Approve`/state actions where applicable). `Code` always opens a draft-first
@@ -1180,6 +1236,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 | Runtime unavailable            | Footer and send state explain configuration/readiness path                                                |
 | Bridge send fails              | Composer returns to editable state and surfaces failure through chat error UI                             |
 | Helper parsing fails           | Fall back to plain text input without blocking send                                                       |
+| Empty slash filter result      | Show "No commands match" empty state in popup; user can keep typing or press Escape to close              |
 | Shell command timeout (30s)    | Terminate subprocess; emit `agent/commandOutput { error: "Command timed out after 30s", exitCode: -1 }`   |
 | Shell non-zero exit            | Emit `agent/commandOutput { done: true, exitCode }`; output card shows exit code badge in amber           |
 | Shell exception (ENOENT, etc.) | Emit `agent/commandOutput { error: <exception.message> }`; render error in red inline                     |
@@ -1194,6 +1251,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 - Unit-test helper parsing where practical.
 - Add chat view tests for footer/queue state when the surface changes.
 - Add mode-specific tests for the toolbar posture chip, Explore prompt prefixing, and blocked-command strip.
+- Add `slash-popup.test.tsx` for live filter narrowing, empty-state rendering, and Tab focus-transfer coverage.
 - Use e2e tests for keyboard policy or queue affordance regressions.
 
 ---
@@ -1216,7 +1274,7 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | ---- | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1.x  | `apps/chat/src/views/chat.tsx`                | `design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-RUNTIME-MENU] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-FLOW] [DES-COMPOSER-RUNTIME] [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX]` |
 | 1.x  | `apps/chat/src/components/model-combobox.tsx` | `design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-MOCKUP-RUNTIME-MENU]`                                                                                                                                                                                                                                                              |
-| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                                                                                                                                 |
+| 1.x  | `apps/chat/src/components/slash-popup.tsx`    | `design.md [DES-COMPOSER-HELPERS] [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-MOCKUP-SLASH-FILTER]`                                                                                                                                                                                                                         |
 | 1.x  | `apps/chat/src/components/mention-popup.tsx`  | `design.md [DES-COMPOSER-HELPERS]`                                                                                                                                                                                                                                                                                                 |
 | 1.x  | `apps/chat/src/components/composer-strip.tsx` | `design.md [DES-COMPOSER-QUEUE] [DES-COMPOSER-FILES-STRIP]`                                                                                                                                                                                                                                                                        |
 | 1.x  | `apps/chat/src/components/files-strip.tsx`    | `spec.md [FR-10]` + `design.md [DES-COMPOSER-FILES-STRIP]`                                                                                                                                                                                                                                                                         |
@@ -1232,7 +1290,7 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | `[Composer.Queue]`         | `apps/chat/src/views/chat.tsx` `QueueStrip`, `QueueRow`; `composer-strip.tsx`                                                                                       | `chat/steer`, `chat/followUp`, `queue_update`                                                                     | `apps/chat/src/app.test.tsx`                                                                             |
 | `[Composer.ModifiedFiles]` | `apps/chat/src/components/files-strip.tsx` `FilesStrip`, `FilePill`; `apps/chat/src/lib/derive-modified-files.ts`; `chat.tsx` integration                           | `chat/openFile`                                                                                                   | `derive-modified-files.test.ts`, `files-strip.test.tsx`, `apps/chat/src/app.test.tsx`                    |
 | `[Composer.Input]`         | `apps/chat/src/views/chat.tsx` `InputGroupTextarea`, `handleDraftChange`, `onKeyDown`                                                                               | `chat/send`, `chat/saveNote`, `chat/listFiles`                                                                    | `apps/chat/src/app.test.tsx`                                                                             |
-| `[Composer.Helpers]`       | `slash-popup.tsx`, `mention-popup.tsx`, `composer-detect.ts`, `mentions.ts`                                                                                         | `chat/getCommands`, `chat/listFiles`, `chat/newSession`                                                           | `composer-detect.test.ts`, `mentions.test.ts`                                                            |
+| `[Composer.Helpers]`       | `slash-popup.tsx`, `mention-popup.tsx`, `composer-detect.ts`, `mentions.ts`                                                                                         | `chat/getCommands`, `chat/listFiles`, `chat/newSession`, live filter query, Tab focus transfer                    | `composer-detect.test.ts`, `mentions.test.ts`, `slash-popup.test.tsx`                                    |
 | `[Composer.Toolbar]`       | `apps/chat/src/views/chat.tsx` toolbar block; `model-combobox.tsx`; `ModeToggle`; `ActiveFileContextToggle`                                                         | `chat/setModel`, `chat/setThinkingLevel`, `chat/setMode`, `chat/openSettings`, `chat/setIncludeActiveFileContext` | `apps/chat/src/app.test.tsx`                                                                             |
 | `[Composer.DocActions]`    | `apps/chat/src/components/chat-doc-actions-strip.tsx`; `chat-doc-kind-visual.ts`; `doc-actions.ts`; `command-catalog.ts`; `context-presets.ts`; `result-actions.ts` | `chat/activeDocContext`, draft insertion, `chat/send` / `chat/followUp` for deterministic commands                | `doc-actions.test.ts`, `command-catalog.test.ts`, `context-presets.test.ts`, `result-actions.test.ts(x)` |
 | `[Composer.BlockedAction]` | `apps/chat/src/views/chat.tsx` `BlockedCommandStrip`, `copyBlockedCommand`, `restoreBlockedCommand`                                                                 | `agent/actionBlocked`, `chat/setMode`                                                                             | `apps/chat/src/app.test.tsx`                                                                             |
@@ -1245,7 +1303,7 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | FR-1        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-COMPONENTS`, `DES-COMPOSER-KEYS`                | `Chat`, `InputGroupTextarea`, `submit`, `abort`, `onKeyDown`                                                                                                                  | `apps/chat/src/app.test.tsx`; future e2e keyboard coverage                                                                |
 | FR-2        | `DES-COMPOSER-FOOTER`, `DES-COMPOSER-MOCKUP-COMPACTING`                                                                                                      | `ActivityBar`, `FooterStrip`, `usageTooltip`, placeholder logic                                                                                                               | `apps/chat/src/app.test.tsx`                                                                                              |
-| FR-3        | `DES-COMPOSER-HELPERS`                                                                                                                                       | `detectComposerTrigger`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`                                                              | `composer-detect.test.ts`, `mentions.test.ts`, `app.test.tsx`                                                             |
+| FR-3        | `DES-COMPOSER-HELPERS`, `DES-COMPOSER-COMPONENT-SLASH-POPUP`, `DES-COMPOSER-MOCKUP-SLASH-FILTER`                                                             | `detectComposerTrigger`, `filterQuery`, `SlashPopup`, `MentionPopup`, `insertAtTrigger`, `selectSlashAction`, `extractMentions`, `focusPopupOnTab`                            | `composer-detect.test.ts`, `mentions.test.ts`, `slash-popup.test.tsx`, `app.test.tsx`                                     |
 | FR-4        | `DES-COMPOSER-QUEUE`                                                                                                                                         | `QueuedMessage`, `QueueStrip`, `QueueRow`, `dismissQueued`, `clearAllQueued`                                                                                                  | `apps/chat/src/app.test.tsx`                                                                                              |
 | FR-5        | `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-RUNTIME-MENU`, `DES-COMPOSER-RUNTIME`                                                                       | `ModelCombobox`, `selectModel`, `setThinkingLevel`                                                                                                                            | `app.test.tsx`; model-combobox tests when changed                                                                         |
 | FR-6        | `DES-COMPOSER-KEYS`                                                                                                                                          | `navigatePromptHistory`, `collectPromptHistory`, `applyHistoryDraft`                                                                                                          | `app.test.tsx`; future dedicated history recall test                                                                      |
@@ -1256,13 +1314,14 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | FR-11       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-KEYS`, `DES-API`, `DES-COMPOSER-REFS`                     | `ActiveFileContextToggle`, `applyIncludeActiveFileContext`, `chat/setIncludeActiveFileContext`, `agent/settingsSnapshot`                                                      | `app.test.tsx`, settings snapshot tests, small-screen toolbar tests                                                       |
 | FR-12       | `DES-COMPOSER-MOCKUP-MODE-COLLAPSED`, `DES-COMPOSER-MOCKUP-MODE-DROPDOWN`, `DES-COMPOSER-COMPONENT-MODE-TOGGLE`, `DES-COMPOSER-RUNTIME`, `DES-COMPOSER-REFS` | `ModeToggle`, `WORKSPACE_MODES`, `chat/setMode`, `WorkspaceMode`                                                                                                              | `app.test.tsx`, mode snapshot tests, settings mode coverage                                                               |
 | FR-13       | `DES-COMPOSER-MOCKUP-BLOCKED-COMMAND`, `DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP`, `DES-COMPOSER-REFS`, `DES-API`, `DES-SEC`, `DES-ERR`                  | `BlockedCommandStrip`, `BlockedActionView`, `restoreBlockedCommand`, `copyBlockedCommand`, `agent/actionBlocked`                                                              | `app.test.tsx`, blocked-command tests, Explore guardrail coverage                                                         |
+| FR-14       | `DES-COMPOSER-MOCKUP-MODE-COLLAPSED`, `DES-COMPOSER-MOCKUP-MODE-DROPDOWN`, `DES-COMPOSER-COMPONENT-MODE-TOGGLE`, `DES-COMPOSER-RUNTIME`                      | `ModeToggle`, `WORKSPACE_MODES`, `data-workspace-mode` CSS accent, Spec footer hint, `chat/setMode`                                                                           | `app.test.tsx`, mode snapshot tests, settings mode coverage                                                               |
 | FR-15/FR-16 | `DES-COMPOSER-COMPONENT-STRIP`                                                                                                                               | `ChatDocActionsStrip`, `MemoryDropdown`, `ChatCommandPresetSubmenu`, `ResultActions`, `resolveDocActions`, `MEMORY_CATALOG`, `COMMAND_CONTEXT_PRESETS`, `parseResultActions`  | Unit: command/doc/memory/preset/result parser + component tests; E2E required for doc-action menu and result-action chips |
 | NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                               | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline                       |
 | NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`                                                                          | `ActiveFileContextToggle`, compact toolbar placement                                                                                                                          | `app.test.tsx` narrow-width composer coverage                                                                             |
 | NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                                          | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                                |
 | NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                                        | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                             |
 | NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                               | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                                     |
-| NFR-4       | `DES-COMPOSER-HELPERS`                                                                                                                                       | `detectComposerTrigger`, `extractMentions`                                                                                                                                    | helper unit tests                                                                                                         |
+| NFR-4       | `DES-COMPOSER-HELPERS`, `DES-COMPOSER-COMPONENT-SLASH-POPUP`                                                                                                 | `detectComposerTrigger`, `filterQuery`, `extractMentions`, `focusPopupOnTab`                                                                                                  | helper unit tests, `slash-popup.test.tsx`                                                                                 |
 | NFR-5       | `DES-COMPOSER-REFS`, `DES-COMPOSER-LOC`                                                                                                                      | file/local `@see` anchors                                                                                                                                                     | `rg "@see docs/specs/211-app-chat-composer"` and `/afx-check trace`                                                       |
 
 ---

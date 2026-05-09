@@ -29,6 +29,8 @@ export type SlashAction = "chat/newSession" | "chat/abort";
 export interface SlashPopupProps {
   open: boolean;
   commands: readonly AgentCommand[];
+  /** Live substring after the `/` trigger used to incrementally narrow the list. */
+  filterQuery: string;
   onOpenChange: (open: boolean) => void;
   onSelect: (commandText: string) => void;
   onAction: (action: SlashAction) => void;
@@ -38,11 +40,29 @@ export interface SlashPopupProps {
  * @see docs/specs/211-app-chat-composer/spec.md [FR-3]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-HELPERS]
  */
-export function SlashPopup({ open, commands, onOpenChange, onSelect, onAction }: SlashPopupProps) {
-  const afxCommands = commands.filter(
+export function SlashPopup({
+  open,
+  commands,
+  filterQuery,
+  onOpenChange,
+  onSelect,
+  onAction,
+}: SlashPopupProps) {
+  const allAfxCommands = commands.filter(
     (cmd) => cmd.source === "skill" && cmd.name.startsWith("skill:afx-"),
   );
-  const otherCommands = commands.filter((cmd) => !afxCommands.includes(cmd));
+  const allOtherCommands = commands.filter((cmd) => !allAfxCommands.includes(cmd));
+
+  const query = filterQuery.toLowerCase();
+  const afxCommands = allAfxCommands.filter((cmd) =>
+    displayCommandName(cmd).toLowerCase().includes(query),
+  );
+  const otherCommands = allOtherCommands.filter((cmd) =>
+    displayCommandName(cmd).toLowerCase().includes(query),
+  );
+  const showNew = "/new".includes(query);
+  const showAbort = "/abort".includes(query);
+  const hasMatches = afxCommands.length > 0 || otherCommands.length > 0 || showNew || showAbort;
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -56,9 +76,21 @@ export function SlashPopup({ open, commands, onOpenChange, onSelect, onAction }:
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <Command className="cursor-default">
-          <CommandInput placeholder="Filter commands..." />
+          {/* Hidden input keeps cmdk filter state in sync with the textarea draft. */}
+          <CommandInput
+            value={filterQuery}
+            className="h-0 w-0 border-0 p-0 opacity-0"
+            tabIndex={-1}
+            aria-hidden
+          />
           <CommandList className="max-h-72 [scrollbar-width:thin] [scrollbar-color:var(--border)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/60">
-            <CommandEmpty>No commands available.</CommandEmpty>
+            {!hasMatches ? (
+              <CommandEmpty>
+                {query.length > 0
+                  ? `No commands match "/${filterQuery}".`
+                  : "No commands available."}
+              </CommandEmpty>
+            ) : null}
             {afxCommands.length > 0 && (
               <CommandGroup heading="AFX skills">
                 {afxCommands.map((cmd) => (
@@ -73,20 +105,30 @@ export function SlashPopup({ open, commands, onOpenChange, onSelect, onAction }:
                 ))}
               </CommandGroup>
             )}
-            <CommandGroup heading="Actions">
-              <CommandItem value="/new" onSelect={() => onAction("chat/newSession")}>
-                <div className="min-w-0">
-                  <p className="font-mono text-[11px]">/new</p>
-                  <p className="truncate text-[10px] text-muted-foreground">Start a new session</p>
-                </div>
-              </CommandItem>
-              <CommandItem value="/abort" onSelect={() => onAction("chat/abort")}>
-                <div className="min-w-0">
-                  <p className="font-mono text-[11px]">/abort</p>
-                  <p className="truncate text-[10px] text-muted-foreground">Abort the active run</p>
-                </div>
-              </CommandItem>
-            </CommandGroup>
+            {(showNew || showAbort) && (
+              <CommandGroup heading="Actions">
+                {showNew && (
+                  <CommandItem value="/new" onSelect={() => onAction("chat/newSession")}>
+                    <div className="min-w-0">
+                      <p className="font-mono text-[11px]">/new</p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        Start a new session
+                      </p>
+                    </div>
+                  </CommandItem>
+                )}
+                {showAbort && (
+                  <CommandItem value="/abort" onSelect={() => onAction("chat/abort")}>
+                    <div className="min-w-0">
+                      <p className="font-mono text-[11px]">/abort</p>
+                      <p className="truncate text-[10px] text-muted-foreground">
+                        Abort the active run
+                      </p>
+                    </div>
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>

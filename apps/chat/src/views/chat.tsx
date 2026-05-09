@@ -1,9 +1,6 @@
 /**
  * Chat view — streaming message thread with composer, tool call display, and thinking blocks.
  *
- * @see docs/specs/210-app-chat/spec.md [FR-2] [FR-3] [FR-4] [FR-6] [FR-8]
- * @see docs/specs/210-app-chat/design.md [DES-UI]
- * @see docs/specs/210-app-chat/design.md [DES-UI-MOCKUP-HYDRATION]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-2] [FR-10] [FR-11]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-IDLE] [DES-COMPOSER-MOCKUP-RUNTIME-MENU] [DES-COMPOSER-MOCKUP-STREAMING] [DES-COMPOSER-MOCKUP-COMPACTING] [DES-COMPOSER-MOCKUP-MODE-COLLAPSED] [DES-COMPOSER-MOCKUP-MODE-DROPDOWN] [DES-COMPOSER-MOCKUP-BLOCKED-COMMAND] [DES-COMPOSER-FLOW] [DES-COMPOSER-FILES-STRIP] [DES-COMPOSER-CONTEXT] [DES-COMPOSER-RUNTIME] [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX] [DES-COMPOSER-COMPONENT-MODE-TOGGLE] [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2]
@@ -576,7 +573,6 @@ export default function Chat({
         // — shell-command output, in-thread notes, and the token/cost counter
         // — must clear with it. Without this, a reload re-hydrates them from
         // webview state and they linger after the chat itself is empty.
-        // @see docs/specs/210-app-chat/design.md [DES-API]
         // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
         if (msg.messages.length === 0) {
           setCommandOutputs([]);
@@ -1290,6 +1286,15 @@ export default function Chat({
         setMentionOpen(false);
         return;
       }
+      // Tab moves focus from the textarea into the popup's first selectable row.
+      if (e.key === "Tab" && slashOpen) {
+        const firstItem = document.querySelector<HTMLElement>("[cmdk-item]");
+        if (firstItem) {
+          e.preventDefault();
+          firstItem.focus();
+          return;
+        }
+      }
       if (
         e.key === "ArrowDown" ||
         e.key === "ArrowUp" ||
@@ -1563,6 +1568,7 @@ export default function Chat({
           <SlashPopup
             open={slashOpen}
             commands={commands}
+            filterQuery={activeTrigger?.query ?? ""}
             onOpenChange={setSlashOpen}
             onSelect={selectCommand}
             onAction={selectSlashAction}
