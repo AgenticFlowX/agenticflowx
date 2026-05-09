@@ -3,10 +3,10 @@ name: afx-sprint
 description: Single-document SDD for fast, surgical feature work — carries spec + design + tasks in one file, graduates to 4-file when scope grows
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,sprint,fast,prototype,single-doc,spec,design,task"
-  afx-argument-hint: "new | spec | design | task | code | verify | graduate"
+  afx-argument-hint: "new | refine | spec | design | task | code | verify | graduate"
   modeSlugs:
     - focus-research
     - focus-code
@@ -39,6 +39,7 @@ Every subcommand accepts optional trailing **`[...context]`** — natural-langua
 
 ```bash
 /afx-sprint new <feature> [...context]                  # Scaffold; context seeds initial Spec content
+/afx-sprint refine [feature] [spec|design|task] [...context] # Alias: refine inferred or explicit section
 /afx-sprint spec [feature] [...context]                 # Refine Spec section with context as the ask
 /afx-sprint spec [feature] --approve [...context]       # Approve Spec; context captured as approval note
 /afx-sprint design [feature] [...context]               # Refine Design section (gated on spec Approved)
@@ -56,6 +57,7 @@ Every subcommand accepts optional trailing **`[...context]`** — natural-langua
 
 ```bash
 /afx-sprint spec dark-mode tighten FR-2 to specify keyboard shortcut
+/afx-sprint refine dark-mode spec tighten FR-2 to specify keyboard shortcut
 /afx-sprint design dark-mode "use CSS variables, not data attributes — faster paint"
 /afx-sprint task dark-mode cover [DES-TOKENS] with a dedicated phase
 /afx-sprint code dark-mode 3.1 start with the theme provider, skip persistence for now
@@ -96,6 +98,24 @@ Re-approval after edits: if a section is edited _after_ being Approved, the subc
 Compress the full SDD discipline into a single document without losing traceability. The same FR/DES anchors, the same `@see` linking rules, the same two-stage Agent + Human verification — just in one file instead of three. When the work is surgical, one file is faster to write, read, and keep coherent.
 
 The skill treats the single doc as a **tactical unit** that can graduate into the strategic 4-file structure once scope is proven. Until then, ceremony is minimal.
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve living artifact content. In `/afx-sprint`, this maps to `refine` (dispatcher alias) plus `spec`, `design`, and `task` section edits.
+- **Validate**: check structural, parser, template, frontmatter, anchor, and approval-state correctness.
+- **Review**: apply LLM judgment for quality, readiness, ambiguity, risk, and missing coverage.
+- **Verify**: check implementation or sprint readiness evidence against approved intent. `/afx-sprint verify` is the pre-code sanity check; `/afx-task verify` handles task implementation evidence.
+- **Approve**: advance a section gate in order: Spec -> Design -> Tasks.
+- **Evolve**: handle post-ship feature, bug, or change work by refining the living sprint doc or graduating when scope grows, while capturing history in `journal.md` and Work Sessions.
+
+## Documentation Principles
+
+- Sprint format is living state while active: the Spec, Design, and Tasks sections represent current truth for small work.
+- `journal.md` captures decisions, amendments, production notes, and change rationale.
+- Work Sessions capture execution history.
+- Do not introduce amendment directories or new artifact types for ordinary feature evolution; refine the sprint doc or graduate to the 4-file flow when the work outgrows single-doc SDD.
 
 ---
 
@@ -162,6 +182,7 @@ After any `/afx-sprint` action that writes to `<feature>.md`, you MUST:
    - **Fallback**: prompt for feature slug. Never guess.
 3. **Trailing context (`[...context]`)**: every subcommand accepts natural-language intent after the positional arguments. Parse it as:
    - **Refinement instruction** for `spec`/`design`/`task` — treat as the change the user wants (e.g., `tighten FR-2`, `add a rate-limit risk`, `cover [DES-TOKENS]`).
+   - **Refine dispatcher** for `refine` — if the trailing text names `spec`, `design`, or `task`, route to that section subcommand. If no section is named, infer from the active sprint section; if still unknown, route to the first Draft section in approval order (Spec → Design → Tasks).
    - **Implementation hint** for `code` — forward verbatim to `/afx-task code` as its instruction (e.g., `start with the provider, skip persistence`).
    - **Focus constraint** for `verify` — narrow the audit (e.g., `--focus anchors`, `only approval gates`).
    - **Approval note** for `--approve` variants — capture the phrase as the journal entry's rationale (e.g., `after PM review`, `rev 2 post-security audit`).
@@ -170,7 +191,7 @@ After any `/afx-sprint` action that writes to `<feature>.md`, you MUST:
 
    If trailing context is absent, fall back to the subcommand's default interactive flow.
 
-4. **Format detection**: before operating, check whether the feature uses sprint format (`<feature>.md` present) or standard 4-file format (`spec.md` present). If both are present, prefer sprint format for `/afx-sprint` commands. If only 4-file exists and user runs `/afx-sprint spec|design|task`, respond:
+4. **Format detection**: before operating, check whether the feature uses sprint format (`<feature>.md` present) or standard 4-file format (`spec.md` present). If both are present, prefer sprint format for `/afx-sprint` commands. If only 4-file exists and user runs `/afx-sprint refine|spec|design|task`, respond:
 
    ```text
    This feature uses the standard 4-file format (spec.md/design.md/tasks.md).
@@ -184,6 +205,7 @@ After EVERY `/afx-sprint` action, suggest the most appropriate next command base
 | Context                             | Suggested Next Command                                   |
 | ----------------------------------- | -------------------------------------------------------- |
 | After `new`                         | `/afx-sprint spec <feature>` — fill the Spec section     |
+| After `refine`                      | Next command follows the routed section state            |
 | After `spec` refine (still Draft)   | `/afx-sprint spec <feature> --approve` (when ready)      |
 | After `spec --approve`              | `/afx-sprint design <feature>` — start the Plan          |
 | After `design` refine (still Draft) | `/afx-sprint design <feature> --approve` (when ready)    |
@@ -198,6 +220,34 @@ After EVERY `/afx-sprint` action, suggest the most appropriate next command base
 ---
 
 ## Subcommands
+
+---
+
+## 0. refine
+
+Dispatcher alias for section refinement.
+
+### Usage
+
+```bash
+/afx-sprint refine [feature] [spec|design|task] [...context]
+```
+
+### Routing
+
+1. Locate the sprint doc using normal Context Resolution.
+2. If the command includes an explicit section token (`spec`, `design`, or `task`), execute the matching section subcommand with the remaining trailing context.
+3. If no section token is provided, infer from the active editor section (`afx.sprintSection`) when available.
+4. If still unknown, route to the first Draft section in approval order:
+   - `approval.spec == Draft` → `/afx-sprint spec`
+   - else `approval.design == Draft` → `/afx-sprint design`
+   - else `approval.tasks == Draft` → `/afx-sprint task`
+   - else all sections are approved → ask for the section to refine, because refining an approved section may demote downstream approvals.
+5. Use the routed subcommand's normal gate, checkpoint, demotion, journal, and next-command rules.
+
+### Compatibility
+
+`/afx-sprint spec`, `/afx-sprint design`, and `/afx-sprint task` remain canonical section commands. `/afx-sprint refine` is a user-facing alias for chat buttons and VS Code intent actions.
 
 ---
 
@@ -276,7 +326,7 @@ Use /afx-sprint spec <feature> to edit, or pick a different name.
 
 ## 2. spec
 
-Refine the **Spec** section of `<feature>.md` (Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions), or approve it.
+Refine the **Spec** section of `<feature>.md` (Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies), or approve it.
 
 ### Usage
 
@@ -346,7 +396,7 @@ Next: /afx-sprint design <feature>   # Start the Design section
 
 ## 3. design
 
-Refine the **Design** section (Overview, Architecture, Key Decisions, Data Model, API, Risks), or approve it.
+Refine the **Design** section (`[DES-OVR]` Overview, `[DES-ARCH]` Architecture, `[DES-UI]` UI & UX, `[DES-DEC]` Key Decisions, `[DES-DATA]` Data Model, `[DES-API]` API Contracts, `[DES-FILES]` File Structure, `[DES-DEPS]` Dependencies, `[DES-SEC]` Security, `[DES-ERR]` Error Handling, `[DES-TEST]` Testing Strategy, `[DES-ROLLOUT]` Migration / Rollout), or approve it.
 
 ### Usage
 
@@ -372,7 +422,7 @@ Refine the **Design** section (Overview, Architecture, Key Decisions, Data Model
 Same pattern as `/afx-sprint spec` but scoped to `## 2. Design`:
 
 1. **Read Design section** (`## 2. Design` through the line before `## 3. Tasks`).
-2. **Understand the ask** — accept `[...context]` or prompt for focus (architecture sketch, add a key decision, flesh out data model, add a risk, …).
+2. **Understand the ask** — accept `[...context]` or prompt for focus (architecture sketch, add a key decision, flesh out data model, add a security consideration, add error handling, update rollout plan, …).
 3. **Propose diff** with specific Edit operations.
 4. **Confirm** with user.
 5. **Apply edits** using Edit tool, one change per call.

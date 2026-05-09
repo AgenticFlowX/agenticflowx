@@ -76,6 +76,7 @@ describe("DebugPanel", () => {
       "bash",
       "read",
       "edit",
+      "Spec actions",
       "Multi-tool",
       "Tool error",
       "Provider error",

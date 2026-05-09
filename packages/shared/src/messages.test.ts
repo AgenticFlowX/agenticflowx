@@ -5,7 +5,8 @@
 import { describe, expect, it } from "vitest";
 
 import type { AgentCommand, AgentStatus } from "./agent";
-import type { AgentToChat, ChatToAgent } from "./messages";
+import type { AgentToChat, ChatToAgent, MessageOf } from "./messages";
+import type { FocusGroup, FocusOption, SignOffSummary } from "./workbench-types";
 
 describe("chat-foundation shared protocol", () => {
   it("supports structured status models", () => {
@@ -137,10 +138,85 @@ describe("chat-foundation shared protocol", () => {
       section: "SPEC",
       docKind: "spec",
       feature: "auth",
+      filePath: "docs/specs/auth/spec.md",
       approvalStatus: "Draft",
     };
     expect(message.docKind).toBe("spec");
     expect(message.feature).toBe("auth");
+    expect(message.filePath).toBe("docs/specs/auth/spec.md");
+  });
+
+  // @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+  it("supports additive active-doc context fields without requiring them", () => {
+    type ActiveDocContextMessage = MessageOf<AgentToChat, "chat/activeDocContext">;
+    const oldPayload: ActiveDocContextMessage = {
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "TASKS",
+      docKind: "tasks",
+      feature: "auth",
+      // tasks.md goes Draft → Living; pre-Sign-Off state is Draft.
+      approvalStatus: "Draft",
+    };
+    const newPayload: ActiveDocContextMessage = {
+      ...oldPayload,
+      taskPhases: [
+        {
+          number: 1,
+          name: "Build",
+          completed: 0,
+          total: 1,
+          line: 12,
+          items: [{ text: "Wire bridge", completed: false, line: 13 }],
+        },
+      ],
+      signOff: {
+        ready: true,
+        signable: true,
+        allTasksChecked: true,
+        allAgentVerified: true,
+        pendingTasks: 0,
+        pendingAgentRows: 0,
+        pendingHumanRows: 2,
+        alreadyLiving: false,
+      },
+      parsedFocuses: [{ id: "phase-1", label: "Phase 1: Build", slug: "phase-1-build" }],
+      specStatus: "Approved",
+      designStatus: "Approved",
+      // sibling tasks.md still Draft (not yet signed off)
+      tasksStatus: "Draft",
+      tasksCompleted: 3,
+      tasksTotal: 4,
+    };
+
+    expect(oldPayload.taskPhases).toBeUndefined();
+    expect(newPayload.taskPhases?.[0]?.items[0]?.text).toBe("Wire bridge");
+    expect(newPayload.signOff?.pendingHumanRows).toBe(2);
+  });
+
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  it("exports focus and sign-off shared types for future UI payloads", () => {
+    const focus: FocusOption = {
+      id: "des-data",
+      label: "[DES-DATA] Data Model",
+      slug: "data-model",
+      commandSuffix: "des-data",
+      line: 42,
+    };
+    const group: FocusGroup = { label: "FROM THIS DOC", items: [focus] };
+    const signOff: SignOffSummary = {
+      ready: false,
+      signable: false,
+      allTasksChecked: true,
+      allAgentVerified: false,
+      pendingTasks: 0,
+      pendingAgentRows: 1,
+      pendingHumanRows: 0,
+      alreadyLiving: false,
+    };
+
+    expect(group.items[0]?.commandSuffix).toBe("des-data");
+    expect(signOff.ready).toBe(false);
   });
 
   // @see docs/specs/100-package-shared/spec.md [FR-12]

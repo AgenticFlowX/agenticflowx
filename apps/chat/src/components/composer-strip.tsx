@@ -36,6 +36,16 @@ export interface ComposerStripProps {
   count?: number;
   tone?: "neutral" | "brand" | "warning";
   action?: ComposerStripAction;
+  /**
+   * Free-form ReactNode rendered between the title button and the dismiss
+   * control. Used by the doc-actions strip header to host the workflow-position
+   * breadcrumb and the strip-side Memory ▾ anchor — both carry their own click
+   * handlers and so cannot live inside the title's toggle button.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  headerExtras?: ReactNode;
   onDismiss?: () => void;
   autoDismissMs?: number;
   defaultExpanded?: boolean;
@@ -53,6 +63,7 @@ export function ComposerStrip({
   count,
   tone = "neutral",
   action,
+  headerExtras,
   onDismiss,
   autoDismissMs,
   defaultExpanded = true,
@@ -110,6 +121,9 @@ export function ComposerStrip({
             {action.label}
           </button>
         )}
+        {headerExtras ? (
+          <div className="flex shrink-0 items-center gap-1.5">{headerExtras}</div>
+        ) : null}
         {onDismiss && (
           <button
             type="button"

@@ -3,7 +3,7 @@ name: afx-next
 description: Context-aware guidance — analyzes git state, active tasks, and session history to recommend the best next action
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,context,guidance,golden-thread"
   modeSlugs:
@@ -29,6 +29,24 @@ If neither file exists, use defaults.
 ```bash
 /afx-next
 ```
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve living artifact content (`spec.md`, `design.md`, `tasks.md`, or sprint sections).
+- **Validate**: check structural, parser, template, frontmatter, and cross-reference correctness.
+- **Review**: apply LLM judgment for quality, readiness, ambiguity, risk, and missing coverage.
+- **Verify**: check implementation evidence against approved intent.
+- **Approve**: advance a lifecycle gate after validation and review.
+- **Evolve**: handle post-ship feature, bug, or change work using living docs plus `journal.md` / `tasks.md` history.
+
+## Documentation Principles
+
+- `spec.md` and `design.md` are living documents: they represent current product and technical truth.
+- `journal.md` captures decisions, amendments, production notes, and change rationale.
+- `tasks.md` captures execution plan and work sessions.
+- Do not suggest amendment directories or new artifact types for ordinary evolution; route users to refine living docs and capture history.
 
 ## Execution Contract (STRICT)
 
@@ -114,9 +132,20 @@ You must perform a deep context scan to determine the user's state. Follow this 
 6.  **Check Idle State**:
     - No active task, clean git state.
       - **Situation**: Ready for new work.
-      - **Suggestion**: `/afx-task pick <spec>` (Pick up next task)
+      - **Suggestion**:
+        1. `/afx-task pick <spec>` if an approved feature has pending tasks
+        2. `/afx-sprint new <feature>` for a small new feature, bug fix, or change
+        3. `/afx-spec create <feature>` for formal or cross-cutting new work
 
-7.  **Fallbacks**:
+7.  **Check Post-Ship Evolution**:
+    - Are all tasks complete, checks clean, or the user mentions shipped/production/new bug/new request?
+      - **Situation**: Existing living docs may need to evolve.
+      - **Suggestion**:
+        1. New feature: `/afx-sprint new <feature>` for small work or `/afx-spec create <feature>` for formal work
+        2. Bug: `/afx-dev debug <symptom>` to reproduce first, then refine docs only if expected behavior or design changes
+        3. Change request: classify impact before editing living `spec.md` / `design.md`
+
+8.  **Fallbacks**:
     - Confused?
       - **Suggestion**: `/afx-help guides` (Browse workflows) or `/afx-next` (Re-orient)
 

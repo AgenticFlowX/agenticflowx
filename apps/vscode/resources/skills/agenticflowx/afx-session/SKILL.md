@@ -3,7 +3,7 @@ name: afx-session
 description: Session discussion capture — smart notes, session logging, context recaps, and ADR promotion
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,session,notes,discussion,journal"
   afx-argument-hint: "note | log | recap | promote | capture"
@@ -76,6 +76,10 @@ After modifying `journal.md`, you MUST (see `assets/journal-template.md` for can
 
 Capture important discussions with AI agents across multiple windows and topics. Unlike `/afx-next` (task state) or `research/` (permanent decisions), this captures the **in-between** - ideas, tips, and context that matter but aren't yet formal decisions.
 
+## Living-Doc Boundary
+
+`journal.md` is append-only history. Do not put chronological backstory, discarded options, or raw captures into `spec.md` / `design.md`; when a discussion changes current truth, route the follow-up to `/afx-spec refine`, `/afx-design refine`, or `/afx-task refine`.
+
 ## Default Location
 
 When no feature is specified, discussions go to `docs/specs/journal.md`. This is for:
@@ -102,18 +106,18 @@ When no feature is specified, discussions go to `docs/specs/journal.md`. This is
 | Context                         | Suggested Next Command                    |
 | ------------------------------- | ----------------------------------------- |
 | After `note` (more to discuss)  | Continue discussion or `/afx-session log` |
-| After `note` (ready to work)    | `/afx-task pick <id>` or `/afx-task code` |
+| After `note` (ready to work)    | `/afx-next` or `/afx-task pick <id>`      |
 | After `note` (quick note added) | Continue working or `/afx-session recap`  |
 | After `log`                     | `/afx-task pick <id>` or `/afx-task code` |
 | After `recap` (resuming work)   | `/afx-next` then `/afx-task code`         |
-| After `promote` (ADR created)   | `/afx-dev code` to implement the decision |
+| After `promote` (ADR created)   | `/afx-adr review <id>` then `/afx-next`   |
 
 **Suggestion Format** (top 3 context-driven, bottom 2 static):
 
 ```
 Next (ranked):
 
-1. /afx-dev code # Context-driven: Implement what was discussed
+1. /afx-next # Context-driven: Choose the safest next workflow step
 2. /afx-session log {feature} # Context-driven: Summarize before moving on
 3. /afx-session promote UA-D001 # Context-driven: Elevate to ADR if significant
    ──

@@ -95,6 +95,7 @@ describe("createMockTransport", () => {
       "tool-bash",
       "tool-read-file",
       "tool-edit-file",
+      "spec-doc-actions",
       "multi-tool",
       "tool-error",
       "provider-error",

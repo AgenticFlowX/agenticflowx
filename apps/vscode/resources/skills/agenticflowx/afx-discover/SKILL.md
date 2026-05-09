@@ -3,7 +3,7 @@ name: afx-discover
 description: Project discovery — find infrastructure scripts, automation tools, deployment workflows, and development capabilities in your codebase
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,discovery,infrastructure,tools,capabilities"
   afx-argument-hint: "infra | scripts | tools | capabilities"
@@ -88,10 +88,10 @@ When this skill detects a high-impact discovery event, auto-capture to `journal.
 
 | Context                          | Suggested Next Command                              |
 | -------------------------------- | --------------------------------------------------- |
-| After `infra` (scripts found)    | Use the discovered script or `/afx-dev code`        |
-| After `infra` (nothing found)    | `/afx-scaffold spec` or `/afx-dev code`             |
+| After `infra` (scripts found)    | Use the discovered script or `/afx-next`            |
+| After `infra` (nothing found)    | `/afx-scaffold spec` or `/afx-sprint new`           |
 | After `scripts` (found relevant) | Run the script or document in AFX                   |
-| After `tools` (inventory shown)  | `/afx-dev code` or `/afx-task pick`                 |
+| After `tools` (inventory shown)  | `/afx-next` or `/afx-task pick`                     |
 | After `capabilities` (overview)  | `/afx-discover <specific>` for deeper investigation |
 
 **Suggestion Format** (top 3 context-driven, bottom 2 static):
@@ -416,7 +416,7 @@ List development and deployment tools configured in the project.
 
 - **{manager}**: {description}
 
-Next: /afx-task pick # Continue with development
+Next: /afx-next # Choose the safest next workflow step
 ```
 
 ---

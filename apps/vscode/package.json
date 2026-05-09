@@ -3,6 +3,7 @@
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
   "version": "2.0.9",
+  "afxSkillsPin": "1325da99ff8a245d7e3f58bdf22cd505743fee22",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",
@@ -259,6 +260,11 @@
         "category": "AgenticFlowX"
       },
       {
+        "command": "afx.action.specRefine",
+        "title": "Spec — Refine",
+        "category": "AgenticFlowX"
+      },
+      {
         "command": "afx.action.specValidate",
         "title": "Spec — Validate",
         "category": "AgenticFlowX"
@@ -271,6 +277,11 @@
       {
         "command": "afx.action.specApprove",
         "title": "Spec — Approve",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.designRefine",
+        "title": "Design — Refine",
         "category": "AgenticFlowX"
       },
       {
@@ -302,6 +313,51 @@
         "command": "afx.action.taskPick",
         "title": "Task — Pick Next",
         "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.taskStatus",
+        "title": "Task — Status",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.taskBrief",
+        "title": "Task — Brief",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.journalRecap",
+        "title": "Journal — Recap",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.journalPromote",
+        "title": "Journal — Promote",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.adrReview",
+        "title": "ADR — Review",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.adrList",
+        "title": "ADR — List",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.adrSupersede",
+        "title": "ADR — Supersede",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.adrAccept",
+        "title": "ADR — Accept",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.action.researchFinalize",
+        "title": "Research — Finalize",
+        "category": "AgenticFlowX"
       }
     ],
     "submenus": [
@@ -321,7 +377,7 @@
         {
           "submenu": "afx.editorContext",
           "group": "navigation@9",
-          "when": "afx.isSprint || resourceFilename == spec.md || resourceFilename == design.md || resourceFilename == tasks.md"
+          "when": "afx.isSprint || resourceFilename == spec.md || resourceFilename == design.md || resourceFilename == tasks.md || resourceFilename == journal.md || resource =~ /\\/docs\\/(adr|research)\\// || resource =~ /\\/docs\\/specs\\/.*\\/research\\//"
         }
       ],
       "afx.editorContext": [
@@ -365,33 +421,43 @@
           "group": "2_trace@2"
         },
         {
-          "command": "afx.action.specValidate",
+          "command": "afx.action.specRefine",
           "group": "3_spec@1",
           "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
         },
         {
-          "command": "afx.action.specReview",
+          "command": "afx.action.specValidate",
           "group": "3_spec@2",
           "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
         },
         {
-          "command": "afx.action.specApprove",
+          "command": "afx.action.specReview",
           "group": "3_spec@3",
           "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
         },
         {
-          "command": "afx.action.designValidate",
+          "command": "afx.action.specApprove",
+          "group": "3_spec@4",
+          "when": "resourceFilename == spec.md || afx.sprintSection == SPEC"
+        },
+        {
+          "command": "afx.action.designRefine",
           "group": "4_design@1",
           "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
         },
         {
-          "command": "afx.action.designReview",
+          "command": "afx.action.designValidate",
           "group": "4_design@2",
           "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
         },
         {
-          "command": "afx.action.designApprove",
+          "command": "afx.action.designReview",
           "group": "4_design@3",
+          "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
+        },
+        {
+          "command": "afx.action.designApprove",
+          "group": "4_design@4",
           "when": "resourceFilename == design.md || afx.sprintSection == DESIGN"
         },
         {
@@ -408,6 +474,51 @@
           "command": "afx.action.taskPick",
           "group": "5_tasks@3",
           "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        },
+        {
+          "command": "afx.action.taskStatus",
+          "group": "5_tasks@4",
+          "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        },
+        {
+          "command": "afx.action.taskBrief",
+          "group": "5_tasks@5",
+          "when": "resourceFilename == tasks.md || afx.sprintSection == TASKS"
+        },
+        {
+          "command": "afx.action.journalRecap",
+          "group": "6_journal@1",
+          "when": "resourceFilename == journal.md"
+        },
+        {
+          "command": "afx.action.journalPromote",
+          "group": "6_journal@2",
+          "when": "resourceFilename == journal.md"
+        },
+        {
+          "command": "afx.action.adrReview",
+          "group": "7_adr@1",
+          "when": "resource =~ /\\/docs\\/adr\\// || resourceFilename =~ /^adr-.*\\.md$/ || resourceFilename =~ /^ADR-.*\\.md$/"
+        },
+        {
+          "command": "afx.action.adrList",
+          "group": "7_adr@2",
+          "when": "resource =~ /\\/docs\\/adr\\// || resourceFilename =~ /^adr-.*\\.md$/ || resourceFilename =~ /^ADR-.*\\.md$/"
+        },
+        {
+          "command": "afx.action.adrSupersede",
+          "group": "7_adr@3",
+          "when": "resource =~ /\\/docs\\/adr\\// || resourceFilename =~ /^adr-.*\\.md$/ || resourceFilename =~ /^ADR-.*\\.md$/"
+        },
+        {
+          "command": "afx.action.adrAccept",
+          "group": "7_adr@4",
+          "when": "resource =~ /\\/docs\\/adr\\// || resourceFilename =~ /^adr-.*\\.md$/ || resourceFilename =~ /^ADR-.*\\.md$/"
+        },
+        {
+          "command": "afx.action.researchFinalize",
+          "group": "8_research@1",
+          "when": "resource =~ /\\/docs\\/research\\// || resource =~ /\\/docs\\/specs\\/.*\\/research\\//"
         }
       ]
     },

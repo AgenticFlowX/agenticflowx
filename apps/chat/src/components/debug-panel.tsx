@@ -164,6 +164,15 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
     ],
   },
   {
+    label: "Spec workflow",
+    icon: MonitorCog,
+    items: [
+      { name: "spec-doc-actions", label: "Spec actions", accent: "bg-afx-brand" },
+      { name: "tasks-sign-off-ready", label: "Sign Off ready", accent: "bg-afx-warning" },
+      { name: "tasks-sign-off-relaxed", label: "Sign Off relaxed", accent: "bg-muted-foreground" },
+    ],
+  },
+  {
     label: "Failures & state",
     icon: AlertTriangle,
     items: [

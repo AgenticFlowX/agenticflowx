@@ -3,7 +3,7 @@ name: afx-check
 description: Quality gates and compliance — trace execution paths, audit annotations, verify cross-references, and run all checks against spec requirements
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,check,quality,compliance,traceability"
   afx-argument-hint: "path | trace | links | schema | deps | coverage | all"
@@ -39,6 +39,10 @@ If neither file exists, use defaults.
 /afx-check coverage <spec-path>  # Bidirectional spec-to-code coverage map
 /afx-check all <feature-path>    # Run all checks
 ```
+
+## Vocabulary Boundary
+
+`/afx-check` is a read-only verification and compliance gate. It can verify implementation paths, traceability, links, schemas, dependencies, and coverage, but it does not refine living docs or fix code. Use `/afx-spec refine`, `/afx-design refine`, or `/afx-task refine` for document changes; use `/afx-task code` or `/afx-dev` for implementation fixes.
 
 ## Execution Contract (STRICT)
 
@@ -924,6 +928,6 @@ Next: /afx-task code {id}   # Address the issues first
 | Command        | Relationship                                           |
 | -------------- | ------------------------------------------------------ |
 | `/afx-task`    | Task lifecycle; check verifies code and spec alignment |
-| `/afx-design`  | Design authoring; check validates design structure     |
-| `/afx-spec`    | Spec management; check validates spec structure        |
+| `/afx-design`  | Refine design after check reveals design gaps          |
+| `/afx-spec`    | Refine spec after check reveals requirement gaps       |
 | `/afx-session` | No direct integration                                  |

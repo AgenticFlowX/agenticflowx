@@ -3,7 +3,7 @@ name: afx-scaffold
 description: Scaffold spec directories, research docs, and ADRs from canonical templates
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,scaffolding,feature,spec,research,adr"
   afx-argument-hint: "spec | research | adr"
@@ -118,11 +118,11 @@ After scaffolding any new feature or artifact, you MUST:
 
 After EVERY `/afx-scaffold` action, suggest the most appropriate next command:
 
-| Context          | Suggested Next Command                         |
-| ---------------- | ---------------------------------------------- |
-| After `spec`     | `/afx-spec validate <name>` to review scaffold |
-| After `research` | Edit the research doc to begin exploration     |
-| After `adr`      | Edit `docs/adr/ADR-NNNN-*.md` to fill content  |
+| Context          | Suggested Next Command                                |
+| ---------------- | ----------------------------------------------------- |
+| After `spec`     | `/afx-spec refine <name>` to fill living spec content |
+| After `research` | Edit the research doc to begin exploration            |
+| After `adr`      | Edit `docs/adr/ADR-NNNN-*.md` to fill content         |
 
 ---
 
@@ -232,10 +232,11 @@ Use a different name or work with the existing research doc.
 
 ## Related Commands
 
-| Command              | Relationship                                 |
-| -------------------- | -------------------------------------------- |
-| `/afx-adr`           | ADR management (create delegates to this)    |
-| `/afx-spec validate` | Check scaffold structure after spec creation |
-| `/afx-research`      | Research workflow after research scaffolding |
-| `/afx-session note`  | Capture initial ideas in journal             |
-| `/afx-check links`   | Verify spec cross-references                 |
+| Command              | Relationship                                        |
+| -------------------- | --------------------------------------------------- |
+| `/afx-adr`           | ADR management (create delegates to this)           |
+| `/afx-spec refine`   | Fill and improve living spec content after scaffold |
+| `/afx-spec validate` | Check scaffold structure after spec creation        |
+| `/afx-research`      | Research workflow after research scaffolding        |
+| `/afx-session note`  | Capture initial ideas in journal                    |
+| `/afx-check links`   | Verify spec cross-references                        |

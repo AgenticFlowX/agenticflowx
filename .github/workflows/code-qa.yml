@@ -62,8 +62,7 @@ jobs:
           node-version: "22"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter "./apps/vscode" sync:skills
-      - run: git diff --quiet -- apps/vscode/resources/skills
+      - run: pnpm --filter "./apps/vscode" sync:skills -- --verify
 
   unit:
     name: Unit tests + coverage

@@ -83,4 +83,54 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     const composer = page.locator(".afx-surface-composer").first();
     await expect(composer).toHaveAttribute("data-workspace-mode", "code");
   });
+
+  test("doc-action More/focus menu and result-action chips stay draft-first where needed", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click();
+    await page.getByRole("button", { name: /Spec actions/i }).click();
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click();
+
+    await expect(page.getByText(/spec\.md/i).first()).toBeVisible();
+    await page.getByRole("button", { name: "More document actions" }).click();
+    await expect(page.getByRole("menuitem", { name: /Performance/i })).toBeVisible();
+    await page.getByRole("menuitem", { name: /Performance/i }).click();
+
+    const composer = page.locator("#afx-chat-composer");
+    await expect(composer).toHaveValue(/\/afx-spec refine auth performance/);
+
+    await expect(page.getByTestId("result-action-button")).toContainText("/afx-task code 2.3");
+    await page.getByTestId("result-action-button").click();
+    await expect(composer).toHaveValue(/\/afx-task code 2\.3/);
+  });
+
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+  test("Memory triggers (top-right + composer toolbar) open the shared catalog", async ({
+    page,
+  }) => {
+    await page.goto("/");
+
+    // Both the header and composer toolbar anchor the same MEMORY_CATALOG —
+    // single-source content per
+    //   @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+    // (rendered via the shared MemoryDropdown component).
+    const memoryTriggers = page.getByRole("button", { name: "Open memory menu" });
+    await expect(memoryTriggers).toHaveCount(2);
+
+    await memoryTriggers.last().click();
+    await expect(page.getByText("SESSION MEMORY")).toBeVisible();
+    await expect(page.getByText("DISCUSSION")).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Save: \/afx-context save/i })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Recap: \/afx-session recap/i })).toBeVisible();
+
+    // Mutating Memory commands stay draft-first, never auto-send.
+    //   @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
+    //   @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+    await page.getByRole("menuitem", { name: /Save: \/afx-context save/i }).click();
+    const composer = page.locator("#afx-chat-composer");
+    await expect(composer).toHaveValue(/\/afx-context save/);
+  });
 });

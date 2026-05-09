@@ -85,6 +85,7 @@ export interface TaskItemRow {
   text: string;
   completed: boolean;
   line: number;
+  wbsId?: string;
 }
 
 /**
@@ -99,6 +100,60 @@ export interface PhaseRow {
   total: number;
   line: number;
   items: TaskItemRow[];
+}
+
+/**
+ * Parsed or canonical focus target for section-aware document actions.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+ */
+export interface FocusOption {
+  id: string;
+  label: string;
+  slug: string;
+  /** Optional command suffix, e.g. `phase-2` or `des-data`. */
+  commandSuffix?: string;
+  /** 1-indexed source line when parsed from the active document. */
+  line?: number;
+}
+
+/**
+ * Focus dropdown group. UI labels are intentionally data-driven so parsed
+ * sections and canonical fallbacks can share one renderer.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ */
+export interface FocusGroup {
+  label: string;
+  items: FocusOption[];
+}
+
+/**
+ * Summary used to decide whether the tasks sign-off host action can render.
+ *
+ * - `ready` is the strict gate (all body `[x]` + all Agent `[x]` + ≥1 Human
+ *   `[ ]`). When true, Sign Off may promote `status` to `Living`.
+ * - `signable` is the loose gate (≥1 Human `[ ]` regardless of body / Agent
+ *   completeness). Hosts use this for button visibility so users can tick
+ *   Human cells mid-flight; the popover surfaces warnings about
+ *   `pendingTasks` / `pendingAgentRows` and the host action only promotes
+ *   `status` when `ready` is true.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-19]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+ */
+export interface SignOffSummary {
+  ready: boolean;
+  signable: boolean;
+  allTasksChecked: boolean;
+  allAgentVerified: boolean;
+  pendingTasks: number;
+  pendingAgentRows: number;
+  pendingHumanRows: number;
+  alreadyLiving: boolean;
 }
 
 /**

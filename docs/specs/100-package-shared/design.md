@@ -5,7 +5,7 @@ status: Approved
 owner: "@rixrix"
 version: "1.6"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T11:38:55.000Z"
+updated_at: "2026-05-09T07:20:46.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -111,6 +111,52 @@ type AgentToChat =
       };
       cost: number;
       contextUsage?: { tokens: number | null; contextWindow: number; percent: number | null };
+    };
+```
+
+`chat/activeDocContext` carries the active AFX document identity used by the chat composer. The
+required stable fields are `format`, `section`, `docKind`, `feature`, and `approvalStatus`. Optional
+fields are additive for old host/webview compatibility:
+
+- `parsedFocuses?: FocusOption[]` for doc-action focus menus (FR-15)
+- `taskPhases?: PhaseRow[]` and `signOff?: SignOffSummary` for the FR-19 brass Sign Off button on
+  standard `tasks.md` — sprint files keep `signOff` undefined since their Work Sessions table lives
+  in the SESSIONS slice
+- `specStatus?: string | null`, `designStatus?: string | null`, `tasksStatus?: string | null`,
+  `tasksCompleted?: number`, `tasksTotal?: number` drive the FR-16 workflow-position breadcrumb
+  (`Spec ✓ → Design ⏳ → Tasks 3/8 → Code`). Standard 4-file features read sibling spec/design/tasks
+  frontmatter on activation and cache the result; sprint files derive the same shape from the
+  in-file `approval` block. `onDidSaveTextDocument` invalidates the cache so the breadcrumb stays
+  fresh when a sibling is approved/refined in another tab
+
+`FocusOption` uses stable `id`, display `label`, markdown `slug`, optional `commandSuffix`, and
+1-indexed `line`. `SignOffSummary` reports whether all tasks are checked, all Agent cells are checked,
+how many Human sign-off rows are pending, and whether the frontmatter is already `Living`.
+
+#### Host-Action Envelope (FR-14)
+
+The composer surfaces a single deterministic mutation today — `tasks.signOff` — through an
+explicit `chat/hostAction` outbound message rather than an LLM round-trip. The host re-parses the
+target document, applies a single `vscode.WorkspaceEdit` (Human cells + status promotion +
+`updated_at` bump), saves, and posts a separate `agent/signOffComplete` event back so the webview
+can render a toast. This pattern matches the existing fire-and-forget dispatch convention; new
+host actions land here as additional discriminator values rather than callback envelopes:
+
+```typescript
+type ChatToAgent =
+  | …
+  | { type: "chat/hostAction"; requestId: string; action: "tasks.signOff"; uri: string };
+
+type AgentToChat =
+  | …
+  | {
+      type: "agent/signOffComplete";
+      requestId: string;
+      uri: string;
+      ok: boolean;
+      rowsTicked?: number;
+      newStatus?: string;
+      error?: string;
     };
 ```
 

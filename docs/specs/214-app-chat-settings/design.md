@@ -425,6 +425,25 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 | `pendingModeMutations`          | RequestId-to-toast-label map for mode success/error feedback                                    |
 | `agent/settingsSnapshot`        | Rehydrates `mode.active` so the settings card stays in sync after the workspace setting changes |
 
+#### Cross-mode doc-actions strip behavior
+
+The `mode.active` value also drives the composer doc-actions strip variants
+(`211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]`):
+
+- **Spec mode** — full strip with the per-docKind 3–4 primary actions, header
+  workflow-position breadcrumb (`Spec ✓ → Design ⏳ → Tasks 3/8 → Code`,
+  click → `/afx-next`), and the strip-header Memory ▾ anchor next to the dismiss
+  control.
+- **Code / Explore** — compact strip with the per-docKind 2-button primary set
+  documented by the fleeting sprint `[DES-MODES]` table (e.g. tasks compact =
+  `[Code|▾] [Review|▾] | [Verify] [Pick|▾]`). The breadcrumb hides to keep the
+  strip narrow at the 205px sidebar minimum width; Memory ▾ tucks under `···`
+  More so the workspace-level Memory anchors remain reachable through the
+  top-right and composer-toolbar triggers.
+
+The mode-suggest strip continues to render above the doc-actions strip when the
+active editor is an AFX doc and the user hasn't switched into Spec mode yet.
+
 ### [DES-SETTINGS-SURFACE-RUNTIME] Runtime Setup And Runtime Controls
 
 | Code anchor                  | UI/functionality                                                                  |

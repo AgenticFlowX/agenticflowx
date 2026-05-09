@@ -43,6 +43,47 @@ status: Draft
 # Spec
 `;
 
+const SPEC_WITH_FOCUSES_BODY = `---
+afx: true
+type: SPEC
+status: Draft
+---
+
+# Spec
+
+## Functional Requirements
+
+## Non-Functional Requirements
+`;
+
+const SPRINT_WITH_FOCUSES_BODY = [
+  "---",
+  "afx: true",
+  "type: SPRINT",
+  "status: Living",
+  "---",
+  "",
+  "# Sprint",
+  "",
+  "<!-- SPRINT-SECTION-START: SPEC -->",
+  "## 1. Spec",
+  "## Functional Requirements",
+  "<!-- SPRINT-SECTION-END: SPEC -->",
+  "",
+  "<!-- SPRINT-SECTION-START: DESIGN -->",
+  "## 2. Design",
+  "## [DES-DATA] Data Model",
+  "```md",
+  "## [DES-FAKE] Fake",
+  "```",
+  "<!-- SPRINT-SECTION-END: DESIGN -->",
+  "",
+  "<!-- SPRINT-SECTION-START: TASKS -->",
+  "## 3. Tasks",
+  "### Phase 2: Bridge",
+  "<!-- SPRINT-SECTION-END: TASKS -->",
+].join("\n");
+
 interface FakeSelection {
   active: { line: number };
 }
@@ -226,6 +267,32 @@ status: Active
 # Context
 `;
 
+const TEMPLATE_TASKS_BODY = `---
+afx: true
+type: TASKS
+status: Approved
+---
+
+# Tasks
+
+## Task Numbering Convention
+
+- **1.x** - Build
+
+## Phase 1: Build
+
+### 1.1 First group
+
+- [x] Existing implemented task
+- [ ] Open follow-up task
+
+## Phase 2: Verify
+
+### 2.1 Verify group
+
+- [x] Completed verification task
+`;
+
 describe("createSprintContextSync — onDocContextChange", () => {
   let docContexts: Array<unknown>;
   let activeEditorListeners: Array<(editor: FakeEditor | undefined) => void>;
@@ -272,6 +339,7 @@ describe("createSprintContextSync — onDocContextChange", () => {
         section: "SPEC",
         docKind: "spec",
         feature: "foo",
+        filePath: "/repo/docs/specs/foo/foo.md",
         approvalStatus: null,
       },
     ]);
@@ -289,8 +357,101 @@ describe("createSprintContextSync — onDocContextChange", () => {
       section: "SPEC",
       docKind: "spec",
       feature: "auth",
+      filePath: "/repo/docs/specs/auth/spec.md",
       approvalStatus: "Draft",
     });
+  });
+
+  it("emits the real active file path instead of deriving it from the feature", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/research/ADR-local.md", ADR_BODY));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "adr",
+      feature: "auth",
+      filePath: "/repo/docs/specs/auth/research/ADR-local.md",
+      approvalStatus: "Accepted",
+    });
+  });
+
+  it("detects AFX docs when the active editor path uses Windows separators", () => {
+    setupWith(fakeEditor("C:\\repo\\docs\\specs\\auth\\spec.md", SPEC_BODY));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+      filePath: "C:\\repo\\docs\\specs\\auth\\spec.md",
+      approvalStatus: "Draft",
+    });
+  });
+
+  it("adds parsedFocuses for standard spec/design/tasks documents when headings are present", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/spec.md", SPEC_WITH_FOCUSES_BODY));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "spec",
+      parsedFocuses: [
+        {
+          id: "functional-requirements",
+          label: "Functional Requirements",
+          slug: "functional-requirements",
+          line: 9,
+        },
+      ],
+    });
+  });
+
+  it("adds afx-task template phase rows to standard tasks active-doc context", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", TEMPLATE_TASKS_BODY));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      section: "TASKS",
+      docKind: "tasks",
+      feature: "auth",
+      approvalStatus: "Approved",
+      tasksCompleted: 1,
+      tasksTotal: 2,
+      taskPhases: [
+        {
+          number: 1,
+          name: "Build",
+          completed: 0,
+          total: 1,
+          items: [{ text: "First group", completed: false, wbsId: "1.1" }],
+        },
+        {
+          number: 2,
+          name: "Verify",
+          completed: 1,
+          total: 1,
+          items: [{ text: "Verify group", completed: true, wbsId: "2.1" }],
+        },
+      ],
+    });
+    expect(JSON.stringify(docContexts.at(-1))).not.toContain("Task Numbering Convention");
+  });
+
+  it("adds parsedFocuses from only the active sprint section", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/auth.md", SPRINT_WITH_FOCUSES_BODY, 15));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "DESIGN",
+      docKind: "design",
+      parsedFocuses: [
+        {
+          id: "des-data",
+          label: "DES-DATA: Data Model",
+          slug: "des-data-data-model",
+          commandSuffix: "des-data",
+          line: 16,
+        },
+      ],
+    });
+  });
+
+  it("omits parsedFocuses when no focus headings apply", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/spec.md", SPEC_BODY));
+    expect(docContexts.at(-1)).not.toHaveProperty("parsedFocuses");
   });
 
   it("detects journal.md as docKind=journal", () => {
@@ -364,5 +525,175 @@ describe("createSprintContextSync — onDocContextChange", () => {
     const first = docContexts.length;
     activeEditorListeners[0]?.(editor); // same editor again
     expect(docContexts.length).toBe(first);
+  });
+
+  it("re-emits when only the active file path changes", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/research/ADR-one.md", ADR_BODY));
+    docContexts.length = 0;
+
+    activeEditorListeners[0]?.(fakeEditor("/repo/docs/specs/auth/research/ADR-two.md", ADR_BODY));
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "adr",
+      feature: "auth",
+      filePath: "/repo/docs/specs/auth/research/ADR-two.md",
+      approvalStatus: "Accepted",
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // signOff payload — populated only for standard tasks.md so the composer
+  // can render the brass `[Sign Off ▾]` action when the file is human-ready.
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  // @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+  // ---------------------------------------------------------------------------
+
+  const SIGN_OFF_READY_TASKS = `---
+afx: true
+type: TASKS
+status: Approved
+updated_at: 2026-05-08T01:00:00.000Z
+---
+
+# Tasks
+
+## Phase 1: Build
+
+- [x] First task
+- [x] Second task
+
+## Work Sessions
+
+| Date | Task | Action | Files Modified | Agent | Human |
+| ---- | ---- | ------ | -------------- | ----- | ----- |
+| 2026-05-09 | 1.1 | Coded | src/a.ts | [x] | [ ] |
+`;
+
+  it("populates signOff for standard tasks.md so the composer can render Sign Off", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", SIGN_OFF_READY_TASKS));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "tasks",
+      signOff: {
+        ready: true,
+        allTasksChecked: true,
+        allAgentVerified: true,
+        pendingHumanRows: 1,
+        alreadyLiving: false,
+      },
+    });
+  });
+
+  it("omits signOff for non-tasks docKinds (NFR-8 payload economy)", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/spec.md", SPEC_BODY));
+    expect(docContexts.at(-1)).not.toHaveProperty("signOff");
+
+    activeEditorListeners[0]?.(fakeEditor("/repo/docs/specs/auth/journal.md", JOURNAL_BODY));
+    expect(docContexts.at(-1)).not.toHaveProperty("signOff");
+
+    activeEditorListeners[0]?.(fakeEditor("/repo/docs/specs/auth/research/ADR-x.md", ADR_BODY));
+    expect(docContexts.at(-1)).not.toHaveProperty("signOff");
+  });
+
+  it("omits signOff on sprint files until sprint sign-off lands", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 20)); // cursor in TASKS
+    expect(docContexts.at(-1)).toMatchObject({ format: "sprint", docKind: "tasks" });
+    expect(docContexts.at(-1)).not.toHaveProperty("signOff");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Sibling spec/design/tasks frontmatter status — drives the FR-16 breadcrumb.
+  // Sprint files derive the same shape from the in-file `approval` block.
+  //   @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  //   @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+  // ---------------------------------------------------------------------------
+
+  it("derives sibling spec/design/tasks status from a sprint file's approval block", () => {
+    const sprintWithApproval = [
+      "---",
+      "afx: true",
+      "type: SPRINT",
+      "status: Living",
+      "approval:",
+      "  spec: Approved",
+      "  design: Draft",
+      "  tasks: Approved",
+      "---",
+      "",
+      "<!-- SPRINT-SECTION-START: SPEC -->",
+      "## 1. Spec",
+      "<!-- SPRINT-SECTION-END: SPEC -->",
+      "",
+      "<!-- SPRINT-SECTION-START: DESIGN -->",
+      "## 2. Design",
+      "<!-- SPRINT-SECTION-END: DESIGN -->",
+      "",
+      "<!-- SPRINT-SECTION-START: TASKS -->",
+      "## 3. Tasks",
+      "<!-- SPRINT-SECTION-END: TASKS -->",
+    ].join("\n");
+
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", sprintWithApproval, 11));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      docKind: "spec",
+      specStatus: "Approved",
+      designStatus: "Draft",
+      tasksStatus: "Approved",
+    });
+  });
+
+  it("omits sibling-status fields when no approval block is present", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 10));
+    const ctx = docContexts.at(-1) as Record<string, unknown>;
+    expect(ctx["specStatus"]).toBeUndefined();
+    expect(ctx["designStatus"]).toBeUndefined();
+    expect(ctx["tasksStatus"]).toBeUndefined();
+  });
+
+  it("treats `- []` empty-bracket task rows as unchecked when rolling up groups", () => {
+    // Mirrors a real user file where one sub-checkbox uses zero-char
+    // bracket form. The group must report `completed: false` so the
+    // Code/Pick menus continue to surface the WBS row.
+    const tasksWithEmptyBracket = `---
+afx: true
+type: TASKS
+status: Approved
+---
+
+# Tasks
+
+## Phase 2: Entry Form
+
+### 2.1 Build issue entry form
+
+- [x] Right column: form card
+- [x] Top row: 2-column grid
+- [] "Add event" submit button: primary style, full width
+`;
+
+    setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", tasksWithEmptyBracket));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "tasks",
+      tasksCompleted: 0,
+      tasksTotal: 1,
+      taskPhases: [
+        {
+          number: 2,
+          name: "Entry Form",
+          completed: 0,
+          total: 1,
+          items: [
+            {
+              text: "Build issue entry form",
+              completed: false,
+              wbsId: "2.1",
+            },
+          ],
+        },
+      ],
+    });
   });
 });

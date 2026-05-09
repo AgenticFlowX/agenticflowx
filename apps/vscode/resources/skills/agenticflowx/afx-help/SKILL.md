@@ -3,7 +3,7 @@ name: afx-help
 description: AFX command reference — lists all available commands, role-based workflow guides, and quick-start cheatsheet
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,help,reference,guides"
 ---
@@ -24,6 +24,24 @@ If neither file exists, use defaults. See `.afx/.afx.yaml` for all available opt
 /afx-help
 /afx-help guides  # View role-based workflows (Dev, QA, Ops, etc.)
 ```
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve living artifact content (`spec.md`, `design.md`, `tasks.md`, or sprint sections).
+- **Validate**: check structural, parser, template, frontmatter, and cross-reference correctness.
+- **Review**: apply LLM judgment for quality, readiness, ambiguity, risk, and missing coverage.
+- **Verify**: check implementation evidence against approved intent.
+- **Approve**: advance a lifecycle gate after validation and review.
+- **Evolve**: handle post-ship feature, bug, or change work using living docs plus `journal.md` / `tasks.md` history.
+
+## Documentation Principles
+
+- `spec.md` and `design.md` are living documents: they represent current product and technical truth.
+- `journal.md` captures decisions, amendments, production notes, and change rationale.
+- `tasks.md` captures execution plan and work sessions.
+- Do not introduce amendment directories or new artifact types for ordinary feature evolution.
 
 ## Execution Contract (STRICT)
 
@@ -75,6 +93,17 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 
 ## Available Commands
 
+### Intent Map
+
+```bash
+Refine   # Improve living docs: /afx-spec refine, /afx-design refine, /afx-task refine, /afx-sprint refine
+Validate # Check artifact structure: /afx-spec validate, /afx-design validate, /afx-task validate
+Review   # Judge readiness and gaps: /afx-spec review, /afx-design review, /afx-task review
+Verify   # Check implementation evidence: /afx-task verify, /afx-check path|links|coverage|all
+Approve  # Advance gates: /afx-spec approve, /afx-design approve, /afx-sprint * --approve
+Evolve   # Post-ship change path: /afx-next, then sprint/spec/debug based on work type
+```
+
 ### Context & Guidance
 
 ```bash
@@ -84,7 +113,8 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 ### Task Lifecycle
 
 ```bash
-/afx-task plan <name>         # Generate tasks from approved design
+/afx-task plan <name>         # Draft tasks from approved design
+/afx-task refine <name>       # Refine/draft tasks from approved design
 /afx-task pick <id>           # Check out a task as active
 /afx-task code <id>           # Implement task with @see traceability
 /afx-task complete <id>       # Mark task done
@@ -94,19 +124,21 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 ### Spec Lifecycle
 
 ```bash
-/afx-spec create <name>                    # Scaffold + author spec.md
-/afx-spec validate <name>                  # Check spec structure integrity
-/afx-spec discuss <name>                   # Interactive gap analysis + journal
-/afx-spec review <name>                    # Automated quality scoring
+/afx-spec create <name>                    # Start formal SDD work with spec.md
+/afx-spec validate <name>                  # Validate spec structure integrity
+/afx-spec refine <name>                    # Refine requirements through discussion + journal
+/afx-spec discuss <name>                   # Alias of refine; kept for compatibility
+/afx-spec review <name>                    # Review quality, readiness, gaps, and risk
 /afx-spec approve <name> [--reviewer "@handle"]  # Lifecycle gate
 ```
 
 ### Design Lifecycle
 
 ```bash
-/afx-design author <name>                  # Generate design.md from approved spec
-/afx-design validate <name>                # Check design structure and traceability
-/afx-design review <name>                  # Advisory quality check for design gaps
+/afx-design author <name>                  # Draft design.md from approved spec
+/afx-design refine <name>                  # Refine/draft design.md from approved spec
+/afx-design validate <name>                # Validate design structure and traceability
+/afx-design review <name>                  # Review architecture quality, gaps, and risk
 /afx-design approve <name>                 # Approve design (unlocks task planning)
 ```
 
@@ -114,20 +146,21 @@ When trailing arguments are passed (e.g., `/afx-help task`, `/afx-help guides se
 
 ```bash
 /afx-sprint new <feature>                  # Scaffold <feature>.md + journal.md (single-doc)
+/afx-sprint refine <feature> [section]     # Refine inferred/explicit sprint section
 /afx-sprint spec <feature> [--approve]     # Refine or approve the Spec section
 /afx-sprint design <feature> [--approve]   # Refine or approve the Design section (gated)
 /afx-sprint task <feature> [--approve]     # Refine or approve the Tasks section (gated)
-/afx-sprint verify <feature>               # Sanity-check before coding
+/afx-sprint verify <feature>               # Verify sprint readiness before coding
 /afx-sprint code <feature> [task-id]       # Implement (delegates to /afx-task code)
-/afx-sprint graduate <feature>             # Split to spec.md/design.md/tasks.md when scope grows
+/afx-sprint graduate <feature>             # Evolve into spec.md/design.md/tasks.md when scope grows
 ```
 
 ### Task Verification
 
 ```bash
-/afx-task verify <task-id>     # Audit task implementation vs spec
+/afx-task verify <task-id>     # Verify implementation evidence against spec/design/task
 /afx-task brief <task-id>      # Get implementation summary
-/afx-task review <name>        # Check for planning gaps
+/afx-task review <name>        # Review task plan for gaps and sequencing risk
 ```
 
 ### Quality Checks

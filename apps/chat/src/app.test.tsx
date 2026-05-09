@@ -2023,9 +2023,9 @@ describe("chat App", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Spec mode composer-strip auto-send (FR-15)
-  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
-  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+  // Spec mode composer-strip auto-send.
+  //   @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  //   @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
   // ---------------------------------------------------------------------------
 
   /** Bring the chat into Spec mode with a standard spec.md as the active doc. */
@@ -2060,7 +2060,7 @@ describe("chat App", () => {
 
   /**
    * Click the first action button matching `label`. The same action is rendered
-   * by both DocActionsStrip (above the composer) and SpecModeWelcome (empty
+   * by both ChatDocActionsStrip (above the composer) and SpecModeWelcome (empty
    * state) in spec mode — they share the same callbacks, so testing either is
    * equivalent. We pick the first match to keep tests stable.
    */

@@ -25,11 +25,7 @@
       "ignoreDependencies": []
     },
     "packages/agent/pi-sdk": {
-      "ignoreDependencies": [
-        "@mariozechner/pi-agent-core",
-        "@mariozechner/pi-ai",
-        "@mariozechner/pi-tui"
-      ]
+      "ignoreDependencies": ["@mariozechner/pi-agent-core", "@mariozechner/pi-tui"]
     }
   }
 }

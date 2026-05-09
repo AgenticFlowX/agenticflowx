@@ -35,8 +35,6 @@ import {
   CornerDownLeft,
   Cpu,
   ExternalLink,
-  FileText,
-  FlaskConical,
   GitBranch,
   Info,
   Layers,
@@ -95,12 +93,16 @@ import { cn } from "@afx/ui/lib/utils";
 
 import { AfxLogoIcon, AfxLogoMark } from "../components/afx-logo";
 import type { AgentRecoveryActions } from "../components/agent-recovery-card";
+import { ChatDocActionsStrip } from "../components/chat-doc-actions-strip";
+import { docKindVisual } from "../components/chat-doc-kind-visual";
+import { ChatMemoryMenuButton } from "../components/chat-memory-menu-button";
 import { ComposerStrip } from "../components/composer-strip";
 import { FilesStrip } from "../components/files-strip";
 import { MarkdownMessage } from "../components/markdown-message";
 import { MentionPopup } from "../components/mention-popup";
 import { ModelCombobox } from "../components/model-combobox";
 import { OutputCard } from "../components/output-card";
+import { ResultActions } from "../components/result-actions";
 import { SlashPopup } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../lib/bridge";
@@ -111,10 +113,12 @@ import { deriveModifiedFiles } from "../lib/derive-modified-files";
 import {
   type ActiveDocCtx,
   EMPTY_DOC_CTX,
+  type MemoryCatalogItem,
   describeDoc,
   resolveDocActions,
 } from "../lib/doc-actions";
 import { extractMentions } from "../lib/mentions";
+import { parseResultActions } from "../lib/result-actions";
 import { analyzeDanger } from "../lib/system-command";
 import { toolDescriptor } from "../lib/tool-descriptor";
 
@@ -830,6 +834,7 @@ export default function Chat({
           // on the next one the user opens.
           if (
             prev.feature !== msg.feature ||
+            prev.filePath !== msg.filePath ||
             prev.docKind !== msg.docKind ||
             prev.format !== msg.format
           ) {
@@ -840,7 +845,16 @@ export default function Chat({
             section: msg.section,
             docKind: msg.docKind,
             feature: msg.feature,
+            filePath: msg.filePath,
             approvalStatus: msg.approvalStatus,
+            taskPhases: msg.taskPhases,
+            signOff: msg.signOff,
+            parsedFocuses: msg.parsedFocuses,
+            specStatus: msg.specStatus,
+            designStatus: msg.designStatus,
+            tasksStatus: msg.tasksStatus,
+            tasksCompleted: msg.tasksCompleted,
+            tasksTotal: msg.tasksTotal,
           };
         });
       }),
@@ -858,6 +872,28 @@ export default function Chat({
 
       // Compaction — clears the queue and shows a compact confirmation.
       bridgeOn("agent/compacted", completeCompaction),
+
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+      // @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+      // Sign Off ack — host completed (or rejected) the tasks.signOff host
+      // action. Surface a toast so the user sees the outcome without any extra
+      // editor focus juggling.
+      bridgeOn("agent/signOffComplete", (msg) => {
+        if (!msg.ok) {
+          toast.error("Sign Off failed", msg.error ?? "The host could not apply the edit.");
+          return;
+        }
+        if ((msg.rowsTicked ?? 0) === 0) {
+          toast.info("Already signed off", "No Human cells needed updating.");
+          return;
+        }
+        const rows = msg.rowsTicked ?? 0;
+        const promoted = msg.newStatus === "Living";
+        const title = promoted
+          ? `Promoted to Living · ${rows} row${rows === 1 ? "" : "s"} signed off`
+          : `${rows} row${rows === 1 ? "" : "s"} signed off`;
+        toast.success(title, "⌘Z reverts the edit.");
+      }),
 
       // Command output — accumulates streaming stdout/stderr from shell commands.
       bridgeOn("agent/commandOutput", (msg) => {
@@ -1127,6 +1163,35 @@ export default function Chat({
       requestId,
       content: trimmed,
     });
+  }
+
+  function insertDraft(content: string): void {
+    onDraftChange(content);
+    window.requestAnimationFrame(() => getTextarea()?.focus());
+  }
+
+  function handlePreparedAction(command: string, autoSend: boolean): void {
+    if (autoSend) {
+      sendNow(command);
+    } else {
+      insertDraft(command);
+    }
+  }
+
+  function handleMemorySelect(item: MemoryCatalogItem): void {
+    handlePreparedAction(item.command, item.autoSend);
+  }
+
+  /**
+   * Dispatch a host-side document mutation triggered by the doc-actions strip
+   * (currently only `tasks.signOff`). The host runs a single WorkspaceEdit and
+   * posts back `agent/signOffComplete` for toast/error UX.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  function dispatchHostAction(action: "tasks.signOff", uri: string): void {
+    bridgeSend({ type: "chat/hostAction", requestId: uid(), action, uri });
   }
 
   function startCompact() {
@@ -1418,9 +1483,7 @@ export default function Chat({
         runtime={runtime}
         onNewSession={startNewSession}
         onCompact={startCompact}
-        onContextSave={() => {
-          onDraftChange("/afx-context save");
-        }}
+        onMemorySelect={handleMemorySelect}
         onRestartAgent={recoveryActions?.onRestartAgent}
       />
 
@@ -1432,7 +1495,13 @@ export default function Chat({
       >
         <div className="px-2 py-3">
           {messages.length > 0 || commandOutputs.length > 0 || noteEvents.length > 0 ? (
-            <Timeline messages={messages} noteEvents={noteEvents} commandOutputs={commandOutputs} />
+            <Timeline
+              messages={messages}
+              noteEvents={noteEvents}
+              commandOutputs={commandOutputs}
+              onDraftCommand={insertDraft}
+              onSendCommand={sendNow}
+            />
           ) : !hasReceivedStateSnapshot ? (
             <AgentSetupState />
           ) : !hasReceivedSettingsSnapshot ? (
@@ -1444,10 +1513,7 @@ export default function Chat({
           ) : workspaceMode === "spec" ? (
             <SpecModeWelcome
               docContext={activeDocContext}
-              onInsert={(text) => {
-                onDraftChange(text);
-                composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
-              }}
+              onInsert={insertDraft}
               onAutoSend={sendNow}
             />
           ) : (
@@ -1456,10 +1522,7 @@ export default function Chat({
               runtimeUnconfigured={runtimeUnconfigured}
               rpcEnabled={rpcEnabled}
               onOpenSettings={onOpenSettings}
-              onInsert={(text) => {
-                onDraftChange(text);
-                composerRef.current?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
-              }}
+              onInsert={insertDraft}
             />
           )}
           <div ref={bottomRef} className="h-3 shrink-0" />
@@ -1535,13 +1598,15 @@ export default function Chat({
           {/* @see docs/specs/211-app-chat-composer/spec.md [FR-15]
            * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
            * Doc-actions strip — surfaces SDD intent actions for the active AFX doc. */}
-          <DocActionsStrip
+          <ChatDocActionsStrip
             workspaceMode={workspaceMode}
             docContext={activeDocContext}
             dismissed={dismissedDocActionsStrip}
             onDismiss={() => setDismissedDocActionsStrip(true)}
-            onInsert={(text) => onDraftChange(text)}
+            onInsert={insertDraft}
             onAutoSend={sendNow}
+            onHostAction={dispatchHostAction}
+            onMemorySelect={handleMemorySelect}
           />
           {/* @see docs/specs/211-app-chat-composer/spec.md [FR-15]
            * Mode-suggest strip — one-time onboarding for sprint files outside Spec mode. */}
@@ -1641,6 +1706,14 @@ export default function Chat({
               </TooltipProvider>
               {/* Surface: [Composer.Actions] */}
               <div className="ml-auto flex shrink-0 items-center gap-1">
+                <ChatMemoryMenuButton
+                  onSelect={handleMemorySelect}
+                  disabled={isComposerDisabled}
+                  side="top"
+                  align="end"
+                  size="composer"
+                  preventMouseDown
+                />
                 {isStreaming ? (
                   <>
                     {canSend && (
@@ -2026,7 +2099,7 @@ function StatusBar({
   runtime,
   onNewSession,
   onCompact,
-  onContextSave,
+  onMemorySelect,
   onRestartAgent,
 }: {
   checking?: boolean;
@@ -2034,7 +2107,7 @@ function StatusBar({
   runtime: RuntimeSettings;
   onNewSession?: () => void;
   onCompact?: () => void;
-  onContextSave?: () => void;
+  onMemorySelect: (item: MemoryCatalogItem) => void;
   onRestartAgent?: () => void;
 }) {
   const isDisconnected = status.phase === "disconnected" || status.phase === "error";
@@ -2043,19 +2116,7 @@ function StatusBar({
     <div className="flex h-7 shrink-0 items-center justify-end gap-1 border-b bg-card/30 px-2">
       <TooltipProvider>
         <div className="flex shrink-0 items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={onContextSave}
-                className="inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-muted hover:text-foreground"
-                aria-label="Save context"
-              >
-                <BookOpen size={11} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Save context (/afx-context save)</TooltipContent>
-          </Tooltip>
+          <ChatMemoryMenuButton onSelect={onMemorySelect} side="bottom" align="end" />
           <Tooltip>
             <TooltipTrigger asChild>
               <button
@@ -2434,116 +2495,6 @@ function BlockedCommandStrip({
             <span>Copy command</span>
           </Button>
         </div>
-      </div>
-    </ComposerStrip>
-  );
-}
-
-/**
- * Visual treatment per AFX doc kind — icon + accent colour. Mirrors the
- * Workbench palette (`apps/workbench/src/views/workbench.tsx` + `documents.tsx`)
- * so the chat strip and the workbench tabs use the same visual vocabulary.
- *
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- * @see docs/specs/220-app-workbench/design.md
- */
-function docKindVisual(docKind: ActiveDocCtx["docKind"]): {
-  icon: LucideIcon;
-  accent: string;
-} {
-  switch (docKind) {
-    case "spec":
-      return { icon: StickyNote, accent: "text-afx-brand" };
-    case "design":
-      return { icon: FileText, accent: "text-purple-400" };
-    case "tasks":
-      return { icon: GitBranch, accent: "text-afx-success" };
-    case "journal":
-      return { icon: BookOpen, accent: "text-amber-400" };
-    case "adr":
-      return { icon: Lightbulb, accent: "text-blue-400" };
-    case "research":
-      return { icon: FlaskConical, accent: "text-muted-foreground" };
-    case "context":
-      return { icon: Boxes, accent: "text-cyan-400" };
-    case null:
-    default:
-      return { icon: FileText, accent: "text-muted-foreground" };
-  }
-}
-
-/**
- * Doc-actions strip — surfaces SDD intent actions for the active AFX document.
- *
- * Renders when `workspaceMode === "spec"` AND an AFX doc is active. Buttons
- * inject the routed slash command into the composer draft. Capped at 3 actions.
- *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- */
-function DocActionsStrip({
-  workspaceMode,
-  docContext,
-  dismissed,
-  onDismiss,
-  onInsert,
-  onAutoSend,
-}: {
-  workspaceMode: WorkspaceMode;
-  docContext: ActiveDocCtx;
-  dismissed: boolean;
-  onDismiss: () => void;
-  /** Insert the slash command into the composer draft (default for dialogic verbs). */
-  onInsert: (text: string) => void;
-  /** Send the slash command immediately, bypassing the draft (deterministic verbs). */
-  onAutoSend: (text: string) => void;
-}) {
-  if (workspaceMode !== "spec") return null;
-  if (dismissed) return null;
-  if (!docContext.docKind) return null;
-
-  // Spec-mode strip surfaces up to 5 actions per doc kind. The cap keeps the
-  // strip readable on narrow VS Code sidebar widths while leaving room for the
-  // full Refine→Validate→Review→Approve flow on standard 4-file specs.
-  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
-  const actions = resolveDocActions(docContext).slice(0, 5);
-  if (actions.length === 0) return null;
-
-  const docLabel = describeDoc(docContext);
-  const status = docContext.approvalStatus
-    ? docContext.approvalStatus.charAt(0).toUpperCase() + docContext.approvalStatus.slice(1)
-    : null;
-  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
-
-  return (
-    <ComposerStrip
-      title={
-        <span className="inline-flex items-center gap-1.5">
-          <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
-          <span>{docLabel}</span>
-          {status ? <span className="text-muted-foreground/60">· {status}</span> : null}
-        </span>
-      }
-      onDismiss={onDismiss}
-    >
-      <div className="flex flex-wrap items-center gap-1.5">
-        {actions.map((action) => (
-          <Button
-            key={action.label}
-            type="button"
-            size="xs"
-            variant="outline"
-            title={action.autoSend ? "Sends immediately" : "Insert into composer draft"}
-            onClick={() =>
-              action.autoSend ? onAutoSend(action.command) : onInsert(action.command)
-            }
-          >
-            {action.autoSend ? (
-              <Zap size={11} className="shrink-0 text-amber-500" aria-hidden />
-            ) : null}
-            <span>{action.label}</span>
-          </Button>
-        ))}
       </div>
     </ComposerStrip>
   );
@@ -3256,10 +3207,14 @@ function Timeline({
   messages,
   noteEvents,
   commandOutputs,
+  onDraftCommand,
+  onSendCommand,
 }: {
   messages: ChatTimelineItem[];
   noteEvents: ChatNoteEventView[];
   commandOutputs: ChatCommandOutputView[];
+  onDraftCommand: (command: string) => void;
+  onSendCommand: (command: string) => void;
 }) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
@@ -3341,6 +3296,8 @@ function Timeline({
           event={event}
           isLast={i === events.length - 1}
           isReply={event.kind !== "user"}
+          onDraftCommand={onDraftCommand}
+          onSendCommand={onSendCommand}
         />
       ))}
     </ol>
@@ -3359,10 +3316,14 @@ function TimelineRow({
   event,
   isLast,
   isReply,
+  onDraftCommand,
+  onSendCommand,
 }: {
   event: TimelineEvent;
   isLast: boolean;
   isReply: boolean;
+  onDraftCommand: (command: string) => void;
+  onSendCommand: (command: string) => void;
 }) {
   return (
     <li
@@ -3387,7 +3348,11 @@ function TimelineRow({
         ) : (
           <>
             <EventHeader event={event} />
-            <EventBody event={event} />
+            <EventBody
+              event={event}
+              onDraftCommand={onDraftCommand}
+              onSendCommand={onSendCommand}
+            />
           </>
         )}
       </div>
@@ -3587,7 +3552,15 @@ function Eyebrow({
  * @see docs/specs/212-app-chat-messages/spec.md [FR-1] [FR-2] [FR-3] [FR-6]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-MARKDOWN] [DES-MESSAGES-MOCKUP-SYSTEM]
  */
-function EventBody({ event }: { event: TimelineEvent }) {
+function EventBody({
+  event,
+  onDraftCommand,
+  onSendCommand,
+}: {
+  event: TimelineEvent;
+  onDraftCommand: (command: string) => void;
+  onSendCommand: (command: string) => void;
+}) {
   if (event.kind === "user") {
     return (
       <div className="mt-1 rounded-md bg-muted/40 px-2.5 py-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
@@ -3597,9 +3570,17 @@ function EventBody({ event }: { event: TimelineEvent }) {
   }
   if (event.kind === "assistant") {
     if (event.message.content) {
+      const resultActions = event.message.streaming
+        ? []
+        : parseResultActions(event.message.content).slice(0, 5);
       return (
         <div className="mt-0.5">
           <MarkdownMessage content={event.message.content} />
+          <ResultActions
+            actions={resultActions}
+            onDraft={(command) => onDraftCommand(command)}
+            onSend={(command) => onSendCommand(command)}
+          />
           <AssistantMeta message={event.message} />
         </div>
       );

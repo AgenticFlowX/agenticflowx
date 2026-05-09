@@ -4,6 +4,9 @@
  * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-1] [FR-2]
  * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-TEST]
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
@@ -73,6 +76,10 @@ describe("createAfxCodeActionProvider", () => {
     ["afx.action.designApprove", "/afx-design approve"],
     ["afx.action.taskVerify", "/afx-task verify"],
     ["afx.action.taskPick", "/afx-task pick"],
+    ["afx.action.taskStatus", "/afx-task status"],
+    ["afx.action.journalRecap", "/afx-session recap"],
+    ["afx.action.adrReview", "/afx-adr review"],
+    ["afx.action.adrList", "/afx-adr list"],
   ])("auto-sends %s via sendPrompt (deterministic verb)", async (commandId, expectedPrefix) => {
     const registered = new Map<string, () => Promise<void>>();
     vi.spyOn(vscode.commands, "registerCommand").mockImplementation((command, callback) => {
@@ -107,5 +114,151 @@ describe("createAfxCodeActionProvider", () => {
       expect.stringContaining(expectedPrefix),
     );
     expect(appendDraft, `${commandId} should not draft`).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["afx.action.specRefine", "/afx-spec refine /workspace/docs/specs/auth/spec.md"],
+    ["afx.action.designRefine", "/afx-design refine /workspace/docs/specs/auth/spec.md"],
+    ["afx.action.taskBrief", "/afx-task brief 7.2", "Implement task 7.2"],
+    ["afx.action.journalPromote", "/afx-session promote UA-D001", "UA-D001"],
+    ["afx.action.adrSupersede", "/afx-adr supersede ADR-0004-cache ", ""],
+    ["afx.action.adrAccept", "/afx-adr accept ADR-0004-cache", ""],
+    [
+      "afx.action.researchFinalize",
+      "/afx-research finalize /workspace/docs/research/cache.md --to ",
+      "",
+    ],
+  ])(
+    "drafts %s for user confirmation or missing arguments",
+    async (commandId, expectedPrompt, selectedText = "") => {
+      const registered = new Map<string, () => Promise<void>>();
+      vi.spyOn(vscode.commands, "registerCommand").mockImplementation((command, callback) => {
+        registered.set(command, callback as () => Promise<void>);
+        return { dispose: vi.fn() };
+      });
+
+      const filePath =
+        commandId === "afx.action.adrSupersede" || commandId === "afx.action.adrAccept"
+          ? "/workspace/docs/adr/ADR-0004-cache.md"
+          : commandId === "afx.action.researchFinalize"
+            ? "/workspace/docs/research/cache.md"
+            : "/workspace/docs/specs/auth/spec.md";
+
+      Object.defineProperty(vscode.window, "activeTextEditor", {
+        configurable: true,
+        value: {
+          selection: new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(0, 0)),
+          document: {
+            uri: vscode.Uri.file(filePath),
+            languageId: "markdown",
+            getText: vi.fn(() => selectedText),
+          },
+        },
+      });
+
+      const sendPrompt = vi.fn(async () => {});
+      const appendDraft = vi.fn(async () => {});
+      const saveNote = vi.fn(async () => {});
+      createAfxCodeActionProvider(createMockLogger().logger, createMockAgentManager(), {
+        sendPrompt,
+        appendDraft,
+        saveNote,
+      });
+
+      await registered.get(commandId)?.();
+
+      expect(appendDraft, `${commandId} should draft`).toHaveBeenCalledWith(expectedPrompt);
+      expect(sendPrompt, `${commandId} should not auto-send`).not.toHaveBeenCalled();
+    },
+  );
+
+  it("surfaces right-click parity actions only for matching AFX document kinds", () => {
+    let provider: vscode.CodeActionProvider | undefined;
+    vi.spyOn(vscode.commands, "registerCommand").mockImplementation(() => ({ dispose: vi.fn() }));
+    vi.spyOn(vscode.languages, "registerCodeActionsProvider").mockImplementation((_selector, p) => {
+      provider = p;
+      return { dispose: vi.fn() };
+    });
+
+    createAfxCodeActionProvider(createMockLogger().logger, createMockAgentManager());
+
+    function actionCommands(filePath: string, text: string): string[] {
+      const doc = {
+        uri: vscode.Uri.file(filePath),
+        languageId: "markdown",
+        getText: vi.fn(() => text),
+      } as unknown as vscode.TextDocument;
+      const actions = provider?.provideCodeActions?.(
+        doc,
+        new vscode.Range(0, 0, 0, 0),
+        {} as vscode.CodeActionContext,
+        {} as vscode.CancellationToken,
+      ) as vscode.CodeAction[] | undefined;
+      return actions?.map((action) => action.command?.command ?? "") ?? [];
+    }
+
+    expect(actionCommands("/workspace/docs/specs/auth/spec.md", "# Auth")).toEqual(
+      expect.arrayContaining(["afx.action.specRefine", "afx.action.specValidate"]),
+    );
+    expect(actionCommands("/workspace/docs/specs/auth/tasks.md", "# Tasks")).toEqual(
+      expect.arrayContaining(["afx.action.taskStatus", "afx.action.taskBrief"]),
+    );
+    expect(actionCommands("/workspace/docs/specs/auth/journal.md", "# Journal")).toEqual(
+      expect.arrayContaining(["afx.action.journalRecap", "afx.action.journalPromote"]),
+    );
+    expect(actionCommands("/workspace/docs/adr/ADR-0004-cache.md", "---\ntype: ADR\n---")).toEqual(
+      expect.arrayContaining([
+        "afx.action.adrReview",
+        "afx.action.adrList",
+        "afx.action.adrSupersede",
+        "afx.action.adrAccept",
+      ]),
+    );
+    expect(actionCommands("/workspace/docs/research/cache.md", "---\ntype: RESEARCH\n---")).toEqual(
+      expect.arrayContaining(["afx.action.researchFinalize"]),
+    );
+    expect(actionCommands("/workspace/docs/specs/auth/spec.md", "# Auth")).not.toContain(
+      "afx.action.researchFinalize",
+    );
+  });
+
+  it("contributes command and menu entries for every supported right-click parity action", () => {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(__dirname, "../../package.json"), "utf8"),
+    ) as {
+      contributes: {
+        commands: Array<{ command: string }>;
+        menus: { "afx.editorContext": Array<{ command?: string; group?: string }> };
+      };
+    };
+    const commands = new Set(packageJson.contributes.commands.map((entry) => entry.command));
+    const menuEntries = new Map(
+      packageJson.contributes.menus["afx.editorContext"]
+        .filter((entry) => entry.command)
+        .map((entry) => [entry.command, entry.group]),
+    );
+
+    const expected = [
+      "afx.action.specRefine",
+      "afx.action.designRefine",
+      "afx.action.taskStatus",
+      "afx.action.taskBrief",
+      "afx.action.journalRecap",
+      "afx.action.journalPromote",
+      "afx.action.adrReview",
+      "afx.action.adrList",
+      "afx.action.adrSupersede",
+      "afx.action.adrAccept",
+      "afx.action.researchFinalize",
+    ];
+
+    for (const command of expected) {
+      expect(commands.has(command), `${command} contributes.commands`).toBe(true);
+      expect(menuEntries.has(command), `${command} contributes.menus`).toBe(true);
+    }
+    expect(menuEntries.get("afx.action.specRefine")).toBe("3_spec@1");
+    expect(menuEntries.get("afx.action.journalRecap")).toBe("6_journal@1");
+    expect(menuEntries.get("afx.action.adrAccept")).toBe("7_adr@4");
+    expect(menuEntries.get("afx.action.researchFinalize")).toBe("8_research@1");
   });
 });

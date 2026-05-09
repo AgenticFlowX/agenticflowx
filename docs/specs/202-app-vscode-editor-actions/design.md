@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:34:22.000Z"
+updated_at: "2026-05-09T07:20:46.000Z"
 tags: ["app", "vscode", "editor-actions", "commands"]
 spec: spec.md
 ---
@@ -135,39 +135,56 @@ Adding an action requires three coordinated edits:
    | Add @see Link      (non-markdown) |   <- 2_trace group
    | Verify Traceability               |
    +-----------------------------------+
-   | Spec - Validate           (spec)  |   <- 3_spec group (sprint+SPEC or spec.md)
+   | Spec - Refine             (spec)  |   <- 3_spec group (sprint+SPEC or spec.md)
+   | Spec - Validate           (spec)  |
    | Spec - Review             (spec)  |
    | Spec - Approve            (spec)  |
    +-----------------------------------+
-   | Design - Validate        (design) |   <- 4_design group
+   | Design - Refine          (design) |   <- 4_design group
+   | Design - Validate        (design) |
    | Design - Review          (design) |
    | Design - Approve         (design) |
    +-----------------------------------+
    | Task - Code              (tasks)  |   <- 5_tasks group
    | Task - Verify            (tasks)  |
    | Task - Pick Next         (tasks)  |
+   | Task - Status            (tasks)  |
+   | Task - Brief             (tasks)  |
+   +-----------------------------------+
+   | Journal - Recap         (journal) |   <- 6_journal group
+   | Journal - Promote       (journal) |
+   +-----------------------------------+
+   | ADR - Review                (adr) |   <- 7_adr group
+   | ADR - List                  (adr) |
+   | ADR - Supersede             (adr) |
+   | ADR - Accept                (adr) |
+   +-----------------------------------+
+   | Research - Finalize    (research)|
    +-----------------------------------+
 ```
 
 Group separators are visible because each group prefix changes (`0_notes`, `1_chat`, `2_trace`,
-`3_spec`, `4_design`, `5_tasks`).
+`3_spec`, `4_design`, `5_tasks`, `6_journal`, `7_adr`, `8_research`).
 
 ### Per-action contracts
 
-| DES anchor                     | Command                                          | Behavior summary                                                               |
-| ------------------------------ | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `[DES-ACTION-SAVE-TO-NOTES]`   | `afx.action.saveToNotes`                         | Format selection + file context, append to `.afx/notes.md` via notes-utils     |
-| `[DES-ACTION-ADD-TO-CONTEXT]`  | `afx.action.addToContext`                        | Send `chat/draftAppend` with formatted selection                               |
-| `[DES-ACTION-SEND-SELECTION]`  | `afx.action.sendSelection`                       | Send `chat/send` with formatted selection                                      |
-| `[DES-ACTION-EXPLAIN]`         | `afx.action.explain`                             | Build "/explain" prompt from selection                                         |
-| `[DES-ACTION-REVIEW]`          | `afx.action.review`                              | Build "/review" prompt from selection                                          |
-| `[DES-ACTION-IMPROVE-CODE]`    | `afx.action.improveCode`                         | Build "/improve" prompt; non-markdown only                                     |
-| `[DES-ACTION-GENERATE-TESTS]`  | `afx.action.generateTests`                       | Build "/test" prompt; non-markdown only                                        |
-| `[DES-ACTION-ADD-SEE-LINK]`    | `afx.action.addSeeLink`                          | Insert `@see docs/specs/...` JSDoc above active symbol; routes to 203 resolver |
-| `[DES-ACTION-VERIFY-TRACE]`    | `afx.action.verifyTrace`                         | Run `/afx-check trace` against active file                                     |
-| `[DES-ACTION-SPEC-VALIDATE]`   | `afx.action.specValidate` (and Review/Approve)   | Spec lifecycle commands; route to `204-app-vscode-spec-services`               |
-| `[DES-ACTION-DESIGN-VALIDATE]` | `afx.action.designValidate` (and Review/Approve) | Design counterparts                                                            |
-| `[DES-ACTION-TASK-CODE]`       | `afx.action.taskCode` (and Verify/PickNext)      | Task lifecycle commands                                                        |
+| DES anchor                     | Command                                                                         | Behavior summary                                                                      |
+| ------------------------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `[DES-ACTION-SAVE-TO-NOTES]`   | `afx.action.saveToNotes`                                                        | Format selection + file context, append to `.afx/notes.md` via notes-utils            |
+| `[DES-ACTION-ADD-TO-CONTEXT]`  | `afx.action.addToContext`                                                       | Send `chat/draftAppend` with formatted selection                                      |
+| `[DES-ACTION-SEND-SELECTION]`  | `afx.action.sendSelection`                                                      | Send `chat/send` with formatted selection                                             |
+| `[DES-ACTION-EXPLAIN]`         | `afx.action.explain`                                                            | Build "/explain" prompt from selection                                                |
+| `[DES-ACTION-REVIEW]`          | `afx.action.review`                                                             | Build "/review" prompt from selection                                                 |
+| `[DES-ACTION-IMPROVE-CODE]`    | `afx.action.improveCode`                                                        | Build "/improve" prompt; non-markdown only                                            |
+| `[DES-ACTION-GENERATE-TESTS]`  | `afx.action.generateTests`                                                      | Build "/test" prompt; non-markdown only                                               |
+| `[DES-ACTION-ADD-SEE-LINK]`    | `afx.action.addSeeLink`                                                         | Insert `@see docs/specs/...` JSDoc above active symbol; routes to 203 resolver        |
+| `[DES-ACTION-VERIFY-TRACE]`    | `afx.action.verifyTrace`                                                        | Run `/afx-check trace` against active file                                            |
+| `[DES-ACTION-SPEC-VALIDATE]`   | `afx.action.specRefine` / `specValidate` / `specReview` / `specApprove`         | Spec lifecycle commands; refine is draft-first, deterministic checks send immediately |
+| `[DES-ACTION-DESIGN-VALIDATE]` | `afx.action.designRefine` / `designValidate` / `designReview` / `designApprove` | Design counterparts                                                                   |
+| `[DES-ACTION-TASK-CODE]`       | `afx.action.taskCode` / `taskVerify` / `taskPick` / `taskStatus` / `taskBrief`  | Task lifecycle commands; brief is draft-first                                         |
+| `[DES-ACTION-JOURNAL]`         | `afx.action.journalRecap` / `journalPromote`                                    | Session memory commands for `journal.md`                                              |
+| `[DES-ACTION-ADR]`             | `afx.action.adrReview` / `adrList` / `adrSupersede` / `adrAccept`               | ADR lifecycle commands; mutating commands remain draft-first                          |
+| `[DES-ACTION-RESEARCH]`        | `afx.action.researchFinalize`                                                   | Draft a research finalization command                                                 |
 
 ---
 

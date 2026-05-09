@@ -716,6 +716,178 @@ This is a long-running response on purpose so the queue stays visible while you 
     endAssistant(id);
   }
 
+  /**
+   * Dev/e2e scenario for the chat composer's AFX doc-action rail.
+   *
+   * It mirrors the VSCode host opening `docs/specs/auth/spec.md`, then emits a
+   * completed assistant answer with a `Next:` command so Playwright can cover:
+   *
+   *   ◆ spec.md [Refine] [⚡Validate] […]
+   *                  More ▾ -> Focus -> Performance
+   *   Assistant result -> Next -> /afx-task code 2.3
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  function runSpecDocActions(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+      approvalStatus: "Draft",
+      parsedFocuses: [
+        { id: "requirements", label: "Requirements", slug: "requirements", line: 12 },
+        { id: "performance", label: "Performance", slug: "performance", line: 42 },
+      ],
+    });
+
+    const id = uid();
+    emit({
+      type: "chat/messageStart",
+      id,
+      role: "assistant",
+      createdAt: Date.now(),
+      content: "Reviewed the active spec.\n\nNext: /afx-task code 2.3",
+    });
+    emit({ type: "chat/messageEnd", id, stopReason: "end_turn" });
+  }
+
+  /**
+   * Dev/e2e scenario for the FR-19 brass `[Sign Off ▾]` action. Mirrors the
+   * VSCode host opening a `tasks.md` whose body checkboxes are all `[x]`,
+   * every Work Sessions Agent cell is `[x]`, and three Human cells are still
+   * `[ ]` — the canonical readiness state for Sign Off.
+   *
+   *   ✦ tasks.md · Living  Spec ✓ → Design ✓ → Tasks 8/8 → Code · ▾Memory
+   *   [Code|▾] [Review|▾] | [⚡Verify] [⚡Pick] [Sign Off ▾]   ← brass
+   *
+   * Click `[Sign Off ▾]` to inspect the confirm popover (Tick 3 Human cells ·
+   * Promote status to Living · Update updated_at).
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-19]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  function runTasksSignOffReady(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "TASKS",
+      docKind: "tasks",
+      feature: "auth",
+      filePath: "/workspace/docs/specs/auth/tasks.md",
+      approvalStatus: "Living",
+      tasksCompleted: 8,
+      tasksTotal: 8,
+      specStatus: "Approved",
+      designStatus: "Approved",
+      tasksStatus: "Living",
+      taskPhases: [
+        {
+          number: 1,
+          name: "Build",
+          completed: 4,
+          total: 4,
+          line: 10,
+          items: [
+            { text: "Wire auth route", completed: true, line: 11, wbsId: "1.1" },
+            { text: "Hash passwords", completed: true, line: 12, wbsId: "1.2" },
+            { text: "Issue session cookie", completed: true, line: 13, wbsId: "1.3" },
+            { text: "Add logout handler", completed: true, line: 14, wbsId: "1.4" },
+          ],
+        },
+        {
+          number: 2,
+          name: "Verify",
+          completed: 4,
+          total: 4,
+          line: 20,
+          items: [
+            { text: "Cover login flow", completed: true, line: 21, wbsId: "2.1" },
+            { text: "Cover bad-password path", completed: true, line: 22, wbsId: "2.2" },
+            { text: "Verify cookie expiry", completed: true, line: 23, wbsId: "2.3" },
+            { text: "Smoke test on dev host", completed: true, line: 24, wbsId: "2.4" },
+          ],
+        },
+      ],
+      signOff: {
+        ready: true,
+        signable: true,
+        allTasksChecked: true,
+        allAgentVerified: true,
+        pendingTasks: 0,
+        pendingAgentRows: 0,
+        pendingHumanRows: 3,
+        alreadyLiving: false,
+      },
+    });
+  }
+
+  /**
+   * Relaxed-mode Sign Off — tasks.md has 2 body checkboxes still `[ ]` and 1
+   * Work Sessions Agent row not yet `[x]`, but 1 Human cell is pending. The
+   * strip surfaces a Sign Off button with a muted warning tone; the popover
+   * shows the unmet strict conditions as warnings and notes that status will
+   * stay unchanged. Confirm still ticks the eligible Human cell so users can
+   * make incremental progress.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-19]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  function runTasksSignOffRelaxed(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: "TASKS",
+      docKind: "tasks",
+      feature: "auth",
+      filePath: "/workspace/docs/specs/auth/tasks.md",
+      approvalStatus: "Draft",
+      tasksCompleted: 4,
+      tasksTotal: 6,
+      specStatus: "Approved",
+      designStatus: "Approved",
+      tasksStatus: "Draft",
+      taskPhases: [
+        {
+          number: 1,
+          name: "Build",
+          completed: 4,
+          total: 4,
+          line: 10,
+          items: [
+            { text: "Wire auth route", completed: true, line: 11, wbsId: "1.1" },
+            { text: "Hash passwords", completed: true, line: 12, wbsId: "1.2" },
+            { text: "Issue session cookie", completed: true, line: 13, wbsId: "1.3" },
+            { text: "Add logout handler", completed: true, line: 14, wbsId: "1.4" },
+          ],
+        },
+        {
+          number: 2,
+          name: "Verify",
+          completed: 0,
+          total: 2,
+          line: 20,
+          items: [
+            { text: "Cover login flow", completed: false, line: 21, wbsId: "2.1" },
+            { text: "Cover bad-password path", completed: false, line: 22, wbsId: "2.2" },
+          ],
+        },
+      ],
+      signOff: {
+        ready: false,
+        signable: true,
+        allTasksChecked: false,
+        allAgentVerified: false,
+        pendingTasks: 2,
+        pendingAgentRows: 1,
+        pendingHumanRows: 1,
+        alreadyLiving: false,
+      },
+    });
+  }
+
   async function runMultiTool(): Promise<void> {
     const id = startAssistant();
     await delay(60);
@@ -1586,6 +1758,9 @@ This is a long-running response on purpose so the queue stays visible while you 
     "tool-bash": () => void runToolBash(),
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
+    "spec-doc-actions": () => runSpecDocActions(),
+    "tasks-sign-off-ready": () => runTasksSignOffReady(),
+    "tasks-sign-off-relaxed": () => runTasksSignOffRelaxed(),
     "multi-tool": () => void runMultiTool(),
     "tool-error": () => void runToolError(),
     "provider-error": () => void runProviderError(),

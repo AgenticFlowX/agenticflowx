@@ -1534,6 +1534,7 @@ describe("sidebar-panel host bridge", () => {
       section: "SPEC",
       docKind: "spec",
       feature: "auth",
+      filePath: "/repo/docs/specs/auth/spec.md",
       approvalStatus: "Draft",
     });
     provider.resolveWebviewView(view, {} as never, {} as never);
@@ -1551,6 +1552,7 @@ describe("sidebar-panel host bridge", () => {
       section: "SPEC",
       docKind: "spec",
       feature: "auth",
+      filePath: "/repo/docs/specs/auth/spec.md",
       approvalStatus: "Draft",
     });
   });
