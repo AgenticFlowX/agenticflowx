@@ -2132,4 +2132,54 @@ describe("chat App", () => {
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/followUp" }));
   });
+
+  it("runs parsed Next result actions directly without changing the composer draft", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, {
+        messages: [
+          {
+            id: "assistant-next",
+            role: "assistant",
+            content: "Reviewed the active task.\n\nNext: /afx-task code 2.3",
+            createdAt: 2,
+            streaming: false,
+          },
+        ],
+      });
+    });
+
+    const composer = document.querySelector<HTMLTextAreaElement>("#afx-chat-composer");
+    if (!composer) throw new Error("Composer textarea not found.");
+    expect(composer).toHaveValue("");
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: /Code: \/afx-task code 2\.3/i }));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "/afx-task code 2.3",
+      }),
+    );
+    expect(composer).toHaveValue("");
+  });
 });

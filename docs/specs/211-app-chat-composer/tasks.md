@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T14:07:38.000Z"
+updated_at: 2026-05-09T14:29:41.860Z
 tags:
   [
     "app",
@@ -468,3 +468,4 @@ Verify traceability
 | 2026-05-09T13:55:29.000Z | 13.1    | Completed  | apps/chat/src/views/chat.tsx, apps/chat/src/components/markdown-message.tsx                                                                                                                                                                                                                                                                                             | [x]   | [x]   |
 | 2026-05-09T14:07:38.000Z | 13.2    | Verified   | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                                                 | [x]   | [x]   |
 | 2026-05-09T14:07:38.000Z | 13.2    | Completed  | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                                                 | [x]   | [x]   |
+| 2026-05-09T14:14:33.000Z | 12.1    | Coded      | apps/chat/src/components/result-actions.tsx, apps/chat/src/components/result-actions.test.tsx, apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, apps/chat/e2e/spec-mode.spec.ts, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/tasks.md                                               | [x]   | [x]   |

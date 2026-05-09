@@ -1,7 +1,7 @@
 /**
  * ResultActions component tests.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-16]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -12,17 +12,19 @@ import { ResultActions } from "./result-actions";
 
 describe("ResultActions", () => {
   it("renders nothing when no actions are present", () => {
-    const { container } = render(<ResultActions actions={[]} onDraft={vi.fn()} />);
+    const { container } = render(<ResultActions actions={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders parsed actions as buttons", () => {
+  it("renders parsed actions as a subtle inline row without composer strip chrome", () => {
     const actions = parseResultActions("Next: /afx-task verify 2.3\nNext: /afx-task code 2.4");
 
-    render(<ResultActions actions={actions} onDraft={vi.fn()} onSend={vi.fn()} />);
+    render(<ResultActions actions={actions} onSend={vi.fn()} />);
 
-    expect(screen.getByText(/Next/i)).toBeInTheDocument();
-    expect(screen.getByText(/·\s*2/)).toBeInTheDocument();
+    expect(screen.getByTestId("result-actions-row")).toHaveAccessibleName("Next actions");
+    expect(screen.getByText("Run next")).toBeInTheDocument();
+    expect(screen.queryByText("NEXT")).not.toBeInTheDocument();
+    expect(screen.queryByText(/·\s*2/)).not.toBeInTheDocument();
     expect(screen.getAllByTestId("result-action-button")).toHaveLength(2);
     expect(screen.getByRole("button", { name: /Verify: \/afx-task verify 2\.3/i }));
     expect(
@@ -39,46 +41,47 @@ describe("ResultActions", () => {
     const onSend = vi.fn();
     const actions = parseResultActions("Next: /afx-task verify 2.3");
 
-    render(<ResultActions actions={actions} onDraft={onDraft} onSend={onSend} />);
+    render(<ResultActions actions={actions} onSend={onSend} />);
     fireEvent.click(screen.getByTestId("result-action-button"));
 
     expect(onSend).toHaveBeenCalledWith("/afx-task verify 2.3", actions[0]);
     expect(onDraft).not.toHaveBeenCalled();
   });
 
-  it("drafts supported commands that are not auto-send on normal click", () => {
+  it("sends supported draft-first commands on normal click instead of drafting", () => {
     const onDraft = vi.fn();
     const onSend = vi.fn();
     const actions = parseResultActions("Next: /afx-task code 2.3");
 
-    render(<ResultActions actions={actions} onDraft={onDraft} onSend={onSend} />);
+    render(<ResultActions actions={actions} onSend={onSend} />);
     fireEvent.click(screen.getByTestId("result-action-button"));
 
-    expect(onDraft).toHaveBeenCalledWith("/afx-task code 2.3", actions[0]);
-    expect(onSend).not.toHaveBeenCalled();
+    expect(onSend).toHaveBeenCalledWith("/afx-task code 2.3", actions[0]);
+    expect(onDraft).not.toHaveBeenCalled();
   });
 
-  it("shift-click sends supported draft-first commands", () => {
+  it("keeps shift-click on supported commands on the same send path", () => {
     const onDraft = vi.fn();
     const onSend = vi.fn();
     const actions = parseResultActions("Next: /afx-task code 2.3");
 
-    render(<ResultActions actions={actions} onDraft={onDraft} onSend={onSend} />);
+    render(<ResultActions actions={actions} onSend={onSend} />);
     fireEvent.click(screen.getByTestId("result-action-button"), { shiftKey: true });
 
     expect(onSend).toHaveBeenCalledWith("/afx-task code 2.3", actions[0]);
     expect(onDraft).not.toHaveBeenCalled();
   });
 
-  it("keeps unknown commands draft-only even on shift-click", () => {
+  it("keeps unknown commands unavailable instead of silently drafting", () => {
     const onDraft = vi.fn();
     const onSend = vi.fn();
     const actions = parseResultActions("Next: /afx-task deploy prod");
 
-    render(<ResultActions actions={actions} onDraft={onDraft} onSend={onSend} />);
+    render(<ResultActions actions={actions} onSend={onSend} />);
     fireEvent.click(screen.getByTestId("result-action-button"), { shiftKey: true });
 
-    expect(onDraft).toHaveBeenCalledWith("/afx-task deploy prod", actions[0]);
+    expect(screen.getByTestId("result-action-button")).toHaveAttribute("aria-disabled", "true");
+    expect(onDraft).not.toHaveBeenCalled();
     expect(onSend).not.toHaveBeenCalled();
   });
 });
