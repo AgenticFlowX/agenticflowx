@@ -3,7 +3,7 @@ name: afx-research
 description: Research workflow — discovery, comparison, summarization, and promotion of research artifacts to ADR/spec
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,research,discovery,analysis,adr"
   afx-argument-hint: "explore | compare | summarize | finalize"
@@ -39,6 +39,10 @@ If neither file exists, use defaults.
 ## Purpose
 
 Run discovery and analysis work **without coding**. This command is for research artifacts, option analysis, and recommendation synthesis that stay inside the AFX docs ecosystem.
+
+## Living-Doc Boundary
+
+Research artifacts preserve investigation history. When research is finalized into a spec or design, promote only the current decision, requirement, or constraint into the living `spec.md` / `design.md`; keep discarded options, chronology, and evidence in research or `journal.md`.
 
 ---
 
@@ -179,8 +183,8 @@ For save operations:
 | After `compare`              | `/afx-research summarize <topic>`         |
 | After `summarize`            | `/afx-research finalize <topic> --to adr` |
 | After `finalize --to adr`    | `/afx-adr review <id>`                    |
-| After `finalize --to spec`   | `/afx-spec review <feature>`              |
-| If decisions ready for build | `/afx-task plan <feature-or-instruction>` |
+| After `finalize --to spec`   | `/afx-spec refine <feature>`              |
+| If decisions ready for build | `/afx-task refine <feature-or-instruction>` |
 
 **Suggestion Format** (top 3 context-driven, bottom 2 static):
 
@@ -342,6 +346,6 @@ Consider running /afx-research explore first, or proceed with finalize from conv
 | Command     | Relationship                                  |
 | ----------- | --------------------------------------------- |
 | `/afx-adr`  | Finalize architecture decisions from research |
-| `/afx-spec` | Move validated decisions into formal specs    |
-| `/afx-task` | Plan implementation after decision approval   |
+| `/afx-spec` | Refine living specs with finalized decisions   |
+| `/afx-task` | Refine implementation plan after approval      |
 | `/afx-dev`  | Implementation (outside research-only mode)   |

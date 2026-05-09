@@ -3,7 +3,7 @@ name: afx-hello
 description: Verify AFX installation and environment — detect AI provider, confirm skill availability, and show project health snapshot
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,diagnostics,environment,onboarding"
 ---

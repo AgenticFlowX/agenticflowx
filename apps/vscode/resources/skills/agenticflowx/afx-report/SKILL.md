@@ -3,7 +3,7 @@ name: afx-report
 description: Traceability reporting — orphaned code detection, spec-to-code coverage mapping, and stale spec detection
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,report,metrics,health,coverage"
   afx-argument-hint: "orphans | coverage | stale"
@@ -35,6 +35,10 @@ If neither file exists, use defaults.
 ```
 
 > **Note:** Overall health metrics and spec completeness scores are available in the VSCode AFX extension (Pipeline Tab). These subcommands focus on discovery operations that require codebase scanning.
+
+## Vocabulary Boundary
+
+`/afx-report` is read-only metrics and discovery. It reports stale specs, orphaned code, and coverage gaps; it does not validate artifact structure, verify behavior, refine living docs, or fix code. Use `/afx-check` for pass/fail quality gates, `/afx-spec refine` or `/afx-design refine` for living-doc updates, and `/afx-task code` for implementation gaps.
 
 ## Execution Contract (STRICT)
 
@@ -90,8 +94,8 @@ When this skill detects a high-impact health decline, auto-capture to `journal.m
 | Context                         | Suggested Next Command           |
 | ------------------------------- | -------------------------------- |
 | After `orphans` (orphans found) | `/afx-check trace <file>:<line>` |
-| After `coverage` (gaps found)   | `/afx-dev code` to implement     |
-| After `stale` (stale specs)     | `/afx-check links <spec>`        |
+| After `coverage` (gaps found)   | `/afx-task code <id>` or `/afx-task refine <feature>` |
+| After `stale` (stale specs)     | `/afx-spec refine <feature>` then `/afx-check links <spec>` |
 
 ---
 
@@ -296,7 +300,7 @@ Next (ranked):
 
 1. /afx-check links users-permissions # Context-driven: Verify stale spec
 2. /afx-session recap users-permissions # Context-driven: Review discussions
-3. /afx-spec review users-permissions # Context-driven: Check spec quality
+3. /afx-spec refine users-permissions # Context-driven: Update living spec if stale
    ──
 4. /afx-next # Re-orient after report
 5. /afx-session note "<note>" # Capture findings

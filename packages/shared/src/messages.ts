@@ -23,6 +23,7 @@ import type {
   HarnessId,
 } from "./custom-providers";
 import type { WorkspaceMode } from "./types";
+import type { FocusOption, PhaseRow, SignOffSummary } from "./workbench-types";
 
 // ---------------------------------------------------------------------------
 // Runtime appearance
@@ -257,6 +258,43 @@ export interface OnboardingFlagsSnapshot {
 export interface ActiveFileContextSnapshot {
   name: string;
   path: string;
+}
+
+export type ActiveDocFormat = "sprint" | "standard" | null;
+export type ActiveDocSection = "SPEC" | "DESIGN" | "TASKS" | null;
+export type ActiveDocKind =
+  | "spec"
+  | "design"
+  | "tasks"
+  | "journal"
+  | "adr"
+  | "research"
+  | "context"
+  | null;
+
+/**
+ * Active AFX document context surfaced to the composer doc-actions strip.
+ * New fields are optional so old hosts and old webviews can interoperate.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-12]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ */
+export interface ActiveDocContextSnapshot {
+  format: ActiveDocFormat;
+  section: ActiveDocSection;
+  docKind: ActiveDocKind;
+  feature: string | null;
+  filePath?: string | null;
+  approvalStatus: string | null;
+  taskPhases?: PhaseRow[];
+  signOff?: SignOffSummary;
+  parsedFocuses?: FocusOption[];
+  specStatus?: string | null;
+  designStatus?: string | null;
+  tasksStatus?: string | null;
+  tasksCompleted?: number;
+  tasksTotal?: number;
 }
 
 /**
@@ -649,6 +687,17 @@ export type ChatToAgent =
    */
   | { type: "chat/saveNote"; content: string }
   /**
+   * Host-side document mutation triggered by the composer doc-actions strip.
+   * Currently only one action — `tasks.signOff` — runs the Work Sessions Human
+   * column tick + status promotion atomically against the active editor URI.
+   * The host re-parses the document on receipt and dispatches a separate
+   * `agent/signOffComplete` event back so the webview can show a toast.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  | { type: "chat/hostAction"; requestId: string; action: "tasks.signOff"; uri: string }
+  /**
    * Webview asks the host to re-read both Custom Models tracks (SecretStorage + ~/.pi/agent/models.json).
    *
    * @see docs/specs/214-app-chat-settings/spec.md [FR-8]
@@ -749,14 +798,7 @@ export type AgentToChat =
    * @see docs/specs/100-package-shared/spec.md [FR-12]
    * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
    */
-  | {
-      type: "chat/activeDocContext";
-      format: "sprint" | "standard" | null;
-      section: "SPEC" | "DESIGN" | "TASKS" | null;
-      docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
-      feature: string | null;
-      approvalStatus: string | null;
-    }
+  | ({ type: "chat/activeDocContext" } & ActiveDocContextSnapshot)
   /**
    * Lightweight toast notification surfaced by the host.
    *
@@ -1053,6 +1095,24 @@ export type AgentToChat =
       requestId: string;
       ok: boolean;
       /** When `ok === false`, a short non-secret error message. */
+      error?: string;
+    }
+  /**
+   * Acknowledgement for `chat/hostAction` `tasks.signOff`. Posted as a separate
+   * inbound event (not a callback envelope) per the existing fire-and-forget
+   * dispatch convention. The webview surfaces a toast on `ok` and an error
+   * banner on `error`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  | {
+      type: "agent/signOffComplete";
+      requestId: string;
+      uri: string;
+      ok: boolean;
+      rowsTicked?: number;
+      newStatus?: string;
       error?: string;
     };
 

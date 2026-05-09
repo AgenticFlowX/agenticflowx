@@ -3,10 +3,10 @@ name: afx-spec
 description: "Spec management — validate structure, review quality, manage approval lifecycle for spec.md"
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,spec,requirements,validation,lifecycle"
-  afx-argument-hint: "validate | discuss | review | approve | create"
+  afx-argument-hint: "create | refine | discuss | validate | review | approve"
   modeSlugs:
     - focus-review-spec
     - focus-review-design
@@ -37,6 +37,7 @@ If neither file exists, use defaults.
 /afx-spec validate <name>                   # Check spec structure integrity
 
 # Collaboration (LLM-driven)
+/afx-spec refine <name>                    # Alias: refine requirements (same flow as discuss)
 /afx-spec discuss <name>                    # Interactive gap analysis + journal capture
 /afx-spec review <name>                     # Automated quality scoring
 
@@ -49,6 +50,17 @@ If neither file exists, use defaults.
 ## Purpose
 
 Provides a spec-centric interface for managing specifications throughout their lifecycle. Focuses on operations that require agent reasoning — validation, gap analysis, quality review, content authoring, and approval workflows.
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve the living artifact content. In `/afx-spec`, this maps to `refine` (preferred alias), `discuss` (legacy-compatible), and targeted edits to `spec.md`.
+- **Validate**: check structural, parser, template, frontmatter, and cross-reference correctness.
+- **Review**: apply LLM judgment for quality, readiness, ambiguity, risk, and missing requirements.
+- **Verify**: check implementation evidence against approved intent. This belongs to `/afx-task verify` and `/afx-check`, not `/afx-spec`.
+- **Approve**: advance a lifecycle gate after validation and review.
+- **Evolve**: handle post-ship feature, bug, or change work by refining living docs and capturing history in `journal.md` / `tasks.md`.
 
 ---
 
@@ -164,6 +176,7 @@ spec.md (Draft → Approved)
 
 - **Living Documents (State)**: `spec.md` and `design.md` represent the _current factual state_ of the system. They must NOT contain historical backstory, abandoned ideas, or chronological narratives. Always overwrite them to reflect reality.
 - **Historical Logs (Event)**: `journal.md` and `tasks.md` represent the _history_ of how the system evolved. All architectural decisions, failed experiments, and brainstorming belong in the append-only `journal.md`.
+- **Post-Ship Evolution**: shipped specs remain living truth. New features, bug corrections, and behavior changes refine `spec.md` / `design.md` when current behavior changes, append rationale and production notes to `journal.md`, and track execution in `tasks.md`. Do NOT create amendment directories or new artifact types for ordinary evolution.
 
 ---
 
@@ -171,7 +184,7 @@ spec.md (Draft → Approved)
 
 ### Trailing Parameters (`[...context]`)
 
-When trailing arguments are passed, treat them as constraints for the command's behaviour (e.g., `/afx-spec discuss user-auth api pagination` → focus the discussion on API pagination). Do not treat trailing words as invalid scopes; incorporate them into the intent routing and analysis phase.
+When trailing arguments are passed, treat them as constraints for the command's behaviour (e.g., `/afx-spec refine user-auth api pagination` or `/afx-spec discuss user-auth api pagination` → focus refinement on API pagination). Do not treat trailing words as invalid scopes; incorporate them into the intent routing and analysis phase.
 
 ### Persistence Checkpoint (MANDATORY)
 
@@ -199,6 +212,7 @@ When `<name>` is omitted or ambiguous, resolve in this order:
 | Subcommand | Arg required? | Inference allowed?                      |
 | ---------- | ------------- | --------------------------------------- |
 | `create`   | Yes           | Can infer from conversation topic       |
+| `refine`   | Yes           | Can infer from branch or recent context |
 | `validate` | Yes           | Can infer from branch or recent context |
 | `discuss`  | Yes           | Can infer from branch or recent context |
 | `review`   | Yes           | Can infer from branch or recent context |
@@ -212,22 +226,23 @@ When `<name>` is omitted or ambiguous, resolve in this order:
 
 | Context                             | Suggested Next Command                                     |
 | ----------------------------------- | ---------------------------------------------------------- |
-| After `create`                      | `/afx-spec discuss <name>` to iterate on spec requirements |
+| After `create`                      | `/afx-spec refine <name>` to iterate on spec requirements  |
 | After `validate` (passed)           | `/afx-spec review <name>` for quality check                |
 | After `validate` (failed)           | Fix missing files or broken links                          |
+| After `refine`                      | `/afx-spec review <name>` to validate changes              |
 | After `discuss`                     | `/afx-spec review <name>` to validate changes              |
-| After `review` (critical issues)    | `/afx-spec discuss <name>` to fix issues                   |
+| After `review` (critical issues)    | `/afx-spec refine <name>` to fix issues                    |
 | After `review` (no critical issues) | `/afx-spec approve <name>` to approve spec                 |
-| After `approve` (spec.md)           | `/afx-design author <name>` to author design.md            |
-| After `approve` (design.md)         | `/afx-task plan <name>` to author tasks.md                 |
-| After `approve --reviewer`          | `/afx-task plan <name>` to generate implementation tasks   |
+| After `approve` (spec.md)           | `/afx-design refine <name>` to author/refine design.md     |
+| After `approve` (design.md)         | `/afx-task refine <name>` to author/refine tasks.md        |
+| After `approve --reviewer`          | `/afx-task refine <name>` to generate implementation tasks |
 
 **Suggestion Format** (top 3 context-driven, bottom 2 static):
 
 ```
 Next (ranked):
 
-1. /afx-spec discuss docs/specs/{feature} # Context-driven: Iterate on spec
+1. /afx-spec refine docs/specs/{feature} # Context-driven: Iterate on spec
 2. /afx-spec review {feature} # Context-driven: Review quality
 3. /afx-spec approve {feature} # Context-driven: Approve if ready
    ──
@@ -362,7 +377,7 @@ See **Frontmatter (MANDATORY)** section above for canonical field order and full
 
 **Next Command:**
 
-- `/afx-spec discuss <name>` to iterate on spec requirements
+- `/afx-spec refine <name>` to iterate on spec requirements
 - `/afx-spec review <name>` when ready for approval
 
 ---
@@ -436,6 +451,12 @@ Status: FAILED (6 issues)
 - If failed: Fix listed issues, then re-validate
 
 ---
+
+### refine <name>
+
+**Purpose:** Preferred alias for `discuss`; refine requirements and acceptance criteria through interactive gap analysis.
+
+**Behavior:** Execute the same flow as `discuss <name>`. Keep `discuss` supported indefinitely for compatibility, but prefer `refine` in new UI labels, help text, and examples.
 
 ### discuss <name>
 
@@ -613,7 +634,7 @@ Status: FAILED (6 issues)
 
 **Next Command:**
 
-- If Critical issues exist: `/afx-spec discuss <name>` to fix issues
+- If Critical issues exist: `/afx-spec refine <name>` to fix issues
 - If no Critical issues: `/afx-spec approve <name>` to approve spec
 
 ---
@@ -624,7 +645,7 @@ Status: FAILED (6 issues)
 
 **Modes:**
 
-- `/afx-spec approve <name>` — approve `spec.md` (unlocks `/afx-design author`)
+- `/afx-spec approve <name>` — approve `spec.md` (unlocks `/afx-design refine` / `/afx-design author`)
 - `/afx-spec approve <name> --reviewer "@handle"` — add human sign-off (requires spec already approved)
 
 **Optional Arguments (with `--reviewer`):**
@@ -759,8 +780,8 @@ Status: FAILED (6 issues)
 
 **Next Command:**
 
-- After spec approval: `/afx-design author <name>` to author design.md
-- After human sign-off: `/afx-design author <name>` to author design.md
+- After spec approval: `/afx-design refine <name>` to author/refine design.md
+- After human sign-off: `/afx-design refine <name>` to author/refine design.md
 
 ---
 
@@ -824,7 +845,7 @@ Status: FAILED (6 issues)
    ```
    Error: Unknown subcommand "list"
 
-   Available subcommands: create, validate, discuss, review, approve
+   Available subcommands: create, refine, discuss, validate, review, approve
 
    Tip: For spec listing and status, browse `docs/specs/` directly, or use a UI host such as the AgenticFlowX VS Code extension (Specs Tree sidebar) if installed.
    ```
@@ -835,15 +856,15 @@ Status: FAILED (6 issues)
 
 ### From Other Commands → `/afx-spec`
 
-- `/afx-scaffold feature` → Suggest `/afx-spec discuss <name>` after creation
+- `/afx-scaffold feature` → Suggest `/afx-spec refine <name>` after creation
 - `/afx-task verify` → Suggest `/afx-spec validate` if spec issues detected
 - `/afx-check links` → Suggest `/afx-spec validate` for full validation
 
 ### From `/afx-spec` → Other Commands
 
 - `/afx-spec create` → Suggest editing spec.md to define requirements
-- `/afx-spec approve` (spec) → Suggest `/afx-design author <name>`
-- `/afx-spec approve` (design) → Suggest `/afx-task plan <name>`
+- `/afx-spec approve` (spec) → Suggest `/afx-design refine <name>`
+- `/afx-spec approve` (design) → Suggest `/afx-task refine <name>`
 - `/afx-spec approve --reviewer` → Suggest `/afx-task pick` to start implementation
 
 ---
@@ -853,5 +874,5 @@ Status: FAILED (6 issues)
 - Focuses on operations requiring agent reasoning — display-only operations are best handled by file browsing or a UI host such as the AgenticFlowX VS Code extension
 - Follows AFX patterns: YAML frontmatter, subcommand structure, agent instructions
 - Delegates scaffolding to `/afx-scaffold` (create)
-- Interactive `discuss` and automated `review` ensure spec quality before approval
+- Interactive `refine` / `discuss` and automated `review` ensure spec quality before approval
 - Unified `approve` command handles automated approval, design approval, and human sign-off via flags

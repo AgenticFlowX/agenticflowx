@@ -76,35 +76,93 @@ describe("resolveDocActions", () => {
     ]);
   });
 
-  it("routes standard tasks.md to /afx-task pick|code|verify|status", () => {
+  it("routes standard tasks.md without using the feature slug as a task id", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "tasks", format: "standard", section: "TASKS", feature: "auth" }),
     );
     expect(actions.map((a) => a.command)).toEqual([
-      "/afx-task pick auth",
-      "/afx-task code auth",
-      "/afx-task verify auth",
+      "/afx-task code all auth",
+      "/afx-task verify all auth",
+      "/afx-task pick",
+      "/afx-task review auth",
       "/afx-task status auth",
     ]);
   });
 
-  it("routes sprint TASKS section through /afx-sprint code|verify (Pick + Status stay /afx-task)", () => {
+  it("routes sprint TASKS section through /afx-sprint lifecycle commands", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "tasks", format: "sprint", section: "TASKS", feature: "feat" }),
     );
     expect(actions.map((a) => a.command)).toEqual([
-      "/afx-task pick feat",
+      "/afx-sprint task feat",
       "/afx-sprint code feat",
       "/afx-sprint verify feat",
-      "/afx-task status feat",
+      "/afx-sprint task feat --approve",
+      "/afx-sprint graduate feat",
     ]);
   });
 
-  it("routes journal.md to /afx-session note|log|recap|active|promote", () => {
+  it("resolves old active-doc payloads when additive fields are missing", () => {
+    const oldHostPayload = ctx({
+      docKind: "tasks",
+      format: "standard",
+      section: "TASKS",
+      feature: "auth",
+    });
+
+    expect(() => resolveDocActions(oldHostPayload)).not.toThrow();
+    expect(resolveDocActions(oldHostPayload).map((a) => a.command)).toEqual([
+      "/afx-task code all auth",
+      "/afx-task verify all auth",
+      "/afx-task pick",
+      "/afx-task review auth",
+      "/afx-task status auth",
+    ]);
+  });
+
+  it("ignores additive active-doc payload fields until richer UI consumes them", () => {
+    const newHostPayload = ctx({
+      docKind: "tasks",
+      format: "standard",
+      section: "TASKS",
+      feature: "auth",
+      taskPhases: [
+        {
+          number: 2,
+          name: "Bridge",
+          completed: 0,
+          total: 1,
+          line: 20,
+          items: [{ text: "Post task phases", completed: false, line: 21 }],
+        },
+      ],
+      signOff: {
+        ready: false,
+        signable: false,
+        allTasksChecked: false,
+        allAgentVerified: true,
+        pendingTasks: 1,
+        pendingAgentRows: 0,
+        pendingHumanRows: 0,
+        alreadyLiving: false,
+      },
+      parsedFocuses: [{ id: "phase-2", label: "Phase 2: Bridge", slug: "phase-2-bridge" }],
+      specStatus: "Approved",
+      designStatus: "Approved",
+      tasksStatus: "Draft",
+      tasksCompleted: 0,
+      tasksTotal: 1,
+    });
+
+    expect(() => resolveDocActions(newHostPayload)).not.toThrow();
+    expect(resolveDocActions(newHostPayload)[0]?.command).toBe("/afx-task code all auth");
+  });
+
+  it("routes journal.md to supported /afx-session commands", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "journal", format: "standard", feature: "auth" }),
     );
-    expect(actions.map((a) => a.label)).toEqual(["Note", "Log", "Recap", "Active", "Promote"]);
+    expect(actions.map((a) => a.label)).toEqual(["Note", "Log", "Recap", "Promote", "Capture"]);
     expect(actions.every((a) => a.command.startsWith("/afx-session "))).toBe(true);
   });
 
@@ -128,7 +186,7 @@ describe("resolveDocActions", () => {
     );
     expect(actions).toEqual([
       { label: "Load", command: "/afx-context load", autoSend: true },
-      { label: "Save", command: "/afx-context save", autoSend: true },
+      { label: "Save", command: "/afx-context save", autoSend: false },
       { label: "History", command: "/afx-context history", autoSend: true },
       { label: "Impact", command: "/afx-context impact", autoSend: false },
     ]);
@@ -143,12 +201,15 @@ describe("resolveDocActions", () => {
     const actions = resolveDocActions(
       ctx({ docKind: "tasks", format: "standard", feature: "227-app-workbench-shell" }),
     );
-    expect(actions[0]?.command).toBe("/afx-task pick 227-app-workbench-shell");
+    expect(actions.find((action) => action.label === "Pick")?.command).toBe("/afx-task pick");
+    expect(actions.find((action) => action.label === "Code")?.command).toBe(
+      "/afx-task code all 227-app-workbench-shell",
+    );
   });
 
   // ---------------------------------------------------------------------------
   // autoSend classification — the deterministic verbs (validate/approve/verify/
-  // pick/list/load/save/recap) fire immediately; everything else is dialogic
+  // pick/list/load/recap) fire immediately; everything else is dialogic
   // and stays in the draft so the user can refine before sending.
   // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
   // ---------------------------------------------------------------------------
@@ -165,29 +226,33 @@ describe("resolveDocActions", () => {
     "design/Review",
     "design/Approve",
     "design/Verify", // sprint variant
+    "tasks/Review",
     "tasks/Pick",
     "tasks/Verify",
     "tasks/Status",
-    "journal/Log",
+    "tasks/Approve",
     "journal/Recap",
-    "journal/Active",
     "adr/List",
     "context/Load",
-    "context/Save",
     "context/History",
   ]);
   const DRAFT_PAIRS = new Set([
     "spec/Refine",
     "design/Refine",
+    "tasks/Refine",
     "tasks/Code",
+    "tasks/Graduate",
     "journal/Note",
+    "journal/Log",
     "journal/Promote",
+    "journal/Capture",
     "adr/Review",
     "adr/Supersede",
     "research/Explore",
     "research/Compare",
     "research/Summarize",
     "research/Finalize",
+    "context/Save",
     "context/Impact",
   ]);
 

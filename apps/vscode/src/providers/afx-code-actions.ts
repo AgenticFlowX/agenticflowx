@@ -29,7 +29,7 @@ export interface AfxCodeActionDispatch {
  * - spec / design / tasks: scoped to that canonical file or to a sprint document
  *   (whose frontmatter declares type: SPRINT)
  */
-type ActionScope = "any" | "code" | "spec" | "design" | "tasks";
+type ActionScope = "any" | "code" | "spec" | "design" | "tasks" | "journal" | "adr" | "research";
 
 type DispatchKind = "send" | "draft" | "note";
 
@@ -74,6 +74,41 @@ function formatSelection(ctx: EditorContext): string {
   const header = `${path}:${ctx.startLine}-${ctx.endLine}`;
   const lang = fenceLanguage(ctx);
   return [header, `\`\`\`${lang}`, ctx.selectedText, "```"].join("\n");
+}
+
+function selectedTaskId(ctx: EditorContext): string {
+  const match = ctx.selectedText.match(/\b\d+(?:\.\d+)+\b/);
+  return match?.[0] ?? "";
+}
+
+function adrId(ctx: EditorContext): string {
+  const filename = basename(ctx.filePath).replace(/\.md$/i, "");
+  return filename || displayPath(ctx);
+}
+
+function hasFrontmatterType(doc: vscode.TextDocument, expected: string): boolean {
+  return new RegExp(`^type:\\s*"?${expected}"?\\s*$`, "im").test(doc.getText());
+}
+
+function isAdrDoc(doc: vscode.TextDocument): boolean {
+  const filename = basename(doc.uri.fsPath).toLowerCase();
+  return (
+    doc.languageId === "markdown" &&
+    (doc.uri.fsPath.includes("/docs/adr/") ||
+      filename.startsWith("adr-") ||
+      hasFrontmatterType(doc, "ADR"))
+  );
+}
+
+function isResearchDoc(doc: vscode.TextDocument): boolean {
+  if (doc.languageId !== "markdown") return false;
+  if (isAdrDoc(doc)) return false;
+  return (
+    doc.uri.fsPath.includes("/docs/research/") ||
+    doc.uri.fsPath.includes("/research/") ||
+    hasFrontmatterType(doc, "RES") ||
+    hasFrontmatterType(doc, "RESEARCH")
+  );
 }
 
 /**
@@ -209,6 +244,16 @@ const ACTIONS: AfxAction[] = [
       ].join("\n"),
   },
   // ---- spec.md ----
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.specRefine",
+    title: "AgenticFlowX: Spec — Refine",
+    menuTitle: "Refine",
+    scope: "spec",
+    dispatch: "draft",
+    prompt: (c) => `/afx-spec refine ${c.filePath}`,
+  },
   // @see docs/specs/204-app-vscode-spec-services/design.md [DES-SPEC-COMMAND-VALIDATE]
   // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-SPEC-VALIDATE]
   {
@@ -238,6 +283,16 @@ const ACTIONS: AfxAction[] = [
     prompt: (c) => `/afx-spec approve ${c.filePath}`,
   },
   // ---- design.md ----
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.designRefine",
+    title: "AgenticFlowX: Design — Refine",
+    menuTitle: "Refine",
+    scope: "design",
+    dispatch: "draft",
+    prompt: (c) => `/afx-design refine ${c.filePath}`,
+  },
   // @see docs/specs/204-app-vscode-spec-services/design.md [DES-DESIGN-COMMAND-VALIDATE]
   {
     command: "afx.action.designValidate",
@@ -295,6 +350,101 @@ const ACTIONS: AfxAction[] = [
     dispatch: "send",
     prompt: (c) => `/afx-task pick ${c.filePath}`,
   },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.taskStatus",
+    title: "AgenticFlowX: Task — Status",
+    menuTitle: "Status",
+    scope: "tasks",
+    dispatch: "send",
+    prompt: (c) => `/afx-task status ${c.filePath}`,
+  },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.taskBrief",
+    title: "AgenticFlowX: Task — Brief",
+    menuTitle: "Brief",
+    scope: "tasks",
+    dispatch: "draft",
+    prompt: (c) => `/afx-task brief ${selectedTaskId(c)}`.trimEnd(),
+  },
+  // ---- journal.md ----
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.journalRecap",
+    title: "AgenticFlowX: Journal — Recap",
+    menuTitle: "Recap",
+    scope: "journal",
+    dispatch: "send",
+    prompt: (c) => `/afx-session recap ${c.filePath}`,
+  },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.journalPromote",
+    title: "AgenticFlowX: Journal — Promote",
+    menuTitle: "Promote",
+    scope: "journal",
+    dispatch: "draft",
+    prompt: (c) => `/afx-session promote ${c.selectedText.trim()}`,
+  },
+  // ---- ADR ----
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.adrReview",
+    title: "AgenticFlowX: ADR — Review",
+    menuTitle: "Review",
+    scope: "adr",
+    dispatch: "send",
+    prompt: (c) => `/afx-adr review ${adrId(c)}`,
+  },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.adrList",
+    title: "AgenticFlowX: ADR — List",
+    menuTitle: "List",
+    scope: "adr",
+    dispatch: "send",
+    prompt: () => "/afx-adr list",
+  },
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.adrSupersede",
+    title: "AgenticFlowX: ADR — Supersede",
+    menuTitle: "Supersede",
+    scope: "adr",
+    dispatch: "draft",
+    prompt: (c) => `/afx-adr supersede ${adrId(c)} `,
+  },
+  // Bundled afx-adr currently documents accept, so expose it as a draft-only
+  // lifecycle mutation that the user can confirm before sending.
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.adrAccept",
+    title: "AgenticFlowX: ADR — Accept",
+    menuTitle: "Accept",
+    scope: "adr",
+    dispatch: "draft",
+    prompt: (c) => `/afx-adr accept ${adrId(c)}`,
+  },
+  // ---- research ----
+  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-REGISTRY]
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+  {
+    command: "afx.action.researchFinalize",
+    title: "AgenticFlowX: Research — Finalize",
+    menuTitle: "Finalize",
+    scope: "research",
+    dispatch: "draft",
+    prompt: (c) => `/afx-research finalize ${c.filePath} --to `,
+  },
 ];
 
 function basename(fsPath: string): string {
@@ -322,6 +472,12 @@ function actionApplies(action: AfxAction, doc: vscode.TextDocument): boolean {
       return filename === "design.md" || isSprintDoc(doc);
     case "tasks":
       return filename === "tasks.md" || isSprintDoc(doc);
+    case "journal":
+      return filename === "journal.md";
+    case "adr":
+      return isAdrDoc(doc);
+    case "research":
+      return isResearchDoc(doc);
   }
 }
 

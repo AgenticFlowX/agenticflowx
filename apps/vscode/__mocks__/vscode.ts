@@ -137,6 +137,16 @@ export const workspace = {
     createDirectory: async () => {},
     delete: async () => {},
   },
+  // Minimal stubs so `vi.spyOn(vscode.workspace, "openTextDocument")` and
+  // `vi.spyOn(vscode.workspace, "applyEdit")` resolve. The default impl is
+  // a no-op; tests override with `mockResolvedValueOnce(...)` etc.
+  openTextDocument: async (_uri?: unknown) =>
+    ({
+      uri: { fsPath: "" },
+      getText: () => "",
+      save: async () => true,
+    }) as unknown as { uri: unknown; getText: () => string; save: () => Promise<boolean> },
+  applyEdit: async (_edit: unknown) => true,
 };
 
 export const window = {
@@ -259,6 +269,18 @@ export const env = {
   },
 };
 
+// Minimal WorkspaceEdit shim — collects replace/insert calls so tests can
+// assert against `vscode.workspace.applyEdit` without exercising the real
+// extension host. Only the methods used by `tasks-signoff.ts` are stubbed.
+class WorkspaceEdit {
+  replace(_uri: unknown, _range: unknown, _newText: string): void {
+    /* no-op; production uses VS Code's real WorkspaceEdit */
+  }
+  insert(_uri: unknown, _position: unknown, _newText: string): void {
+    /* no-op */
+  }
+}
+
 export {
   EventEmitter,
   Position,
@@ -272,6 +294,7 @@ export {
   ViewColumn,
   ExtensionMode,
   ConfigurationTarget,
+  WorkspaceEdit,
   createWebviewView,
 };
 
@@ -291,6 +314,7 @@ export default {
   Disposable,
   ThemeIcon,
   EventEmitter,
+  WorkspaceEdit,
   FileType,
   DiagnosticSeverity,
   StatusBarAlignment,

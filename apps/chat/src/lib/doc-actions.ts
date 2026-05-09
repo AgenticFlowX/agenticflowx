@@ -9,13 +9,25 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
+import type { FocusOption, PhaseRow, SignOffSummary } from "@afx/shared";
+
+import { type AfxCommandFamily, findSupportedAfxCommand } from "./command-catalog";
 
 export type ActiveDocCtx = {
   format: "sprint" | "standard" | null;
   section: "SPEC" | "DESIGN" | "TASKS" | null;
   docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
   feature: string | null;
+  filePath?: string | null;
   approvalStatus: string | null;
+  taskPhases?: PhaseRow[];
+  signOff?: SignOffSummary;
+  parsedFocuses?: FocusOption[];
+  specStatus?: string | null;
+  designStatus?: string | null;
+  tasksStatus?: string | null;
+  tasksCompleted?: number;
+  tasksTotal?: number;
 };
 
 export const EMPTY_DOC_CTX: ActiveDocCtx = {
@@ -23,6 +35,7 @@ export const EMPTY_DOC_CTX: ActiveDocCtx = {
   section: null,
   docKind: null,
   feature: null,
+  filePath: null,
   approvalStatus: null,
 };
 
@@ -34,12 +47,74 @@ export type DocAction = {
    * streaming) immediately. When false, the command is inserted into the
    * composer draft so the user can refine before sending. Auto-send is
    * reserved for deterministic verbs that don't need user-supplied content
-   * (validate, approve, verify, pick, list, load, save, recap).
+   * (validate, approve, verify, pick, list, load, history, recap).
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
    */
   autoSend: boolean;
 };
+
+export type MemoryCatalogItem = DocAction & {
+  id: string;
+  description: string;
+};
+
+export type MemoryCatalogGroup = {
+  id: "session-memory" | "discussion";
+  label: "SESSION MEMORY" | "DISCUSSION";
+  items: readonly MemoryCatalogItem[];
+};
+
+function memoryItem(
+  id: string,
+  family: AfxCommandFamily,
+  subcommand: string,
+  description: string,
+): MemoryCatalogItem {
+  const entry = findSupportedAfxCommand(family, subcommand);
+  if (!entry) {
+    throw new Error(`Missing supported AFX memory command: /${family} ${subcommand}`);
+  }
+
+  return {
+    id,
+    label: entry.label,
+    command: entry.command,
+    autoSend: entry.autoSend,
+    description,
+  };
+}
+
+/**
+ * Shared Memory menu catalog for every composer anchor. Deterministic reads
+ * auto-send; mutating commands and commands with open arguments stay draft-first.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+ */
+export const MEMORY_CATALOG = Object.freeze([
+  {
+    id: "session-memory",
+    label: "SESSION MEMORY",
+    items: [
+      memoryItem("context-save", "afx-context", "save", "Draft a context handoff"),
+      memoryItem("context-load", "afx-context", "load", "Load the saved context"),
+      memoryItem("context-history", "afx-context", "history", "Show context history"),
+      memoryItem("context-impact", "afx-context", "impact", "Draft an impact query"),
+    ],
+  },
+  {
+    id: "discussion",
+    label: "DISCUSSION",
+    items: [
+      memoryItem("session-note", "afx-session", "note", "Draft a session note"),
+      memoryItem("session-log", "afx-session", "log", "Draft a session log entry"),
+      memoryItem("session-recap", "afx-session", "recap", "Recap recent discussion"),
+      memoryItem("session-promote", "afx-session", "promote", "Draft a promotion target"),
+      memoryItem("session-capture", "afx-session", "capture", "Draft a capture request"),
+    ],
+  },
+] satisfies readonly MemoryCatalogGroup[]);
 
 /**
  * Resolve up to 3 SDD intent actions for the active AFX doc. Sprint-section
@@ -109,30 +184,45 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
             { label: "Approve", command: `/afx-design approve${featureArg}`, autoSend: true },
           ];
     case "tasks":
+      // Sprint tasks use /afx-sprint lifecycle verbs; standard tasks use
+      // /afx-task and avoid passing a feature slug where a task id is expected.
+      if (isSprint) {
+        return [
+          { label: "Refine", command: `/afx-sprint task${featureArg}`, autoSend: false },
+          { label: "Code", command: `/afx-sprint code${featureArg}`, autoSend: false },
+          { label: "Verify", command: `/afx-sprint verify${featureArg}`, autoSend: true },
+          {
+            label: "Approve",
+            command: `/afx-sprint task${featureArg} --approve`,
+            autoSend: true,
+          },
+          { label: "Graduate", command: `/afx-sprint graduate${featureArg}`, autoSend: false },
+        ];
+      }
       return [
-        { label: "Pick", command: `/afx-task pick${featureArg}`, autoSend: true },
         {
           label: "Code",
-          command: isSprint ? `/afx-sprint code${featureArg}` : `/afx-task code${featureArg}`,
+          command: `/afx-task code all${featureArg}`,
           autoSend: false,
         },
         {
           label: "Verify",
-          command: isSprint ? `/afx-sprint verify${featureArg}` : `/afx-task verify${featureArg}`,
+          command: `/afx-task verify all${featureArg}`,
           autoSend: true,
         },
+        { label: "Pick", command: `/afx-task pick`, autoSend: true },
+        { label: "Review", command: `/afx-task review${featureArg}`, autoSend: true },
         { label: "Status", command: `/afx-task status${featureArg}`, autoSend: true },
       ];
     case "journal":
-      // Note + Promote are dialogic (need body / discussion ID). Log saves the
-      // current session deterministically; Recap synthesizes; Active lists
-      // open discussions — all read/write but no extra user input needed.
+      // Note/Log/Promote/Capture write or need user-authored context, so they
+      // stay draft-first. Recap is a deterministic read/synthesis.
       return [
         { label: "Note", command: `/afx-session note${featureArg}`, autoSend: false },
-        { label: "Log", command: `/afx-session log${featureArg}`, autoSend: true },
+        { label: "Log", command: `/afx-session log${featureArg}`, autoSend: false },
         { label: "Recap", command: `/afx-session recap${featureArg}`, autoSend: true },
-        { label: "Active", command: `/afx-session active${featureArg}`, autoSend: true },
         { label: "Promote", command: `/afx-session promote${featureArg}`, autoSend: false },
+        { label: "Capture", command: `/afx-session capture${featureArg}`, autoSend: false },
       ];
     case "adr":
       // Review + Supersede stay draft because we don't currently plumb the ADR
@@ -158,13 +248,12 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
         { label: "Finalize", command: `/afx-research finalize${featureArg}`, autoSend: false },
       ];
     case "context":
-      // `.afx/context.md` is the canonical agent-handoff bundle. Load reads the
-      // bundle deterministically; Save regenerates from the current git/session
-      // state; History shows spec-evolution timeline; Impact needs a free-text
-      // change spec.
+      // `.afx/context.md` is the canonical agent-handoff bundle. Load and
+      // History are deterministic reads. Save writes a handoff bundle, and
+      // Impact needs a free-text change spec, so both stay draft-first here.
       return [
         { label: "Load", command: `/afx-context load`, autoSend: true },
-        { label: "Save", command: `/afx-context save${featureArg}`, autoSend: true },
+        { label: "Save", command: `/afx-context save${featureArg}`, autoSend: false },
         { label: "History", command: `/afx-context history${featureArg}`, autoSend: true },
         { label: "Impact", command: `/afx-context impact`, autoSend: false },
       ];

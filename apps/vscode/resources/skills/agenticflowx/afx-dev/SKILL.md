@@ -3,7 +3,7 @@ name: afx-dev
 description: Advanced diagnostics — debug issues, refactor code, review against specs, run tests, and optimize performance
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,development,debug,refactor,review,test,optimize"
   afx-argument-hint: "debug | refactor | review | test | optimize"
@@ -39,6 +39,10 @@ If neither file exists, use defaults.
 
 > **Note:** Daily coding with task traceability has moved to `/afx-task code {id}`. Use `/afx-dev` for diagnostic operations that don't map to a specific task.
 
+## Vocabulary Boundary
+
+`/afx-dev` is for implementation diagnostics and code changes. It may verify fixes with tests/checks, but it does not validate AFX artifact structure and does not refine `spec.md`, `design.md`, or `tasks.md`. If implementation reveals a requirement/design/task gap, stop and route to `/afx-spec refine`, `/afx-design refine`, or `/afx-task refine`.
+
 ## Execution Contract (STRICT)
 
 ### Allowed
@@ -60,7 +64,7 @@ If neither file exists, use defaults.
 If spec changes are requested, respond with:
 
 ```text
-Out of scope for /afx-dev (development mode). Use /afx-spec to modify specifications.
+Out of scope for /afx-dev (development mode). Use /afx-spec refine, /afx-design refine, or /afx-task refine to modify living SDD documents.
 ```
 
 ### Proactive Journal Capture
@@ -76,7 +80,7 @@ After completing any action that modifies source code, you MUST:
 1. **`@see` Annotations (STRICT)**: Ensure modified exported classes, interfaces, and functions have `@see` links via JSDoc. Use Node ID syntax (e.g., `@see docs/specs/{feature}/design.md [DES-API]`). Line-level annotations ONLY for non-obvious requirements. **CRITICAL ANTI-PATTERN**: Do NOT dump blanket `@see` links at the top of the file. Do NOT annotate every line.
 2. **No Orphaned Code**: Every new top-level export MUST have at least one `@see` link to a spec.
 3. **No Mock Code**: Do not leave `setTimeout` or `// mock` without a `FIXME` and spec link.
-4. **Session Log**: Update the Work Sessions table in `tasks.md` with date, task, action, files modified.
+4. **Work Session Handoff**: Do not edit `tasks.md` directly from `/afx-dev`. If the work is task-scoped, route through `/afx-task code` or tell the user to record the Work Session with `/afx-task complete`.
 5. **Journal Capture**: If high-impact findings (architecture change, scope cut, tech debt), append to `journal.md`.
 
 ---
@@ -108,7 +112,7 @@ Do not auto-write massive multi-file refactors or implementations without a chec
 | ------------------------------------ | -------------------------------------------- |
 | After `debug` (bug fixed)            | `/afx-check path <path>` to verify fix       |
 | After `refactor` (refactor complete) | `/afx-check path <path>` to verify           |
-| After `review` (issues found)        | `/afx-dev code` to address issues            |
+| After `review` (issues found)        | `/afx-task code <id>` if task-scoped, else `/afx-dev refactor` or `/afx-dev debug` |
 | After `review` (all pass)            | `/afx-task pick <spec>` for next task        |
 | After `test` (tests pass)            | `/afx-check path <path>` or `/afx-task pick` |
 | After `test` (tests fail)            | `/afx-dev debug` to investigate failures     |

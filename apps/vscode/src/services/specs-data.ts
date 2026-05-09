@@ -176,24 +176,21 @@ export function createSpecsDataProvider(
     const lines = rawTasks.split("\n");
     const phases: PhaseRow[] = [];
     let current: PhaseRow | null = null;
-    let phaseNum = 0;
     let total = 0;
     let completed = 0;
 
-    const phaseRe = /^##\s+Phase\s+(\d+)\s*[—:-]\s*(.+)$/i;
-    const altPhaseRe = /^##\s+(.+)$/;
+    const phaseRe = /^##\s+Phase\s+(\d+):?\s*(.*)$/i;
     const taskRe = /^\s*-\s*\[( |x|X)\]\s+(.+)$/;
 
     for (let i = 0; i < lines.length; i++) {
       const ln = lines[i] ?? "";
-      const phMatch = phaseRe.exec(ln) ?? altPhaseRe.exec(ln);
+      const phMatch = phaseRe.exec(ln);
       if (phMatch) {
         if (current) phases.push(current);
-        const num = /^Phase\s+(\d+)/i.exec(ln);
-        phaseNum++;
+        const phaseNum = Number(phMatch[1]);
         current = {
-          number: num ? Number(num[1]) : phaseNum,
-          name: phMatch[2] ?? phMatch[1] ?? `Phase ${phaseNum}`,
+          number: phaseNum,
+          name: (phMatch[2] ?? "").trim() || `Phase ${phaseNum}`,
           completed: 0,
           total: 0,
           line: i + 1,
@@ -204,7 +201,12 @@ export function createSpecsDataProvider(
       const tMatch = taskRe.exec(ln);
       if (tMatch && current) {
         const isDone = tMatch[1]?.toLowerCase() === "x";
-        const item: TaskItemRow = { text: tMatch[2] ?? "", completed: isDone, line: i + 1 };
+        const item: TaskItemRow = {
+          text: tMatch[2] ?? "",
+          completed: isDone,
+          line: i + 1,
+          wbsId: `${current.number}.${current.total + 1}`,
+        };
         current.items.push(item);
         current.total++;
         total++;

@@ -3,10 +3,10 @@ name: afx-design
 description: Design authoring — generate, validate, review, and approve technical design documents (design.md)
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,design,architecture,validation,lifecycle"
-  afx-argument-hint: "author | validate | review | approve"
+  afx-argument-hint: "author | refine | validate | review | approve"
   modeSlugs:
     - focus-review-design
     - architect
@@ -28,6 +28,7 @@ If neither file exists, use defaults.
 
 ```bash
 /afx-design author <name>                  # Generate design.md from approved spec
+/afx-design refine <name>                  # Alias: refine or draft design.md from approved spec
 /afx-design validate <name>                # Check design structure and traceability
 /afx-design review <name>                  # Advisory quality check for design gaps
 /afx-design approve <name>                 # Approve design (unlocks task planning)
@@ -36,6 +37,24 @@ If neither file exists, use defaults.
 ## Purpose
 
 Owns the `design.md` artifact exclusively. Handles design authoring from approved specs, structural validation, quality review, and approval gating that unlocks the task planning phase.
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve living artifact content. In `/afx-design`, this maps to `refine` (preferred alias), `author` (legacy-compatible initial draft), and targeted updates to `design.md`.
+- **Validate**: check structural, parser, template, frontmatter, and traceability correctness.
+- **Review**: apply LLM judgment for architecture quality, readiness, ambiguity, risk, and missing decisions.
+- **Verify**: check implementation evidence against approved intent. This belongs to `/afx-task verify` and `/afx-check`, not `/afx-design`.
+- **Approve**: advance a lifecycle gate after validation and review.
+- **Evolve**: handle post-ship feature, bug, or change work by refining living docs and capturing history in `journal.md` / `tasks.md`.
+
+## Documentation Principles
+
+- `spec.md` and `design.md` are living documents: they represent current product and technical truth.
+- `journal.md` captures decisions, amendments, production notes, and change rationale.
+- `tasks.md` captures execution plan and work sessions.
+- Do not introduce amendment directories or new artifact types for ordinary feature evolution; update the living docs and preserve history in the log artifacts.
 
 ---
 
@@ -109,6 +128,7 @@ When this skill detects a high-impact context change, auto-capture to `journal.m
 | Action    | Precondition                   | Check                    |
 | --------- | ------------------------------ | ------------------------ |
 | `author`  | `spec.md` status == `Approved` | Read spec.md frontmatter |
+| `refine`  | `spec.md` status == `Approved` | Read spec.md frontmatter |
 | `approve` | `design.md` has content        | Check design is authored |
 
 Before authoring or approving, the agent **MUST**:
@@ -152,7 +172,7 @@ After completing any action that modifies `design.md`, you MUST:
    - **IDE:** Infer feature from the active file path (e.g., `docs/specs/user-auth/design.md` → `user-auth`). If code is selected, use it as reference context for the design authoring.
    - **CLI:** Infer from explicit arguments first, then cwd or branch name (`feat/user-auth` → `user-auth`), then conversation history.
    - **Fallback:** Require explicit `<name>` — design authoring needs a target feature.
-3. **Trailing parameters (`[...context]`):** Treat extra words as design constraints (e.g., `/afx-design author auth redis cache` → generate the design using Redis for caching). Do not discard trailing text; incorporate it into the authoring or review logic.
+3. **Trailing parameters (`[...context]`):** Treat extra words as design constraints (e.g., `/afx-design refine auth redis cache` or `/afx-design author auth redis cache` → generate/update the design using Redis for caching). Do not discard trailing text; incorporate it into the authoring or review logic.
 
 ### Persistence Checkpoint (MANDATORY)
 
@@ -169,11 +189,12 @@ After EVERY `/afx-design` action, suggest the next command:
 | Context                             | Suggested Next Command                          |
 | ----------------------------------- | ----------------------------------------------- |
 | After `author`                      | `/afx-design review <name>` to validate quality |
+| After `refine`                      | `/afx-design review <name>` to validate quality |
 | After `validate` (passed)           | `/afx-design review <name>` for quality check   |
 | After `validate` (failed)           | Fix listed structural issues                    |
 | After `review` (critical issues)    | Fix issues, then `/afx-design validate <name>`  |
 | After `review` (no critical issues) | `/afx-design approve <name>` to approve design  |
-| After `approve`                     | `/afx-task plan <name>` to generate tasks       |
+| After `approve`                     | `/afx-task refine <name>` to generate/refine tasks |
 
 ### Interactive Lifecycle Actions (MANDATORY)
 
@@ -256,6 +277,14 @@ See **Frontmatter (MANDATORY)** section above for canonical field order and full
 ---
 
 ## Subcommands
+
+### refine <name>
+
+**Purpose:** Preferred alias for `author`; refine or draft `design.md` from an approved spec.
+
+**Behavior:** Execute the same core flow as `author <name>`. If `design.md` is empty or scaffold-only, draft the design from the approved spec. If `design.md` already has content, perform targeted refinement that preserves existing human-written sections, follows the Persistence Checkpoint, and demotes approval only when the change alters architecture or scope.
+
+Keep `author` supported indefinitely for compatibility, but prefer `refine` in new UI labels, help text, and examples.
 
 ### author <name>
 
@@ -462,10 +491,10 @@ Next: /afx-task plan user-authentication
 
 ### From Other Commands → `/afx-design`
 
-- `/afx-spec approve` → Suggest `/afx-design author <name>`
+- `/afx-spec approve` → Suggest `/afx-design refine <name>`
 - `/afx-check links` → Suggest `/afx-design validate <name>` for design link check
 
 ### From `/afx-design` → Other Commands
 
-- `/afx-design approve` → Suggest `/afx-task plan <name>`
+- `/afx-design approve` → Suggest `/afx-task refine <name>`
 - `/afx-design review` (issues found) → Suggest `/afx-design validate <name>` after fixes

@@ -3,7 +3,7 @@ name: afx-context
 description: Session context transfer — save detailed context bundles for agent handoff, load previous context, track spec evolution, and analyze cross-feature impact
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,context,session,handoff,continuity"
   afx-argument-hint: "save | load | history | impact"
@@ -74,6 +74,10 @@ Formalize context transfer between AI agent sessions. When an agent times out, d
 
 **Unique to AFX**: No other framework provides structured agent-to-agent context with context preservation.
 
+## Living-Doc Boundary
+
+Context bundles and history are memory artifacts, not living product/technical truth. Never copy chronological session narrative into `spec.md` or `design.md`; use `/afx-spec refine`, `/afx-design refine`, or `/afx-task refine` to update current state, and keep history in `journal.md` / `.afx/context.md`.
+
 ### Timestamp Format (MANDATORY)
 
 When creating or updating context bundles (`saved` frontmatter, journal archive entries), all timestamps MUST use ISO 8601 with millisecond precision: `YYYY-MM-DDTHH:MM:SS.mmmZ` (e.g., `2025-12-17T14:30:00.000Z`). Never write short formats like `2025-12-17 14:30`. **To get the current timestamp**, run `date -u +"%Y-%m-%dT%H:%M:%S.000Z"` via the Bash tool — do NOT guess or use midnight (`T00:00:00.000Z`).
@@ -96,9 +100,9 @@ When creating or updating context bundles (`saved` frontmatter, journal archive 
 | Context                       | Suggested Next Command                      |
 | ----------------------------- | ------------------------------------------- |
 | After `save` (context ready)  | Share bundle, then session ends             |
-| After `load` (context loaded) | `/afx-dev code` to continue work            |
-| After `history` (reviewing)   | `/afx-task pick` or `/afx-dev`              |
-| After `impact` (analyzing)    | Review affected files, then `/afx-dev code` |
+| After `load` (context loaded) | `/afx-next` to choose the safest next step  |
+| After `history` (reviewing)   | `/afx-next` or `/afx-task pick`             |
+| After `impact` (analyzing)    | `/afx-spec refine` or `/afx-design refine` if current truth changes |
 
 ---
 

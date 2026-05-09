@@ -3,10 +3,10 @@ name: afx-task
 description: Implementation lifecycle — plan tasks, pick work, implement code, verify, complete, and sync with GitHub
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,task,implementation,coding,verification,lifecycle"
-  afx-argument-hint: "plan | pick | code | verify | complete | sync | brief | review | validate | status"
+  afx-argument-hint: "plan | refine | pick | code | verify | complete | sync | brief | review | validate | status"
   modeSlugs:
     - focus-review-tasks
     - focus-code
@@ -30,6 +30,7 @@ If neither file exists, use defaults.
 ```bash
 # Task Planning (lifecycle-gated)
 /afx-task plan <name>                      # Generate tasks.md from approved design
+/afx-task refine <name>                    # Alias: refine or draft tasks.md from approved design
 
 # Work Management
 /afx-task pick <id>                        # Check out a task as active
@@ -37,10 +38,12 @@ If neither file exists, use defaults.
 
 # Implementation (from afx-dev code)
 /afx-task code <id>                        # Implement task with @see traceability
+/afx-task code all <name>                  # Implement all open tasks in the feature, in tasks.md order
 
 # Verification
 /afx-task verify <task-id>                 # Verify task implementation vs spec
 /afx-task verify <spec>#<task-id>          # Explicit spec (e.g., user-auth#7.1)
+/afx-task verify all <name>                # Verify all tasks in a feature
 /afx-task brief <task-id>                  # Get implementation summary
 
 # Quality
@@ -57,6 +60,24 @@ If neither file exists, use defaults.
 ## Purpose
 
 Owns the `tasks.md` artifact AND the implementation engine. Owns coding with traceability, task state management, and GitHub sync. All spec-driven coding is tied to a task ID.
+
+## SDD Vocabulary (CANONICAL)
+
+Use these terms consistently across AFX skills, docs, chat actions, and UI surfaces:
+
+- **Refine**: improve living artifact content. In `/afx-task`, this maps to `refine` (preferred alias), `plan` (legacy-compatible initial draft), and targeted updates to `tasks.md`.
+- **Validate**: check structural, parser, template, frontmatter, and coverage correctness for `tasks.md`.
+- **Review**: apply LLM judgment for task planning gaps, sequencing risk, ambiguity, and missing coverage.
+- **Verify**: check implementation evidence against the approved spec, design, and task intent.
+- **Approve**: advance a lifecycle gate. Task approval is represented by completing planning readiness; task completion is separate.
+- **Evolve**: handle post-ship feature, bug, or change work by refining living docs and capturing history in `journal.md` / `tasks.md`.
+
+## Documentation Principles
+
+- `spec.md` and `design.md` are living documents: they represent current product and technical truth.
+- `journal.md` captures decisions, amendments, production notes, and change rationale.
+- `tasks.md` captures execution plan, active work, verification history, and work sessions.
+- Do not introduce amendment directories or new artifact types for ordinary feature evolution; update the living docs and preserve history in the log artifacts.
 
 ## Context Resolution
 
@@ -283,6 +304,7 @@ After EVERY `/afx-task` action, suggest the next command:
 | Context                     | Suggested Next Command                          |
 | --------------------------- | ----------------------------------------------- |
 | After `plan`                | `/afx-task pick <first-task-id>` to start work  |
+| After `refine`              | `/afx-task review <name>` to validate task plan |
 | After `pick {id}`           | `/afx-task code {id}` to implement              |
 | After `code {id}`           | `/afx-task verify {id}` to check implementation |
 | After `verify` ([OK])       | `/afx-task complete {id}` to mark done          |
@@ -291,7 +313,7 @@ After EVERY `/afx-task` action, suggest the next command:
 | After `complete {id}`       | `/afx-task pick <next-id>` for next task        |
 | After `brief`               | `/afx-task code {id}` or `/afx-task pick`       |
 | After `review` (gaps found) | Address gaps in tasks.md                        |
-| After `validate` (passed)   | Proceed with implementation or `/afx-task plan` |
+| After `validate` (passed)   | Proceed with implementation or `/afx-task refine` |
 | After `validate` (failed)   | Fix format issues in tasks.md                   |
 | After `status`              | `/afx-task pick <next-id>` based on overview    |
 | After `sync`                | `/afx-task pick` to resume work                 |
@@ -382,6 +404,14 @@ After frontmatter, the parser expects this order:
 ---
 
 ## Subcommands
+
+### refine <name>
+
+**Purpose:** Preferred alias for `plan`; refine or draft `tasks.md` from an approved design.
+
+**Behavior:** Execute the same core flow as `plan <name>`. If `tasks.md` is empty or scaffold-only, generate the implementation plan from the approved design. If `tasks.md` already has content, perform targeted refinement that preserves task IDs, Work Sessions, and human-authored task notes. Do not modify source code during `refine`.
+
+Keep `plan` supported indefinitely for compatibility, but prefer `refine` in new UI labels, help text, and examples.
 
 ### plan <name>
 
@@ -480,6 +510,8 @@ After frontmatter, the parser expects this order:
    - Write source code fulfilling the task requirements
    - Follow existing code patterns and architecture in the project
    - Run build/test/lint as needed
+
+**`code all <name>` variant:** Resolve the feature's `tasks.md`, collect all unchecked task IDs in document order, and run the same `code {id}` implementation flow for each task one at a time. Stop after the first failed build/test/verification gate and report the next remaining task instead of continuing blindly.
 
 ### Code Drift Guardrail (MANDATORY)
 
@@ -597,6 +629,44 @@ Unlike `/afx-check path` which verifies runtime execution paths, this verifies i
 
 ---
 
+### Sign Off (extension-side action)
+
+**Purpose:** Atomic human-verification step that closes the Work Sessions loop on a `tasks.md`. Surfaced by AFX UI hosts (e.g. the AgenticFlowX VS Code extension) as a brass-accented `[Sign Off ▾]` button, not an LLM round-trip.
+
+**Two visibility gates** — strict and relaxed:
+
+The strict gate (`ready`) holds when **all four** conditions are true:
+
+1. Every body checkbox in `tasks.md` is `[x]` — the implementation work is finished.
+2. Every Work Sessions row has `Agent: [x]` — the agent has verified each completed task.
+3. At least one Work Sessions row still has `Human: [ ]` — there is something to sign off.
+4. `tasks.md` is the active editor (UI hosts only; CLI surfaces resolve the file from arguments).
+
+The loose gate (`signable`) holds whenever **condition 3** alone is true. Hosts SHOULD use the loose gate for button visibility so users can tick Human cells mid-flight; the popover MUST surface unmet strict conditions as warnings (e.g. "2 tasks still unchecked", "1 Agent row not yet `[x]`"). When neither gate holds (no pending Human cells), the affordance MUST NOT render — no greyed-out / disabled state.
+
+**Atomic mutation** (single transaction; one undo entry):
+
+1. Tick every Work Sessions row where `Agent: [x]` and `Human: [ ]` so its `Human` cell becomes `[x]`. **Always runs** when at least one such row exists, regardless of whether the strict gate held.
+2. Promote frontmatter `status` to `Living` — **only when the strict gate (`ready`) held** AND the file isn't already `Living`. Under the relaxed gate the file stays at its current status until body tasks + Agent rows are also clean; users re-run Sign Off later to promote.
+3. Bump frontmatter `updated_at` to the current ISO 8601 timestamp with millisecond precision. Always runs when step 1 ticked at least one row.
+
+The `tasks.md` lifecycle is `Draft → Living` — there is no `Approved` intermediate state for tasks, so when Sign Off DOES promote, the file moves straight to `Living` regardless of the prior value. UI copy SHOULD say "Promote status to Living" rather than naming a source state.
+
+**Why extension-side, not a slash command:**
+
+- **Deterministic** — the mutation is parsing + rewriting markdown, not a probabilistic LLM operation.
+- **Cheap** — no model token cost, no latency.
+- **Auditable** — the diff is computed before sending; the host SHOULD show a confirm popover that previews exactly what will change (rows ticked, status promotion, `updated_at` bump).
+- **Single undo** — UI hosts SHOULD apply the three changes as one transactional edit so `Cmd/Ctrl+Z` reverts everything in one step.
+
+**Cross-harness contract:**
+
+Any AFX UI host (VS Code extension, web UI, CLI prompt) MAY implement this action so users can finalize a `tasks.md` without leaving the workflow. The conditions and atomic mutations above are the canonical contract — implementations MUST NOT auto-tick a `Human` cell whose corresponding `Agent` cell is still `[ ]`.
+
+**Reference implementation:** afx-vscode `apps/vscode/src/services/tasks-signoff.ts` (`buildTasksSignOffEdit` + `applyTasksSignOff`).
+
+---
+
 ### sync [spec] [issue]
 
 **Purpose:** Bidirectional GitHub sync.
@@ -678,7 +748,7 @@ Recommendations:
    - No duplicate task IDs
 4. **Spec Compliance**:
    - Read `spec.md` from same directory
-   - Extract all FR-_ and NFR-_ requirements
+   - Extract all `FR-*` and `NFR-*` requirements
    - For each FR/NFR, verify at least one task has a `@see` reference to it
    - Report any FR/NFR without task coverage
 
@@ -832,13 +902,13 @@ Recommendation: /afx-task code <id> for PARTIAL/MISSING tasks
 
 ### From Other Commands → `/afx-task`
 
-- `/afx-design approve` → Suggest `/afx-task plan <name>`
+- `/afx-design approve` → Suggest `/afx-task refine <name>`
 - `/afx-check trace` → Suggest `/afx-task verify` if broken `@see` links found
 - `/afx-next` → Suggest `/afx-task pick` if tasks are pending
 
 ### From `/afx-task` → Other Commands
 
-- `/afx-task plan` → Suggest `/afx-task pick <first-id>`
+- `/afx-task refine` / `/afx-task plan` → Suggest `/afx-task pick <first-id>`
 - `/afx-task complete` → Suggest `/afx-task pick <next-id>` or `/afx-check path` for gate verification
 - `/afx-task verify` ([OK]) → Suggest `/afx-task complete <id>`
 - `/afx-task review` (gaps) → Suggest editing `tasks.md` to add missing tasks

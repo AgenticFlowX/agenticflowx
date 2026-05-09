@@ -3,10 +3,10 @@ name: afx-adr
 description: ADR management — create, review, list, and supersede Architecture Decision Records
 license: MIT
 metadata:
-  afx-owner: "@rixrix"
+  afx-owner: "@rix"
   afx-status: Living
   afx-tags: "workflow,adr,architecture,decisions"
-  afx-argument-hint: "create | review | list | supersede"
+  afx-argument-hint: "create | review | accept | list | supersede"
 ---
 
 # /afx-adr
@@ -26,6 +26,7 @@ If neither file exists, use defaults.
 ```bash
 /afx-adr create <title>
 /afx-adr review <id>
+/afx-adr accept <id>
 /afx-adr list
 /afx-adr supersede <id> <new-id>
 ```
@@ -115,6 +116,7 @@ When arguments are omitted or ambiguous, resolve in this order:
 | ----------- | ---------------------- | --------------------------------------- |
 | `create`    | Title / decision topic | Conversation context, recent discussion |
 | `review`    | ADR ID                 | Most recent Proposed ADR, or branch     |
+| `accept`    | ADR ID                 | Most recent clean Proposed ADR          |
 | `list`      | (no args needed)       | —                                       |
 | `supersede` | Old + new ID           | Always require explicit                 |
 
@@ -140,6 +142,7 @@ After EVERY `/afx-adr` action, suggest the most appropriate next command:
 | After `create`                | Edit `docs/adr/ADR-NNNN-*.md` to fill content   |
 | After `review` (issues found) | Fix issues, then `/afx-adr review <id>` again   |
 | After `review` (clean)        | `/afx-adr accept <id>` or share for team review |
+| After `accept`                | `/afx-next` to route implementation or doc updates |
 | After `list`                  | `/afx-adr review <id>` on any Proposed ADRs     |
 | After `supersede`             | `/afx-adr create <title>` for replacement ADR   |
 
@@ -227,7 +230,42 @@ Overall: 3/4 checks passed. Address warnings before accepting.
 
 ---
 
-## 3. list
+## 3. accept
+
+Mark a reviewed ADR as accepted.
+
+### Usage
+
+```bash
+/afx-adr accept <id>
+```
+
+### Preconditions
+
+- ADR exists and has `status: Proposed`
+- ADR passes `/afx-adr review <id>` with no blocking structural issues
+
+### Process
+
+1. Resolve ADR file from `<id>`.
+2. Re-run the same structural checks as `review`.
+3. If blocking issues exist, stop and report them.
+4. Update frontmatter:
+   - `status: Accepted`
+   - `updated_at: <current ISO timestamp>`
+5. Append a short acceptance note to the ADR body if the template has an acceptance/history section; otherwise preserve body content.
+
+### Output
+
+```text
+ADR accepted: ADR-{NNNN}-{slug}.md
+
+Next: /afx-next # Route implementation or living-doc updates
+```
+
+---
+
+## 4. list
 
 > **Display Rule:** Don't dump the full ADR list into chat unless the user explicitly asks. Point them to `docs/adr/` for direct file browsing, or to a UI host such as the AgenticFlowX VS Code extension if installed.
 
@@ -265,7 +303,7 @@ Architecture Decision Records
 
 ---
 
-## 4. supersede
+## 5. supersede
 
 Mark an ADR as superseded and link to its replacement.
 

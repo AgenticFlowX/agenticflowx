@@ -47,9 +47,12 @@ import type {
   ChatToolView,
   ChatUsageView,
   CompactionResult,
+  FocusOption,
   Logger,
+  PhaseRow,
   RuntimeAppearanceSnapshot,
   SettingsSnapshot,
+  SignOffSummary,
   WorkspaceMode,
 } from "@afx/shared";
 
@@ -59,6 +62,7 @@ import type {
   CustomProvidersMutation,
   CustomProvidersService,
 } from "../services/custom-providers-service";
+import { applyTasksSignOff } from "../services/tasks-signoff";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
 import { getAppDistPath, loadWebviewHtml } from "./webview-html";
 
@@ -103,7 +107,16 @@ export interface ActiveDocContextPayload {
   section: "SPEC" | "DESIGN" | "TASKS" | null;
   docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
   feature: string | null;
+  filePath?: string | null;
   approvalStatus: string | null;
+  taskPhases?: PhaseRow[];
+  signOff?: SignOffSummary;
+  parsedFocuses?: FocusOption[];
+  specStatus?: string | null;
+  designStatus?: string | null;
+  tasksStatus?: string | null;
+  tasksCompleted?: number;
+  tasksTotal?: number;
 }
 
 export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
@@ -259,6 +272,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     section: null,
     docKind: null,
     feature: null,
+    filePath: null,
     approvalStatus: null,
   };
   let suppressRuntimeEventsUntilAgentEnd = false;
@@ -1358,7 +1372,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           section: lastActiveDocContext.section,
           docKind: lastActiveDocContext.docKind,
           feature: lastActiveDocContext.feature,
+          filePath: lastActiveDocContext.filePath,
           approvalStatus: lastActiveDocContext.approvalStatus,
+          taskPhases: lastActiveDocContext.taskPhases,
+          signOff: lastActiveDocContext.signOff,
+          parsedFocuses: lastActiveDocContext.parsedFocuses,
+          specStatus: lastActiveDocContext.specStatus,
+          designStatus: lastActiveDocContext.designStatus,
+          tasksStatus: lastActiveDocContext.tasksStatus,
+          tasksCompleted: lastActiveDocContext.tasksCompleted,
+          tasksTotal: lastActiveDocContext.tasksTotal,
         });
         return;
       }
@@ -1567,6 +1590,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void appendNoteToWorkspace(msg.content);
         return;
       }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+      // @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+      case "chat/hostAction": {
+        void handleHostAction(msg.requestId, msg.action, msg.uri);
+        return;
+      }
       case "chat/runCommand": {
         void handleRunCommand(msg.requestId, msg.command);
         return;
@@ -1744,6 +1773,59 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       log.error("shell execution failed", err);
       post({ type: "agent/commandOutput", requestId, error: err.message });
     });
+  }
+
+  /**
+   * Run a host-side document mutation triggered by the composer doc-actions
+   * strip. Currently only `tasks.signOff` is supported — opens the document at
+   * `uri`, applies a single `vscode.WorkspaceEdit` (so the change lands as one
+   * undo entry on the editor stack), saves, and posts a separate
+   * `agent/signOffComplete` event back to the webview for toast/error UX.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-19]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  async function handleHostAction(
+    requestId: string,
+    action: "tasks.signOff",
+    uriString: string,
+  ): Promise<void> {
+    // The discriminated `chat/hostAction` message type only allows
+    // `tasks.signOff` today; if/when more actions ship, fan out by `action`
+    // here and refresh the union in `messages.ts`.
+    void action;
+    const hostLog = log.child("host-action");
+
+    let uri: vscode.Uri;
+    try {
+      uri = vscode.Uri.parse(uriString);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      hostLog.error(() => `invalid uri: ${uriString}`, err instanceof Error ? err : undefined);
+      post({ type: "agent/signOffComplete", requestId, uri: uriString, ok: false, error: message });
+      return;
+    }
+
+    try {
+      const result = await applyTasksSignOff(uri);
+      hostLog.info(
+        () =>
+          `tasks.signOff ${uriString} ok=${result.ok} rows=${result.rowsTicked} status=${result.newStatus}`,
+      );
+      post({
+        type: "agent/signOffComplete",
+        requestId,
+        uri: uriString,
+        ok: result.ok,
+        rowsTicked: result.rowsTicked,
+        newStatus: result.newStatus,
+        ...(result.error ? { error: result.error } : {}),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      hostLog.error("tasks.signOff failed", err instanceof Error ? err : undefined);
+      post({ type: "agent/signOffComplete", requestId, uri: uriString, ok: false, error: message });
+    }
   }
 
   /**
@@ -2669,7 +2751,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         section: payload.section,
         docKind: payload.docKind,
         feature: payload.feature,
+        filePath: payload.filePath,
         approvalStatus: payload.approvalStatus,
+        taskPhases: payload.taskPhases,
+        signOff: payload.signOff,
+        parsedFocuses: payload.parsedFocuses,
+        specStatus: payload.specStatus,
+        designStatus: payload.designStatus,
+        tasksStatus: payload.tasksStatus,
+        tasksCompleted: payload.tasksCompleted,
+        tasksTotal: payload.tasksTotal,
       });
     },
     async refreshCustomModelsSnapshot(): Promise<void> {
