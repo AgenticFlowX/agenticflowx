@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-02T23:56:50.000Z"
+updated_at: "2026-05-09T00:00:44.000Z"
 tags: ["app", "chat", "notes"]
 spec: spec.md
 design: design.md
@@ -27,7 +27,7 @@ design: design.md
 
 ### 1.1 Retarget Missing Notes Paths
 
-- [ ] Replace `900-fleet/01-chat-ux-notes` refs with this spec
+- [ ] Replace legacy sprint note refs with this spec
 - [ ] Confirm editor action and chat note flows point at notes owner
 
 ---
@@ -45,7 +45,7 @@ design: design.md
 
 ### 3.1 Verify Notes Routing
 
-- [ ] Run stale-ref search for `900-fleet`
+- [ ] Run stale-ref search for legacy sprint refs
 - [ ] Run relevant chat/vscode tests
 
 ---

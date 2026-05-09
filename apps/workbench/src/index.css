@@ -58,3 +58,123 @@ input:disabled {
 .afx-notes-capture-save {
   border-radius: 0 !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+ * MERIDIAN LIGHT-MODE CONTRAST FIXES
+ * Consumer-level overrides for upstream primitive visibility.
+ * Target: .vscode-light and .vscode-high-contrast-light
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-MERIDIAN-CONTRAST]
+ * ═══════════════════════════════════════════════════════════════ */
+
+.vscode-light,
+.vscode-high-contrast-light {
+  /* VS Code's --vscode-panel-border is designed for editor panel
+   * separators, not UI controls. In light themes it's often
+   * transparent or 5% black — invisible on surfaces.
+   * Derive --border from --foreground instead; guarantees AA. */
+  --border: color-mix(in srgb, var(--foreground) 14%, transparent);
+
+  /* VS Code's --vscode-input-background is often pure white (#fff)
+   * which matches the page background. Tint it slightly so input
+   * surfaces don't vanish. */
+  --input: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
+}
+
+/* ── Checkbox + Radio ────────────────────────────────────────── */
+.vscode-light .cn-checkbox,
+.vscode-light .cn-radio-group-item,
+.vscode-high-contrast-light .cn-checkbox,
+.vscode-high-contrast-light .cn-radio-group-item {
+  background: var(--input);
+  border-color: color-mix(in srgb, var(--foreground) 20%, transparent);
+}
+
+/* ── Switch ──────────────────────────────────────────────────── */
+.vscode-light .cn-switch[data-state="unchecked"],
+.vscode-high-contrast-light .cn-switch[data-state="unchecked"] {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--background) 92%, var(--foreground) 8%);
+}
+
+.vscode-light .cn-switch-thumb,
+.vscode-high-contrast-light .cn-switch-thumb {
+  background: var(--foreground);
+}
+
+.vscode-light .cn-switch[data-state="checked"] .cn-switch-thumb,
+.vscode-high-contrast-light .cn-switch[data-state="checked"] .cn-switch-thumb {
+  background: var(--background);
+}
+
+/* ── Tabs ────────────────────────────────────────────────────── */
+.vscode-light .cn-tabs-list:not([data-variant="line"]),
+.vscode-high-contrast-light .cn-tabs-list:not([data-variant="line"]) {
+  background: color-mix(in srgb, var(--muted) 80%, var(--background) 20%);
+}
+
+.vscode-dark .cn-tabs-list:not([data-variant="line"]),
+.vscode-high-contrast .cn-tabs-list:not([data-variant="line"]) {
+  background: var(--muted);
+}
+
+.vscode-light .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger,
+.vscode-high-contrast-light .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger {
+  border-color: transparent;
+}
+
+.vscode-dark .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger,
+.vscode-high-contrast .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger {
+  border-color: transparent;
+}
+
+.vscode-light .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger[data-state="active"],
+.vscode-high-contrast-light
+  .cn-tabs-list:not([data-variant="line"])
+  .cn-tabs-trigger[data-state="active"] {
+  background: var(--background);
+  border-color: color-mix(in srgb, var(--foreground) 12%, transparent);
+}
+
+.vscode-dark .cn-tabs-list:not([data-variant="line"]) .cn-tabs-trigger[data-state="active"],
+.vscode-high-contrast
+  .cn-tabs-list:not([data-variant="line"])
+  .cn-tabs-trigger[data-state="active"] {
+  background: var(--background);
+  border-color: var(--border);
+}
+
+.cn-tabs-list[data-variant="line"] {
+  background: transparent;
+}
+
+.cn-tabs-list[data-variant="line"] .cn-tabs-trigger[data-state="active"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+/* ── Dropdown menu ───────────────────────────────────────────── */
+.vscode-light [data-slot="dropdown-menu-content"],
+.vscode-high-contrast-light [data-slot="dropdown-menu-content"] {
+  border: 1px solid color-mix(in srgb, var(--foreground) 28%, transparent);
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--foreground) 12%, transparent),
+    0 1px 4px color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+/* ── Input surfaces ──────────────────────────────────────────── */
+.vscode-light .cn-input,
+.vscode-light .cn-textarea,
+.vscode-light .cn-native-select,
+.vscode-light .cn-select-trigger,
+.vscode-high-contrast-light .cn-input,
+.vscode-high-contrast-light .cn-textarea,
+.vscode-high-contrast-light .cn-native-select,
+.vscode-high-contrast-light .cn-select-trigger {
+  background: var(--input);
+}
+
+.vscode-light .cn-input-group,
+.vscode-high-contrast-light .cn-input-group {
+  background: var(--input);
+  border-color: var(--border);
+}

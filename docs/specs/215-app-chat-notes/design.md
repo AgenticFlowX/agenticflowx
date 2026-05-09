@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T02:51:45.000Z"
+updated_at: "2026-05-09T00:00:44.000Z"
 tags: ["app", "chat", "notes"]
 spec: spec.md
 ---
@@ -273,7 +273,7 @@ Do not capture secrets or credentials implicitly. Note payloads should preserve 
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-Retarget missing `900-fleet` refs to this spec, then update chat/editor notes behavior through this route.
+Retarget legacy sprint refs to this spec, then update chat/editor notes behavior through this route.
 
 ### [DES-NOTES-ROLLOUT-ROLLBACK] Rollback Plan
 

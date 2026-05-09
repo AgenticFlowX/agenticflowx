@@ -5,7 +5,7 @@ status: Draft
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-03T00:25:11.000Z"
+updated_at: "2026-05-09T00:00:44.000Z"
 tags: ["package", "ui", "design-system", "storybook", "theme"]
 spec: spec.md
 ---
@@ -126,17 +126,54 @@ Shadcn primitives in `packages/ui/src/components/**` are treated as a managed up
 - Adding helpers in `packages/ui/src/lib/` (e.g., `cn`).
 - Adding stories under future `packages/ui/**/*.stories.*` to document a primitive's API and states.
 
+### [DES-MERIDIAN-CONTRAST] Meridian Consumer Contrast Overrides
+
+Meridian light and high-contrast-light themes need app-side contrast correction for shared
+primitive controls because VS Code theme variables can make borders and input backgrounds
+indistinguishable from the page surface. Until these corrections can move into the shared UI
+package safely, chat and workbench apply identical consumer overrides in their `index.css` files.
+
+The override contract is:
+
+1. Derive `--border` from `--foreground` in light theme roots so controls have visible outlines.
+2. Tint `--input` from background plus foreground so inputs, selects, checkboxes, radios, and
+   unchecked switches remain visible on white/light panels.
+3. Keep dropdown menu borders and shadows stronger in light themes where popovers otherwise blend
+   into the host surface.
+4. Preserve tab variants. Default/segmented tab lists may receive visible backgrounds and active
+   panel fills, but `data-variant="line"` tabs must remain transparent and underline-only. This
+   protects the Chat/History/Settings shell tabs and workbench shell tabs from becoming pill-style
+   segmented controls.
+
+```css
+.vscode-light,
+.vscode-high-contrast-light {
+  --border: color-mix(in srgb, var(--foreground) 14%, transparent);
+  --input: color-mix(in srgb, var(--background) 94%, var(--foreground) 6%);
+}
+
+.cn-tabs-list[data-variant="line"] {
+  background: transparent;
+}
+```
+
+Implementation lives in the app consumers because `packages/ui` primitives are a managed update
+surface. Any future upstream fix must preserve the same variant boundary before deleting the
+consumer overrides.
+
 ---
 
 ## [DES-FILES] File Structure
 
-| File                                            | Purpose                                        |
-| ----------------------------------------------- | ---------------------------------------------- |
-| `packages/ui/src/tokens/`                       | Shared design tokens                           |
-| `packages/ui/src/styles/`                       | Shared style contracts                         |
-| `packages/ui/src/lib/`                          | UI-only helpers and tests                      |
-| `packages/ui/**/*.stories.*`                    | Future Storybook component documentation       |
-| `.storybook/` or package-local Storybook config | Future Storybook configuration when introduced |
+| File                                            | Purpose                                                      |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| `packages/ui/src/tokens/`                       | Shared design tokens                                         |
+| `packages/ui/src/styles/`                       | Shared style contracts                                       |
+| `packages/ui/src/lib/`                          | UI-only helpers and tests                                    |
+| `apps/chat/src/index.css`                       | Chat consumer overrides for Meridian primitive contrast      |
+| `apps/workbench/src/index.css`                  | Workbench consumer overrides for Meridian primitive contrast |
+| `packages/ui/**/*.stories.*`                    | Future Storybook component documentation                     |
+| `.storybook/` or package-local Storybook config | Future Storybook configuration when introduced               |
 
 ---
 
