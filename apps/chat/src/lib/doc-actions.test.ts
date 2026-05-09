@@ -46,14 +46,19 @@ describe("resolveDocActions", () => {
 
   it("routes sprint SPEC section to /afx-sprint spec|verify|spec --approve (verify replaces validate+review)", () => {
     const actions = resolveDocActions(
-      ctx({ docKind: "spec", format: "sprint", section: "SPEC", feature: "900-fleet/03-spec" }),
+      ctx({
+        docKind: "spec",
+        format: "sprint",
+        section: "SPEC",
+        feature: "chat-foundation",
+      }),
     );
     expect(actions).toEqual([
-      { label: "Refine", command: "/afx-sprint spec 900-fleet/03-spec", autoSend: false },
-      { label: "Verify", command: "/afx-sprint verify 900-fleet/03-spec", autoSend: true },
+      { label: "Refine", command: "/afx-sprint spec chat-foundation", autoSend: false },
+      { label: "Verify", command: "/afx-sprint verify chat-foundation", autoSend: true },
       {
         label: "Approve",
-        command: "/afx-sprint spec 900-fleet/03-spec --approve",
+        command: "/afx-sprint spec chat-foundation --approve",
         autoSend: true,
       },
     ]);
@@ -136,9 +141,9 @@ describe("resolveDocActions", () => {
 
   it("preserves nested-folder feature paths verbatim in the command suffix", () => {
     const actions = resolveDocActions(
-      ctx({ docKind: "tasks", format: "standard", feature: "900-fleet/229-app-workbench-planner" }),
+      ctx({ docKind: "tasks", format: "standard", feature: "227-app-workbench-shell" }),
     );
-    expect(actions[0]?.command).toBe("/afx-task pick 900-fleet/229-app-workbench-planner");
+    expect(actions[0]?.command).toBe("/afx-task pick 227-app-workbench-shell");
   });
 
   // ---------------------------------------------------------------------------
