@@ -2,6 +2,16 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.9] - 2026-05-09
+
+### Added
+
+- **Custom provider configuration** — add, edit, and remove API providers and models directly from Settings. Ships with presets for OpenAI, Anthropic, Google, Ollama, Mistral, Cohere, Groq, and DeepSeek, plus a "Custom" option for arbitrary OpenAI-compatible endpoints. Each provider carries its own API key (stored in VS Code SecretStorage or read from `PI_API_KEY_*` environment variables), base URL, and model list. The bundled Pi SDK runtime bootstraps custom providers at startup and injects them into the model combobox alongside built-in models. Includes ADR-0008 (Custom Providers Adapter Pattern), full test coverage, and redaction of secrets in logs.
+
+### Fixed
+
+- **Light and dark theme visibility** — checkbox, radio, switch, tabs, and input surfaces now render with guaranteed contrast in both VS Code light and dark themes. Dropdown menu borders are strengthened so popovers don't blend into the background.
+
 ## [2.0.8] - 2026-05-08
 
 ### Added
