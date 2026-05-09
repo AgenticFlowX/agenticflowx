@@ -3,10 +3,20 @@ afx: true
 type: TASKS
 status: Living
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
-tags: ["app", "chat", "composer", "webview", "system-command"]
+updated_at: "2026-05-09T14:07:38.000Z"
+tags:
+  [
+    "app",
+    "chat",
+    "composer",
+    "webview",
+    "system-command",
+    "slash-auto-complete",
+    "workspace-mode",
+    "doc-actions",
+  ]
 spec: spec.md
 design: design.md
 ---
@@ -26,6 +36,11 @@ design: design.md
 - **6.x** - System command testing
 - **7.x** - Verification
 - **8.x** - Active file context toggle
+- **9.x** - Slash command auto-complete
+- **10.x** - Workspace mode and posture
+- **11.x** - Blocked command and guardrails
+- **12.x** - Doc-actions and workflow
+- **13.x** - Verification and retargeting
 
 ---
 
@@ -185,6 +200,136 @@ design: design.md
 - [x] Verify guard shown for `rm -rf`
 - [x] Verify output renders in timeline
 
+## Phase 9: Slash Command Auto-Complete
+
+### 9.1 Add Filter Query State And Derivation
+
+<!-- files: apps/chat/src/components/slash-popup.tsx, apps/chat/src/lib/composer-detect.ts -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] | docs/specs/211-app-chat-composer/spec.md [FR-3] -->
+
+- [x] Add `filterQuery` state to `SlashPopup` (substring after `/` trigger)
+- [x] Derive `filteredCommands` from `AgentCommand[]` by matching `displayCommandName` against `filterQuery` (case-insensitive prefix/substring)
+- [x] Wire `onFilterChange` to update `filterQuery` from draft changes without closing popup
+
+### 9.2 Implement Tab Focus Transfer
+
+<!-- files: apps/chat/src/views/chat.tsx, apps/chat/src/components/slash-popup.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-KEYS] | docs/specs/211-app-chat-composer/spec.md [FR-3] -->
+
+- [x] Add `Tab` handling in `onKeyDown` when slash popup is open
+- [x] Move focus from textarea to first `CommandRow` in the popup
+- [x] Keep popup open after focus transfer
+
+### 9.3 Add Empty State Rendering
+
+<!-- files: apps/chat/src/components/slash-popup.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-MOCKUP-SLASH-FILTER] | docs/specs/211-app-chat-composer/spec.md [FR-3] -->
+
+- [x] Show "No commands match" empty state when `filteredCommands` is empty
+- [x] Popup stays open so user can keep typing or press Escape to close
+
+### 9.4 Add Slash Popup Tests
+
+<!-- files: apps/chat/src/components/slash-popup.test.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-TEST] | docs/specs/211-app-chat-composer/spec.md [FR-3] -->
+
+- [x] Test incremental filter narrowing (`/afx-s` → `/afx-spec`, `/afx-sprint`)
+- [x] Test empty state rendering
+- [x] Test Tab focus transfer from textarea to first command row
+- [x] Test arrow navigation and Enter selection after focus transfer
+
+## Phase 10: Workspace Mode And Posture
+
+### 10.1 Implement ModeToggle
+
+<!-- files: apps/chat/src/views/chat.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] | docs/specs/211-app-chat-composer/spec.md [FR-12] [FR-14] -->
+
+- [x] Add `ModeToggle` with Code/Explore/Spec dropdown
+- [x] Send `chat/setMode` on selection
+- [x] Handle `agent/settingsSnapshot` echo to keep local state in sync
+
+### 10.2 Add CSS Accent Per Mode
+
+<!-- files: apps/chat/src/views/chat.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] | docs/specs/211-app-chat-composer/spec.md [FR-14] -->
+
+- [x] Add `data-workspace-mode` attribute to `InputGroup` wrapper
+- [x] Drive CSS-only border/ring accent: Code (default), Explore (amber), Spec (violet)
+
+### 10.3 Add Spec Footer Hint
+
+<!-- files: apps/chat/src/views/chat.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] | docs/specs/211-app-chat-composer/spec.md [FR-14] -->
+
+- [x] Render `Planning / Docs only · ⌘⇧M to switch` footer hint when mode is Spec
+
+## Phase 11: Blocked Command And Guardrails
+
+### 11.1 Implement BlockedCommandStrip
+
+<!-- files: apps/chat/src/views/chat.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP] | docs/specs/211-app-chat-composer/spec.md [FR-13] -->
+
+- [x] Render strip when `agent/actionBlocked` arrives
+- [x] Show warning copy, original command text, and explanation
+- [x] Add `Switch to Code`, `Copy command`, and `Dismiss` affordances
+- [x] `restoreBlockedCommand` restores the `!` command into draft when switching to Code
+
+## Phase 12: Doc-Actions And Workflow
+
+### 12.1 Implement ChatDocActionsStrip
+
+<!-- files: apps/chat/src/components/chat-doc-actions-strip.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP] | docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16] -->
+
+- [x] Surface catalog-verified SDD intent buttons routed by detected doc format
+- [x] Spec mode: full 3–4 button set; Code/Explore: compact per-docKind set
+- [x] Group compose/draft actions before `|` divider, run-now actions after
+
+### 12.2 Add Breadcrumb Header
+
+<!-- files: apps/chat/src/components/chat-doc-actions-strip.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP] | docs/specs/211-app-chat-composer/spec.md [FR-17] -->
+
+- [x] Render `Spec ✓ → Design ⏳ → Tasks 3/8 → Code` in Spec mode
+- [x] Click auto-sends `/afx-next` (deterministic read)
+- [x] Compact mode hides breadcrumb
+
+### 12.3 Add Memory Dropdown Anchor
+
+<!-- files: apps/chat/src/components/chat-doc-actions-strip.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP] | docs/specs/211-app-chat-composer/spec.md [FR-18] -->
+
+- [x] Render icon-only Memory ▾ in strip header (Spec mode only)
+- [x] Share `MEMORY_CATALOG` with composer-toolbar and top-right anchors
+- [x] Compact mode: tuck under `···` More
+
+### 12.4 Add Sign Off Button
+
+<!-- files: apps/chat/src/components/chat-doc-actions-strip.tsx -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP] | docs/specs/211-app-chat-composer/spec.md [FR-19] -->
+
+- [x] Surface brass `[Sign Off ▾]` when tasks.md sign-off conditions are met
+- [x] Confirm popover previews atomic edit (rows ticked + status promotion + updated_at)
+- [x] Dispatch `chat/hostAction { action: "tasks.signOff", uri }` on confirm
+- [x] Handle `agent/signOffComplete` toast UX
+
+## Phase 13: Verification And Retargeting
+
+### 13.1 Retire Stale Spec References
+
+<!-- files: apps/chat/src/views/chat.tsx, apps/chat/src/components/*.tsx, apps/chat/src/lib/*.ts -->
+<!-- @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-REFS] [DES-COMPOSER-TRACE] | docs/specs/211-app-chat-composer/spec.md [NFR-5] -->
+
+- [x] Replace retired `210-app-chat` / `chat-foundation` @see refs with `211-app-chat-composer`
+- [x] Keep non-composer refs (messages, timeline, settings) pointed at owning zones
+
+### 13.2 Run Full Verification
+
+- [x] Run `pnpm verify` for chat package
+- [x] Confirm no stale `@see` annotations remain
+
 ---
 
 ## Implementation Flow
@@ -211,21 +356,35 @@ Verify traceability
 
 ## Cross-Reference Index
 
-| Task | Spec Requirement       | Design Section                |
-| ---- | ---------------------- | ----------------------------- |
-| 1.1  | [FR-1], [FR-2], [FR-3] | [DES-FILES], [DES-UI]         |
-| 2.1  | [FR-2], [FR-4]         | [DES-UI], [DES-TEST]          |
-| 4.1  | [FR-9]                 | [DES-API]                     |
-| 5.1  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND] |
-| 5.2  | [NFR-6]                | [DES-UI]                      |
-| 5.3  | [NFR-6]                | [DES-ERR]                     |
-| 5.4  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND] |
-| 5.5  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND] |
-| 6.1  | [FR-9]                 | [DES-TEST]                    |
-| 6.2  | [FR-9]                 | [DES-TEST]                    |
-| 7.1  | [FR-9], [NFR-6]        | [DES-COMPOSER-TRACE]          |
-| 8.1  | [FR-11]                | [DES-COMPOSER-CONTEXT]        |
-| 8.2  | [FR-11], [NFR-7]       | [DES-COMPOSER-CONTEXT]        |
+| Task | Spec Requirement       | Design Section                                           |
+| ---- | ---------------------- | -------------------------------------------------------- |
+| 1.1  | [FR-1], [FR-2], [FR-3] | [DES-FILES], [DES-UI]                                    |
+| 2.1  | [FR-2], [FR-4]         | [DES-UI], [DES-TEST]                                     |
+| 4.1  | [FR-9]                 | [DES-API]                                                |
+| 5.1  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND]                            |
+| 5.2  | [NFR-6]                | [DES-UI]                                                 |
+| 5.3  | [NFR-6]                | [DES-ERR]                                                |
+| 5.4  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND]                            |
+| 5.5  | [FR-9]                 | [DES-COMPOSER-SYSTEM-COMMAND]                            |
+| 6.1  | [FR-9]                 | [DES-TEST]                                               |
+| 6.2  | [FR-9]                 | [DES-TEST]                                               |
+| 7.1  | [FR-9], [NFR-6]        | [DES-COMPOSER-TRACE]                                     |
+| 8.1  | [FR-11]                | [DES-COMPOSER-CONTEXT]                                   |
+| 8.2  | [FR-11], [NFR-7]       | [DES-COMPOSER-CONTEXT]                                   |
+| 9.1  | [FR-3]                 | [DES-COMPOSER-COMPONENT-SLASH-POPUP]                     |
+| 9.2  | [FR-3]                 | [DES-COMPOSER-COMPONENT-SLASH-POPUP] [DES-COMPOSER-KEYS] |
+| 9.3  | [FR-3]                 | [DES-COMPOSER-MOCKUP-SLASH-FILTER]                       |
+| 9.4  | [FR-3]                 | [DES-TEST]                                               |
+| 10.1 | [FR-12], [FR-14]       | [DES-COMPOSER-COMPONENT-MODE-TOGGLE]                     |
+| 10.2 | [FR-14]                | [DES-COMPOSER-COMPONENT-MODE-TOGGLE]                     |
+| 10.3 | [FR-14]                | [DES-COMPOSER-COMPONENT-MODE-TOGGLE]                     |
+| 11.1 | [FR-13]                | [DES-COMPOSER-COMPONENT-BLOCKED-COMMAND-STRIP]           |
+| 12.1 | [FR-15], [FR-16]       | [DES-COMPOSER-COMPONENT-STRIP]                           |
+| 12.2 | [FR-17]                | [DES-COMPOSER-COMPONENT-STRIP]                           |
+| 12.3 | [FR-18]                | [DES-COMPOSER-COMPONENT-STRIP]                           |
+| 12.4 | [FR-19]                | [DES-COMPOSER-COMPONENT-STRIP]                           |
+| 13.1 | [NFR-5]                | [DES-COMPOSER-REFS] [DES-COMPOSER-TRACE]                 |
+| 13.2 | [NFR-5]                | [DES-TEST]                                               |
 
 ---
 
@@ -281,3 +440,31 @@ Verify traceability
 | 2026-05-06T08:03:09.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                     | [x]   | [x]   |
 | 2026-05-06T08:05:49.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                     | [x]   | [x]   |
 | 2026-05-06T08:59:51.000Z | 8.1/8.2 | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/components/model-combobox.tsx, apps/chat/src/app.test.tsx, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                  | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.1    | Verified   | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.1    | Completed  | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.2    | Verified   | apps/chat/src/views/chat.tsx, apps/chat/src/index.css                                                                                                                                                                                                                                                                                                                   | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.2    | Completed  | apps/chat/src/views/chat.tsx, apps/chat/src/index.css                                                                                                                                                                                                                                                                                                                   | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.3    | Verified   | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 10.3    | Completed  | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 11.1    | Verified   | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx                                                                                                                                                                                                                                                                                                                | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 11.1    | Completed  | apps/chat/src/views/chat.tsx, apps/chat/src/app.test.tsx                                                                                                                                                                                                                                                                                                                | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.1    | Verified   | apps/chat/src/components/chat-doc-actions-strip.tsx, apps/chat/src/components/chat-doc-actions-strip.test.tsx                                                                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.1    | Completed  | apps/chat/src/components/chat-doc-actions-strip.tsx, apps/chat/src/components/chat-doc-actions-strip.test.tsx                                                                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.2    | Verified   | apps/chat/src/components/chat-doc-actions-strip.tsx                                                                                                                                                                                                                                                                                                                     | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.2    | Completed  | apps/chat/src/components/chat-doc-actions-strip.tsx                                                                                                                                                                                                                                                                                                                     | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.3    | Verified   | apps/chat/src/components/chat-doc-actions-strip.tsx, apps/chat/src/components/memory-dropdown.tsx, apps/chat/src/components/chat-memory-menu-button.tsx, apps/chat/src/lib/doc-actions.ts                                                                                                                                                                               | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.3    | Completed  | apps/chat/src/components/chat-doc-actions-strip.tsx, apps/chat/src/components/memory-dropdown.tsx, apps/chat/src/components/chat-memory-menu-button.tsx, apps/chat/src/lib/doc-actions.ts                                                                                                                                                                               | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.4    | Verified   | apps/chat/src/components/chat-doc-actions-strip.tsx                                                                                                                                                                                                                                                                                                                     | [x]   | [x]   |
+| 2026-05-09T13:31:49.000Z | 12.4    | Completed  | apps/chat/src/components/chat-doc-actions-strip.tsx                                                                                                                                                                                                                                                                                                                     | [x]   | [x]   |
+| 2026-05-09T13:40:25.000Z | 9.1     | Coded      | apps/chat/src/components/slash-popup.tsx, apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                  | [x]   | [x]   |
+| 2026-05-09T13:40:25.000Z | 9.1     | Completed  | apps/chat/src/components/slash-popup.tsx, apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                  | [x]   | [x]   |
+| 2026-05-09T13:43:10.000Z | 9.2     | Coded      | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:43:10.000Z | 9.2     | Completed  | apps/chat/src/views/chat.tsx                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-05-09T13:46:09.000Z | 9.3     | Coded      | apps/chat/src/components/slash-popup.tsx                                                                                                                                                                                                                                                                                                                                | [x]   | [x]   |
+| 2026-05-09T13:46:09.000Z | 9.3     | Completed  | apps/chat/src/components/slash-popup.tsx                                                                                                                                                                                                                                                                                                                                | [x]   | [x]   |
+| 2026-05-09T13:50:37.000Z | 9.4     | Coded      | apps/chat/src/components/slash-popup.test.tsx                                                                                                                                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-05-09T13:50:37.000Z | 9.4     | Completed  | apps/chat/src/components/slash-popup.test.tsx                                                                                                                                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-05-09T13:55:29.000Z | 13.1    | Coded      | apps/chat/src/views/chat.tsx, apps/chat/src/components/markdown-message.tsx                                                                                                                                                                                                                                                                                             | [x]   | [x]   |
+| 2026-05-09T13:55:29.000Z | 13.1    | Completed  | apps/chat/src/views/chat.tsx, apps/chat/src/components/markdown-message.tsx                                                                                                                                                                                                                                                                                             | [x]   | [x]   |
+| 2026-05-09T14:07:38.000Z | 13.2    | Verified   | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                                                 | [x]   | [x]   |
+| 2026-05-09T14:07:38.000Z | 13.2    | Completed  | apps/chat/src/views/chat.tsx, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                                                                                                 | [x]   | [x]   |

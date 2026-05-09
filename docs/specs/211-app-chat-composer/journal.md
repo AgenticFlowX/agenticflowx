@@ -4,7 +4,7 @@ type: JOURNAL
 status: Living
 owner: "@rixrix"
 created_at: "2026-05-03T11:23:57.000Z"
-updated_at: "2026-05-05T10:28:33.000Z"
+updated_at: "2026-05-09T14:07:38.000Z"
 tags: ["app", "chat", "composer", "webview", "journal"]
 ---
 
@@ -127,6 +127,58 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 
 ---
 
+### CC-D003 - Slash Command Auto-Complete Implementation Session
+
+`status:closed` `2026-05-09T13:57:50.000Z` `[slash-auto-complete, FR-3, filtering, keyboard-focus, testing, traceability]`
+
+**Context**: Design v1.11 introduced slash command auto-complete with incremental live filtering, Tab focus transfer, and empty-state handling. The session covered spec/design approval, task planning, and full Phase 9 implementation plus stale-ref cleanup.
+
+**Summary**: Expanded FR-3 in spec.md to cover incremental filtering and Tab focus transfer, then refined design.md with `DES-COMPOSER-MOCKUP-SLASH-FILTER`, expanded `DES-COMPOSER-COMPONENT-SLASH-POPUP` contract, updated `DES-COMPOSER-HELPERS`/`DES-COMPOSER-KEYS`, added `DES-ERR` empty-filter handling, and updated `DES-TEST` with `slash-popup.test.tsx`. Re-approved spec (v1.8) and design (v1.11). Re-planned tasks (v1.3) adding Phases 9–13. Implemented all Phase 9 tasks and Phase 13.1 stale-ref cleanup.
+
+**Progress**:
+
+- [x] Expand FR-3 in spec.md: incremental filtering, Tab focus, empty state acceptance criteria
+- [x] Add `DES-COMPOSER-MOCKUP-SLASH-FILTER` ASCII UI mockup to design.md
+- [x] Expand `DES-COMPOSER-COMPONENT-SLASH-POPUP` with `filterQuery`, `filteredCommands`, `focusPopupOnTab`
+- [x] Update `DES-COMPOSER-HELPERS` for live-filter flow
+- [x] Add `Tab` row to `DES-COMPOSER-KEYS`
+- [x] Add empty slash filter to `DES-ERR`
+- [x] Add `slash-popup.test.tsx` to `DES-TEST`
+- [x] Fix FR-14 traceability gap in `DES-COMPOSER-TRACE`
+- [x] Re-approve spec.md (v1.8)
+- [x] Re-approve design.md (v1.11)
+- [x] Re-plan tasks.md (v1.3, Phases 9–13)
+- [x] 9.1: `filterQuery` state + `filteredCommands` derivation in `SlashPopup`
+- [x] 9.2: `Tab` handling in `onKeyDown` → focus first `[cmdk-item]`
+- [x] 9.3: Empty state for all groups (AFX skills, Other commands, Actions)
+- [x] 9.4: `slash-popup.test.tsx` with 14 tests (filter, empty state, click, action, case-insensitivity)
+- [x] 13.1: Retire stale `210-app-chat` @see refs from `chat.tsx` and `markdown-message.tsx`
+- [x] Type check: clean (`tsc --noEmit`)
+- [x] Tests: 287 passed (27 test files)
+- [x] 13.2: `pnpm verify` for chat package passed; removed one remaining stale `210-app-chat` @see ref from `chat.tsx` (line 576, redundant with `212-app-chat-messages`)
+
+**Decisions**:
+
+- `filterQuery` is passed as a prop from `chat.tsx` (`activeTrigger?.query`) rather than managed inside `SlashPopup`, keeping trigger detection centralized in `detectComposerTrigger`
+- Hidden `<CommandInput>` (`h-0 w-0 opacity-0`) syncs cmdk internal filter state with the textarea draft without showing a second input field
+- Actions (`/new`, `/abort`) are filtered by `filterQuery` alongside skill commands so the empty state is accurate when nothing matches
+- Case-insensitive substring match on `displayCommandName(cmd)` — covers both prefix (`/afx-s`) and substring (`spec`) searches
+- Parent-level `210-app-chat` refs intentionally kept in app entry points (`main.tsx`, `app.tsx`, `lib/bridge.ts`, etc.) since those are app-shell concerns, not composer-specific
+
+**Related Files**:
+
+- `docs/specs/211-app-chat-composer/spec.md`
+- `docs/specs/211-app-chat-composer/design.md`
+- `docs/specs/211-app-chat-composer/tasks.md`
+- `apps/chat/src/components/slash-popup.tsx`
+- `apps/chat/src/components/slash-popup.test.tsx`
+- `apps/chat/src/views/chat.tsx`
+- `apps/chat/src/components/markdown-message.tsx`
+
+**Participants**: @rixrix
+
+---
+
 ## Prompt Captures
 
 <!-- Verbatim user prompts + agent reply excerpts at pivotal moments. Append-only. -->
@@ -181,3 +233,55 @@ Phases added:
 All FR-9 and NFR-6 requirements now covered in tasks.
 
 Next step: `/afx-task pick 4.1`
+
+## Approval: Spec Re-Approved (2026-05-09 13:10)
+
+Spec re-approved after FR-3 refinement: added slash command auto-complete
+(incremental live filtering + Tab focus transfer into dropdown).
+
+- Validation: PASSED (structure intact)
+- Review: 0 Critical issues
+- Design: `DES-COMPOSER-MOCKUP-SLASH-FILTER`, `DES-COMPOSER-COMPONENT-SLASH-POPUP` added
+- Spec: FR-3 expanded with filter/Tab behavior; new acceptance criteria section
+
+Status: Draft → Approved
+Version: 1.8 (unchanged — refinement of existing FR-3 scope)
+
+Next: `/afx-design approve 211-app-chat-composer` to re-approve the design.
+
+## Approval: Design Re-Approved (2026-05-09 13:19)
+
+Design re-approved after v1.11 refinement: added slash command auto-complete
+specification with incremental live filtering, Tab focus transfer, and empty-state
+handling.
+
+- `[DES-COMPOSER-MOCKUP-SLASH-FILTER]` — ASCII UI mockup for filtered dropdown and empty state
+- `[DES-COMPOSER-COMPONENT-SLASH-POPUP]` — expanded component contract with `filterQuery`, `filteredCommands`, `focusPopupOnTab`
+- `[DES-COMPOSER-HELPERS]` — updated slash anatomy for live-filter flow
+- `[DES-COMPOSER-KEYS]` — added `Tab` row for focus transfer
+- `[DES-ERR]` — added empty slash filter error handling
+- `[DES-TEST]` — added `slash-popup.test.tsx` coverage
+- `[DES-COMPOSER-TRACE]` — FR-3, NFR-4, FR-14 now fully traced
+
+Status: Draft → Approved
+Version: 1.11
+
+Next: `/afx-task plan 211-app-chat-composer` to generate implementation tasks.
+
+## Plan: Tasks Re-Planned (2026-05-09 13:23)
+
+Added Phases 9–13 to tasks.md to cover the v1.11 design refinement and
+previously unmapped spec requirements.
+
+**New phases:**
+
+- Phase 9: Slash command auto-complete (FR-3 filter, Tab focus, empty state, tests)
+- Phase 10: Workspace mode and posture (FR-12, FR-14 ModeToggle + CSS accent + footer)
+- Phase 11: Blocked command and guardrails (FR-13 BlockedCommandStrip)
+- Phase 12: Doc-actions and workflow (FR-15–19 ChatDocActionsStrip, breadcrumb, Memory, Sign Off)
+- Phase 13: Verification and retargeting (NFR-5 stale-ref cleanup, `pnpm verify`)
+
+**Version bump:** 1.2 → 1.3
+**Tags updated:** added `slash-auto-complete`, `workspace-mode`, `doc-actions`
+
+Next: `/afx-task pick 9.1` to start slash command auto-complete implementation.

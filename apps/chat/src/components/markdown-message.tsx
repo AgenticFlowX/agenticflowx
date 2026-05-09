@@ -1,8 +1,6 @@
 /**
  * MarkdownMessage — renders assistant message content as GFM markdown with code copy buttons.
  *
- * @see docs/specs/210-app-chat/spec.md [FR-2]
- * @see docs/specs/210-app-chat/design.md [DES-UI]
  * @see docs/specs/212-app-chat-messages/spec.md [FR-3]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENT-MARKDOWN] [DES-MESSAGES-MARKDOWN]
  */
