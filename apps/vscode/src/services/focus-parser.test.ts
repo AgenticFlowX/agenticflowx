@@ -28,6 +28,7 @@ describe("parseFocuses", () => {
         id: "functional-requirements",
         label: "Functional Requirements",
         slug: "functional-requirements",
+        excerpt: "body",
         line: 5,
       },
     ]);
@@ -78,6 +79,7 @@ describe("parseFocuses", () => {
         label: "Phase 1: Parser",
         slug: "phase-1-parser",
         commandSuffix: "phase-1",
+        excerpt: "Build parser",
         line: 5,
       },
       {
@@ -85,6 +87,7 @@ describe("parseFocuses", () => {
         label: "Phase 2 - Bridge",
         slug: "phase-2-bridge",
         commandSuffix: "phase-2",
+        excerpt: "Wire context",
         line: 7,
       },
     ]);
@@ -102,6 +105,27 @@ describe("parseFocuses", () => {
   it("applies a source line offset when parsing a section slice", () => {
     const focuses = parseFocuses("## [DES-DATA] Data", "design", { lineOffset: 20 });
     expect(focuses[0]?.line).toBe(21);
+  });
+
+  it("captures a compact body excerpt for parsed design sections", () => {
+    const focuses = parseFocuses(
+      [
+        "# Design",
+        "",
+        "## [DES-DATA] Data Model",
+        "",
+        "The composer stores local draft state, active focus targets, and bridge-ready commands.",
+        "- [ ] Strip markdown checkboxes from previews.",
+        "## [DES-API] Host Bridge",
+      ].join("\n"),
+      "design",
+    );
+
+    expect(focuses[0]).toMatchObject({
+      id: "des-data",
+      excerpt:
+        "The composer stores local draft state, active focus targets, and bridge-ready commands. Strip markdown checkboxes from previews.",
+    });
   });
 });
 

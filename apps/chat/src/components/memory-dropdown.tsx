@@ -5,7 +5,7 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import {
   DropdownMenu,
@@ -15,6 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@afx/ui/components/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { MEMORY_CATALOG, type MemoryCatalogItem } from "../lib/doc-actions";
@@ -61,34 +67,61 @@ export function MemoryDropdownContent({
         className,
       )}
     >
-      {MEMORY_CATALOG.map((group, groupIndex) => (
-        <div key={group.id}>
-          {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-          <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-            {group.label}
-          </DropdownMenuLabel>
-          {group.items.map((item) => (
-            <DropdownMenuItem
-              key={item.id}
-              onSelect={() => onSelect(item)}
-              aria-label={`${item.label}: ${item.command} ${
-                item.autoSend ? "Auto-send" : "Draft first"
-              }`}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[11px] font-medium">{item.label}</p>
-                <p className="truncate font-mono text-[10px] text-muted-foreground">
-                  {item.command}
-                </p>
-              </div>
-              <span className="shrink-0 font-mono text-[9px] uppercase tracking-normal text-muted-foreground">
-                {item.autoSend ? "Auto" : "Draft"}
-              </span>
-            </DropdownMenuItem>
-          ))}
-        </div>
-      ))}
+      <TooltipProvider delayDuration={250}>
+        {MEMORY_CATALOG.map((group, groupIndex) => (
+          <div key={group.id}>
+            {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+              {group.label}
+            </DropdownMenuLabel>
+            {group.items.map((item) => (
+              <MemoryRowTooltip key={item.id} item={item}>
+                <DropdownMenuItem
+                  onSelect={() => onSelect(item)}
+                  aria-label={`${item.label}: ${item.command} ${
+                    item.autoSend ? "Auto-send" : "Draft first"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[11px] font-medium">{item.label}</p>
+                    <p className="truncate font-mono text-[10px] text-muted-foreground">
+                      {item.command}
+                    </p>
+                  </div>
+                  <span className="shrink-0 font-mono text-[9px] uppercase tracking-normal text-muted-foreground">
+                    {item.autoSend ? "Auto" : "Draft"}
+                  </span>
+                </DropdownMenuItem>
+              </MemoryRowTooltip>
+            ))}
+          </div>
+        ))}
+      </TooltipProvider>
     </DropdownMenuContent>
+  );
+}
+
+function MemoryRowTooltip({ children, item }: { children: ReactElement; item: MemoryCatalogItem }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="block">{children}</span>
+      </TooltipTrigger>
+      <TooltipContent
+        side="left"
+        align="start"
+        sideOffset={8}
+        className="max-w-[320px] flex-col items-start gap-1 text-left"
+      >
+        <span className="font-medium leading-snug">{item.label}</span>
+        <span className="text-[11px] leading-snug opacity-85">{item.description}</span>
+        <span className="text-[11px] leading-snug opacity-85">{item.workflowDetail}</span>
+        <span className="font-mono text-[10px] opacity-75">{item.usage}</span>
+        <span className="font-mono text-[9px] uppercase opacity-70">
+          {item.autoSend ? "Auto" : "Draft"}
+        </span>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

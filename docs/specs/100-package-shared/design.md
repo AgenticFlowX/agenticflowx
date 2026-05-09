@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Draft
 owner: "@rixrix"
-version: "1.6"
+version: "1.7"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-09T07:20:46.000Z"
+updated_at: "2026-05-09T12:54:26.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -129,9 +129,10 @@ fields are additive for old host/webview compatibility:
   in-file `approval` block. `onDidSaveTextDocument` invalidates the cache so the breadcrumb stays
   fresh when a sibling is approved/refined in another tab
 
-`FocusOption` uses stable `id`, display `label`, markdown `slug`, optional `commandSuffix`, and
-1-indexed `line`. `SignOffSummary` reports whether all tasks are checked, all Agent cells are checked,
-how many Human sign-off rows are pending, and whether the frontmatter is already `Living`.
+`FocusOption` uses stable `id`, display `label`, markdown `slug`, optional `commandSuffix`, optional
+body `excerpt`, and 1-indexed `line`. `SignOffSummary` reports whether all tasks are checked, all
+Agent cells are checked, how many Human sign-off rows are pending, and whether the frontmatter is
+already `Living`.
 
 #### Host-Action Envelope (FR-14)
 

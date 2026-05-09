@@ -57,6 +57,8 @@ export type DocAction = {
 export type MemoryCatalogItem = DocAction & {
   id: string;
   description: string;
+  workflowDetail: string;
+  usage: string;
 };
 
 export type MemoryCatalogGroup = {
@@ -70,6 +72,7 @@ function memoryItem(
   family: AfxCommandFamily,
   subcommand: string,
   description: string,
+  workflowDetail: string,
 ): MemoryCatalogItem {
   const entry = findSupportedAfxCommand(family, subcommand);
   if (!entry) {
@@ -82,6 +85,8 @@ function memoryItem(
     command: entry.command,
     autoSend: entry.autoSend,
     description,
+    workflowDetail,
+    usage: entry.usage,
   };
 }
 
@@ -97,21 +102,75 @@ export const MEMORY_CATALOG = Object.freeze([
     id: "session-memory",
     label: "SESSION MEMORY",
     items: [
-      memoryItem("context-save", "afx-context", "save", "Draft a context handoff"),
-      memoryItem("context-load", "afx-context", "load", "Load the saved context"),
-      memoryItem("context-history", "afx-context", "history", "Show context history"),
-      memoryItem("context-impact", "afx-context", "impact", "Draft an impact query"),
+      memoryItem(
+        "context-save",
+        "afx-context",
+        "save",
+        "Draft a context handoff",
+        "Generate a detailed .afx/context.md bundle so a future agent or human can resume with decisions, blockers, changed files, and next steps intact.",
+      ),
+      memoryItem(
+        "context-load",
+        "afx-context",
+        "load",
+        "Load the saved context",
+        "Read the active .afx/context.md bundle back into the chat without compressing it, then re-orient with the recommended next workflow step.",
+      ),
+      memoryItem(
+        "context-history",
+        "afx-context",
+        "history",
+        "Show context history",
+        "Build a spec evolution timeline from git history so you can see what changed, when, and which workflow to resume from.",
+      ),
+      memoryItem(
+        "context-impact",
+        "afx-context",
+        "impact",
+        "Draft an impact query",
+        "Analyze how a proposed change could affect specs, cross-references, and traced code before updating the living documents.",
+      ),
     ],
   },
   {
     id: "discussion",
     label: "DISCUSSION",
     items: [
-      memoryItem("session-note", "afx-session", "note", "Draft a session note"),
-      memoryItem("session-log", "afx-session", "log", "Draft a session log entry"),
-      memoryItem("session-recap", "afx-session", "recap", "Recap recent discussion"),
-      memoryItem("session-promote", "afx-session", "promote", "Draft a promotion target"),
-      memoryItem("session-capture", "afx-session", "capture", "Draft a capture request"),
+      memoryItem(
+        "session-note",
+        "afx-session",
+        "note",
+        "Draft a session note",
+        "Capture a quick idea, tip, or follow-up in journal.md; the workflow can infer tags or append to an existing discussion.",
+      ),
+      memoryItem(
+        "session-log",
+        "afx-session",
+        "log",
+        "Draft a session log entry",
+        "Summarize the current discussion into a permanent journal discussion with context, summary, decisions, and progress.",
+      ),
+      memoryItem(
+        "session-recap",
+        "afx-session",
+        "recap",
+        "Recap recent discussion",
+        "Synthesize recent journal discussions for resumption, including key decisions, open items, and where to continue.",
+      ),
+      memoryItem(
+        "session-promote",
+        "afx-session",
+        "promote",
+        "Draft a promotion target",
+        "Promote an important discussion into an ADR or a new feature spec when it becomes durable product or architecture truth.",
+      ),
+      memoryItem(
+        "session-capture",
+        "afx-session",
+        "capture",
+        "Draft a capture request",
+        "Preserve a pivotal user prompt plus a focused agent-reply excerpt, linked to the artifact change it produced.",
+      ),
     ],
   },
 ] satisfies readonly MemoryCatalogGroup[]);

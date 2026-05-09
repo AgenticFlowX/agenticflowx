@@ -64,6 +64,7 @@ const handMaintained = [
   "repo",
   "scripts",
   "spec",
+  "chat",
 ];
 
 const scopes = [...new Set([...packageScopes, ...handMaintained])].sort();

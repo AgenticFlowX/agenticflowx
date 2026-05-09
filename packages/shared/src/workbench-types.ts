@@ -115,6 +115,8 @@ export interface FocusOption {
   slug: string;
   /** Optional command suffix, e.g. `phase-2` or `des-data`. */
   commandSuffix?: string;
+  /** Short body preview for rich focus-target tooltips. */
+  excerpt?: string;
   /** 1-indexed source line when parsed from the active document. */
   line?: number;
 }

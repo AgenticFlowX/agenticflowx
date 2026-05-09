@@ -180,7 +180,14 @@ describe("chat-foundation shared protocol", () => {
         pendingHumanRows: 2,
         alreadyLiving: false,
       },
-      parsedFocuses: [{ id: "phase-1", label: "Phase 1: Build", slug: "phase-1-build" }],
+      parsedFocuses: [
+        {
+          id: "phase-1",
+          label: "Phase 1: Build",
+          slug: "phase-1-build",
+          excerpt: "Bridge tasks for the active phase.",
+        },
+      ],
       specStatus: "Approved",
       designStatus: "Approved",
       // sibling tasks.md still Draft (not yet signed off)
@@ -191,6 +198,7 @@ describe("chat-foundation shared protocol", () => {
 
     expect(oldPayload.taskPhases).toBeUndefined();
     expect(newPayload.taskPhases?.[0]?.items[0]?.text).toBe("Wire bridge");
+    expect(newPayload.parsedFocuses?.[0]?.excerpt).toBe("Bridge tasks for the active phase.");
     expect(newPayload.signOff?.pendingHumanRows).toBe(2);
   });
 
@@ -201,6 +209,7 @@ describe("chat-foundation shared protocol", () => {
       label: "[DES-DATA] Data Model",
       slug: "data-model",
       commandSuffix: "des-data",
+      excerpt: "State shape and persistence boundaries.",
       line: 42,
     };
     const group: FocusGroup = { label: "FROM THIS DOC", items: [focus] };
@@ -216,6 +225,7 @@ describe("chat-foundation shared protocol", () => {
     };
 
     expect(group.items[0]?.commandSuffix).toBe("des-data");
+    expect(group.items[0]?.excerpt).toBe("State shape and persistence boundaries.");
     expect(signOff.ready).toBe(false);
   });
 
