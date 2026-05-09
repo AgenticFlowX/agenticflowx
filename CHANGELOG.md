@@ -2,6 +2,22 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.11] - 2026-05-10
+
+### Added
+
+- **Slash command auto-complete** — typing `/` in the chat composer now opens a filterable dropdown of available commands. Keystrokes after `/` incrementally narrow the list via case-insensitive substring match; `Tab` moves focus from the textarea into the dropdown for keyboard navigation; an empty state renders when no commands match the current query.
+
+### Fixed
+
+- **Next action chips** refined for clearer affordances.
+- **Tooltips** added to long menus that were clipping or lacked hover hints.
+
+### Changed
+
+- **Author and approve commands** surfaced in the composer action strip.
+- Internal reference and documentation clean-ups.
+
 ## [2.0.10] - 2026-05-09
 
 ### Added
