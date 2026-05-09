@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.11"
+version: "1.12"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T13:19:54.000Z"
+updated_at: "2026-05-09T14:14:33.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
 approved_at: "2026-05-09T13:19:54.000Z"
@@ -787,22 +787,23 @@ injects the files the user explicitly referenced in the draft.
 
 ## [DES-COMPOSER-COMPONENT-STRIP] Composer Strip Variants
 
-The composer strip slot above the InputGroup hosts a small set of conditional banner
-variants. Each variant is a pure presentational component sharing the generic
-`ComposerStrip` chrome (title row, content slot, optional CTA, dismiss icon).
+The composer workflow affordance surface hosts a small set of conditional variants. Above the
+InputGroup, banner-like variants share the generic `ComposerStrip` chrome (title row, content slot,
+optional CTA, dismiss icon). Completed-message `result-actions` are the timeline exception: they
+use the same command catalog policy but render as lightweight inline buttons, not strip chrome.
 
-| Variant          | Trigger                                                                       | Purpose                                                                                                                                                     |
-| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `queue`          | One or more queued steer/follow-up rows                                       | Show queued composer messages awaiting acceptance                                                                                                           |
-| `files`          | `agent/modifiedFiles` payload                                                 | Surface files the agent modified during a turn                                                                                                              |
-| `blocked`        | `agent/actionBlocked` payload                                                 | Show the rejected Explore-mode shell command with copy/switch affordances                                                                                   |
-| `doc-actions`    | Active editor is an AFX doc (sprint, 4-file, journal, ADR, research, context) | SDD intent buttons routed by detected format; Spec mode shows more primaries, non-Spec modes keep the strip compact and optional                            |
-| `mode-suggest`   | Active editor is an AFX doc AND `workspaceMode !== "spec"` AND not dismissed  | One-time Spec-mode onboarding offer; dismissal persisted via `afx.specModeOfferDismissed` workspaceState memento                                            |
-| `result-actions` | Completed assistant message includes supported `/afx-*` follow-up commands    | Composer-adjacent `Next` action chips parsed from AFX output; unknown/draft-only commands insert into draft, deterministic supported commands can auto-send |
+| Variant          | Trigger                                                                       | Purpose                                                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `queue`          | One or more queued steer/follow-up rows                                       | Show queued composer messages awaiting acceptance                                                                                                                                                           |
+| `files`          | `agent/modifiedFiles` payload                                                 | Surface files the agent modified during a turn                                                                                                                                                              |
+| `blocked`        | `agent/actionBlocked` payload                                                 | Show the rejected Explore-mode shell command with copy/switch affordances                                                                                                                                   |
+| `doc-actions`    | Active editor is an AFX doc (sprint, 4-file, journal, ADR, research, context) | SDD intent buttons routed by detected format; Spec mode shows more primaries, non-Spec modes keep the strip compact and optional                                                                            |
+| `mode-suggest`   | Active editor is an AFX doc AND `workspaceMode !== "spec"` AND not dismissed  | One-time Spec-mode onboarding offer; dismissal persisted via `afx.specModeOfferDismissed` workspaceState memento                                                                                            |
+| `result-actions` | Completed assistant message includes supported `/afx-*` follow-up commands    | History-adjacent `Next` button chips parsed from AFX output; raw `Next:` text remains visible, supported catalog commands send immediately, and unsupported commands stay unavailable with tooltip guidance |
 
-`doc-actions` and `mode-suggest` reuse the same chrome — no new primitives. They render
-in the slot order: queue → files → blocked → doc-actions → mode-suggest, directly above
-the InputGroup wrapper.
+`doc-actions` and `mode-suggest` reuse the same chrome — no new primitives. Above-composer strips
+render in the slot order: queue → files → blocked → doc-actions → mode-suggest, directly above the
+InputGroup wrapper.
 
 Doc-action overflow uses a `More` icon button backed by shadcn/Radix dropdown primitives. The menu groups
 draft-first Compose commands before deterministic Run Now commands, with parsed focus targets from
@@ -818,6 +819,28 @@ The shared Memory catalog follows the same tooltip rule for `/afx-context` and `
 commands, using workflow-derived details for Save, Load, History, Impact, Note, Log, Recap,
 Promote, and Capture so first-time users can understand what each memory action does before
 running it.
+
+Completed-message `Next:` actions do not reuse the full `ComposerStrip` chrome. They sit under
+the assistant markdown as a compact inline follow-up row so the history does not gain a second
+table-like panel. The raw assistant line remains part of the transcript, and the parsed controls
+are real buttons:
+
+```text
++--------------------------------------------------------------------+
+| Assistant 01:41                                                   |
+| Reviewed the active task.                                         |
+|                                                                    |
+| Next: /afx-task code 9.2                                           |
+|                                                                    |
+| run next  [ Code  /afx-task code 9.2 ] [ Next  /afx-next ]         |
+|                                                                    |
+| · IDLE                                                            |
++--------------------------------------------------------------------+
+```
+
+Supported catalog commands in this history row call the same direct send path as deterministic
+composer actions, bypassing the textarea draft. Unsupported parsed commands render disabled-looking
+button chips with tooltip guidance instead of silently inserting into the draft.
 On tasks.md, the visible strip is split by behavior, not by command family: Compose controls (`Code`,
 task-phase `Review` / sprint `Refine`) render first, followed by a literal `|` divider and Run Now
 controls (`Verify`, `Pick`, `Approve`/state actions where applicable). `Code` always opens a draft-first

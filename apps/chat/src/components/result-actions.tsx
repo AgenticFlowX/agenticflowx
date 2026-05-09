@@ -1,11 +1,9 @@
 /**
- * ResultActions — composer-adjacent follow-up buttons parsed from AFX output.
+ * ResultActions — subtle follow-up buttons parsed from AFX output.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-16]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { type MouseEvent } from "react";
-
 import {
   Tooltip,
   TooltipContent,
@@ -15,64 +13,68 @@ import {
 import { cn } from "@afx/ui/lib/utils";
 
 import type { ParsedResultAction } from "../lib/result-actions";
-import { ComposerStrip } from "./composer-strip";
 
 export interface ResultActionsProps {
   actions: readonly ParsedResultAction[];
-  onDraft: (command: string, action: ParsedResultAction) => void;
   onSend?: (command: string, action: ParsedResultAction) => void;
   onDismiss?: () => void;
 }
 
-export function ResultActions({ actions, onDraft, onSend, onDismiss }: ResultActionsProps) {
+export function ResultActions({ actions, onSend, onDismiss }: ResultActionsProps) {
   if (actions.length === 0) return null;
   const groups = groupResultActions(actions);
 
   return (
-    <ComposerStrip title="Next" count={actions.length} tone="brand" onDismiss={onDismiss}>
-      <TooltipProvider delayDuration={250}>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {groups.map((group, index) => (
-            <div key={group.group} className="inline-flex flex-wrap items-center gap-1">
-              {index > 0 ? (
-                <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-border/80" />
-              ) : null}
-              <span className="sr-only">{group.label}</span>
-              {group.actions.map((action) => (
-                <ResultActionButton
-                  key={action.command}
-                  action={action}
-                  onDraft={onDraft}
-                  onSend={onSend}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      </TooltipProvider>
-    </ComposerStrip>
+    <TooltipProvider delayDuration={250}>
+      <div
+        aria-label="Next actions"
+        data-testid="result-actions-row"
+        className="my-2.5 flex max-w-full flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground/70"
+      >
+        <span className="mr-0.5 shrink-0 text-[10px] font-medium uppercase tracking-wide text-muted-foreground/70">
+          Run next
+        </span>
+        {groups.map((group, index) => (
+          <div key={group.group} className="inline-flex max-w-full flex-wrap items-center gap-1">
+            {index > 0 ? (
+              <span aria-hidden className="sr-only">
+                ,{" "}
+              </span>
+            ) : null}
+            <span className="sr-only">{group.label}</span>
+            {group.actions.map((action) => (
+              <ResultActionButton key={action.command} action={action} onSend={onSend} />
+            ))}
+          </div>
+        ))}
+        {onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="ml-0.5 inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            aria-label="Dismiss next actions"
+          >
+            ×
+          </button>
+        ) : null}
+      </div>
+    </TooltipProvider>
   );
 }
 
 function ResultActionButton({
   action,
-  onDraft,
   onSend,
 }: {
   action: ParsedResultAction;
-  onDraft: (command: string, action: ParsedResultAction) => void;
   onSend?: (command: string, action: ParsedResultAction) => void;
 }) {
   const canSend = action.status === "supported" && onSend != null;
-  const modeLabel = action.autoSend && canSend ? "send" : "draft";
+  const modeLabel = canSend ? "send" : "unavailable";
 
-  function handleClick(event: MouseEvent<HTMLButtonElement>) {
-    if (canSend && (action.autoSend || event.shiftKey)) {
-      onSend(action.command, action);
-      return;
-    }
-
-    onDraft(action.command, action);
+  function handleClick() {
+    if (!canSend) return;
+    onSend(action.command, action);
   }
 
   return (
@@ -82,14 +84,18 @@ function ResultActionButton({
           type="button"
           onClick={handleClick}
           aria-label={`${action.label}: ${action.command}`}
+          aria-disabled={!canSend}
           data-testid="result-action-button"
           data-status={action.status}
           data-group={action.group}
           data-mode={modeLabel}
           className={cn(
-            "inline-flex max-w-full items-center gap-1 rounded-sm border border-border/60 bg-card/40 px-1.5 py-0.5 text-[11px]",
-            "font-mono text-foreground/90 hover:bg-muted hover:text-foreground",
-            action.autoSend && canSend ? "border-afx-brand-soft/50" : "",
+            "inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border/65 bg-background/85 px-2.5 text-[11px]",
+            "font-mono text-foreground/90 shadow-sm transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground",
+            "active:translate-y-px focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+            !canSend
+              ? "cursor-not-allowed opacity-55 shadow-none hover:border-border/65 hover:bg-background/85 active:translate-y-0"
+              : "",
           )}
         >
           <span className="font-sans text-[10px] font-medium text-muted-foreground">
@@ -102,11 +108,11 @@ function ResultActionButton({
         <span className="flex flex-col gap-1">
           <span className="font-medium">{action.label}</span>
           <span className="text-[11px] leading-snug opacity-85">
-            {canSend ? "Click drafts or sends by command policy." : "Click inserts into draft."}
+            {canSend ? "Click sends this command now." : "This command cannot be sent directly."}
           </span>
           <span className="font-mono text-[10px] opacity-75">{action.command}</span>
           <span className="font-mono text-[9px] uppercase opacity-70">
-            {canSend ? "Shift-click sends now" : "Draft only"}
+            {canSend ? "Run now" : "Unavailable"}
           </span>
         </span>
       </TooltipContent>

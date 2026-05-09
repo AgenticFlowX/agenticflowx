@@ -1504,7 +1504,6 @@ export default function Chat({
               messages={messages}
               noteEvents={noteEvents}
               commandOutputs={commandOutputs}
-              onDraftCommand={insertDraft}
               onSendCommand={sendNow}
             />
           ) : !hasReceivedStateSnapshot ? (
@@ -3213,13 +3212,11 @@ function Timeline({
   messages,
   noteEvents,
   commandOutputs,
-  onDraftCommand,
   onSendCommand,
 }: {
   messages: ChatTimelineItem[];
   noteEvents: ChatNoteEventView[];
   commandOutputs: ChatCommandOutputView[];
-  onDraftCommand: (command: string) => void;
   onSendCommand: (command: string) => void;
 }) {
   const events: TimelineEvent[] = [];
@@ -3302,7 +3299,6 @@ function Timeline({
           event={event}
           isLast={i === events.length - 1}
           isReply={event.kind !== "user"}
-          onDraftCommand={onDraftCommand}
           onSendCommand={onSendCommand}
         />
       ))}
@@ -3322,13 +3318,11 @@ function TimelineRow({
   event,
   isLast,
   isReply,
-  onDraftCommand,
   onSendCommand,
 }: {
   event: TimelineEvent;
   isLast: boolean;
   isReply: boolean;
-  onDraftCommand: (command: string) => void;
   onSendCommand: (command: string) => void;
 }) {
   return (
@@ -3354,11 +3348,7 @@ function TimelineRow({
         ) : (
           <>
             <EventHeader event={event} />
-            <EventBody
-              event={event}
-              onDraftCommand={onDraftCommand}
-              onSendCommand={onSendCommand}
-            />
+            <EventBody event={event} onSendCommand={onSendCommand} />
           </>
         )}
       </div>
@@ -3560,11 +3550,9 @@ function Eyebrow({
  */
 function EventBody({
   event,
-  onDraftCommand,
   onSendCommand,
 }: {
   event: TimelineEvent;
-  onDraftCommand: (command: string) => void;
   onSendCommand: (command: string) => void;
 }) {
   if (event.kind === "user") {
@@ -3582,11 +3570,7 @@ function EventBody({
       return (
         <div className="mt-0.5">
           <MarkdownMessage content={event.message.content} />
-          <ResultActions
-            actions={resultActions}
-            onDraft={(command) => onDraftCommand(command)}
-            onSend={(command) => onSendCommand(command)}
-          />
+          <ResultActions actions={resultActions} onSend={(command) => onSendCommand(command)} />
           <AssistantMeta message={event.message} />
         </div>
       );
