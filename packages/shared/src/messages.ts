@@ -295,6 +295,51 @@ export interface ActiveDocContextSnapshot {
   tasksStatus?: string | null;
   tasksCompleted?: number;
   tasksTotal?: number;
+  /**
+   * Row counts for the `## Work Sessions` table inside `tasks.md` (or the
+   * `## SESSIONS` slice of a sprint file). Powers the spec stepper's
+   * `Work Sessions n/m` chip — `n` is the number of rows whose Human cell is
+   * ticked, `m` is the total row count. Distinct from `tasksCompleted/Total`
+   * which counts body checkbox tasks, not session log entries.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  workSessionsTotal?: number;
+  workSessionsSigned?: number;
+  /**
+   * Absolute paths to sibling SDD files for the current feature, populated only
+   * when the host can resolve them on disk. Powers per-step click-to-open in
+   * the spec stepper — a missing entry renders the stepper node as disabled.
+   * Sprint files leave these undefined; the stepper jumps to in-file sections
+   * via `sectionOffsets` instead.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  siblingPaths?: {
+    spec?: string;
+    design?: string;
+    tasks?: string;
+    journal?: string;
+  };
+  /**
+   * 1-indexed line numbers for in-file section headings in sprint single-file
+   * SDD format. The stepper uses these to dispatch `chat/openFile { path,
+   * line }` so clicking a step scrolls to the matching `## SPEC` / `## DESIGN`
+   * / `## TASKS` heading. Standard 4-file mode leaves these undefined and uses
+   * `siblingPaths` for navigation. `sessions` is the sprint Work Sessions
+   * heading line; for standard mode this targets the `## Work Sessions` heading
+   * inside `tasks.md`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  sectionOffsets?: {
+    spec?: number;
+    design?: number;
+    tasks?: number;
+    sessions?: number;
+  };
 }
 
 /**

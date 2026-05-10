@@ -1558,6 +1558,63 @@ describe("sidebar-panel host bridge", () => {
   });
 
   /**
+   * Spec stepper bridge forwarding — siblingPaths + sectionOffsets must
+   * survive round-tripping through postActiveDocContext, otherwise the
+   * webview falls back to "<segment>.md not found" tooltips.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  it("forwards siblingPaths and sectionOffsets through postActiveDocContext", async () => {
+    const { view, inbound } = makeMockView();
+    const provider = createSidebarPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      extensionVersion: "2.0.0-test",
+      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+      bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
+      agentManager: agent,
+      logger,
+    });
+    provider.resolveWebviewView(view, {} as never, {} as never);
+    inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork(2);
+
+    const postMessage = view.webview.postMessage as ReturnType<typeof vi.fn>;
+    postMessage.mockClear();
+
+    provider.postActiveDocContext({
+      format: "standard",
+      section: "DESIGN",
+      docKind: "design",
+      feature: "auth",
+      filePath: "/repo/docs/specs/auth/design.md",
+      approvalStatus: "Approved",
+      siblingPaths: {
+        spec: "/repo/docs/specs/auth/spec.md",
+        design: "/repo/docs/specs/auth/design.md",
+        tasks: "/repo/docs/specs/auth/tasks.md",
+      },
+      sectionOffsets: { sessions: 144 },
+    });
+    await flushAsyncWork(2);
+
+    const forwarded = postMessage.mock.calls
+      .map(([m]) => m as { type?: string })
+      .find((m) => m.type === "chat/activeDocContext");
+    expect(forwarded).toMatchObject({
+      type: "chat/activeDocContext",
+      docKind: "design",
+      siblingPaths: {
+        spec: "/repo/docs/specs/auth/spec.md",
+        design: "/repo/docs/specs/auth/design.md",
+        tasks: "/repo/docs/specs/auth/tasks.md",
+      },
+      sectionOffsets: { sessions: 144 },
+    });
+  });
+
+  /**
    * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
    */

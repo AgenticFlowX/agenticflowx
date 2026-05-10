@@ -46,6 +46,7 @@ import { ChatCommandPresetSubmenu } from "./chat-command-preset-submenu";
 import { docKindVisual } from "./chat-doc-kind-visual";
 import { ChatMemoryMenuButton } from "./chat-memory-menu-button";
 import { ComposerStrip } from "./composer-strip";
+import { SpecStepper, type SpecStepperSegmentKey } from "./spec-stepper";
 
 export interface ChatDocActionsStripProps {
   workspaceMode: WorkspaceMode;
@@ -75,6 +76,16 @@ export interface ChatDocActionsStripProps {
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
    */
   onMemorySelect?: (item: MemoryCatalogItem) => void;
+  /**
+   * Open a workspace file at an optional 1-indexed line. Required by the spec
+   * stepper for per-step navigation. Optional so legacy call sites and tests
+   * keep compiling — when omitted the stepper still renders but every pill is
+   * non-interactive.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  onOpenFile?: (path: string, line?: number) => void;
 }
 
 export function ChatDocActionsStrip({
@@ -86,6 +97,7 @@ export function ChatDocActionsStrip({
   onAutoSend,
   onHostAction,
   onMemorySelect,
+  onOpenFile,
 }: ChatDocActionsStripProps) {
   if (dismissed) return null;
   if (!docContext.docKind) return null;
@@ -103,8 +115,22 @@ export function ChatDocActionsStrip({
     (docContext.signOff?.signable || docContext.signOff?.ready),
   );
   const breadcrumbSegments = buildBreadcrumbSegments(docContext);
-  const showBreadcrumb = workspaceMode === "spec" && breadcrumbSegments.length > 0;
-  const showStripMemory = Boolean(onMemorySelect && workspaceMode === "spec");
+  // Stepper is useful whenever the user is inside an SDD-bearing doc — drop
+  // the prior `workspaceMode === "spec"` gate so Code/Explore modes can still
+  // pivot between Spec/Design/Tasks/Journal without a context switch.
+  const stepperKinds: Array<NonNullable<ActiveDocCtx["docKind"]>> = [
+    "spec",
+    "design",
+    "tasks",
+    "journal",
+  ];
+  const showStepper =
+    docContext.docKind != null &&
+    stepperKinds.includes(docContext.docKind) &&
+    breadcrumbSegments.length > 0;
+  const showStripMemory = Boolean(onMemorySelect);
+  const activeStepperKey = resolveActiveStepperKey(docContext);
+  const journalActive = docContext.docKind === "journal";
 
   const docLabel = describeDoc(docContext);
   const status = docContext.approvalStatus
@@ -145,25 +171,34 @@ export function ChatDocActionsStrip({
         </span>
       }
       headerExtras={
-        showBreadcrumb || showStripMemory ? (
-          <TooltipProvider delayDuration={250}>
-            <div className="flex items-center gap-1">
-              {showBreadcrumb ? (
-                <BreadcrumbHeader
-                  segments={breadcrumbSegments}
-                  onResume={() => onAutoSend("/afx-next")}
-                />
-              ) : null}
-              {showStripMemory && onMemorySelect ? (
-                <ChatMemoryMenuButton onSelect={onMemorySelect} side="top" align="end" />
-              ) : null}
-            </div>
-          </TooltipProvider>
+        showStripMemory && onMemorySelect ? (
+          <ChatMemoryMenuButton onSelect={onMemorySelect} side="top" align="end" />
         ) : null
       }
       onDismiss={onDismiss}
     >
       <TooltipProvider delayDuration={250}>
+        {showStepper ? (
+          <div className="mb-2">
+            <SpecStepper
+              segments={breadcrumbSegments}
+              active={activeStepperKey}
+              format={docContext.format}
+              filePath={docContext.filePath ?? null}
+              siblingPaths={docContext.siblingPaths}
+              sectionOffsets={docContext.sectionOffsets}
+              journalActive={journalActive}
+              tasksCompleted={docContext.tasksCompleted}
+              tasksTotal={docContext.tasksTotal}
+              workSessionsTotal={docContext.workSessionsTotal}
+              workSessionsSigned={docContext.workSessionsSigned}
+              onOpenFile={(path, line) => {
+                if (onOpenFile) onOpenFile(path, line);
+              }}
+              onInsertDraft={onInsert}
+            />
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-1.5">
           {actionGroups.map((group, index) => (
             <ActionCluster
@@ -960,26 +995,30 @@ function SignOffActionButton({
 }
 
 /**
- * Workflow-position breadcrumb segment shape — derived client-side from
+ * Spec-stepper segment shape — derived client-side from
  * `ctx.{specStatus, designStatus, tasksStatus, tasksCompleted, tasksTotal}`
- * so the strip header can render `Spec ✓ → Design ⏳ → Tasks 3/8 → Code`
- * without an extra bridge call.
+ * so the stepper renders `[1 Spec ✓] [2 Design …] [3 Tasks 3/8]` without an
+ * extra bridge call. The terminal `Code` pseudo-segment was dropped — the
+ * action row already covers the implementation phase via Code/Verify/Pick.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 type BreadcrumbSegment = {
-  key: "spec" | "design" | "tasks" | "code";
-  label: "Spec" | "Design" | "Tasks" | "Code";
+  key: "spec" | "design" | "tasks";
+  label: "Spec" | "Design" | "Tasks";
   glyph: string;
   status: "approved" | "draft" | "blocked" | "progress" | "pending";
   hint: string;
 };
 
+// Plain text glyphs only — emoji pictographs (⏳ ⚠) render at a larger
+// font metric than the surrounding mono text on macOS/Windows and bust the
+// pill's height bounds. `…` and `!` keep the rhythm tight.
 const STATUS_GLYPH: Record<BreadcrumbSegment["status"], string> = {
   approved: "✓",
-  draft: "⏳",
-  blocked: "⚠",
+  draft: "…",
+  blocked: "!",
   progress: "·",
   pending: "·",
 };
@@ -1019,14 +1058,28 @@ function buildBreadcrumbSegments(ctx: ActiveDocCtx): BreadcrumbSegment[] {
         ? `Tasks: ${taskProgressGlyph} done`
         : hintForSegment("Tasks", ctx.tasksStatus),
     },
-    {
-      key: "code",
-      label: "Code",
-      glyph: STATUS_GLYPH.pending,
-      status: "pending",
-      hint: "Code: pending — verify after tasks complete",
-    },
   ];
+}
+
+/**
+ * Map the active doc context to which spec-stepper segment should carry the
+ * ring halo. Sprint files use the in-file `section` (`SPEC` / `DESIGN` /
+ * `TASKS`); standard 4-file mode uses `docKind`. Journal active returns null
+ * so the stepper stays "no main step active" and the tier-2 chip lights up.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ */
+function resolveActiveStepperKey(ctx: ActiveDocCtx): SpecStepperSegmentKey | null {
+  if (ctx.format === "sprint") {
+    if (ctx.section === "SPEC") return "spec";
+    if (ctx.section === "DESIGN") return "design";
+    if (ctx.section === "TASKS") return "tasks";
+    return null;
+  }
+  if (ctx.docKind === "spec" || ctx.docKind === "design" || ctx.docKind === "tasks") {
+    return ctx.docKind;
+  }
+  return null;
 }
 
 function mapApprovalStatus(raw: string | null | undefined): BreadcrumbSegment["status"] {
@@ -1044,74 +1097,6 @@ function hintForSegment(
 ): string {
   if (!raw) return `${label}: not started`;
   return `${label}: ${raw}`;
-}
-
-/**
- * BreadcrumbHeader — renders the workflow position above the active strip
- * actions. Click auto-sends `/afx-next` (deterministic read with no open
- * arguments, so it's safe to auto-send rather than insert into draft).
- *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- */
-function BreadcrumbHeader({
-  segments,
-  onResume,
-}: {
-  segments: readonly BreadcrumbSegment[];
-  onResume: () => void;
-}) {
-  const summary = segments.map((s) => `${s.label} ${s.glyph}`).join(" → ");
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onResume}
-          aria-label={`Resume workflow — ${summary}`}
-          data-testid="doc-actions-breadcrumb"
-          className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-mono text-[10px] tracking-tight text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          {segments.map((segment, index) => (
-            <span
-              key={segment.key}
-              className="inline-flex items-center gap-0.5"
-              data-segment={segment.key}
-              data-status={segment.status}
-            >
-              <span>{segment.label}</span>
-              <span
-                className={cn(
-                  "ml-0.5",
-                  segment.status === "approved" && "text-emerald-500",
-                  segment.status === "blocked" && "text-amber-500",
-                  segment.status === "draft" && "text-afx-brand-soft",
-                )}
-              >
-                {segment.glyph}
-              </span>
-              {index < segments.length - 1 ? (
-                <span aria-hidden className="text-muted-foreground/50">
-                  →
-                </span>
-              ) : null}
-            </span>
-          ))}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" align="end" className="max-w-[220px] text-left">
-        <span className="flex flex-col gap-0.5">
-          <span className="font-medium">Workflow position</span>
-          {segments.map((segment) => (
-            <span key={segment.key} className="text-[11px] leading-snug opacity-85">
-              {segment.hint}
-            </span>
-          ))}
-          <span className="font-mono text-[9px] uppercase opacity-70">Click to /afx-next</span>
-        </span>
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 function actionHelp(action: DocAction): { description: string; modeLabel: string } {

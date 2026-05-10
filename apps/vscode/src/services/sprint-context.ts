@@ -18,8 +18,8 @@ import { parseFrontmatter } from "@afx/parsers";
 import type { FocusOption, Logger, PhaseRow, SignOffSummary, TaskItemRow } from "@afx/shared";
 
 import { type FocusDocKind, parseFocuses } from "./focus-parser";
-import { type SprintSection, findSectionAt, isSprintFile } from "./sprint";
-import { summarizeTasksSignOff } from "./tasks-signoff";
+import { type SprintSection, findSectionAt, isSprintFile, sliceSprintSection } from "./sprint";
+import { summarizeTasksSignOff, summarizeWorkSessions } from "./tasks-signoff";
 
 const SPRINT_KEY = "afx.isSprint";
 const SECTION_KEY = "afx.sprintSection";
@@ -66,6 +66,44 @@ export interface ActiveDocContext {
   specStatus?: string | null;
   designStatus?: string | null;
   tasksStatus?: string | null;
+  /**
+   * Work Sessions table row counts — surfaces in the spec stepper's tier-2
+   * `Work Sessions n/m` chip. `total` = number of data rows in the
+   * `## Work Sessions` table; `humanSigned` = rows whose Human cell is `[x]`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  workSessionsTotal?: number;
+  workSessionsSigned?: number;
+  /**
+   * Absolute paths to sibling SDD files for the current feature, populated only
+   * for standard 4-file mode and only when the file exists on disk. Powers the
+   * spec stepper's per-step click-to-open. Sprint files leave this undefined
+   * and rely on `sectionOffsets` for in-file navigation.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  siblingPaths?: {
+    spec?: string;
+    design?: string;
+    tasks?: string;
+    journal?: string;
+  };
+  /**
+   * 1-indexed line numbers for in-file section headings in sprint single-file
+   * SDD format, plus the standard `## Work Sessions` heading inside tasks.md.
+   * Powers the spec stepper's section-aware jumps.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   */
+  sectionOffsets?: {
+    spec?: number;
+    design?: number;
+    tasks?: number;
+    sessions?: number;
+  };
 }
 
 const EMPTY_DOC_CONTEXT: ActiveDocContext = {
@@ -133,9 +171,13 @@ export function createSprintContextSync(
       next.specStatus === currentDocContext.specStatus &&
       next.designStatus === currentDocContext.designStatus &&
       next.tasksStatus === currentDocContext.tasksStatus &&
+      next.workSessionsTotal === currentDocContext.workSessionsTotal &&
+      next.workSessionsSigned === currentDocContext.workSessionsSigned &&
       sameFocuses(next.parsedFocuses, currentDocContext.parsedFocuses) &&
       sameTaskPhases(next.taskPhases, currentDocContext.taskPhases) &&
-      sameSignOff(next.signOff, currentDocContext.signOff)
+      sameSignOff(next.signOff, currentDocContext.signOff) &&
+      sameSiblingPaths(next.siblingPaths, currentDocContext.siblingPaths) &&
+      sameSectionOffsets(next.sectionOffsets, currentDocContext.sectionOffsets)
     ) {
       return;
     }
@@ -170,7 +212,13 @@ export function createSprintContextSync(
       const cursorLine = editor.selection.active.line;
       const section = findSectionAt(text, cursorLine);
       setSection(section);
-      const sprintSection = section === "SESSIONS" ? null : (section ?? null);
+      // Cursor in the SESSIONS slice rolls up to TASKS so the spec stepper
+      // and action row keep rendering — Sessions is the work-log half of the
+      // tasks workflow, not a standalone document phase. Without this rollup
+      // the strip would disappear the moment the user clicked into the Work
+      // Sessions table, breaking sprint single-file navigation.
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+      const sprintSection = section === "SESSIONS" ? "TASKS" : (section ?? null);
       const docKind = sprintSection
         ? sprintSection === "SPEC"
           ? "spec"
@@ -179,22 +227,28 @@ export function createSprintContextSync(
             : "tasks"
         : null;
       setDocContext(
-        withSiblingStatuses(
-          withTaskPhases(
-            withParsedFocuses(
-              {
-                format: "sprint",
-                section: sprintSection,
-                docKind,
-                feature: extractFeatureFromPath(docPath, null),
-                filePath: fsPath,
-                approvalStatus: extractSprintApprovalStatus(text, section),
-              },
-              parseSprintFocuses(text, section, docKind),
+        withWorkSessionCounts(
+          withSectionOffsets(
+            withSiblingStatuses(
+              withTaskPhases(
+                withParsedFocuses(
+                  {
+                    format: "sprint",
+                    section: sprintSection,
+                    docKind,
+                    feature: extractFeatureFromPath(docPath, null),
+                    filePath: fsPath,
+                    approvalStatus: extractSprintApprovalStatus(text, section),
+                  },
+                  parseSprintFocuses(text, section, docKind),
+                ),
+                parseSprintTaskSummary(text, section, docKind),
+              ),
+              extractSprintSiblingStatuses(text),
             ),
-            parseSprintTaskSummary(text, section, docKind),
+            extractSprintSectionOffsets(text),
           ),
-          extractSprintSiblingStatuses(text),
+          summarizeSprintWorkSessions(text),
         ),
       );
       return;
@@ -203,33 +257,43 @@ export function createSprintContextSync(
     setSection(undefined);
     const docKind = detectDocKind(docPath, text);
     if (docKind) {
+      const featureDir = deriveFeatureDir(fsPath, docKind);
       setDocContext(
-        withSiblingStatuses(
-          withSignOff(
-            withTaskPhases(
-              withParsedFocuses(
-                {
-                  format: "standard",
-                  section:
-                    docKind === "spec"
-                      ? "SPEC"
-                      : docKind === "design"
-                        ? "DESIGN"
-                        : docKind === "tasks"
-                          ? "TASKS"
-                          : null,
-                  docKind,
-                  feature: extractFeatureFromPath(docPath, docKind),
-                  filePath: fsPath,
-                  approvalStatus: extractFrontmatterStatus(text),
-                },
-                parseFocuses(text, toFocusDocKind(docKind)),
+        withWorkSessionCounts(
+          withSectionOffsets(
+            withSiblingPaths(
+              withSiblingStatuses(
+                withSignOff(
+                  withTaskPhases(
+                    withParsedFocuses(
+                      {
+                        format: "standard",
+                        section:
+                          docKind === "spec"
+                            ? "SPEC"
+                            : docKind === "design"
+                              ? "DESIGN"
+                              : docKind === "tasks"
+                                ? "TASKS"
+                                : null,
+                        docKind,
+                        feature: extractFeatureFromPath(docPath, docKind),
+                        filePath: fsPath,
+                        approvalStatus: extractFrontmatterStatus(text),
+                      },
+                      parseFocuses(text, toFocusDocKind(docKind)),
+                    ),
+                    docKind === "tasks" ? parseTaskPhases(text) : null,
+                  ),
+                  docKind === "tasks" ? summarizeTasksSignOff(text) : null,
+                ),
+                readSiblingStatuses(featureDir),
               ),
-              docKind === "tasks" ? parseTaskPhases(text) : null,
+              collectSiblingPaths(featureDir),
             ),
-            docKind === "tasks" ? summarizeTasksSignOff(text) : null,
+            docKind === "tasks" ? extractStandardWorkSessionsOffset(text) : undefined,
           ),
-          readSiblingStatuses(deriveFeatureDir(fsPath, docKind)),
+          docKind === "tasks" ? summarizeWorkSessions(text) : null,
         ),
       );
       return;
@@ -508,6 +572,128 @@ function extractSprintSiblingStatuses(text: string): SiblingStatuses {
   return { spec: pick("spec"), design: pick("design"), tasks: pick("tasks") };
 }
 
+/**
+ * Attach absolute paths to existing sibling SDD files for the spec stepper. We
+ * read directory contents once via {@link readSiblingPaths} and only emit keys
+ * for files that exist on disk; missing siblings render the stepper node as
+ * disabled (no `chat/openFile` dispatched on click).
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+ */
+function withSiblingPaths(
+  ctx: ActiveDocContext,
+  paths: NonNullable<ActiveDocContext["siblingPaths"]>,
+): ActiveDocContext {
+  if (Object.keys(paths).length === 0) return ctx;
+  return { ...ctx, siblingPaths: paths };
+}
+
+/**
+ * Attach 1-indexed in-file section heading line numbers for the spec stepper.
+ * Sprint mode populates spec/design/tasks/sessions; standard tasks.md only
+ * populates `sessions` (the `## Work Sessions` heading) — the other three
+ * fields stay undefined because navigation goes through `siblingPaths`.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+ */
+function withSectionOffsets(
+  ctx: ActiveDocContext,
+  offsets: NonNullable<ActiveDocContext["sectionOffsets"]> | undefined,
+): ActiveDocContext {
+  if (!offsets || Object.keys(offsets).length === 0) return ctx;
+  return { ...ctx, sectionOffsets: offsets };
+}
+
+function collectSiblingPaths(
+  featureDir: string | null,
+): NonNullable<ActiveDocContext["siblingPaths"]> {
+  if (!featureDir) return {};
+  const out: NonNullable<ActiveDocContext["siblingPaths"]> = {};
+  for (const [key, filename] of [
+    ["spec", "spec.md"],
+    ["design", "design.md"],
+    ["tasks", "tasks.md"],
+    ["journal", "journal.md"],
+  ] as const) {
+    const fullPath = `${featureDir}/${filename}`;
+    try {
+      if (fs.existsSync(fullPath)) out[key] = fullPath;
+    } catch {
+      /* swallow — missing path simply omits the key */
+    }
+  }
+  return out;
+}
+
+/**
+ * Attach Work Sessions row counts onto the bridge payload so the spec
+ * stepper's tier-2 chip reads `Work Sessions n/m` from real session-log
+ * data, not from the body checkbox `tasksCompleted/Total`.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ */
+function withWorkSessionCounts(
+  ctx: ActiveDocContext,
+  counts: { total: number; humanSigned: number } | null,
+): ActiveDocContext {
+  if (!counts || counts.total === 0) return ctx;
+  return {
+    ...ctx,
+    workSessionsTotal: counts.total,
+    workSessionsSigned: counts.humanSigned,
+  };
+}
+
+/**
+ * Sprint files keep their Work Sessions table inside the SESSIONS slice.
+ * Slice it out and run the standard counter so the chip's `n/m` matches the
+ * standard tasks.md flow.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ */
+function summarizeSprintWorkSessions(text: string): { total: number; humanSigned: number } | null {
+  const slice = sliceSprintSection(text, "SESSIONS");
+  if (!slice) return null;
+  return summarizeWorkSessions(slice.content);
+}
+
+function extractSprintSectionOffsets(
+  text: string,
+): NonNullable<ActiveDocContext["sectionOffsets"]> {
+  const out: NonNullable<ActiveDocContext["sectionOffsets"]> = {};
+  for (const [key, section] of [
+    ["spec", "SPEC"],
+    ["design", "DESIGN"],
+    ["tasks", "TASKS"],
+    ["sessions", "SESSIONS"],
+  ] as const) {
+    const slice = sliceSprintSection(text, section);
+    if (slice) out[key] = slice.startLine + 1; // protocol uses 1-indexed lines
+  }
+  return out;
+}
+
+/**
+ * Locate the `## Work Sessions` (or `## Sessions`) heading inside a standard
+ * tasks.md so the spec stepper can scroll the editor to that table when the
+ * user clicks the tier-2 Work Sessions chip. Returns undefined when the
+ * heading is absent so the chip stays disabled.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ */
+function extractStandardWorkSessionsOffset(
+  text: string,
+): NonNullable<ActiveDocContext["sectionOffsets"]> | undefined {
+  const lines = text.split(/\r?\n/);
+  const re = /^##\s+(?:Work\s+Sessions?|Sessions)\b/i;
+  for (let i = 0; i < lines.length; i++) {
+    if (re.test(lines[i] ?? "")) return { sessions: i + 1 };
+  }
+  return undefined;
+}
+
 function toFocusDocKind(docKind: ActiveDocContext["docKind"]): FocusDocKind | null {
   if (docKind === "spec" || docKind === "design" || docKind === "tasks") return docKind;
   return null;
@@ -703,6 +889,34 @@ function sameTaskItems(left: TaskItemRow[], right: TaskItemRow[]): boolean {
       item.wbsId === other.wbsId
     );
   });
+}
+
+function sameSiblingPaths(
+  left: ActiveDocContext["siblingPaths"],
+  right: ActiveDocContext["siblingPaths"],
+): boolean {
+  const leftKeys = left ? Object.keys(left) : [];
+  const rightKeys = right ? Object.keys(right) : [];
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every(
+    (key) =>
+      (left as Record<string, string | undefined>)[key] ===
+      (right as Record<string, string | undefined>)[key],
+  );
+}
+
+function sameSectionOffsets(
+  left: ActiveDocContext["sectionOffsets"],
+  right: ActiveDocContext["sectionOffsets"],
+): boolean {
+  const leftKeys = left ? Object.keys(left) : [];
+  const rightKeys = right ? Object.keys(right) : [];
+  if (leftKeys.length !== rightKeys.length) return false;
+  return leftKeys.every(
+    (key) =>
+      (left as Record<string, number | undefined>)[key] ===
+      (right as Record<string, number | undefined>)[key],
+  );
 }
 
 function sameSignOff(left: SignOffSummary | undefined, right: SignOffSummary | undefined): boolean {

@@ -1612,6 +1612,7 @@ export default function Chat({
             onAutoSend={sendNow}
             onHostAction={dispatchHostAction}
             onMemorySelect={handleMemorySelect}
+            onOpenFile={handleOpenModifiedFile}
           />
           {/* @see docs/specs/211-app-chat-composer/spec.md [FR-15]
            * Mode-suggest strip — one-time onboarding for sprint files outside Spec mode. */}

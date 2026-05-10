@@ -837,10 +837,7 @@ describe("ChatDocActionsStrip", () => {
   //   @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
   // ---------------------------------------------------------------------------
 
-  it("renders the workflow-position breadcrumb in Spec mode and routes click to /afx-next", async () => {
-    const onAutoSend = vi.fn();
-    const user = userEvent.setup();
-
+  it("renders the spec stepper in Spec mode with per-segment statuses (3 pills, no Code, no resume button)", () => {
     render(
       <ChatDocActionsStrip
         workspaceMode="spec"
@@ -853,30 +850,37 @@ describe("ChatDocActionsStrip", () => {
           specStatus: "Approved",
           designStatus: "Draft",
           tasksStatus: null,
+          siblingPaths: { spec: "/x/spec.md", design: "/x/design.md" },
         }}
         dismissed={false}
         onDismiss={vi.fn()}
         onInsert={vi.fn()}
-        onAutoSend={onAutoSend}
+        onAutoSend={vi.fn()}
+        onOpenFile={vi.fn()}
       />,
     );
 
-    const breadcrumb = screen.getByTestId("doc-actions-breadcrumb");
-    expect(breadcrumb).toHaveTextContent(/Spec.*Design.*Tasks.*Code/);
-    expect(breadcrumb.querySelector('[data-segment="spec"]')).toHaveAttribute(
+    expect(screen.getByTestId("spec-stepper")).toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveAttribute(
       "data-status",
       "approved",
     );
-    expect(breadcrumb.querySelector('[data-segment="design"]')).toHaveAttribute(
+    expect(screen.getByTestId("spec-stepper-segment-design")).toHaveAttribute(
       "data-status",
       "draft",
     );
-
-    await user.click(breadcrumb);
-    expect(onAutoSend).toHaveBeenCalledWith("/afx-next");
+    expect(screen.getByTestId("spec-stepper-segment-design")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+    // Code pill + resume button were dropped in the round-2 polish.
+    expect(screen.queryByTestId("spec-stepper-segment-code")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("spec-stepper-resume")).not.toBeInTheDocument();
+    // Tier-2 carries the explicit "Related" label.
+    expect(screen.getByText("Related")).toBeInTheDocument();
   });
 
-  it("renders task progress (N/M) in the breadcrumb when tasks counters are known", () => {
+  it("renders task progress (N/M) on the Tasks pill when tasks counters are known", () => {
     render(
       <ChatDocActionsStrip
         workspaceMode="spec"
@@ -893,19 +897,20 @@ describe("ChatDocActionsStrip", () => {
           tasksStatus: "Draft",
           tasksCompleted: 3,
           tasksTotal: 8,
+          siblingPaths: { tasks: "/x/tasks.md" },
         }}
         dismissed={false}
         onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
+        onOpenFile={vi.fn()}
       />,
     );
 
-    const breadcrumb = screen.getByTestId("doc-actions-breadcrumb");
-    expect(breadcrumb).toHaveTextContent("3/8");
+    expect(screen.getByTestId("spec-stepper-segment-tasks")).toHaveTextContent("3/8");
   });
 
-  it("hides the breadcrumb outside Spec mode", () => {
+  it("renders the spec stepper outside Spec mode (no longer gated by workspaceMode)", () => {
     render(
       <ChatDocActionsStrip
         workspaceMode="code"
@@ -918,15 +923,19 @@ describe("ChatDocActionsStrip", () => {
           specStatus: "Draft",
           designStatus: null,
           tasksStatus: null,
+          siblingPaths: { spec: "/x/spec.md" },
         }}
         dismissed={false}
         onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
+        onOpenFile={vi.fn()}
       />,
     );
 
-    expect(screen.queryByTestId("doc-actions-breadcrumb")).not.toBeInTheDocument();
+    // Per FR-17 the stepper is visible in every workspace mode so SDD pivot
+    // works from Code/Explore too.
+    expect(screen.getByTestId("spec-stepper")).toBeInTheDocument();
   });
 
   it("renders the strip-header Memory anchor when onMemorySelect is wired", async () => {
@@ -963,7 +972,7 @@ describe("ChatDocActionsStrip", () => {
     );
   });
 
-  it("hides the strip-header Memory anchor outside Spec mode", () => {
+  it("renders the stepper Memory anchor in every workspace mode (no longer gated)", () => {
     render(
       <ChatDocActionsStrip
         workspaceMode="code"
@@ -973,16 +982,20 @@ describe("ChatDocActionsStrip", () => {
           docKind: "spec",
           feature: "auth",
           approvalStatus: "Draft",
+          siblingPaths: { spec: "/x/spec.md" },
         }}
         dismissed={false}
         onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onMemorySelect={vi.fn()}
+        onOpenFile={vi.fn()}
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Open memory menu" })).not.toBeInTheDocument();
+    // Memory now lives in the stepper's tier-2 row and is shown whenever
+    // onMemorySelect is wired — independent of workspaceMode (FR-18).
+    expect(screen.getByRole("button", { name: "Open memory menu" })).toBeInTheDocument();
   });
 
   it("uses the canonical compact action set in non-Spec mode (research)", () => {
@@ -1098,5 +1111,151 @@ describe("ChatDocActionsStrip", () => {
     await user.click(screen.getByRole("button", { name: "Code options" }));
     await user.click(await screen.findByText("Code 1.1"));
     expect(onInsert).toHaveBeenCalledWith("/afx-sprint code alpha 1.1");
+  });
+
+  // Spec stepper integration
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
+  // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+  it("renders the spec stepper inside the strip body when an SDD doc is active", () => {
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Approved",
+          specStatus: "Approved",
+          designStatus: "Draft",
+          tasksStatus: null,
+          siblingPaths: {
+            spec: "/work/docs/specs/auth/spec.md",
+            design: "/work/docs/specs/auth/design.md",
+          },
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId("spec-stepper")).toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveAttribute("data-active", "true");
+  });
+
+  it("stepper pill click dispatches onOpenFile with the sibling path", async () => {
+    const user = userEvent.setup();
+    const onOpenFile = vi.fn();
+
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="code"
+        docContext={{
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Approved",
+          specStatus: "Approved",
+          designStatus: "Draft",
+          siblingPaths: {
+            spec: "/work/docs/specs/auth/spec.md",
+            design: "/work/docs/specs/auth/design.md",
+          },
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
+        onOpenFile={onOpenFile}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Design step/i }));
+    expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/auth/design.md", undefined);
+  });
+
+  it("Memory ▾ anchor lives in the strip header, not in the stepper tier-2 row", () => {
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Approved",
+          specStatus: "Approved",
+          siblingPaths: { spec: "/x/spec.md" },
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
+        onMemorySelect={vi.fn()}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    // Memory anchor is rendered (FR-18) and lives outside the stepper subtree.
+    const memoryButton = screen.getByRole("button", { name: "Open memory menu" });
+    expect(memoryButton).toBeInTheDocument();
+    const stepper = screen.getByTestId("spec-stepper");
+    expect(stepper.contains(memoryButton)).toBe(false);
+  });
+
+  it("stepper hides when the active doc is not an SDD doc (e.g. ADR)", () => {
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: null,
+          docKind: "adr",
+          feature: "auth",
+          approvalStatus: "Approved",
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
+        onOpenFile={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("spec-stepper")).not.toBeInTheDocument();
+  });
+
+  it("sprint mode → stepper pill click jumps to the in-file section line", async () => {
+    const user = userEvent.setup();
+    const onOpenFile = vi.fn();
+
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "sprint",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "alpha",
+          filePath: "/work/docs/specs/alpha/sprint.md",
+          approvalStatus: "Approved",
+          specStatus: "Approved",
+          designStatus: "Draft",
+          sectionOffsets: { spec: 12, design: 48, tasks: 102, sessions: 220 },
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
+        onOpenFile={onOpenFile}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Design step/i }));
+    expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/alpha/sprint.md", 48);
   });
 });

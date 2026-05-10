@@ -117,6 +117,31 @@ export interface ActiveDocContextPayload {
   tasksStatus?: string | null;
   tasksCompleted?: number;
   tasksTotal?: number;
+  /**
+   * Work Sessions table row counts — `total` = data rows; `signed` = rows
+   * with Human cell `[x]`. Powers the spec stepper's Work Sessions chip
+   * label.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  workSessionsTotal?: number;
+  workSessionsSigned?: number;
+  /**
+   * Resolved sibling SDD file paths for the spec stepper's per-pill
+   * click-to-open. Populated by sprint-context.ts only for files that exist
+   * on disk; missing entries render the corresponding pill as disabled.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  siblingPaths?: { spec?: string; design?: string; tasks?: string; journal?: string };
+  /**
+   * 1-indexed in-file section heading lines for the spec stepper. Sprint files
+   * populate spec/design/tasks/sessions; standard tasks.md populates only
+   * `sessions`.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  sectionOffsets?: { spec?: number; design?: number; tasks?: number; sessions?: number };
 }
 
 export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
@@ -1382,6 +1407,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           tasksStatus: lastActiveDocContext.tasksStatus,
           tasksCompleted: lastActiveDocContext.tasksCompleted,
           tasksTotal: lastActiveDocContext.tasksTotal,
+          workSessionsTotal: lastActiveDocContext.workSessionsTotal,
+          workSessionsSigned: lastActiveDocContext.workSessionsSigned,
+          siblingPaths: lastActiveDocContext.siblingPaths,
+          sectionOffsets: lastActiveDocContext.sectionOffsets,
         });
         return;
       }
@@ -2761,6 +2790,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         tasksStatus: payload.tasksStatus,
         tasksCompleted: payload.tasksCompleted,
         tasksTotal: payload.tasksTotal,
+        workSessionsTotal: payload.workSessionsTotal,
+        workSessionsSigned: payload.workSessionsSigned,
+        siblingPaths: payload.siblingPaths,
+        sectionOffsets: payload.sectionOffsets,
       });
     },
     async refreshCustomModelsSnapshot(): Promise<void> {

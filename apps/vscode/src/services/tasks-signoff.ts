@@ -298,6 +298,23 @@ function parseTaskCheckboxes(rawTasks: string): { total: number; completed: numb
   return { total, completed };
 }
 
+/**
+ * Lightweight Work Sessions row summary for the chat composer's Work Sessions
+ * chip. Counts every data row in the `## Work Sessions` table and reports how
+ * many have a ticked Human cell — surfaced as `n/m` next to the chip so the
+ * user can see at a glance how much of the log has been signed off.
+ *
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+ */
+export function summarizeWorkSessions(rawTasks: string): {
+  total: number;
+  humanSigned: number;
+} {
+  const rows = parseWorkSessionRows(rawTasks);
+  const humanSigned = rows.filter((row) => isChecked(row.humanCell.text)).length;
+  return { total: rows.length, humanSigned };
+}
+
 function parseWorkSessionRows(rawTasks: string): WorkSessionRow[] {
   const rows: WorkSessionRow[] = [];
   const lines = rawTasks.split("\n");
