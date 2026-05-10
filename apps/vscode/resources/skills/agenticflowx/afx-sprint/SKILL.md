@@ -217,6 +217,35 @@ After EVERY `/afx-sprint` action, suggest the most appropriate next command base
 | After `code`                        | `/afx-check path <feature-path>` — verify implementation |
 | After `graduate`                    | `/afx-spec validate <feature>` — check split output      |
 
+**UI Action Block (ADDITIVE):** Preserve the `Next (ranked)` or equivalent prose suggestion. When the next moves include concrete `/afx-*` commands with resolved sprint feature names or paths, also emit a marker-wrapped fenced JSON array immediately after the prose. Include at most three actions and omit non-command advice such as "Fix reported gaps" unless paired with a concrete command.
+
+````markdown
+<!-- AFX-UI-ACTIONS:START -->
+
+```json
+[
+  {
+    "rank": 1,
+    "label": "Approve sprint spec",
+    "command": "/afx-sprint spec onboarding --approve",
+    "mode": "run",
+    "reason": "The sprint Spec section is ready for its lifecycle gate.",
+    "vocabulary": "Approve = advance a lifecycle gate."
+  },
+  {
+    "rank": 2,
+    "label": "Refine sprint design",
+    "command": "/afx-sprint design onboarding",
+    "mode": "insert",
+    "reason": "Use after spec approval to shape the implementation plan.",
+    "vocabulary": "Refine = improve living artifact content."
+  }
+]
+```
+
+<!-- AFX-UI-ACTIONS:END -->
+````
+
 ---
 
 ## Subcommands

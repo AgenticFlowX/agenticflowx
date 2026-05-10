@@ -24,25 +24,23 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Workspace mode" }).click();
     await expect(page.getByRole("menuitemradio", { name: /Spec/ })).toBeVisible();
-    // SDD framing — the dropdown menuitemradio description references Spec-Driven Development.
-    await expect(
-      page.getByRole("menuitemradio", { name: /Spec-Driven Development/i }),
-    ).toBeVisible();
+    // SDD framing — the dropdown explains that Spec mode is for planning first.
+    await expect(page.getByText(/Plan before you code/i)).toBeVisible();
   });
 
   test("switching to Spec mode renders the SDD welcome card", async ({ page }) => {
     await page.goto("/");
     await selectMode(page, "Spec");
 
-    // Heading reads "Spec-driven workflow".
-    await expect(page.getByRole("heading", { name: /Spec-driven workflow/i })).toBeVisible();
-    // The SDD onboarding tagline.
-    await expect(page.getByText(/Spec -> design -> tasks/i)).toBeVisible();
-    // Onboarding starter buttons.
-    await expect(page.getByRole("button", { name: /Create first spec/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Plan before you code/i })).toBeVisible();
+    await expect(page.getByText(/Describe what you're building/i)).toBeVisible();
+    await expect(page.getByLabel("What are you building?")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Plan a new feature/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Improve an existing spec/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Try a sample/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Explore an idea/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /Start lean/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Resume workflow/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /\/afx-context load/i })).toBeVisible();
   });
 
   test("Spec mode applies data-workspace-mode='spec' to the InputGroup wrapper", async ({
@@ -63,10 +61,19 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(page.getByText(/Planning \/ Docs only/)).toBeVisible();
   });
 
-  test("clicking 'Resume workflow' inserts /afx-next into the composer draft", async ({ page }) => {
+  test("clicking 'Resume workflow' opens a command receipt that can insert /afx-next", async ({
+    page,
+  }) => {
     await page.goto("/");
     await selectMode(page, "Spec");
-    await page.getByRole("button", { name: /Resume workflow/i }).click();
+    await page
+      .getByRole("button", { name: /Resume workflow/i })
+      .filter({ hasText: "Ask AFX to inspect" })
+      .click();
+    await expect(
+      page.getByRole("region", { name: /Find next best move command receipt/i }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Insert" }).click();
     const composer = page.locator("#afx-chat-composer");
     await expect(composer).toHaveValue(/\/afx-next/);
   });
@@ -74,7 +81,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
   test("switching back to Code mode restores the default welcome", async ({ page }) => {
     await page.goto("/");
     await selectMode(page, "Spec");
-    await expect(page.getByRole("heading", { name: /Spec-driven workflow/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Plan before you code/i })).toBeVisible();
 
     await selectMode(page, "Code");
     // Code-mode landing intro replaces the Spec welcome.

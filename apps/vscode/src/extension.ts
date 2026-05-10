@@ -593,7 +593,7 @@ async function pickWorkspaceMode(current: WorkspaceMode): Promise<WorkspaceMode 
     [
       {
         label: "$(circle-filled) Code",
-        description: "Default. Full access. Pi can act and edit.",
+        description: "Default. Full access. The active coding harness can act and edit.",
         value: "code" as const,
       },
       {

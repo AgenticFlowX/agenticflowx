@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -541,7 +541,7 @@ describe("chat App", () => {
     expect(modeIcon).not.toHaveClass("text-muted-foreground");
     await user.hover(modeButton);
     expect(
-      await screen.findByText(/code is the default full-access pi-backed mode/i, {
+      await screen.findByText(/code is the default full-access coding mode/i, {
         selector: '[data-slot="tooltip-content"]',
       }),
     ).toBeInTheDocument();
@@ -1142,6 +1142,57 @@ describe("chat App", () => {
     await user.click(screen.getByRole("button", { name: "What do I do next?" }));
     expect(composer).toHaveValue("/afx-next");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+
+    await user.click(screen.getByRole("button", { name: "Plan in Spec mode" }));
+    expect(composer).toHaveValue("/afx-spec new ");
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/setMode", mode: "spec" }),
+    );
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+  });
+
+  it("suggests Spec mode after an AFX command completes in Code mode", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport);
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.type(
+      screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
+      "/afx-next",
+    );
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/send", content: "/afx-next" }),
+    );
+
+    act(() => {
+      transport.emit({ type: "chat/messageEnd", id: "afx-next", stopReason: "stop" });
+    });
+
+    expect(screen.getByText("AFX command completed")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Switch to Spec" }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/setMode", mode: "spec" }),
+    );
   });
 
   it("shows Explore mode read-only onboarding as a distinct empty state", async () => {
@@ -1204,17 +1255,26 @@ describe("chat App", () => {
       emitChatState(transport, {}, null, "spec");
     });
 
-    expect(screen.getByRole("heading", { name: "Spec-driven workflow" })).toBeInTheDocument();
-    expect(screen.getByText(/Spec -> design -> tasks/i)).toBeInTheDocument();
-    expect(screen.getByText("How AFX moves work")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Plan before you code." })).toBeInTheDocument();
+    expect(screen.getByText(/Describe what you're building/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("What are you building?")).toBeInTheDocument();
+    expect(screen.getByText("Or choose a move")).toBeInTheDocument();
+    expect(screen.getByText("Describe")).toBeInTheDocument();
+    expect(screen.getAllByText("Spec").length).toBeGreaterThan(0);
+    expect(screen.getByText("Design")).toBeInTheDocument();
+    expect(screen.getByText("Tasks")).toBeInTheDocument();
+    expect(screen.getAllByText("Code").length).toBeGreaterThan(0);
     expect(screen.getByText("Living specs")).toBeInTheDocument();
     expect(screen.getByText("Traceability")).toBeInTheDocument();
     expect(screen.getByText("Sprint mode")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Create first spec/i })).toBeInTheDocument();
-    expect(screen.getByText(/Pick an example or bring your own idea/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Plan a new feature/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Improve an existing spec/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Resume workflow/i }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /Try a sample/i })).toBeInTheDocument();
+    expect(screen.getByText("Or jump straight in")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Explore an idea/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Start lean/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Resume workflow/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Resume workflow/i }).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "/afx-context load" })).toBeInTheDocument();
     expect(screen.getByText("Same skills. Same files. Same rules.")).toBeInTheDocument();
 
@@ -1223,17 +1283,43 @@ describe("chat App", () => {
     const specComposer = (): HTMLTextAreaElement =>
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       screen.getByPlaceholderText(/Spec mode/i) as HTMLTextAreaElement;
-    await user.click(screen.getByRole("button", { name: /Create first spec/i }));
-    expect(specComposer().value).toContain("I want to create my first AFX spec");
-    expect(specComposer().value).toContain("a landing page for <product or project>");
-    expect(specComposer().value).toContain("a workflow/tooling feature");
-    expect(specComposer().value).toContain(
-      "recommend whether this should become an /afx-spec or an /afx-sprint",
+
+    await user.type(screen.getByLabelText("What are you building?"), "Add compact onboarding");
+    expect(screen.getByText(/Looks like:/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Start" }));
+    expect(
+      screen.getByRole("region", { name: /Plan a new feature command receipt/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Run" }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "/afx-spec new Add compact onboarding",
+      }),
     );
+
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: /Try a sample/i }));
+    await user.click(screen.getByRole("button", { name: /Tiny UI polish/i }));
+    expect(
+      screen.getByRole("region", { name: /Tiny UI polish command receipt/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    expect(specComposer().value).toContain("/afx-sprint new compact-empty-state");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
 
     await user.click(screen.getByRole("button", { name: /Explore an idea/i }));
     expect(specComposer().value).toContain("I have a rough feature idea");
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+
+    await user.click(screen.getByRole("button", { name: /Improve an existing spec/i }));
+    await user.type(screen.getByLabelText("Spec or sprint target"), "auth-flow");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    expect(
+      screen.getByRole("region", { name: /Improve existing spec command receipt/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Insert" }));
+    expect(specComposer().value).toBe("/afx-spec refine auth-flow");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
   });
 
@@ -2181,5 +2267,85 @@ describe("chat App", () => {
       }),
     );
     expect(composer).toHaveValue("");
+  });
+
+  it("renders AFX UI action blocks as a next-action rail and hides the raw block", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, {
+        messages: [
+          {
+            id: "assistant-actions",
+            role: "assistant",
+            content: `Review complete.
+
+<!-- AFX-UI-ACTIONS:START -->
+\`\`\`json
+[
+  {
+    "rank": 1,
+    "label": "Approve spec",
+    "command": "/afx-spec approve auth",
+    "mode": "run",
+    "reason": "Spec is ready for design"
+  },
+  {
+    "rank": 2,
+    "label": "Refine spec",
+    "command": "/afx-spec refine auth",
+    "mode": "insert",
+    "reason": "Keep this dialogic"
+  }
+]
+\`\`\`
+<!-- AFX-UI-ACTIONS:END -->`,
+            createdAt: 2,
+            streaming: false,
+          },
+        ],
+      });
+    });
+
+    const chatPanel = screen.getByRole("tabpanel", { name: "Chat" });
+    expect(within(chatPanel).getByText("Review complete.")).toBeInTheDocument();
+    expect(within(chatPanel).queryByText(/AFX-UI-ACTIONS:START/i)).toBeNull();
+    expect(
+      within(chatPanel).getByRole("region", { name: "Ranked next actions" }),
+    ).toBeInTheDocument();
+
+    const composer = document.querySelector<HTMLTextAreaElement>("#afx-chat-composer");
+    if (!composer) throw new Error("Composer textarea not found.");
+
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole("button", { name: /Insert Refine spec: \/afx-spec refine auth/i }),
+    );
+    expect(composer).toHaveValue("/afx-spec refine auth");
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(
+      screen.getByRole("button", { name: /Run Approve spec: \/afx-spec approve auth/i }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "/afx-spec approve auth",
+      }),
+    );
   });
 });
