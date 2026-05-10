@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
 import { createMockLogger } from "../__fixtures__/mock-logger";
-import { createSprintContextSync } from "./sprint-context";
+import { type ActiveDocContext, createSprintContextSync } from "./sprint-context";
 
 const SPRINT_BODY = [
   "---",
@@ -296,7 +296,7 @@ status: Approved
 `;
 
 describe("createSprintContextSync — onDocContextChange", () => {
-  let docContexts: Array<unknown>;
+  let docContexts: Array<ActiveDocContext>;
   let activeEditorListeners: Array<(editor: FakeEditor | undefined) => void>;
 
   beforeEach(() => {
@@ -335,16 +335,17 @@ describe("createSprintContextSync — onDocContextChange", () => {
 
   it("emits a sprint payload with section + docKind for sprint files", () => {
     setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 10)); // inside SPEC
-    expect(docContexts).toEqual([
-      {
-        format: "sprint",
-        section: "SPEC",
-        docKind: "spec",
-        feature: "foo",
-        filePath: "/repo/docs/specs/foo/foo.md",
-        approvalStatus: null,
-      },
-    ]);
+    // Use toMatchObject so additive fields (e.g. sectionOffsets) don't break
+    // this assertion — the test's intent is the core sprint identity payload.
+    expect(docContexts).toHaveLength(1);
+    expect(docContexts[0]).toMatchObject({
+      format: "sprint",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "foo",
+      filePath: "/repo/docs/specs/foo/foo.md",
+      approvalStatus: null,
+    });
   });
 
   it("preserves feature paths for sprint files", () => {
@@ -650,10 +651,10 @@ updated_at: 2026-05-08T01:00:00.000Z
 
   it("omits sibling-status fields when no approval block is present", () => {
     setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 10));
-    const ctx = docContexts.at(-1) as Record<string, unknown>;
-    expect(ctx["specStatus"]).toBeUndefined();
-    expect(ctx["designStatus"]).toBeUndefined();
-    expect(ctx["tasksStatus"]).toBeUndefined();
+    const ctx = docContexts.at(-1);
+    expect(ctx?.specStatus).toBeUndefined();
+    expect(ctx?.designStatus).toBeUndefined();
+    expect(ctx?.tasksStatus).toBeUndefined();
   });
 
   it("treats `- []` empty-bracket task rows as unchecked when rolling up groups", () => {
@@ -698,6 +699,96 @@ status: Approved
           ],
         },
       ],
+    });
+  });
+
+  // Spec stepper data — siblingPaths + sectionOffsets (FR-17)
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+  // @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+  it("populates sprint sectionOffsets so the stepper can scroll to in-file sections", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 10));
+    const ctx = docContexts.at(-1);
+    // sliceSprintSection returns the marker line's 0-indexed position; the
+    // service +1's it to a 1-indexed protocol value. In SPRINT_BODY the
+    // SPEC marker sits on line 9 (1-indexed), DESIGN on 14, TASKS on 19.
+    expect(ctx?.sectionOffsets).toMatchObject({
+      spec: 9,
+      design: 14,
+      tasks: 19,
+    });
+  });
+
+  it("populates standard tasks.md sectionOffsets.sessions for the Work Sessions chip", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", SIGN_OFF_READY_TASKS));
+    const ctx = docContexts.at(-1);
+    // SIGN_OFF_READY_TASKS embeds a `## Work Sessions` heading — the helper
+    // returns its 1-indexed line so the chat stepper can scroll to it.
+    expect(ctx?.sectionOffsets?.sessions).toBeGreaterThan(0);
+  });
+
+  it("omits siblingPaths entries when sibling files do not exist on disk", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/spec.md", SPEC_BODY));
+    const ctx = docContexts.at(-1);
+    // Test paths point at non-existent disk locations — collectSiblingPaths
+    // only emits keys for files that resolve via fs.existsSync, so the
+    // payload either omits siblingPaths entirely or returns an empty object.
+    expect(ctx?.siblingPaths ?? {}).toEqual({});
+  });
+
+  // Work Sessions counts (FR-17) — distinct from body checkbox tasks count
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+  it("populates workSessionsTotal + workSessionsSigned from the Work Sessions table", () => {
+    setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", SIGN_OFF_READY_TASKS));
+    const ctx = docContexts.at(-1);
+    // SIGN_OFF_READY_TASKS has 1 session row (Agent=[x], Human=[ ]). The chip
+    // must use these dedicated session counts, NOT the body-checkbox
+    // `tasksCompleted/tasksTotal` (which would say 2/2 for this fixture).
+    expect(ctx?.workSessionsTotal).toBe(1);
+    expect(ctx?.workSessionsSigned).toBe(0);
+  });
+
+  // Sprint single-file SESSIONS cursor (FR-17)
+  // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+  it("rolls SESSIONS cursor up to TASKS so the spec stepper stays visible in sprint files", () => {
+    const sprintWithSessions = [
+      "---",
+      "afx: true",
+      "type: SPRINT",
+      "status: Living",
+      "---",
+      "",
+      "# Sprint",
+      "",
+      "<!-- SPRINT-SECTION-START: SPEC -->",
+      "## 1. Spec",
+      "spec body",
+      "<!-- SPRINT-SECTION-END: SPEC -->",
+      "",
+      "<!-- SPRINT-SECTION-START: DESIGN -->",
+      "## 2. Design",
+      "design body",
+      "<!-- SPRINT-SECTION-END: DESIGN -->",
+      "",
+      "<!-- SPRINT-SECTION-START: TASKS -->",
+      "## 3. Tasks",
+      "task body",
+      "<!-- SPRINT-SECTION-END: TASKS -->",
+      "",
+      "<!-- SPRINT-SECTION-START: SESSIONS -->",
+      "## 4. Work Sessions",
+      "session log row",
+      "<!-- SPRINT-SECTION-END: SESSIONS -->",
+      "",
+    ].join("\n");
+
+    // Cursor at line 25 sits inside the SESSIONS slice. Without the rollup,
+    // docKind would be null and the chat strip would disappear; with the
+    // rollup, the strip + stepper stays visible with Tasks as the active key.
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", sprintWithSessions, 25));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "TASKS",
+      docKind: "tasks",
     });
   });
 });

@@ -736,7 +736,20 @@ This is a long-running response on purpose so the queue stays visible while you 
       section: "SPEC",
       docKind: "spec",
       feature: "auth",
+      filePath: "/workspace/docs/specs/auth/spec.md",
       approvalStatus: "Draft",
+      // Sibling statuses + paths populate the spec stepper (FR-17).
+      specStatus: "Draft",
+      designStatus: "Draft",
+      tasksStatus: null,
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      siblingPaths: {
+        spec: "/workspace/docs/specs/auth/spec.md",
+        design: "/workspace/docs/specs/auth/design.md",
+        tasks: "/workspace/docs/specs/auth/tasks.md",
+        journal: "/workspace/docs/specs/auth/journal.md",
+      },
       parsedFocuses: [
         { id: "requirements", label: "Requirements", slug: "requirements", line: 12 },
         { id: "performance", label: "Performance", slug: "performance", line: 42 },

@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.12"
+version: "1.15"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T14:14:33.000Z"
+updated_at: "2026-05-10T10:24:08.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
 approved_at: "2026-05-09T13:19:54.000Z"
@@ -872,24 +872,96 @@ All icons in this composer workflow surface come from `lucide-react`. Use intent
 for session memory, `MoreHorizontal` for overflow, `Zap` for auto-send, `PenLine` for draft, `Scissors`
 for focus, `BadgeCheck` for sign-off) instead of introducing bespoke SVGs.
 
-### Strip-header header extras (FR-17, FR-18, FR-19)
+### Spec stepper inside the strip body (FR-17, FR-18)
 
-The doc-actions strip's `ComposerStrip` chrome accepts a `headerExtras` slot rendered between the
-title button and the dismiss control. Two affordances live there:
+The doc-actions strip body renders a dedicated `<SpecStepper>` row above the action group whenever
+the active doc is `spec.md` / `design.md` / `tasks.md` / `journal.md` or a sprint single-file SDD
+doc. The stepper replaces the legacy 10px in-header breadcrumb and is visible regardless of
+workspace mode (Spec / Code / Explore) so the SDD pivot affordance survives mode switches.
 
-1. **Workflow-position breadcrumb** — `Spec ✓ → Design ⏳ → Tasks 3/8 → Code`, derived client-side
-   from `chat/activeDocContext.{specStatus, designStatus, tasksStatus, tasksCompleted, tasksTotal}`.
-   Standard 4-file features read sibling frontmatter on activation (cached, invalidated on save);
-   sprint files derive the shape from the in-file `approval` block. The button's click handler
-   auto-sends `/afx-next` (deterministic read per FR-15 autoSend rules). The breadcrumb only renders
-   in Spec mode; compact mode hides it to keep the strip narrow.
-2. **Strip-header Memory ▾ anchor** — reuses `ChatMemoryMenuButton` with `size="tiny"` so the
-   `MEMORY_CATALOG` content matches the top-right and composer-toolbar anchors byte-for-byte
-   (NFR-12). Renders only when `onMemorySelect` is wired AND workspace mode is `spec`; compact mode
-   tucks the anchor into `···` More.
+```
+[1 Spec ✓]━━━━━━━━━[2 Design ●]━━━━━━━━━[3 Tasks 3/8]
+Related · 📖 Journal · 🗂 Work Sessions 4/6
+```
 
-Both surfaces live inside a `TooltipProvider delayDuration={250}` so hover hints render with the
-same latency as the strip body buttons.
+**Tier-1 — three numbered pills.** `buildBreadcrumbSegments()` returns three entries
+(`spec`, `design`, `tasks`); the implementation phase doesn't get a fourth pill because the
+action row already covers it via `Code ▾` / `Verify` / `Pick`. Each pill's background and border
+encode state via the Meridian brass tokens (`bg-afx-brand` for completed/in-progress,
+`bg-afx-brand-soft/15` for draft, dotted muted border for pending, amber for blocked). The
+active pill receives a stronger ring halo (`ring-2 ring-afx-brand/60 ring-offset-2 shadow-sm`)
+derived from `docKind` (standard) or `section` (sprint), so "currently viewing" reads at a glance.
+Status glyphs are plain text (`✓` approved, `…` draft, `!` blocked, `·` pending/progress) — emoji
+codepoints (`⏳ ⚠`) render via the OS emoji font at a larger metric than `font-mono text-[10px]`
+and bust the pill's vertical bounds.
+
+Click behavior is dispatched through `onOpenFile?: (path, line?) => void` on
+`ChatDocActionsStrip` that wires through to `chat/openFile`:
+
+- **Active pill** (any segment matching the open file): always re-focuses the editor on that file
+  via `onOpenFile(filePath, …)` — no sibling-path resolution required, so it works even when the
+  workspace is missing some siblings.
+- **Standard 4-file mode (non-active)**: pill click → `onOpenFile(siblingPaths[key])` opens the
+  sibling file. When the host's `siblingPaths` payload is missing an entry but the segment
+  status proves the file exists (sibling status was successfully read host-side), the webview
+  derives `<dirname>/<key>.md` from the active doc's path and dispatches that — keeps the pill
+  clickable even when the host-side resolution glitched.
+- **Sprint single-file mode**: pill click → `onOpenFile(filePath, sectionOffsets[key])` scrolls
+  the editor to the matching `## SPEC` / `## DESIGN` / `## TASKS` heading. The 1-indexed offsets
+  are produced host-side by `extractSprintSectionOffsets()` in `services/sprint-context.ts`.
+  Cursor in the SESSIONS slice rolls up to `section: "TASKS"` so the strip + stepper stay
+  visible while the user edits the work-log table.
+- **Genuinely missing sibling** (no host path AND status `pending`): pill renders disabled, no
+  dispatch, tooltip reads `"<segment>.md not found"`.
+
+Connecting lines between pills carry the same brass progression: solid brass when the previous
+pill is `approved` / `draft` / `blocked`, a `linear-gradient(brass {pct}%, muted 0)` when the
+previous pill is `progress` (uses `tasksCompleted / tasksTotal`), and a dotted muted border when
+the previous pill is `pending`. There is no `↻ next` button — `/afx-next` is one keystroke away in
+the composer slash menu, and the action row already surfaces the contextual next moves.
+
+**Tier-2 — `Related · Journal · Sessions`.** A muted second row centered below the stepper, prefixed
+with a `Related` label so the chips read as sibling artifacts of the same feature instead of
+disconnected UI. Carries:
+
+- A `📖 Journal` chip — **draft-insert action** (not file-open). Click drops `/afx-session note`
+  into the composer textarea via `onInsertDraft`; the user appends the note content and sends
+  when ready. Always interactive — `/afx-session note` auto-creates `journal.md` when missing,
+  so we don't gate the chip on `siblingPaths.journal`. Lights up with a brass dot when
+  `docContext.docKind === "journal"`. Hidden in sprint mode (single file).
+- A `🗂 Work Sessions n/m` chip — `n` = `workSessionsSigned` (rows with Human cell `[x]`),
+  `m` = `workSessionsTotal` (data rows in the `## Work Sessions` table). These are dedicated
+  counts from `summarizeWorkSessions()` over the table itself — distinct from the body-checkbox
+  `tasksCompleted/Total` fraction. Click opens the active tasks file scrolled to the
+  `## Work Sessions` heading via `sectionOffsets.sessions` (sprint = the SESSIONS slice's
+  table heading; standard = the `## Work Sessions` heading inside `tasks.md`).
+
+The Memory ▾ anchor lives in the strip header (`headerExtras` slot on `ComposerStrip`), not in
+this tier-2 row — Memory is a workspace-wide tool (catalog of session/context commands), not a
+feature-scoped sibling. Per FR-18 it shares the same `MEMORY_CATALOG` as the composer-toolbar and
+top-right anchors (NFR-12).
+
+Compact mode (`@container` width below `300px`) collapses each pill to its number + status glyph,
+hiding the label text; tooltips carry the full label so the affordance stays discoverable.
+
+The stepper data path:
+
+```
+host: createSprintContextSync (sprint-context.ts)
+   ├ collectSiblingPaths(featureDir)         // standard: spec/design/tasks/journal that exist on disk
+   ├ extractSprintSectionOffsets(text)        // sprint: 1-indexed line per section
+   ├ extractStandardWorkSessionsOffset(text)  // standard tasks.md `## Work Sessions` line
+   └ summarizeWorkSessions(text)              // {total, humanSigned} for the chip's n/m label
+   ↓
+chat/activeDocContext { …, siblingPaths, sectionOffsets, workSessionsTotal, workSessionsSigned }
+   ↓
+webview: ChatDocActionsStrip → SpecStepper
+   ↓ (pill or chip click)
+chat/openFile { path, line? }    ← stepper pills + Work Sessions chip
+onInsertDraft("/afx-session note ")  ← Journal chip (composer-local, no bridge round-trip)
+   ↓
+host: vscode.window.showTextDocument(uri, { selection })
+```
 
 ### Brass `[Sign Off ▾]` action (FR-19)
 

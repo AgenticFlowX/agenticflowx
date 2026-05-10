@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-08T12:18:59.000Z"
+updated_at: "2026-05-10T10:24:08.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
@@ -430,16 +430,18 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 The `mode.active` value also drives the composer doc-actions strip variants
 (`211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]`):
 
-- **Spec mode** — full strip with the per-docKind 3–4 primary actions, header
-  workflow-position breadcrumb (`Spec ✓ → Design ⏳ → Tasks 3/8 → Code`,
-  click → `/afx-next`), and the strip-header Memory ▾ anchor next to the dismiss
-  control.
+- **Spec mode** — full strip with the per-docKind 3–4 primary actions, the
+  three-pill spec stepper inside the strip body
+  (`[1 Spec ✓] [2 Design …] [3 Tasks 3/8]`) plus its `Related · Journal · Work
+Sessions n/m` tier-2 row, and the strip-header Memory ▾ anchor next to the
+  dismiss control. The stepper itself is no longer mode-gated — it renders in
+  every workspace mode so the SDD pivot affordance survives mode switches.
 - **Code / Explore** — compact strip with the per-docKind 2-button primary set
   documented by the fleeting sprint `[DES-MODES]` table (e.g. tasks compact =
-  `[Code|▾] [Review|▾] | [Verify] [Pick|▾]`). The breadcrumb hides to keep the
-  strip narrow at the 205px sidebar minimum width; Memory ▾ tucks under `···`
-  More so the workspace-level Memory anchors remain reachable through the
-  top-right and composer-toolbar triggers.
+  `[Code|▾] [Review|▾] | [Verify] [Pick|▾]`). The stepper still renders above
+  these compact actions; Memory ▾ tucks under `···` More so the workspace-level
+  Memory anchors remain reachable through the top-right and composer-toolbar
+  triggers.
 
 The mode-suggest strip continues to render above the doc-actions strip when the
 active editor is an AFX doc and the user hasn't switched into Spec mode yet.

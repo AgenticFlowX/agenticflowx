@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.7"
+version: "1.9"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-09T12:54:26.000Z"
+updated_at: "2026-05-10T10:24:08.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -123,11 +123,33 @@ fields are additive for old host/webview compatibility:
   standard `tasks.md` — sprint files keep `signOff` undefined since their Work Sessions table lives
   in the SESSIONS slice
 - `specStatus?: string | null`, `designStatus?: string | null`, `tasksStatus?: string | null`,
-  `tasksCompleted?: number`, `tasksTotal?: number` drive the FR-16 workflow-position breadcrumb
-  (`Spec ✓ → Design ⏳ → Tasks 3/8 → Code`). Standard 4-file features read sibling spec/design/tasks
-  frontmatter on activation and cache the result; sprint files derive the same shape from the
-  in-file `approval` block. `onDidSaveTextDocument` invalidates the cache so the breadcrumb stays
-  fresh when a sibling is approved/refined in another tab
+  `tasksCompleted?: number`, `tasksTotal?: number` drive the FR-16/FR-17 spec stepper pills
+  (`[1 Spec ✓] [2 Design …] [3 Tasks 3/8]`). Standard 4-file features read sibling
+  spec/design/tasks frontmatter on activation and cache the result; sprint files derive the same
+  shape from the in-file `approval` block. `onDidSaveTextDocument` invalidates the cache so the
+  stepper stays fresh when a sibling is approved/refined in another tab. The terminal `Code`
+  pseudo-pill was dropped — the action row covers the implementation phase. Glyphs are plain
+  text (`✓ … ! ·`) so they match the `font-mono text-[10px]` pill metric (the previous emoji
+  `⏳ ⚠` rendered too tall and broke the pill's vertical bounds)
+- `workSessionsTotal?: number`, `workSessionsSigned?: number` — row counts for the
+  `## Work Sessions` table in standard `tasks.md` (or the SESSIONS slice of a sprint file).
+  `total` = data rows, `signed` = rows with a ticked Human cell. Drives the stepper's tier-2
+  `Work Sessions n/m` chip label so the number reflects actual session-log progress, NOT the
+  unrelated body-checkbox `tasksCompleted/Total` fraction. Computed host-side via
+  `summarizeWorkSessions()` in `services/tasks-signoff.ts`
+- `siblingPaths?: { spec?, design?, tasks?, journal?: string }` — absolute paths to sibling SDD
+  files for the current feature, populated by `collectSiblingPaths(featureDir)` only when each
+  file exists on disk. Powers the spec stepper's per-pill click-to-open in standard mode. When
+  the host misses populating an entry but the corresponding sibling status proves the file
+  exists, the webview falls back to deriving `<dirname>/<key>.md` from the active doc's path so
+  the pill stays clickable
+- `sectionOffsets?: { spec?, design?, tasks?, sessions?: number }` — 1-indexed line numbers for
+  in-file section headings. Sprint files populate all four (via `extractSprintSectionOffsets()`);
+  standard `tasks.md` populates only `sessions` (via `extractStandardWorkSessionsOffset()`). The
+  spec stepper dispatches `chat/openFile { path, line }` so clicking a pill scrolls the editor to
+  the matching `## SPEC` / `## DESIGN` / `## TASKS` / `## Work Sessions` heading. Sprint cursor
+  in the SESSIONS slice rolls up to `section: "TASKS"` so the strip + stepper stay visible
+  while the user edits the work-log table
 
 `FocusOption` uses stable `id`, display `label`, markdown `slug`, optional `commandSuffix`, optional
 body `excerpt`, and 1-indexed `line`. `SignOffSummary` reports whether all tasks are checked, all

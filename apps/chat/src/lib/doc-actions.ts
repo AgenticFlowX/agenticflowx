@@ -28,6 +28,39 @@ export type ActiveDocCtx = {
   tasksStatus?: string | null;
   tasksCompleted?: number;
   tasksTotal?: number;
+  /**
+   * Counts for the `## Work Sessions` table — `signed/total` rows. Powers the
+   * spec stepper's tier-2 Work Sessions chip label.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  workSessionsTotal?: number;
+  workSessionsSigned?: number;
+  /**
+   * Absolute paths to sibling SDD files for the current feature (standard
+   * 4-file mode only). Powers the spec stepper's per-step click-to-open;
+   * missing entries render the corresponding pill as disabled.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  siblingPaths?: {
+    spec?: string;
+    design?: string;
+    tasks?: string;
+    journal?: string;
+  };
+  /**
+   * 1-indexed in-file section heading lines — sprint files populate spec/
+   * design/tasks/sessions; standard tasks.md populates `sessions` only.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
+   */
+  sectionOffsets?: {
+    spec?: number;
+    design?: number;
+    tasks?: number;
+    sessions?: number;
+  };
 };
 
 export const EMPTY_DOC_CTX: ActiveDocCtx = {
