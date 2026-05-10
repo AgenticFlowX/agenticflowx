@@ -2,6 +2,21 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.12] - 2026-05-11
+
+### Added
+
+- **Three-pill SDD spec stepper** — a navigation row above the composer shows three linked pills (Spec → Design → Tasks) for sprint documents. Clicking a pill opens the sibling document so you can move between spec phases without leaving the chat view.
+
+### Changed
+
+- **Onboarding polish** — refined the first-run experience and welcome flow.
+- **README refresh** — updated project documentation.
+
+### Fixed
+
+- **Security** — addressed high-severity vulnerability in dependencies.
+
 ## [2.0.11] - 2026-05-10
 
 ### Added
