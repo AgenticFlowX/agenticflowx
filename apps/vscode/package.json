@@ -3,7 +3,7 @@
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
   "version": "2.0.11",
-  "afxSkillsPin": "1325da99ff8a245d7e3f58bdf22cd505743fee22",
+  "afxSkillsPin": "be868413dec19e1961d917a3d10925d3e131b9c3",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",

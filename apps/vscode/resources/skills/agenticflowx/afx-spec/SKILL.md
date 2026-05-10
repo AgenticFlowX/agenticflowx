@@ -250,6 +250,35 @@ Next (ranked):
 5. /afx-session note "<note>" # Capture findings
 ```
 
+**UI Action Block (ADDITIVE):** Preserve the `Next (ranked)` prose above. When the next moves include concrete `/afx-*` commands with resolved targets, also emit a marker-wrapped JSON block immediately after the prose so UI hosts can render an action rail. Include at most three actions. Omit the block when commands are only placeholders or when the next step is non-command prose such as "Fix missing files."
+
+````markdown
+<!-- AFX-UI-ACTIONS:START -->
+
+```json
+[
+  {
+    "rank": 1,
+    "label": "Approve spec",
+    "command": "/afx-spec approve onboarding",
+    "mode": "run",
+    "reason": "Review found no critical issues.",
+    "vocabulary": "Approve = advance a lifecycle gate."
+  },
+  {
+    "rank": 2,
+    "label": "Refine requirements",
+    "command": "/afx-spec refine onboarding",
+    "mode": "insert",
+    "reason": "Use this if review feedback needs edits.",
+    "vocabulary": "Refine = improve living artifact content."
+  }
+]
+```
+
+<!-- AFX-UI-ACTIONS:END -->
+````
+
 ### Interactive Lifecycle Actions (MANDATORY)
 
 When the agent detects a lifecycle gate is actionable after completing work, use `ask_followup_question` to present options as clickable buttons instead of text-only suggestions.

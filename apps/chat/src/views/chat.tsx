@@ -93,15 +93,30 @@ import type { AgentRecoveryActions } from "../components/agent-recovery-card";
 import { ChatDocActionsStrip } from "../components/chat-doc-actions-strip";
 import { docKindVisual } from "../components/chat-doc-kind-visual";
 import { ChatMemoryMenuButton } from "../components/chat-memory-menu-button";
+import { CommandReceipt } from "../components/command-receipt";
 import { ComposerStrip } from "../components/composer-strip";
 import { FilesStrip } from "../components/files-strip";
 import { MarkdownMessage } from "../components/markdown-message";
 import { MentionPopup } from "../components/mention-popup";
 import { ModelCombobox } from "../components/model-combobox";
+import { NextActionRail } from "../components/next-action-rail";
 import { OutputCard } from "../components/output-card";
 import { ResultActions } from "../components/result-actions";
 import { SlashPopup } from "../components/slash-popup";
 import { toast } from "../components/toast";
+import {
+  ONBOARDING_INTENTS,
+  ONBOARDING_SAMPLES,
+  type CommandReceipt as OnboardingCommandReceipt,
+  buildImproveExistingReceipt,
+  buildPlanNewReceipt,
+  buildResumeReceipt,
+  buildSpecIdeaCommand,
+  createCommandReceipt,
+  detectAfxIntent,
+  sanitizeSpecIdea,
+} from "../lib/afx-onboarding-intents";
+import { parseAfxUiActions, stripAfxUiActionBlocks } from "../lib/afx-ui-actions";
 import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../lib/bridge";
 import type { ComposerTrigger } from "../lib/composer-detect";
 import { detectComposerTrigger } from "../lib/composer-detect";
@@ -363,11 +378,16 @@ export default function Chat({
     Readonly<Record<string, string>>
   >({});
   const [dismissedDocActionsStrip, setDismissedDocActionsStrip] = useState(false);
+  const [afxCommandSuggestVisible, setAfxCommandSuggestVisible] = useState(false);
+  const [afxCommandSuggestDismissed, setAfxCommandSuggestDismissed] = useState(false);
   /**
    * Tracks the latest mode the user asked for so late host snapshots cannot
    * rewind the composer back to an older posture.
    */
   const pendingWorkspaceModeRef = useRef<WorkspaceMode | null>(null);
+  const latestWorkspaceModeRef = useRef<WorkspaceMode>(workspaceMode);
+  const afxCommandSuggestDismissedRef = useRef(false);
+  const pendingAfxCommandSuggestRef = useRef(false);
 
   // ── agent status state ────────────────────────────────────────────────────
   // Internal status used when external status is not provided (e.g., no runtime).
@@ -471,6 +491,14 @@ export default function Chat({
     isStreaming,
     workspaceMode,
   });
+
+  useEffect(() => {
+    latestWorkspaceModeRef.current = workspaceMode;
+  }, [workspaceMode]);
+
+  useEffect(() => {
+    afxCommandSuggestDismissedRef.current = afxCommandSuggestDismissed;
+  }, [afxCommandSuggestDismissed]);
 
   // ── scroll ────────────────────────────────────────────────────────────────
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
@@ -578,6 +606,8 @@ export default function Chat({
           setCommandOutputs([]);
           setNoteEvents([]);
           setUsage(null);
+          setAfxCommandSuggestVisible(false);
+          pendingAfxCommandSuggestRef.current = false;
         }
         setInternalAgentStatus((p) => ({
           ...p,
@@ -628,6 +658,14 @@ export default function Chat({
             m.id === msg.id ? { ...m, streaming: false, stopReason: msg.stopReason } : m,
           ),
         );
+        if (
+          pendingAfxCommandSuggestRef.current &&
+          latestWorkspaceModeRef.current === "code" &&
+          !afxCommandSuggestDismissedRef.current
+        ) {
+          pendingAfxCommandSuggestRef.current = false;
+          setAfxCommandSuggestVisible(true);
+        }
         setThinking(null);
       }),
 
@@ -1091,6 +1129,7 @@ export default function Chat({
     const mentions = extractMentions(trimmed);
     const mentionsArg = mentions.length > 0 ? mentions : undefined;
     onPromptHistoryAppend(trimmed);
+    markAfxCommandIfCodeMode(trimmed);
 
     if (!isStreaming) {
       bridgeSend({
@@ -1137,6 +1176,7 @@ export default function Chat({
     }
 
     onPromptHistoryAppend(trimmed);
+    markAfxCommandIfCodeMode(trimmed);
     const requestId = uid();
 
     if (isStreaming) {
@@ -1164,6 +1204,13 @@ export default function Chat({
   function insertDraft(content: string): void {
     onDraftChange(content);
     window.requestAnimationFrame(() => getTextarea()?.focus());
+  }
+
+  function markAfxCommandIfCodeMode(content: string): void {
+    if (latestWorkspaceModeRef.current !== "code") return;
+    if (/^\/afx-[a-z-]+(?:\s|$)/i.test(content.trim())) {
+      pendingAfxCommandSuggestRef.current = true;
+    }
   }
 
   function handlePreparedAction(command: string, autoSend: boolean): void {
@@ -1217,6 +1264,10 @@ export default function Chat({
     pendingWorkspaceModeRef.current = mode;
     if (workspaceMode !== mode) {
       setWorkspaceMode(mode);
+    }
+    if (mode !== "code") {
+      setAfxCommandSuggestVisible(false);
+      pendingAfxCommandSuggestRef.current = false;
     }
     bridgeSend({ type: "chat/setMode", requestId: uid(), mode });
   }
@@ -1505,6 +1556,7 @@ export default function Chat({
               noteEvents={noteEvents}
               commandOutputs={commandOutputs}
               onSendCommand={sendNow}
+              onInsertCommand={insertDraft}
             />
           ) : !hasReceivedStateSnapshot ? (
             <AgentSetupState />
@@ -1526,6 +1578,7 @@ export default function Chat({
               runtimeUnconfigured={runtimeUnconfigured}
               rpcEnabled={rpcEnabled}
               onOpenSettings={onOpenSettings}
+              onSwitchToSpec={() => setMode("spec")}
               onInsert={insertDraft}
             />
           )}
@@ -1636,6 +1689,19 @@ export default function Chat({
                 value: true,
               });
               setOnboardingFlags((flags) => ({ ...flags, specModeOfferDismissed: true }));
+            }}
+          />
+          <AfxCommandSuggestStrip
+            visible={afxCommandSuggestVisible}
+            workspaceMode={workspaceMode}
+            dismissed={afxCommandSuggestDismissed}
+            onSwitch={() => {
+              setMode("spec");
+              setAfxCommandSuggestVisible(false);
+            }}
+            onDismiss={() => {
+              setAfxCommandSuggestDismissed(true);
+              setAfxCommandSuggestVisible(false);
             }}
           />
           <InputGroup
@@ -2198,12 +2264,13 @@ const WORKSPACE_MODES: ReadonlyArray<{
   value: WorkspaceMode;
   label: string;
   description: string;
+  hint?: string;
   badge?: string;
 }> = [
   {
     value: "code",
     label: "Code",
-    description: "Default. Full access. Pi can act and edit.",
+    description: "Default. Full access. The active coding harness can act and edit.",
   },
   {
     value: "explore",
@@ -2214,8 +2281,8 @@ const WORKSPACE_MODES: ReadonlyArray<{
   {
     value: "spec",
     label: "Spec",
-    description:
-      "Spec-Driven Development. Refine specs, designs, tasks, and ADRs — never your source code.",
+    description: "Plan before you code. Shape -> Design -> Slice -> Build -> Ship.",
+    hint: "Starting a new feature? Switch here first.",
     badge: "SDD",
   },
 ];
@@ -2259,7 +2326,7 @@ function ModeToggle({
             ? "Explore is experimental and read-only. Use it to inspect code, trace behavior, and plan changes without running commands or edits."
             : current.value === "spec"
               ? "Spec mode powers Spec-Driven Development: Shape → Design → Slice → Build → Verify → Ship → Evolve. The agent edits specs, designs, tasks, journals, ADRs, and research notes — your source code stays untouched."
-              : "Code is the default full-access Pi-backed mode."}
+              : "Code is the default full-access coding mode."}
         </TooltipContent>
       </Tooltip>
       <DropdownMenuContent side="top" align="start" className="min-w-[15rem]">
@@ -2274,7 +2341,7 @@ function ModeToggle({
           value={current.value}
           onValueChange={(value) => onChange(value as WorkspaceMode)}
         >
-          {WORKSPACE_MODES.map(({ value, label, description, badge }) => (
+          {WORKSPACE_MODES.map(({ value, label, description, hint, badge }) => (
             <DropdownMenuRadioItem
               key={value}
               value={value}
@@ -2295,6 +2362,9 @@ function ModeToggle({
                 <span className="text-[10px] leading-snug text-muted-foreground">
                   {description}
                 </span>
+                {hint ? (
+                  <span className="text-[10px] leading-snug text-afx-brand-soft/80">{hint}</span>
+                ) : null}
               </div>
             </DropdownMenuRadioItem>
           ))}
@@ -2535,6 +2605,8 @@ function ModeSuggestStrip({
   const detected = docContext.format === "sprint" ? "Sprint" : "AFX";
   const docLabelHint = describeDoc(docContext);
   const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+  const actions = resolveDocActions(docContext).slice(0, 5);
+  const hasEditorParity = docContext.docKind === "spec" || docContext.docKind === "design";
 
   return (
     <ComposerStrip
@@ -2548,10 +2620,59 @@ function ModeSuggestStrip({
       }
       action={{ label: "Switch to Spec", onClick: onSwitch }}
       onDismiss={onDismiss}
+      tone="brand"
     >
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Switch to Spec mode for Spec-Driven Development — the agent will refine docs, designs, and
-        tasks, but won&apos;t touch your source code.
+        Switching unlocks targeted actions for this file. Spec mode stays focused on specs and docs
+        instead of source edits.
+      </p>
+      {actions.length > 0 ? (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {actions.map((action) => (
+            <span
+              key={action.command}
+              className="inline-flex items-center gap-1 rounded-sm border border-afx-brand-soft/30 bg-afx-brand-soft/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-afx-brand-soft"
+            >
+              {action.autoSend ? <Zap size={10} className="shrink-0 text-amber-500" /> : null}
+              {action.label}
+            </span>
+          ))}
+          {hasEditorParity ? (
+            <span className="inline-flex items-center rounded-sm border border-border/70 bg-muted/30 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              editor menu: Refine
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </ComposerStrip>
+  );
+}
+
+function AfxCommandSuggestStrip({
+  visible,
+  workspaceMode,
+  dismissed,
+  onSwitch,
+  onDismiss,
+}: {
+  visible: boolean;
+  workspaceMode: WorkspaceMode;
+  dismissed: boolean;
+  onSwitch: () => void;
+  onDismiss: () => void;
+}) {
+  if (!visible || dismissed || workspaceMode !== "code") return null;
+
+  return (
+    <ComposerStrip
+      title="AFX command completed"
+      action={{ label: "Switch to Spec", onClick: onSwitch }}
+      onDismiss={onDismiss}
+      tone="brand"
+    >
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        That command worked here. Switch to Spec mode for the action rail, stage tracker, and
+        approval workflow.
       </p>
     </ComposerStrip>
   );
@@ -2687,6 +2808,10 @@ const EXPLORE_CARDS: ReadonlyArray<{ title: string; body: string; icon: LucideIc
 
 const LANDING_STARTERS: ReadonlyArray<{ label: string; prompt: string }> = [
   {
+    label: "Plan a new feature",
+    prompt: "/afx-spec new ",
+  },
+  {
     label: "Ask about this repo",
     prompt:
       "Give me a concise orientation to this workspace: what it is, where the main app surfaces are, and what I should inspect first.",
@@ -2765,7 +2890,7 @@ const SPEC_GUIDE_CARDS: ReadonlyArray<{ title: string; body: string; icon: Lucid
   },
 ];
 
-const SPEC_WORKFLOW_STEPS = ["Spec", "Design", "Tasks", "Code", "Verify"] as const;
+const SPEC_WORKFLOW_STEPS = ["Describe", "Spec", "Design", "Tasks", "Code"] as const;
 const SPEC_QUICK_COMMANDS = ["/afx-next", "/afx-sprint new", "/afx-context load"] as const;
 
 function suggestedDocPrompt(docContext: ActiveDocCtx): string {
@@ -2794,6 +2919,7 @@ function suggestedDocPrompt(docContext: ActiveDocCtx): string {
 interface EmptyStateProps {
   /** Called with command text when a quick-command button is clicked. */
   onInsert: (text: string) => void;
+  onSwitchToSpec?: () => void;
   workspaceMode: WorkspaceMode;
   runtimeUnconfigured?: boolean;
   rpcEnabled?: boolean;
@@ -2807,6 +2933,7 @@ interface EmptyStateProps {
  */
 function EmptyState({
   onInsert,
+  onSwitchToSpec,
   workspaceMode,
   runtimeUnconfigured = false,
   rpcEnabled = false,
@@ -2854,6 +2981,28 @@ function EmptyState({
             </div>
           </div>
         </div>
+      ) : null}
+
+      {!isExplore && !runtimeUnconfigured ? (
+        <button
+          type="button"
+          onClick={() => {
+            onSwitchToSpec?.();
+            onInsert("/afx-spec new ");
+          }}
+          className="flex items-center justify-between gap-3 rounded-md border border-afx-brand-soft/35 bg-afx-brand-soft/[0.05] px-3 py-2 text-left transition-colors hover:bg-afx-brand-soft/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+          aria-label="Plan in Spec mode"
+        >
+          <span className="min-w-0">
+            <span className="block text-[12px] font-medium text-foreground">
+              Planning a new feature?
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+              Shape it in Spec mode first — spec, design, tasks, then code.
+            </span>
+          </span>
+          <span className="shrink-0 font-mono text-[10px] text-afx-brand-soft">Plan in Spec</span>
+        </button>
       ) : null}
 
       <div className="grid grid-cols-3 gap-1.5">
@@ -2986,6 +3135,12 @@ function SpecModeWelcome({
   onAutoSend: (text: string) => void;
 }) {
   const hasActiveDoc = docContext.docKind !== null;
+  const [vibeText, setVibeText] = useState("");
+  const [commandReceipt, setCommandReceipt] = useState<OnboardingCommandReceipt | null>(null);
+  const [scopeChooserOpen, setScopeChooserOpen] = useState(false);
+  const [sampleGridOpen, setSampleGridOpen] = useState(false);
+  const [improveTargetOpen, setImproveTargetOpen] = useState(false);
+  const [improveTargetText, setImproveTargetText] = useState("");
 
   // Doc-aware actions reuse the same routing table as the composer strip — up
   // to 5 actions per doc kind. @see docs/specs/212-app-chat-messages/spec.md [FR-8]
@@ -3010,25 +3165,271 @@ function SpecModeWelcome({
     : null;
 
   if (!hasActiveDoc) {
+    const idea = sanitizeSpecIdea(vibeText);
+    const intentPreview = detectAfxIntent(vibeText, docContext);
+
+    function showReceipt(receipt: OnboardingCommandReceipt | null) {
+      if (!receipt) return;
+      setCommandReceipt(receipt);
+      setScopeChooserOpen(false);
+      setImproveTargetOpen(false);
+    }
+
+    function runReceipt(command: string) {
+      setCommandReceipt(null);
+      onAutoSend(command);
+    }
+
+    function insertReceipt(command: string) {
+      setCommandReceipt(null);
+      onInsert(command);
+    }
+
+    function submitIdea() {
+      if (intentPreview) {
+        setCommandReceipt(intentPreview);
+        return;
+      }
+      const command = buildSpecIdeaCommand(vibeText);
+      if (command) onAutoSend(command);
+    }
+
     return (
       <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
         <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
           <AfxLogoMark width={168} className="h-auto max-w-full text-foreground" />
           <h2 className="font-serif text-lg italic leading-snug text-foreground">
-            Spec-driven workflow
+            Plan before you code.
           </h2>
           <p className="max-w-prose text-[12px] leading-relaxed text-foreground">
-            Spec -&gt; design -&gt; tasks, refined as you go.
-          </p>
-          <p className="max-w-prose text-[11px] leading-relaxed text-muted-foreground">
-            The usual ceremony, just faster. Opt-in only.
+            Describe what you&apos;re building. AFX shapes it into specs, tasks, and traceable code
+            — without you having to know SDD first.
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
           <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
-            How AFX moves work
+            What are you building?
           </p>
+          <div className="rounded-md border border-border bg-background/70 p-2">
+            <textarea
+              value={vibeText}
+              onChange={(event) => setVibeText(event.currentTarget.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  submitIdea();
+                }
+              }}
+              placeholder="Short description - rough is fine..."
+              className="min-h-16 w-full resize-y bg-transparent text-[12px] leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none"
+              aria-label="What are you building?"
+            />
+            <div className="flex items-center justify-between gap-2 border-t border-border/50 pt-1.5">
+              <span className="font-mono text-[10px] text-muted-foreground/60">
+                enter to start - agent asks what it needs
+              </span>
+              <button
+                type="button"
+                onClick={submitIdea}
+                disabled={!idea}
+                className="font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-afx-brand-soft disabled:cursor-not-allowed disabled:text-muted-foreground/40"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+          {intentPreview ? (
+            <div className="rounded-sm border border-afx-brand-soft/30 bg-afx-brand-soft/[0.04] px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+              <span className="font-medium text-foreground">Looks like: </span>
+              {intentPreview.label}
+              <code className="ml-1 font-mono text-[10px] text-afx-brand-soft">
+                {intentPreview.command}
+              </code>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
+            Or choose a move
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {ONBOARDING_INTENTS.map((intent) => (
+              <button
+                key={intent.id}
+                type="button"
+                onClick={() => {
+                  if (intent.id === "plan-new") {
+                    setScopeChooserOpen((open) => !open);
+                    setSampleGridOpen(false);
+                    setImproveTargetOpen(false);
+                    return;
+                  }
+                  if (intent.id === "try-sample") {
+                    setSampleGridOpen((open) => !open);
+                    setScopeChooserOpen(false);
+                    setImproveTargetOpen(false);
+                    return;
+                  }
+                  if (intent.id === "resume") {
+                    showReceipt(buildResumeReceipt());
+                    return;
+                  }
+                  const existingDocReceipt = buildImproveExistingReceipt(docContext);
+                  if (existingDocReceipt) {
+                    showReceipt(existingDocReceipt);
+                    return;
+                  }
+                  setImproveTargetOpen((open) => !open);
+                  setScopeChooserOpen(false);
+                  setSampleGridOpen(false);
+                }}
+                className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                <span className="block text-[11px] font-medium text-foreground">
+                  {intent.label}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                  {intent.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {scopeChooserOpen ? (
+          <div className="rounded-md border border-border/70 bg-muted/20 p-2">
+            <p className="text-[12px] font-medium text-foreground">How big does this feel?</p>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              <button
+                type="button"
+                onClick={() => showReceipt(buildPlanNewReceipt("sprint", idea || "new feature"))}
+                className="rounded-sm border border-border bg-background/70 px-2 py-1.5 text-left text-[11px] hover:bg-muted/40"
+              >
+                Small
+              </button>
+              <button
+                type="button"
+                onClick={() => showReceipt(buildPlanNewReceipt("full-spec", idea || "new feature"))}
+                className="rounded-sm border border-border bg-background/70 px-2 py-1.5 text-left text-[11px] hover:bg-muted/40"
+              >
+                Full feature
+              </button>
+              <button
+                type="button"
+                onClick={() => showReceipt(buildResumeReceipt())}
+                className="rounded-sm border border-border bg-background/70 px-2 py-1.5 text-left text-[11px] hover:bg-muted/40"
+              >
+                Not sure
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {improveTargetOpen ? (
+          <div className="rounded-md border border-border/70 bg-muted/20 p-2">
+            <p className="text-[12px] font-medium text-foreground">What should we improve?</p>
+            <div className="mt-2 flex gap-1.5">
+              <input
+                value={improveTargetText}
+                onChange={(event) => setImproveTargetText(event.currentTarget.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && improveTargetText.trim()) {
+                    event.preventDefault();
+                    showReceipt(
+                      createCommandReceipt({
+                        label: "Improve existing spec",
+                        command: `/afx-spec refine ${improveTargetText.trim()}`,
+                        originalText: improveTargetText.trim(),
+                        vocabularyHint:
+                          "Refine = update a living document with clearer facts, risks, or decisions.",
+                        defaultMode: "insert",
+                      }),
+                    );
+                  }
+                }}
+                placeholder="feature slug, spec path, or rough target"
+                aria-label="Spec or sprint target"
+                className="min-w-0 flex-1 rounded-sm border border-border bg-background/70 px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              />
+              <button
+                type="button"
+                disabled={!improveTargetText.trim()}
+                onClick={() =>
+                  showReceipt(
+                    createCommandReceipt({
+                      label: "Improve existing spec",
+                      command: `/afx-spec refine ${improveTargetText.trim()}`,
+                      originalText: improveTargetText.trim(),
+                      vocabularyHint:
+                        "Refine = update a living document with clearer facts, risks, or decisions.",
+                      defaultMode: "insert",
+                    }),
+                  )
+                }
+                className="rounded-sm border border-border bg-background/70 px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-afx-brand-soft hover:bg-muted/40 disabled:cursor-not-allowed disabled:text-muted-foreground/40"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        ) : null}
+
+        {sampleGridOpen ? (
+          <div className="grid grid-cols-2 gap-1.5">
+            {ONBOARDING_SAMPLES.map((sample) => (
+              <button
+                key={sample.id}
+                type="button"
+                onClick={() => showReceipt(sample.receipt)}
+                className="rounded-md border border-border bg-muted/20 px-2 py-1.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                <span className="block text-[11px] font-medium text-foreground">
+                  {sample.label}
+                </span>
+                <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+                  {sample.hint}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        {commandReceipt ? (
+          <CommandReceipt
+            receipt={commandReceipt}
+            onRun={runReceipt}
+            onInsert={insertReceipt}
+            onSendAsChat={(text) => {
+              setCommandReceipt(null);
+              onAutoSend(text);
+            }}
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-2">
+          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/50">
+            Or jump straight in
+          </p>
+          {SPEC_ONBOARDING_PROMPTS.filter((item) => item.label !== "Create first spec").map(
+            (item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => onInsert(item.prompt)}
+                className="afx-field-surface group rounded-md border px-3 py-2 text-left transition-colors hover:border-afx-brand-soft/40 hover:bg-muted/20 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                <span className="block text-[12px] font-medium text-foreground">{item.label}</span>
+                <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
+                  {item.description}
+                </span>
+              </button>
+            ),
+          )}
+        </div>
+
+        <div className="border-t border-border/50 pt-3">
           <div className="flex flex-wrap items-center gap-1.5 px-1">
             {SPEC_WORKFLOW_STEPS.map((step, index) => (
               <div key={step} className="flex items-center gap-1.5">
@@ -3041,6 +3442,9 @@ function SpecModeWelcome({
               </div>
             ))}
           </div>
+          <p className="mt-1 px-1 font-mono text-[10px] leading-relaxed text-muted-foreground/50">
+            same discipline as SDD, lower friction to start
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-1.5">
@@ -3057,25 +3461,6 @@ function SpecModeWelcome({
               </div>
               <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
             </div>
-          ))}
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <p className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground/80">
-            Start here
-          </p>
-          {SPEC_ONBOARDING_PROMPTS.map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => onInsert(item.prompt)}
-              className="afx-field-surface group rounded-md border px-3 py-2 text-left transition-colors hover:border-afx-brand-soft/40 hover:bg-muted/20 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
-            >
-              <span className="block text-[12px] font-medium text-foreground">{item.label}</span>
-              <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                {item.description}
-              </span>
-            </button>
           ))}
         </div>
 
@@ -3214,11 +3599,13 @@ function Timeline({
   noteEvents,
   commandOutputs,
   onSendCommand,
+  onInsertCommand,
 }: {
   messages: ChatTimelineItem[];
   noteEvents: ChatNoteEventView[];
   commandOutputs: ChatCommandOutputView[];
   onSendCommand: (command: string) => void;
+  onInsertCommand: (command: string) => void;
 }) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
@@ -3301,6 +3688,7 @@ function Timeline({
           isLast={i === events.length - 1}
           isReply={event.kind !== "user"}
           onSendCommand={onSendCommand}
+          onInsertCommand={onInsertCommand}
         />
       ))}
     </ol>
@@ -3320,11 +3708,13 @@ function TimelineRow({
   isLast,
   isReply,
   onSendCommand,
+  onInsertCommand,
 }: {
   event: TimelineEvent;
   isLast: boolean;
   isReply: boolean;
   onSendCommand: (command: string) => void;
+  onInsertCommand: (command: string) => void;
 }) {
   return (
     <li
@@ -3349,7 +3739,11 @@ function TimelineRow({
         ) : (
           <>
             <EventHeader event={event} />
-            <EventBody event={event} onSendCommand={onSendCommand} />
+            <EventBody
+              event={event}
+              onSendCommand={onSendCommand}
+              onInsertCommand={onInsertCommand}
+            />
           </>
         )}
       </div>
@@ -3552,9 +3946,11 @@ function Eyebrow({
 function EventBody({
   event,
   onSendCommand,
+  onInsertCommand,
 }: {
   event: TimelineEvent;
   onSendCommand: (command: string) => void;
+  onInsertCommand: (command: string) => void;
 }) {
   if (event.kind === "user") {
     return (
@@ -3568,10 +3964,17 @@ function EventBody({
       const resultActions = event.message.streaming
         ? []
         : parseResultActions(event.message.content).slice(0, 5);
+      const uiActions = event.message.streaming ? [] : parseAfxUiActions(event.message.content);
+      const visibleContent = stripAfxUiActionBlocks(event.message.content);
       return (
         <div className="mt-0.5">
-          <MarkdownMessage content={event.message.content} />
+          <MarkdownMessage content={visibleContent} />
           <ResultActions actions={resultActions} onSend={(command) => onSendCommand(command)} />
+          <NextActionRail
+            actions={uiActions}
+            onRun={(command) => onSendCommand(command)}
+            onInsert={(command) => onInsertCommand(command)}
+          />
           <AssistantMeta message={event.message} />
         </div>
       );

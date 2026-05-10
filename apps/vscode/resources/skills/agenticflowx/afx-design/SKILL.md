@@ -196,6 +196,35 @@ After EVERY `/afx-design` action, suggest the next command:
 | After `review` (no critical issues) | `/afx-design approve <name>` to approve design  |
 | After `approve`                     | `/afx-task refine <name>` to generate/refine tasks |
 
+**UI Action Block (ADDITIVE):** Preserve the text-only next-command suggestion. When the next moves include concrete `/afx-*` commands with resolved targets, also emit a marker-wrapped fenced JSON array immediately after the prose. Include at most three actions and omit non-command advice.
+
+````markdown
+<!-- AFX-UI-ACTIONS:START -->
+
+```json
+[
+  {
+    "rank": 1,
+    "label": "Approve design",
+    "command": "/afx-design approve onboarding",
+    "mode": "run",
+    "reason": "Review found no critical design issues.",
+    "vocabulary": "Approve = advance a lifecycle gate."
+  },
+  {
+    "rank": 2,
+    "label": "Review design",
+    "command": "/afx-design review onboarding",
+    "mode": "insert",
+    "reason": "Use this before approval if anything changed.",
+    "vocabulary": "Review = apply quality judgment for readiness and risk."
+  }
+]
+```
+
+<!-- AFX-UI-ACTIONS:END -->
+````
+
 ### Interactive Lifecycle Actions (MANDATORY)
 
 When the agent detects a lifecycle gate is actionable after completing work, use `ask_followup_question` to present options as clickable buttons instead of text-only suggestions.

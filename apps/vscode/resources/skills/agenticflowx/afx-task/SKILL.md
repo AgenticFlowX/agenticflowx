@@ -318,6 +318,35 @@ After EVERY `/afx-task` action, suggest the next command:
 | After `status`              | `/afx-task pick <next-id>` based on overview    |
 | After `sync`                | `/afx-task pick` to resume work                 |
 
+**UI Action Block (ADDITIVE):** Preserve the text-only next-command suggestion. When the next moves include concrete `/afx-*` commands with resolved task IDs or feature names, also emit a marker-wrapped fenced JSON array immediately after the prose. Include at most three actions. Omit the block for placeholder-only commands such as `/afx-task pick <next-id>` until the ID is known.
+
+````markdown
+<!-- AFX-UI-ACTIONS:START -->
+
+```json
+[
+  {
+    "rank": 1,
+    "label": "Verify task",
+    "command": "/afx-task verify onboarding#7.4",
+    "mode": "run",
+    "reason": "Implementation just completed and needs evidence.",
+    "vocabulary": "Verify = check implementation evidence against approved intent."
+  },
+  {
+    "rank": 2,
+    "label": "Complete task",
+    "command": "/afx-task complete onboarding#7.4",
+    "mode": "insert",
+    "reason": "Use after verification passes.",
+    "vocabulary": "Complete = mark the planned work item done."
+  }
+]
+```
+
+<!-- AFX-UI-ACTIONS:END -->
+````
+
 ### Interactive Lifecycle Actions (MANDATORY)
 
 When the agent detects a lifecycle gate is actionable after completing work, use `ask_followup_question` to present options as clickable buttons instead of text-only suggestions.
