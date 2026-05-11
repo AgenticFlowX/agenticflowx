@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.13] - 2026-05-11
+
+### Fixed
+
+- **Compact chat composer menus** — fixed layout and clipping issues in the compact composer action strip.
+
 ## [2.0.12] - 2026-05-11
 
 ### Added
