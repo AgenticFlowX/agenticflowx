@@ -164,10 +164,14 @@ export function ChatDocActionsStrip({
   return (
     <ComposerStrip
       title={
-        <span className="inline-flex items-center gap-1.5">
+        <span className="inline-flex min-w-0 items-center gap-1.5">
           <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
-          <span>{docLabel}</span>
-          {status ? <span className="text-muted-foreground/60">· {status}</span> : null}
+          <span className="min-w-0 truncate">{docLabel}</span>
+          {status ? (
+            <span className="hidden shrink-0 text-muted-foreground/60 @[320px]:inline">
+              · {status}
+            </span>
+          ) : null}
         </span>
       }
       headerExtras={
@@ -199,7 +203,18 @@ export function ChatDocActionsStrip({
             />
           </div>
         ) : null}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center">
+          <CompactDocActionsMenu
+            actions={actions}
+            docLabel={docLabel}
+            docContext={docContext}
+            onRun={runAction}
+          />
+        </div>
+        <div
+          className="hidden flex-wrap items-center gap-1.5 @[420px]:flex"
+          data-testid="doc-actions-primary-row"
+        >
           {actionGroups.map((group, index) => (
             <ActionCluster
               key={group.group}
@@ -356,6 +371,106 @@ export function ChatDocActionsStrip({
         </div>
       </TooltipProvider>
     </ComposerStrip>
+  );
+}
+
+function CompactDocActionsMenu({
+  actions,
+  docLabel,
+  docContext,
+  onRun,
+}: {
+  actions: readonly DocAction[];
+  docLabel: string;
+  docContext: ActiveDocCtx;
+  onRun: (action: DocAction) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              aria-label="Document actions"
+              className="h-7 min-w-7 px-1.5 @[420px]:hidden"
+            >
+              <MoreHorizontal size={13} aria-hidden />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="max-w-[220px] text-left">
+          {docLabel} actions.
+        </TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        sideOffset={8}
+        collisionPadding={12}
+        className="max-h-[min(28rem,calc(100vh-2rem))] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto"
+      >
+        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+          {docLabel} Actions
+        </DropdownMenuLabel>
+        {actions.map((action) => {
+          const help = actionHelp(action);
+          return (
+            <DropdownRowTooltip
+              key={action.command}
+              title={action.label}
+              description={help.description}
+              command={action.command}
+              modeLabel={help.modeLabel}
+            >
+              <DropdownMenuItem
+                className="items-start gap-2 px-2 py-2"
+                onSelect={() => onRun(action)}
+              >
+                {action.autoSend ? (
+                  <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
+                ) : (
+                  <PenLine size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-medium">{action.label}</span>
+                  <span className="block truncate text-[10px] leading-snug text-muted-foreground">
+                    {help.description}
+                  </span>
+                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                    {action.command}
+                  </span>
+                </span>
+                <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                  {action.autoSend ? "Auto" : "Draft"}
+                </span>
+              </DropdownMenuItem>
+            </DropdownRowTooltip>
+          );
+        })}
+        {docContext.parsedFocuses?.length ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+              Focus Targets
+            </DropdownMenuLabel>
+            {docContext.parsedFocuses.slice(0, 8).map((focus) => (
+              <DropdownMenuItem key={focus.id} disabled className="items-start gap-2 px-2 py-2">
+                <Scissors size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[11px] font-medium">{focus.label}</span>
+                  <span className="block font-mono text-[10px] text-muted-foreground">
+                    Line {focus.line}
+                  </span>
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

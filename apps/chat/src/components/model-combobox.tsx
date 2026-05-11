@@ -19,9 +19,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
 } from "@afx/ui/components/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
@@ -79,7 +76,12 @@ export function ModelCombobox({
   const currentThinking =
     THINKING_LEVELS.find((item) => item.level === thinkingLevel) ?? THINKING_LEVELS[2];
   const selectedModelKey = selectedModel ? getModelKey(selectedModel) : "";
+  const displayModel = selectedModel ?? value ?? null;
+  const selectedModelLabel = displayModel ? formatModelName(displayModel) : "";
   const triggerLabel = formatComposerSelectionLabel(selectedModel ?? value, currentThinking.label);
+  const triggerAriaLabel = selectedModelLabel
+    ? `Model: ${selectedModelLabel}. Thinking level: ${currentThinking.label}`
+    : `Select model. Thinking level: ${currentThinking.label}`;
   const grouped = groupModels(models);
 
   function openSettingsAndClose(): void {
@@ -108,25 +110,39 @@ export function ModelCombobox({
             <button
               type="button"
               disabled={disabled}
+              aria-label={triggerAriaLabel}
               className={cn(
                 buttonVariants({ variant: "ghost", size: "sm" }),
-                "cn-button min-w-0 max-w-full shrink-0 gap-1 px-1.5",
+                "cn-button min-w-7 max-w-full shrink gap-1 px-1.5",
               )}
             >
               <Brain className="shrink-0 text-afx-brand-soft" />
-              <span className="min-w-0 truncate font-mono text-[10px] tracking-tight">
+              <span className="hidden min-w-0 max-w-[7.5rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
                 {triggerLabel}
               </span>
-              <ChevronDown className="shrink-0 text-muted-foreground" />
+              <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
             </button>
           </DropdownMenuPrimitive.Trigger>
         </TooltipTrigger>
-        <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
-          Choose the model and thinking level for the next turn. Thinking stays visible in this
-          menu, and model choices are grouped by provider or external agent.
+        <TooltipContent
+          side="bottom"
+          align="start"
+          className="max-w-xs flex-col items-start gap-1 text-left"
+        >
+          <span>Choose the model and thinking level for the next turn.</span>
+          {selectedModelLabel ? (
+            <span className="break-words font-mono text-[10px] opacity-80">
+              {selectedModelLabel}
+            </span>
+          ) : null}
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent side="top" align="start" className="w-80 max-w-[calc(100vw-1rem)]">
+      <DropdownMenuContent
+        side="top"
+        align="start"
+        collisionPadding={8}
+        className="max-h-[min(34rem,calc(100vh-2rem))] w-[min(20rem,calc(100vw-1rem))] overflow-y-auto"
+      >
         <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
           Thinking Level
         </DropdownMenuLabel>
@@ -139,70 +155,66 @@ export function ModelCombobox({
         </DropdownMenuRadioGroup>
 
         <DropdownMenuSeparator />
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger className="font-mono uppercase tracking-[0.14em]">
-            Model
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-80 max-w-[calc(100vw-1rem)] max-h-[calc(100vh-2rem)] overflow-y-auto">
-            {models.length === 0 ? (
-              <div className="flex flex-col items-start gap-2 px-3 py-4 text-xs text-muted-foreground">
-                <p>No models available.</p>
-                {onOpenSettings ? (
-                  <Button type="button" size="xs" variant="outline" onClick={openSettingsAndClose}>
-                    Open Settings
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <>
-                <DropdownMenuRadioGroup value={selectedModelKey} onValueChange={selectModel}>
-                  {grouped.api.length > 0 ? (
-                    <>
-                      <DropdownMenuLabel className="flex items-center gap-1.5 font-mono uppercase tracking-[0.14em]">
-                        <KeyRound size={11} />
-                        Provider
+        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+          Model
+        </DropdownMenuLabel>
+        {models.length === 0 ? (
+          <div className="flex flex-col items-start gap-2 px-3 py-4 text-xs text-muted-foreground">
+            <p>No models available.</p>
+            {onOpenSettings ? (
+              <Button type="button" size="xs" variant="outline" onClick={openSettingsAndClose}>
+                Open Settings
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <>
+            <DropdownMenuRadioGroup value={selectedModelKey} onValueChange={selectModel}>
+              {grouped.api.length > 0 ? (
+                <>
+                  <DropdownMenuLabel className="flex items-center gap-1.5 font-mono uppercase tracking-[0.14em]">
+                    <KeyRound size={11} />
+                    Provider
+                  </DropdownMenuLabel>
+                  {grouped.api.map(([provider, providerModels], index) => (
+                    <div key={provider}>
+                      {index > 0 ? <DropdownMenuSeparator /> : null}
+                      <DropdownMenuLabel className="px-2 py-2 font-mono uppercase tracking-[0.14em]">
+                        {customProviderLabels?.[provider] ?? formatProviderLabel(provider)}
                       </DropdownMenuLabel>
-                      {grouped.api.map(([provider, providerModels], index) => (
-                        <div key={provider}>
-                          {index > 0 ? <DropdownMenuSeparator /> : null}
-                          <DropdownMenuLabel className="px-2 py-2 font-mono uppercase tracking-[0.14em]">
-                            {customProviderLabels?.[provider] ?? formatProviderLabel(provider)}
-                          </DropdownMenuLabel>
-                          {providerModels.map((model) => renderModelItem(model))}
-                        </div>
-                      ))}
-                    </>
-                  ) : null}
+                      {providerModels.map((model) => renderModelItem(model))}
+                    </div>
+                  ))}
+                </>
+              ) : null}
 
-                  {grouped.external.length > 0 ? (
-                    <>
-                      {grouped.api.length > 0 ? <DropdownMenuSeparator /> : null}
-                      <DropdownMenuLabel className="flex items-center gap-1.5 font-mono uppercase tracking-[0.14em]">
-                        <Server size={11} />
-                        External Agents
+              {grouped.external.length > 0 ? (
+                <>
+                  {grouped.api.length > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuLabel className="flex items-center gap-1.5 font-mono uppercase tracking-[0.14em]">
+                    <Server size={11} />
+                    External Agents
+                  </DropdownMenuLabel>
+                  {grouped.external.map(([instanceId, instanceModels], index) => (
+                    <div key={instanceId}>
+                      {index > 0 ? <DropdownMenuSeparator /> : null}
+                      <DropdownMenuLabel className="px-2 py-2 font-mono uppercase tracking-[0.14em]">
+                        {instanceModels[0]?.instanceLabel ?? instanceId}
                       </DropdownMenuLabel>
-                      {grouped.external.map(([instanceId, instanceModels], index) => (
-                        <div key={instanceId}>
-                          {index > 0 ? <DropdownMenuSeparator /> : null}
-                          <DropdownMenuLabel className="px-2 py-2 font-mono uppercase tracking-[0.14em]">
-                            {instanceModels[0]?.instanceLabel ?? instanceId}
-                          </DropdownMenuLabel>
-                          {instanceModels.map((model) => renderModelItem(model))}
-                        </div>
-                      ))}
-                    </>
-                  ) : null}
-                </DropdownMenuRadioGroup>
+                      {instanceModels.map((model) => renderModelItem(model))}
+                    </div>
+                  ))}
+                </>
+              ) : null}
+            </DropdownMenuRadioGroup>
 
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={openSettingsAndClose} className="gap-1.5">
-                  <Settings2 size={11} />
-                  Manage providers and agents…
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={openSettingsAndClose} className="gap-1.5">
+              <Settings2 size={11} />
+              Manage providers and agents…
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -226,7 +238,7 @@ function formatComposerSelectionLabel(
   model: Pick<AgentModel, "name" | "id"> | null | undefined,
   thinkingLabel: string,
 ): string {
-  const modelLabel = model ? formatModelName(model) : "Select model";
+  const modelLabel = model ? "Model" : "Select model";
   return `${modelLabel} - ${thinkingLabel}`;
 }
 

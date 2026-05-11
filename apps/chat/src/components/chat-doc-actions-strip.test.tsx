@@ -14,6 +14,40 @@ import { describe, expect, it, vi } from "vitest";
 import { ChatDocActionsStrip } from "./chat-doc-actions-strip";
 
 describe("ChatDocActionsStrip", () => {
+  it("collapses document actions into an ellipsis menu at compact widths", async () => {
+    const user = userEvent.setup();
+    const onInsert = vi.fn();
+    const onAutoSend = vi.fn();
+
+    render(
+      <ChatDocActionsStrip
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Draft",
+        }}
+        dismissed={false}
+        onDismiss={vi.fn()}
+        onInsert={onInsert}
+        onAutoSend={onAutoSend}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Document actions" })).toHaveClass("@[420px]:hidden");
+    expect(screen.getByTestId("doc-actions-primary-row")).toHaveClass("hidden", "@[420px]:flex");
+
+    await user.click(screen.getByRole("button", { name: "Document actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: /Author/i }));
+    expect(onInsert).toHaveBeenCalledWith("/afx-design author auth");
+
+    await user.click(screen.getByRole("button", { name: "Document actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: /^Approve\b/i }));
+    expect(onAutoSend).toHaveBeenCalledWith("/afx-spec approve auth");
+  });
+
   it("groups compose actions before run-now actions and keeps the row bounded", async () => {
     const user = userEvent.setup();
     const onInsert = vi.fn();

@@ -87,15 +87,15 @@ export function ComposerStrip({
   return (
     <div
       className={cn(
-        "afx-surface-card mb-1.5 overflow-hidden rounded-md border shadow-sm",
+        "afx-surface-card @container mb-1.5 overflow-hidden rounded-md border shadow-sm",
         toneClass,
       )}
     >
-      <header className="flex items-center gap-2 px-2 py-1">
+      <header className="flex items-center gap-1.5 px-2 py-1">
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="inline-flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          className="inline-flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-left"
           aria-expanded={expanded}
           title={expanded ? "Collapse" : "Expand"}
         >
@@ -104,7 +104,7 @@ export function ComposerStrip({
           ) : (
             <ChevronRight size={11} className="shrink-0 text-muted-foreground/70" />
           )}
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          <span className="min-w-0 truncate font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {title}
           </span>
           {count != null && (

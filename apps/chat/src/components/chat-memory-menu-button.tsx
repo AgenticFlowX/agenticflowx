@@ -56,7 +56,7 @@ export function ChatMemoryMenuButton({
     : undefined;
   const buttonClass =
     size === "composer"
-      ? "h-7 min-w-0 gap-1 px-1.5 font-mono text-[10px] tracking-tight text-muted-foreground/80 [&_svg]:size-3.5"
+      ? "h-7 min-w-7 gap-1 px-1.5 font-mono text-[10px] tracking-tight text-muted-foreground/80 [&_svg]:size-3.5"
       : "h-5 gap-0.5 px-1 text-muted-foreground/75 [&_svg]:size-3";
   const buttonSize = size === "composer" ? "sm" : "xs";
 
@@ -77,8 +77,21 @@ export function ChatMemoryMenuButton({
                 data-testid="chat-memory-menu-button"
               >
                 <Archive className="shrink-0 text-afx-brand-soft" aria-hidden />
-                <span className={cn("min-w-0 truncate", size === "tiny" && "sr-only")}>Memory</span>
-                <ChevronDown className="shrink-0 text-muted-foreground" aria-hidden />
+                <span
+                  className={cn(
+                    "min-w-0 truncate",
+                    size === "tiny" ? "sr-only" : "hidden @[260px]:inline",
+                  )}
+                >
+                  Memory
+                </span>
+                <ChevronDown
+                  className={cn(
+                    "shrink-0 text-muted-foreground",
+                    size === "composer" && "hidden @[260px]:block",
+                  )}
+                  aria-hidden
+                />
               </Button>
             </DropdownMenuTrigger>
           </TooltipTrigger>

@@ -3,15 +3,15 @@ afx: true
 type: DESIGN
 status: Approved
 owner: "@rixrix"
-version: "1.15"
+version: "1.17"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-10T10:24:08.000Z"
+updated_at: "2026-05-11T08:57:12.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
-approved_at: "2026-05-09T13:19:54.000Z"
+approved_at: "2026-05-11T08:57:12.000Z"
 ---
 
-<!-- APPROVED: 2026-05-05T08:37:39.000Z - Do not edit without version bump -->
+<!-- APPROVED: 2026-05-11T08:57:12.000Z - Do not edit without version bump -->
 
 # App Chat Composer - Technical Design
 
@@ -93,7 +93,7 @@ The idle state renders one primary send action and keeps the combined model/thin
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Ask AFX about this workspace ...]        [^] |
-|      [Composer.Model: GPT-5.4 mini - Minimal ▾] | [Sliders] Code [FileText] [File ctx: On] |
+|      [Composer.Model: Model - Minimal ▾] | [Sliders] Code [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -101,8 +101,8 @@ The idle state renders one primary send action and keeps the combined model/thin
 
 ### [DES-COMPOSER-MOCKUP-RUNTIME-MENU] Combined Model And Thinking Menu
 
-The root menu always exposes thinking levels first, then nests model selection under `Model >` so
-provider and external-agent choices stay grouped without taking extra toolbar width.
+The root menu always exposes thinking levels first, then model groups inline in the same vertical
+surface so provider and external-agent choices stay grouped without opening a sideways submenu.
 
 ```text
 ┌──────────────────────────────── Combined menu ───────────────────────────────┐
@@ -113,13 +113,13 @@ provider and external-agent choices stay grouped without taking extra toolbar wi
 │ • High                                                                       │
 │ • Extra High                                                                 │
 │                                                                              │
-│ Model >                                                                      │
-│   Provider                                                                   │
-│     • OpenAI · GPT-5.4 mini                                                 │
-│     • Anthropic · Claude Sonnet                                             │
-│   External Agents                                                            │
-│     • Pi CLI                                                                │
-│     • OpenCode                                                              │
+│ Model                                                                        │
+│ Provider                                                                     │
+│   • OpenAI · GPT-5.4 mini                                                   │
+│   • Anthropic · Claude Sonnet                                               │
+│ External Agents                                                              │
+│   • Pi CLI                                                                  │
+│   • OpenCode                                                                │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -137,7 +137,7 @@ The streaming state replaces the single send action with follow-up, steer, and s
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Queue a follow-up... (⌘⏎ to steer)]          |
-|      [Composer.Model: GPT-5.4 mini - High ▾] | [Sliders] Code [FileText] [File ctx: On] [Follow-up ⏎] [Steer ⌘⏎] [Stop] |
+|      [Composer.Model: Model - High ▾] | [Sliders] Code [FileText] [File ctx: On] [Follow-up ⏎] [Steer ⌘⏎] [Stop] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] ⏎ follow-up . ⌘⏎ steer . Pi pill . usage         |
 +--------------------------------------------------------------------+
@@ -188,7 +188,7 @@ The "Shell" amber pill badge replaces the `@` mention button and the combined mo
 | [Composer.InputGroup]                                              |
 |  [Shell] [!] [Composer.Input: pnpm build]                     [^]   |
 |      ⚠ Shell · output is local only                               |
-|      [Composer.Model: Anthropic . Claude - Medium] | [FileText] [File ctx: On] |
+|      [Composer.Model: Model - Medium] | [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -219,7 +219,7 @@ quiet; Explore uses the warning tone and an `Experimental` badge in the dropdown
 +--------------------------------------------------------------------+
 | [Composer.InputGroup]                                              |
 |  [@] [Composer.Input: Ask AFX about this workspace ...]        [^] |
-|      [Composer.Model: Anthropic . Claude - Medium] | [Sliders] Code [FileText] [File ctx: On] |
+|      [Composer.Model: Model - Medium] | [Sliders] Code [FileText] [File ctx: On] |
 +--------------------------------------------------------------------+
 | [Composer.Footer] Pi/API status . usage . "Enter send . Cmd+Shift" |
 +--------------------------------------------------------------------+
@@ -313,7 +313,7 @@ Chat
       InputGroupTextarea        -> [Composer.Input]
       Toolbar
         mention button          -> opens MentionPopup and lists files
-        ModelCombobox           -> combined model/thinking selector with API/external groups
+        ModelCombobox           -> combined model/thinking selector with inline API/external groups
         ModeToggle              -> workspace posture selector (Code default / Explore experimental)
         ActiveFileContextToggle -> durable active-file context toggle mirrored in Settings
       Actions
@@ -495,14 +495,14 @@ System commands **never reach the LLM**. The `!` prefix is detected before any `
 
 ### [DES-COMPOSER-COMPONENT-MODEL-COMBOBOX] ModelCombobox
 
-| Code anchor               | Component contract                                                                                       |
-| ------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ModelCombobox`           | Owns composer model/thinking chrome, selected trigger label, nested model submenu, and Settings fallback |
-| `groupModels`             | Splits API-provider models from external-agent models and sorts both groups by provider/instance id      |
-| `renderModelItem`         | Shows display name, raw model id, and compact context window                                             |
-| `isSameModel`             | Uses provider, id, and instance id so API and external models do not collide                             |
-| `THINKING_LEVELS`         | Maps runtime effort values to the always-visible thinking section and closed trigger label               |
-| `formatComposerSelection` | Displays selected model name plus thinking label in the narrow toolbar trigger                           |
+| Code anchor               | Component contract                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `ModelCombobox`           | Owns composer model/thinking chrome, compact trigger label, inline vertical model groups, and Settings fallback                       |
+| `groupModels`             | Splits API-provider models from external-agent models and sorts both groups by provider/instance id                                   |
+| `renderModelItem`         | Shows display name, raw model id, and compact context window                                                                          |
+| `isSameModel`             | Uses provider, id, and instance id so API and external models do not collide                                                          |
+| `THINKING_LEVELS`         | Maps runtime effort values to the always-visible thinking section and closed trigger label                                            |
+| `formatComposerSelection` | Displays generic Model plus thinking label in the narrow toolbar trigger; full selected model moves to tooltip and accessibility copy |
 
 ### [DES-COMPOSER-COMPONENT-SLASH-POPUP] SlashPopup
 
@@ -586,16 +586,16 @@ draft before caret -> detectComposerTrigger("@", not escaped, not inside fence)
 
 ## [DES-COMPOSER-RUNTIME] Combined Model, Thinking, And Runtime Control Map
 
-| Control             | Source anchor                | Data                                                        | Behavior                                                                 |
-| ------------------- | ---------------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Combined trigger    | `ModelCombobox`              | `AgentModel[]`, `ThinkingLevel`, active `agentStatus.model` | Shows model name plus thinking label and opens the nested menu           |
-| Empty model list    | `ModelCombobox`              | no `models`                                                 | Keeps thinking choices visible and offers Settings fallback              |
-| Model item          | `renderModelItem`            | `name`, `id`, `contextWindow`                               | Shows compact display name and context window                            |
-| Model select        | `selectModel`                | `provider`, `id`, `instanceId`                              | Sends `chat/setModel`, resets prompt-history cursor, focuses textarea    |
-| Thinking select     | `selectThinkingLevel`        | `ThinkingLevel`                                             | Sends `chat/setThinkingLevel` and optimistically updates runtime state   |
-| Workspace mode      | `ModeToggle`                 | `WorkspaceMode`, `snapshot.mode.active`                     | Sends `chat/setMode`, keeps Code default, Explore experimental/read-only |
-| Blocked action      | `BlockedCommandStrip`        | `BlockedActionView`                                         | Renders Explore rejection strip; Switch to Code restores the draft       |
-| Runtime unavailable | `canSend`, placeholder logic | `agentStatus.phase`, `runtimeConfigured`, `rpcEnabled`      | Disables textarea/actions and routes user to setup copy                  |
+| Control             | Source anchor                | Data                                                        | Behavior                                                                                                               |
+| ------------------- | ---------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Combined trigger    | `ModelCombobox`              | `AgentModel[]`, `ThinkingLevel`, active `agentStatus.model` | Shows compact Model plus thinking label, exposes full model in tooltip/accessibility copy, and opens one vertical menu |
+| Empty model list    | `ModelCombobox`              | no `models`                                                 | Keeps thinking choices visible and offers Settings fallback                                                            |
+| Model item          | `renderModelItem`            | `name`, `id`, `contextWindow`                               | Shows compact display name and context window                                                                          |
+| Model select        | `selectModel`                | `provider`, `id`, `instanceId`                              | Sends `chat/setModel`, resets prompt-history cursor, focuses textarea                                                  |
+| Thinking select     | `selectThinkingLevel`        | `ThinkingLevel`                                             | Sends `chat/setThinkingLevel` and optimistically updates runtime state                                                 |
+| Workspace mode      | `ModeToggle`                 | `WorkspaceMode`, `snapshot.mode.active`                     | Sends `chat/setMode`, keeps Code default, Explore experimental/read-only                                               |
+| Blocked action      | `BlockedCommandStrip`        | `BlockedActionView`                                         | Renders Explore rejection strip; Switch to Code restores the draft                                                     |
+| Runtime unavailable | `canSend`, placeholder logic | `agentStatus.phase`, `runtimeConfigured`, `rpcEnabled`      | Disables textarea/actions and routes user to setup copy                                                                |
 
 ## [DES-COMPOSER-CONTEXT] Active File Context Toggle
 
@@ -696,7 +696,7 @@ The composer should continue to send intent, not constructed prompt text.
 │ ┌──────────────────────────────────────────────────────────────────────────┐ │
 │ │ Inspect the active file and explain the failing test                   │ │
 │ └──────────────────────────────────────────────────────────────────────────┘ │
-│  [@]   [GPT-5.4 mini - Minimal ▾]   |   [○] journal.md   [Send]            │
+│  [@]   [Model - Minimal ▾]   |   [○] journal.md   [Send]                   │
 │   │        │                         │                                       │
 │   │        │                         └─ active-file context toggle          │
 │   │        └─ combined model/thinking selector                               │
@@ -819,6 +819,12 @@ The shared Memory catalog follows the same tooltip rule for `/afx-context` and `
 commands, using workflow-derived details for Save, Load, History, Impact, Note, Log, Recap,
 Promote, and Capture so first-time users can understand what each memory action does before
 running it.
+
+At narrow sidebar widths, `ComposerStrip` acts as a container boundary for doc-action compaction:
+the document title/status truncate in the header, the primary action row hides below the compact
+threshold, and a single ellipsis-backed `Document actions` dropdown exposes the same draft-first and
+run-now actions vertically. This prevents the strip from wrapping controls into stacked button
+columns when the chat view is placed in either VS Code sidebar.
 
 Completed-message `Next:` actions do not reuse the full `ComposerStrip` chrome. They sit under
 the assistant markdown as a compact inline follow-up row so the history does not gain a second
@@ -1412,7 +1418,7 @@ Retarget composer files back to `210-app-chat` only if this child zone stops pro
 | FR-14       | `DES-COMPOSER-MOCKUP-MODE-COLLAPSED`, `DES-COMPOSER-MOCKUP-MODE-DROPDOWN`, `DES-COMPOSER-COMPONENT-MODE-TOGGLE`, `DES-COMPOSER-RUNTIME`                      | `ModeToggle`, `WORKSPACE_MODES`, `data-workspace-mode` CSS accent, Spec footer hint, `chat/setMode`                                                                           | `app.test.tsx`, mode snapshot tests, settings mode coverage                                                               |
 | FR-15/FR-16 | `DES-COMPOSER-COMPONENT-STRIP`                                                                                                                               | `ChatDocActionsStrip`, `MemoryDropdown`, `ChatCommandPresetSubmenu`, `ResultActions`, `resolveDocActions`, `MEMORY_CATALOG`, `COMMAND_CONTEXT_PRESETS`, `parseResultActions`  | Unit: command/doc/memory/preset/result parser + component tests; E2E required for doc-action menu and result-action chips |
 | NFR-6       | `DES-UI`, `DES-SEC`, `DES-ERR`                                                                                                                               | Amber "Shell" badge, persistent footer warning, dangerous-pattern guard, timeout enforcement, output card styling                                                             | E2E: badge visible when draft starts with `!`; guard shown for `rm -rf`; output renders in timeline                       |
-| NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`                                                                          | `ActiveFileContextToggle`, compact toolbar placement                                                                                                                          | `app.test.tsx` narrow-width composer coverage                                                                             |
+| NFR-7       | `DES-COMPOSER-CONTEXT`, `DES-COMPOSER-MOCKUP-IDLE`, `DES-COMPOSER-MOCKUP-STREAMING`, `DES-COMPOSER-MOCKUP-RUNTIME-MENU`, `DES-COMPOSER-COMPONENT-STRIP`      | `ModelCombobox`, `ModeToggle`, `ActiveFileContextToggle`, `ChatMemoryMenuButton`, `ChatDocActionsStrip`, compact toolbar placement                                            | `app.test.tsx`, `model-combobox.test.tsx`, `chat-doc-actions-strip.test.tsx`, narrow-width composer coverage              |
 | NFR-1       | `DES-COMPOSER-KEYS`                                                                                                                                          | `onKeyDown`                                                                                                                                                                   | e2e keyboard regression tests when changed                                                                                |
 | NFR-2       | `DES-COMPOSER-FOOTER`                                                                                                                                        | `FooterStrip`                                                                                                                                                                 | focused copy snapshot/assertions when changed                                                                             |
 | NFR-3       | `DES-COMPOSER-MOCKUPS`, `DES-COMPOSER-MOCKUP-COMPACTING`, `DES-COMPOSER-QUEUE`                                                                               | stable bottom layout around `InputGroup`/`QueueStrip`                                                                                                                         | visual/e2e checks when layout changes                                                                                     |

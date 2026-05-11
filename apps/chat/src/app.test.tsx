@@ -223,14 +223,16 @@ describe("chat App", () => {
       }
       expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "/afx-scaffold" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveClass("min-w-0");
-      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toHaveTextContent(
-        "GPT-5.4 - Medium",
-      );
+      expect(
+        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      ).toHaveClass("min-w-7");
+      expect(
+        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      ).toHaveTextContent("Model - Medium");
       expect(screen.getByRole("button", { name: "Mention file" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "journal.md" })).toBeChecked();
       expect(screen.getByText("journal.md")).toHaveClass("hidden", "@[260px]:inline");
-      expect(screen.getByText("|")).toBeInTheDocument();
+      expect(screen.getByText("|")).toHaveClass("hidden", "@[260px]:inline");
 
       await user.hover(screen.getByRole("button", { name: "Mention file" }));
       const mentionTooltip = await waitFor(() => {
@@ -340,12 +342,16 @@ describe("chat App", () => {
     });
 
     try {
-      await user.hover(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
-      expect(
-        await screen.findByText(/choose the model and thinking level for the next turn/i, {
-          selector: '[data-slot="tooltip-content"]',
-        }),
-      ).toBeInTheDocument();
+      await user.hover(
+        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      );
+      const tooltip = await waitFor(() => {
+        const content = document.querySelector('[data-slot="tooltip-content"]');
+        expect(content).not.toBeNull();
+        return content as HTMLElement;
+      });
+      expect(tooltip).toHaveTextContent(/choose the model and thinking level for the next turn/i);
+      expect(tooltip).toHaveTextContent("GPT-5.4");
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
@@ -419,9 +425,11 @@ describe("chat App", () => {
     });
 
     try {
-      await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
+      await user.click(
+        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      );
       expect(screen.getByText("Thinking Level")).toBeInTheDocument();
-      expect(screen.getByRole("menuitem", { name: "Model" })).toBeInTheDocument();
+      expect(screen.getByText("Model")).toBeInTheDocument();
 
       const send = transport.send as ReturnType<typeof vi.fn>;
       send.mockClear();
@@ -433,7 +441,9 @@ describe("chat App", () => {
         }),
       );
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "GPT-5.4 - Low" })).toBeInTheDocument(),
+        expect(
+          screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Low" }),
+        ).toBeInTheDocument(),
       );
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
@@ -532,7 +542,7 @@ describe("chat App", () => {
       });
     });
 
-    const modeButton = screen.getByRole("button", { name: "Workspace mode" });
+    const modeButton = screen.getByRole("button", { name: "Workspace mode: Code" });
     expect(modeButton).toHaveTextContent("Code");
     expect(modeButton).not.toHaveTextContent("Mode:");
     expect(modeButton).not.toHaveClass("text-muted-foreground");
@@ -560,7 +570,7 @@ describe("chat App", () => {
         mode: "explore",
       }),
     );
-    const exploreModeButton = screen.getByRole("button", { name: "Workspace mode" });
+    const exploreModeButton = screen.getByRole("button", { name: "Workspace mode: Explore" });
     expect(exploreModeButton).toHaveTextContent("Explore");
     expect(exploreModeButton).not.toHaveClass("text-amber-600");
     const exploreModeIcon = exploreModeButton.querySelector("svg");
@@ -600,7 +610,7 @@ describe("chat App", () => {
         mode: "code",
       }),
     );
-    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
+    expect(screen.getByRole("button", { name: "Workspace mode: Code" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toHaveValue("! pnpm test");
@@ -642,7 +652,7 @@ describe("chat App", () => {
       });
     });
 
-    const modeButton = screen.getByRole("button", { name: "Workspace mode" });
+    const modeButton = screen.getByRole("button", { name: "Workspace mode: Explore" });
     expect(modeButton).toHaveTextContent("Explore");
     await user.click(modeButton);
     await user.click(screen.getByRole("menuitemradio", { name: /^Code\b/i }));
@@ -654,7 +664,7 @@ describe("chat App", () => {
         mode: "code",
       }),
     );
-    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
+    expect(screen.getByRole("button", { name: "Workspace mode: Code" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toBeInTheDocument();
@@ -667,7 +677,7 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Workspace mode" })).toHaveTextContent("Code");
+    expect(screen.getByRole("button", { name: "Workspace mode: Code" })).toHaveTextContent("Code");
     expect(
       screen.getByPlaceholderText("Ask AFX about this workspace — ⌘⇧⏎ saves a note"),
     ).toBeInTheDocument();
@@ -740,10 +750,13 @@ describe("chat App", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "GPT-5.4 - Medium" })).toBeInTheDocument(),
+      expect(
+        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      ).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
-    await user.hover(screen.getByRole("menuitem", { name: "Model" }));
+    await user.click(
+      screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+    );
     await waitFor(() => expect(screen.getByText("Provider")).toBeInTheDocument());
     expect(screen.getAllByText("External Agents").length).toBeGreaterThan(0);
     expect(screen.getByText("Openai")).toBeInTheDocument();
@@ -762,8 +775,9 @@ describe("chat App", () => {
       }),
     );
 
-    await user.click(screen.getByRole("button", { name: "GPT-5.4 - Medium" }));
-    await user.hover(screen.getByRole("menuitem", { name: "Model" }));
+    await user.click(
+      screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+    );
     await waitFor(() =>
       expect(screen.getByRole("menuitem", { name: "Manage providers and agents…" })).toBeVisible(),
     );
@@ -1701,7 +1715,9 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Llama 4 Scout - Medium" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Model: Llama 4 Scout. Thinking level: Medium" }),
+    ).toBeEnabled();
     expect(screen.getByText("thinking")).toBeInTheDocument();
     expect(screen.queryByText("reasoning unavailable for this model")).not.toBeInTheDocument();
   });
@@ -1750,7 +1766,9 @@ describe("chat App", () => {
       });
     });
 
-    expect(screen.getByRole("button", { name: "Claude Opus 4.7 - Medium" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Model: Claude Opus 4.7. Thinking level: Medium" }),
+    ).toBeEnabled();
   });
 
   it("recalls sent prompts with arrow keys", async () => {

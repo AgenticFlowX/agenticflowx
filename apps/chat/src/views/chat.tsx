@@ -1727,7 +1727,7 @@ export default function Chat({
             <InputGroupAddon align="block-end" className="flex-wrap justify-between gap-1">
               {/* Surface: [Composer.Toolbar] */}
               <TooltipProvider>
-                <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+                <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden @[260px]:gap-1">
                   {isSystemCommand ? (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-amber-500">
                       Shell
@@ -1763,7 +1763,7 @@ export default function Chat({
                   />
                   <span
                     aria-hidden="true"
-                    className="px-0.5 font-mono text-[10px] text-muted-foreground/60"
+                    className="hidden px-0.5 font-mono text-[10px] text-muted-foreground/60 @[260px]:inline"
                   >
                     |
                   </span>
@@ -2307,17 +2307,16 @@ function ModeToggle({
         <TooltipTrigger asChild>
           <DropdownMenuPrimitive.Trigger
             type="button"
-            aria-label="Workspace mode"
+            aria-label={`Workspace mode: ${current.label}`}
             className={cn(
               buttonVariants({ variant: "ghost", size: "sm" }),
-              "cn-button min-w-0 max-w-full shrink-0 gap-1 px-1.5",
+              "cn-button min-w-7 max-w-full shrink-0 gap-1 px-1.5",
             )}
           >
             <SlidersHorizontal size={11} className="shrink-0 text-afx-brand-soft" />
             <span className="hidden max-w-[6.5rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">
               {current.label}
             </span>
-            <span className="font-mono text-[10px] @[260px]:hidden">{current.label}</span>
             <ChevronDown className="hidden shrink-0 text-muted-foreground @[260px]:block" />
           </DropdownMenuPrimitive.Trigger>
         </TooltipTrigger>
