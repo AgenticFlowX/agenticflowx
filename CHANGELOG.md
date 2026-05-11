@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.14] - 2026-05-12
+
+### Changed
+
+- **Documentation polish** — fixed README typo(s).
+
 ## [2.0.13] - 2026-05-11
 
 ### Fixed
