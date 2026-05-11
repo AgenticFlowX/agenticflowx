@@ -1,10 +1,12 @@
 # AgenticFlowX
 
-> Your AI coding agent, with the workflow already wired up.
+> Low-barrier spec-driven AI coding for VS Code. Chat first, switch to Spec mode when the work needs traceability.
 
-Chat-first by default. Spec-driven when the work calls for it. Same chat, same files, same panels. Apache 2.0 for VS Code.
+AgenticFlowX is a VS Code workflow layer for AI coding. Backed by [pi.dev](https://pi.dev) today, it gives you a normal coding chat plus an optional spec-driven path for requirements, designs, tasks, journals, and reviewable project memory.
 
-![AgenticFlowX — chat, editor with @see CodeLens, and workbench panels](https://agenticflowx.github.io/assets/afx-workbench-overview.webp)
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/sdd-demo.gif" alt="AgenticFlowX SDD walkthrough in VS Code" width="100%">
+</p>
 
 [![code-qa](https://github.com/AgenticFlowX/agenticflowx/actions/workflows/code-qa.yml/badge.svg)](https://github.com/AgenticFlowX/agenticflowx/actions/workflows/code-qa.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
@@ -13,183 +15,119 @@ Chat-first by default. Spec-driven when the work calls for it. Same chat, same f
 
 ---
 
-## Two lanes, one chatbox
+## Chat first
 
-**Code mode** for chat-first AI coding — ask, mention, switch models, ship. **Spec mode** for when the work earns a paper trail — `spec.md → design.md → tasks.md → journal.md`, refined as you go. **Explore mode** for read-only investigation. The Mode picker lives at the chatbox; switch with `⌘⇧M` (`Ctrl+Shift+M` on Windows/Linux).
+Start with normal coding chat: ask, mention files, switch models, and follow up while the work is still fresh. Most work can stay here.
 
-Most coding stays in chat. The workflow steps in when the work needs traceability between intent, design, tasks, and code. Same discipline as SDD, lower friction to start.
+Use file mentions when the agent needs exact context, quick commands when you want structure, and the model picker when you want to change lanes without leaving VS Code.
 
-![Mode picker open at the chatbox — Code (default), Explore (experimental), Spec (SDD)](https://agenticflowx.github.io/assets/vscode-tab-chat-mode-picker.webp)
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/chat-first.webp" alt="AgenticFlowX chat panel with quick commands and model picker" width="560">
+</p>
 
----
+## Switch lanes when the work needs structure
 
-## The workflow produces the files. The panels display them
+Code mode is the default for day-to-day implementation. Explore mode is read-only inspection for tracing behavior and planning changes. Spec mode is planning-first: useful when the work needs requirements, design notes, tasks, and an approval trail.
 
-AFX writes plain markdown to your repo. Diff-able, PR-able, grep-able, AI-portable. There's no proprietary directory and no separate database — the files are just there.
+Switch modes from the chatbox with `Cmd+Shift+M` on macOS or `Ctrl+Shift+M` on Windows/Linux.
 
-| Where it lands                    | What it is                                                |
-| --------------------------------- | --------------------------------------------------------- |
-| `docs/specs/<feature>/spec.md`    | The WHAT — requirements, constraints, acceptance criteria |
-| `docs/specs/<feature>/design.md`  | The HOW — architecture, data models, API contracts        |
-| `docs/specs/<feature>/tasks.md`   | The WHEN — implementation checklist, ordered, checkable   |
-| `docs/specs/<feature>/journal.md` | Memory — session logs, decisions, discussion captures     |
-| `docs/research/**/*.md`           | Exploration and comparison docs                           |
-| `docs/adr/ADR-*.md`               | Architecture decisions, linked to specs                   |
-| `.afx/notes.md`                   | Quick notes for the Notes tab                             |
-| `.afx/kanban/*.md`                | Markdown-backed kanban for the Board tab                  |
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/mode-picker.webp" alt="Mode picker open at the chatbox showing Code, Explore, and Spec modes" width="560">
+</p>
 
-The Workbench panels are built to navigate exactly these files — no separate database, no sync, no export. The files are already there.
+## Spec mode makes the next step obvious
 
----
+Spec-driven development should not feel like joining a methodology cult. In AFX, it starts as a mode in the chatbox: refine the spec, shape the design, break work into tasks, and approve each step when it matters.
 
-## Three modes
+The action row maps to the workflow: Refine, Author, Validate, Review, Approve, and continue from where you left off.
 
-| Mode        | Stance                                               | One line                                                                                                                   |
-| ----------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Code**    | _Default · full access_                              | Chat-first by default. Repo-backed notes, tasks, and docs you can actually see.                                            |
-| **Explore** | _Read-only · runtime tools blocked_                  | Use it to inspect code, trace behavior, and plan changes — without accidentally editing files or running commands.         |
-| **Spec**    | _Planning-only · docs and specs · guardrails active_ | Plan before you code. We'll refine requirements, validate structure, and gate approval — without touching production code. |
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/spec-mode-actions.webp" alt="Spec mode active on spec.md with Refine, Validate, and workflow stepper actions" width="560">
+</p>
 
-Mode is enforced via a system-prompt prefix on every turn. Explore additionally hard-blocks runtime tool calls; Code and Spec rely on the guardrail prompt and the agent following it. Switch lanes with `⌘⇧M`, or pick from the Mode menu in the chat status bar.
+## The workflow stays in your repo
 
-![Spec mode active on `design.md` — the SpecStepper shows progress (spec approved, design in flight, tasks next), with the action row and a Related row pinned to the feature's Journal and Work Sessions](https://agenticflowx.github.io/assets/vscode-tab-chat-mode-spec.webp)
+AFX writes plain markdown to your workspace. Diff-able, PR-able, grep-able, and easy to move between humans and agents.
 
-In Spec mode the chat composer carries a SpecStepper (e.g. `1 Spec ✓ — 2 Design ✓ — 3 Tasks`), an action row mapped to skill-driven slash commands, and a Related row linking the feature's Journal and Work Sessions:
+| Where it lands                    | What it is                                               |
+| --------------------------------- | -------------------------------------------------------- |
+| `docs/specs/<feature>/spec.md`    | The WHAT: requirements, constraints, acceptance criteria |
+| `docs/specs/<feature>/design.md`  | The HOW: architecture, data models, API contracts        |
+| `docs/specs/<feature>/tasks.md`   | The WHEN: implementation checklist, ordered, checkable   |
+| `docs/specs/<feature>/journal.md` | Memory: session logs, decisions, discussion captures     |
+| `.afx/notes.md`                   | Quick notes for the Notes tab                            |
+| `.afx/kanban/*.md`                | Markdown-backed kanban for the Board tab                 |
 
-| Action   | What it does                                                                                          |
-| -------- | ----------------------------------------------------------------------------------------------------- |
-| Refine   | Drafts `/afx-spec refine` (or `/afx-design refine`) into the composer for you to steer                |
-| Author   | Advances the workflow — `spec.md` Author runs design authoring; `design.md` Author runs task planning |
-| Validate | Runs validation against the spec/design and reports gaps                                              |
-| Review   | Runs a structured review pass                                                                         |
-| Approve  | Marks the document approved and unlocks the next stage                                                |
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/repo-documents.webp" alt="AgenticFlowX Documents panel showing workflow markdown files" width="100%">
+</p>
 
-Sprint mode collapses Validate + Review into a single Verify, for small work that lives in one document and graduates when scope grows.
+## Project memory without another dashboard
 
----
+The Workbench gives you views over the files already in the repo: Workbench, Pipeline, Documents, Analytics, Journal, Board, and Notes.
 
-## Inside the Workbench
+Use it to see what has been decided, what is next, and which pieces still need attention, without adding a separate workflow database.
 
-| Tab           | What it surfaces                                                                                                  |
-| ------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Workbench** | Spec, design, tasks, and sessions side-by-side per feature. Toggle columns, edit inline, drift indicator footer   |
-| **Pipeline**  | Every feature — filterable, sortable. Simple KPI tiles, Timeline, or Grid views. Up-next continuations            |
-| **Documents** | All workflow files in one filterable tree. Inline markdown render, content search across the repo                 |
-| **Analytics** | Tasks done %, sessions, streak, pipeline distribution, contribution-style activity heatmap (7d / 30d / 90d / All) |
-| **Journal**   | Dated timeline of discussions, decisions, and summaries. Auto-written by skills via `/afx-session log`            |
-| **Board**     | Markdown-backed kanban. Drag cards, reorder columns, edit inline — flip to raw markdown any time                  |
-| **Notes**     | Quick capture — type, Enter, done. Filter by Today / Week / Month / All. Stored in `.afx/notes.md`                |
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/workbench.webp" alt="AgenticFlowX Workbench panel showing spec, design, and tasks side-by-side" width="100%">
+</p>
 
-![Workbench tab over the RoomLedger Check-In feature — Spec, Design, Tasks, and Sessions side-by-side, with the editor above showing an `@see` CodeLens hover preview](https://agenticflowx.github.io/assets/workbench.webp)
+## Trace intent back to code
 
-![Pipeline tab — every feature, filterable, with Simple KPI tiles and an Up Next list](https://agenticflowx.github.io/assets/pipeline.webp)
+AFX extends VS Code with spec-awareness in the editor. `@see` CodeLens links code back to specs and designs, hover previews show the linked section inline, and go-to-definition can jump to requirement anchors like `[FR-1]` or task anchors like `[2.1]`.
+
+The files stay plain markdown; the editor just knows how to move through them.
+
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/vscode/product/traceability.webp" alt="Editor with @see CodeLens preview linked to a design section" width="100%">
+</p>
 
 ---
 
-## The editor knows about the workflow too
+## Install
 
-AFX extends VS Code with spec-awareness built into the editor — not just a panel on the side.
+Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx). On first launch, open **Settings -> Provider**, add your API keys, and pick a model.
 
-- **`@see` CodeLens** — Hover any `@see` annotation to preview the linked spec inline. Jump to the requirement without leaving your code.
-- **Bidirectional traceability** — Every function links to a requirement; every requirement maps to code. Trace audits run as an AFX skill (`/afx-check trace`) over the `@see` annotations the editor surfaces.
-- **Code actions** — Right-click any selection to explain, review, improve, generate tests, or add a `@see` link back to spec.
-- **Go-to-definition on `@see`** — Cmd-click a path or a bracket id (`[FR-1]`, `[NFR-3]`, `[DES-AUTH]`, `[2.1]`) to jump to the spec section it references.
-- **Session continuity** — Every session appends a `journal.md` entry. Pick up where you left off — decisions intact.
+### 60-second quickstart: chat-first
 
-![Editor with @see CodeLens preview — hovering an annotation reveals the linked spec section inline](https://agenticflowx.github.io/assets/codelens-spec.webp)
+1. Open the **AgenticFlowX** chat panel.
+2. Ask for help like you normally would, or right-click a selection and choose **AgenticFlowX -> Send Selection**.
+3. Use file mentions such as `@path/to/file` when you want the agent to pull full file context.
 
----
+### 60-second quickstart: spec-driven
 
-## Backed by Pi at the moment — two routes
+1. Open the **AgenticFlowX** chat panel.
+2. Switch to Spec mode with `Cmd+Shift+M` on macOS or `Ctrl+Shift+M` on Windows/Linux.
+3. Run `/afx-scaffold spec my-first-feature`.
+4. Open the generated `spec.md` under `docs/specs/` and use the action row: Refine, Author, Validate, Review, Approve.
 
-AFX runs your coding agent through Pi today. Whether or not you have Pi installed, AFX uses Pi to reach the providers below.
+## Runtime and providers
 
-|                    | How it works                                                                                                                  |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| **Already use Pi** | AFX detects your Pi CLI and routes every call through Pi RPC. Your config, your keys — nothing re-entered.                    |
-| **New to Pi**      | The Pi SDK ships inside the extension. Add provider keys in Settings (stored in VS Code SecretStorage). No Pi install needed. |
+AgenticFlowX is backed by Pi today. Whether or not you have Pi installed, AFX uses Pi to reach the providers below.
+
+- **Already use Pi:** AFX detects your Pi CLI and routes calls through Pi RPC. Your config and keys stay where they are.
+- **New to Pi:** The Pi SDK ships inside the extension. Provider keys are stored in VS Code SecretStorage. No Pi install required.
 
 **Built-in providers:** OpenAI · Anthropic · Google Gemini · Google Vertex · GitHub Copilot · OpenRouter · Amazon Bedrock · Azure OpenAI · Groq · DeepSeek · Mistral · MiniMax · Kimi · Fireworks · Cerebras · Hugging Face · Vercel AI Gateway · xAI · Z.ai
 
 **Plus presets** for Ollama, LM Studio, vLLM, OpenRouter, Vercel AI Gateway, Moonshot/Kimi, Anthropic-compatible proxies, Google AI Studio, and any OpenAI-compatible endpoint.
 
-The runtime is swappable in principle. The [AFX workflow skills](https://github.com/AgenticFlowX/afx) also run standalone — outside the extension — with Claude Code, Codex, Gemini CLI, or Copilot Chat.
+## Headless AFX
 
----
+No VS Code? The AFX workflow also runs headless via the [AFX CLI and skill pack](https://github.com/AgenticFlowX/afx). It uses the same spec, design, task, journal, and traceability files.
 
-## Installation
-
-Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx). On first launch, open **Settings → Provider**, add your API keys, and pick a model.
-
-### 60-second quickstart (chat-first)
-
-1. Open the **AgenticFlowX** chat panel.
-2. Ask for help like you normally would — right-click a selection → **AgenticFlowX → Send Selection**.
-3. Use file mentions (`@path/to/file`) when you want the agent to pull full file context.
-
-### 60-second quickstart (spec-driven, optional)
-
-1. Open the **AgenticFlowX** chat panel.
-2. Switch to Spec mode (`⌘⇧M`) and run `/afx-scaffold spec my-first-feature`.
-3. Open the generated `spec.md` under `docs/specs/` and tweak requirements.
-4. Use the action row — Refine / Author / Validate / Review / Approve — or run `/afx-next` to pick the next task and start implementing.
-
----
-
-## Scaffolding
-
-### Start fresh
-
-Open the AFX chat and run:
-
-```text
-/afx-scaffold spec my-first-feature
-```
-
-AFX drafts a spec, a design, and tasks — pinned to your Workbench.
-
-### Try a working example — pull RoomLedger into a folder
-
-A real project with spec, design, and tasks already wired up — ready to build:
-
-> Security note: the command below downloads a script from GitHub and executes it. Review it first if you prefer.
-
-```bash
-curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli | bash -s -- example full .
-```
-
-Review-then-run alternative:
-
-```bash
-curl -sL https://raw.githubusercontent.com/agenticflowx/afx/main/afx-cli -o ./agenticflowx-cli
-cat ./agenticflowx-cli
-bash ./agenticflowx-cli example full .
-```
-
-Open the folder in VS Code, launch the AFX chat, and ask `/afx-next` — AFX picks up the in-progress ticket.
-
-> Three flavors: `starter` (spec only), `basic` (one feature ready to build), `full` (four features).
-
-For the full command list, run `/afx-help` in the AFX chat.
-
----
-
-## Same skills. Same files. Same rules
-
-The AFX skills run inside the extension and standalone — outside it — with whatever coding agent you're already paying for. No vendor lock-in, no credit pool, no single-cloud inference. Apache 2.0.
-
----
+Tested with Claude Code, Codex, Gemini CLI, and GitHub Copilot.
 
 ## Early access
 
-Public alpha. The core workflow is stable and in daily use; settings, modes, and examples are still moving.
+Public alpha. Useful today; settings, modes, and examples are still moving.
 
 - [Report an issue](https://github.com/AgenticFlowX/agenticflowx/issues)
 - [Start a discussion](https://github.com/AgenticFlowX/agenticflowx/discussions)
 
 ## Contributing
 
-Community contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+Community contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
 ## License
 
