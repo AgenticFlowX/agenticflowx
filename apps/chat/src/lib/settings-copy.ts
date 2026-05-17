@@ -59,7 +59,6 @@ export const RUNTIMES = {
     "This runtime is the in-process Pi SDK. Always available when at least one provider key is configured.",
   sdkRestartTooltip:
     "Re-init the in-process SDK client. In-flight requests are cancelled; provider sessions reset.",
-  sdkViewLogsTooltip: "Show buffered stderr from this runtime. SDK and RPC have independent logs.",
   sdkManageNote: "Manage credentials in the Models tab.",
 
   // RPC card
@@ -77,7 +76,6 @@ export const RUNTIMES = {
     "Kill the Pi subprocess and start it again. In-flight tool calls cancelled. Session state preserved unless 'Ephemeral session' is on.",
   rpcReconnectTooltip:
     "Re-attach to the running Pi subprocess without killing it. Try this first if streaming drops but Pi is still alive.",
-  rpcViewLogsTooltip: "Show buffered stderr from the Pi subprocess.",
   rpcReloadTooltip: "Reload the entire chat webview. Last resort — clears in-flight UI state.",
 
   rpcEphemeralLabel: "Ephemeral session",
@@ -317,17 +315,21 @@ export const SUPPORT = {
   logLevelTooltip:
     "Set to 'debug' or 'trace' when reporting a bug. Return to 'info' for normal use.",
 
-  stderrLabel: "View buffered stderr",
-  stderrTooltip:
-    "Pi RPC stderr is captured by the AFX host and shown here. Use Copy to paste into a bug report.",
-  stderrCopyLabel: "Copy stderr",
+  outputLogLabel: "Open AgenticFlowX output",
+  outputLogTooltip:
+    "Open VS Code's Output panel with the AgenticFlowX channel selected. Use this when reporting runtime or extension issues.",
 
   privacyTitle: "Privacy",
 
   telemetryLabel: "Anonymous UI analytics",
-  telemetryDescription:
-    "AFX-side: usage events from this VS Code extension. Sends: command names, error codes, timing. Never sends: message content, file paths, API keys. Default: off.",
-  telemetryTooltip: "AFX-side analytics only. Pi has its own install-ping telemetry — see About.",
+  telemetryDescription: "On by default. Helps improve AFX with anonymous UI events.",
+  telemetryTooltip: "Uses Microsoft Clarity. You can turn it off anytime.",
+  telemetryDisabledByVscodeDescription:
+    "VS Code telemetry is off, so AFX analytics is disabled here.",
+  telemetryStatusLabel: "Analytics status",
+  telemetryStatusHint:
+    "Active only when this switch, VS Code telemetry, and Do Not Track all allow it.",
+  telemetryStatusDisabledByVscodeHint: "VS Code telemetry is off, so analytics is disabled.",
 
   aboutTitle: "About",
   piTelemetryNote:

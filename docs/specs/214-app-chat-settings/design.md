@@ -47,7 +47,7 @@ Settings view
 | Appearance         | `applyTheme`, `applyStyle`                                                                               | `appearance/update`                                                                                                                          | Host persists `afx.theme` / `afx.style` and emits runtime appearance                      | `agent/appearanceUpdated` or `chat/error`                                         |
 | API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                         | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                     | Host SecretStore/settings mutation                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
 | Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                 | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                                                 | Host config + runtime discovery                                                           | `agent/settingsSnapshot` or `chat/error`                                          |
-| Diagnostics        | `requestStderr`, recovery buttons                                                                        | `chat/getStderr`, recovery callbacks                                                                                                         | Runtime log/recovery actions                                                              | `agent/stderr`, runtime status events                                             |
+| Diagnostics        | `openOutputLogs`, recovery buttons                                                                       | `chat/showLogs`, recovery callbacks                                                                                                          | VS Code AgenticFlowX Output channel and runtime recovery actions                          | Output panel, runtime status events                                               |
 | Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
 | Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack |
 
@@ -161,9 +161,9 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 | │ Status: 2 keys configured · 4 models available            │  |
 | │ Active model: claude-opus-4-5  [change in composer →]     │  |
 | │                                                           │  |
-| │ [↻ Restart] [View logs] [?]                               │  |
+| │ [↻ Restart] [?]                                           │  |
 | │ [Troubleshoot ▾]                                          │  |
-| │   [Reconnect] [↻ Restart] [View logs] [Reload]            │  |
+| │   [Reconnect] [↻ Restart] [Reload]                        │  |
 | └───────────────────────────────────────────────────────────┘  |
 |                                                                |
 | ┌── Pi RPC (subprocess) ──────────────── ○Off ──────────────┐  |
@@ -360,10 +360,12 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 +----------------------------------------------------------------+
 | Diagnostics                                                    |
 | Log level: info                            [open setting]      |
-| [ View buffered stderr ]   [ Copy stderr ]           [?]       |
+| [ Open AgenticFlowX output ]                         [?]       |
 +----------------------------------------------------------------+
 | Privacy                                                        |
 | Anonymous UI analytics                      ( ●———)  [?]       |
+| On by default. Helps improve AFX with anonymous UI events.     |
+| Analytics status: enabled                                      |
 +----------------------------------------------------------------+
 | About                                                          |
 | AFX VSCode extension v2.x                                      |
@@ -497,7 +499,7 @@ active editor is an AFX doc and the user hasn't switched into Spec mode yet.
 
 | Code anchor                 | Component contract                                                                     |
 | --------------------------- | -------------------------------------------------------------------------------------- |
-| `AgentRecoveryActions`      | Shared action contract for retry, restart, settings, logs, and reload                  |
+| `AgentRecoveryActions`      | Shared action contract for retry, restart, settings, and reload                        |
 | `AgentRecoveryCard`         | Renders confirmed long-disconnect/error state and gates retry when restart is required |
 | `RuntimeRecoveryButtonGrid` | Settings-local compact recovery grid for diagnostics and setup cards                   |
 
@@ -505,10 +507,10 @@ active editor is an AFX doc and the user hasn't switched into Spec mode yet.
 
 The Runtimes group renders one card per registered `AgentInstance` from `MultiplexedAgentManager.instances` ([apps/vscode/src/multiplex-agent-manager.ts](apps/vscode/src/multiplex-agent-manager.ts)). v1 has up to two:
 
-| Card                | Renders when                                                                         | Body                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| API Providers (SDK) | Always rendered. Status flips between `Ready` (key configured) and `No keys` (none). | Active model line, Restart, View logs, link to Models tab for credentials, Troubleshoot disclosure.                   |
-| Pi RPC              | Always rendered (toggle is discoverable). Body collapses when toggle is off.         | Enable toggle, status pill, Restart, Reconnect, View logs, Session controls, Advanced paths, Troubleshoot disclosure. |
+| Card                | Renders when                                                                         | Body                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| API Providers (SDK) | Always rendered. Status flips between `Ready` (key configured) and `No keys` (none). | Active model line, Restart, link to Models tab for credentials, Troubleshoot disclosure.                   |
+| Pi RPC              | Always rendered (toggle is discoverable). Body collapses when toggle is off.         | Enable toggle, status pill, Restart, Reconnect, Session controls, Advanced paths, Troubleshoot disclosure. |
 
 Below the cards, a single **Behaviour** card hosts the five Pi knobs (Thinking, Steering, Follow-up, Auto-compaction, Auto-retry). It carries a scope label `Active: ● <instance> · model <id>` that updates live when the user switches model in the composer. The label exists because behaviour mutations route to `requireActive()` only — see `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`.
 
@@ -569,8 +571,8 @@ Track selection persists per webview via localStorage.
 
 | Code anchor                 | UI/functionality                                                                    |
 | --------------------------- | ----------------------------------------------------------------------------------- |
-| `RuntimeRecoveryButtonGrid` | Shared reconnect/restart/logs/reload action grid                                    |
-| Diagnostics card            | Stderr request/copy, log setting, new session action                                |
+| `RuntimeRecoveryButtonGrid` | Shared reconnect/restart/reload action grid                                         |
+| Diagnostics card            | Open AgenticFlowX Output, log setting, new session action                           |
 | About card                  | Telemetry toggle, effective telemetry status, version and bundled Pi npm info       |
 | `toast` pending maps        | Success/failure feedback for runtime, provider, appearance, and telemetry mutations |
 
@@ -666,13 +668,12 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | Webview to host | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Provider credential/default model mutations                                                  |
 | Webview to host | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Pi RPC local-agent mutations                                                                 |
 | Webview to host | `chat/openSettings`                                                                                                    | Open specific VS Code setting key                                                            |
-| Webview to host | `chat/getStderr`                                                                                                       | Request buffered runtime stderr                                                              |
+| Webview to host | `chat/showLogs`                                                                                                        | Open VS Code's Output panel with the AgenticFlowX channel selected                           |
 | Webview to host | `telemetry/setEnabled`                                                                                                 | Persist analytics preference                                                                 |
 | Host to webview | `agent/settingsSnapshot`                                                                                               | Replace snapshot, including `mode.active`, and resolve provider/telemetry/mode pending state |
 | Host to webview | `agent/appearanceUpdated`                                                                                              | Replace appearance and resolve appearance pending state                                      |
 | Host to webview | `agent/runtimeSettings`                                                                                                | Replace runtime controls and resolve runtime pending state                                   |
 | Host to webview | `agent/commands`                                                                                                       | Populate skills list                                                                         |
-| Host to webview | `agent/stderr`                                                                                                         | Show stderr viewer                                                                           |
 | Host to webview | `chat/error`                                                                                                           | Resolve pending mutation failure with toast                                                  |
 
 ---
@@ -761,13 +762,13 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 | `[ChatSettings.Nav]`                | `SETTINGS_SECTIONS`, sticky tab row                                    | section ids: workspace, runtimes, models, look, support                                                                | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.Workspace]`          | `SettingsCard` (Mode), `SwitchRow` (Active-file context)               | `chat/setMode`, `chat/setIncludeActiveFileContext`                                                                     | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard` | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`                                                      | `external-agent-card.test.tsx`                        |
-| `[ChatSettings.Runtimes.Sdk]`       | SDK instance card                                                      | `chat/setModel`, `chat/getStderr {instanceId:"pi-sdk"}`                                                                | future SDK card test                                  |
+| `[ChatSettings.Runtimes.Sdk]`       | SDK instance card                                                      | `chat/setModel`                                                                                                        | future SDK card test                                  |
 | `[ChatSettings.Runtimes.Rpc]`       | `ExternalAgentCard`                                                    | `external/setRpcEnabled`, `external/detectPiBinary`, `external/setEphemeral`                                           | `external-agent-card.test.tsx`                        |
 | `[ChatSettings.Runtimes.Behaviour]` | Behaviour card (`SelectRow`, `SwitchRow`)                              | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry` | `apps/chat/src/app.test.tsx`                          |
 | `[ChatSettings.Models.Builtin]`     | `ProviderCard` tile grid                                               | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | `provider-card.test.tsx`, `settings-snapshot.test.ts` |
 | `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                 | (v1) `chat/openSettings` for `~/.pi/agent/models.json`                                                                 | future custom-models tests                            |
 | `[ChatSettings.Look]`               | identity/style cards, `theme-preview.ts`                               | `appearance/update`, `afx.theme`, `afx.style`                                                                          | `theme-preview.ts` helper tests                       |
-| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                | `chat/getCommands`, `chat/getStderr`, `telemetry/setEnabled`                                                           | `apps/chat/src/app.test.tsx`                          |
+| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                | `chat/getCommands`, `chat/showLogs`, `telemetry/setEnabled`                                                            | `apps/chat/src/app.test.tsx`                          |
 
 ## [DES-SETTINGS-TRACE] Functional Trace Matrix
 

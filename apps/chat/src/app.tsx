@@ -134,12 +134,6 @@ export default function App({ transport }: AppProps) {
       onRetryConnection: () => bridgeSend({ type: "agent/checkStatus", requestId: uid() }),
       onRestartAgent: () => bridgeSend({ type: "agent/restart", requestId: uid() }),
       onOpenSettings: () => setActiveTab("settings"),
-      onViewLogs: () => {
-        setActiveTab("settings");
-        queueMicrotask(() =>
-          bridgeSend({ type: "chat/getStderr", requestId: uid(), maxLines: 200 }),
-        );
-      },
       onReloadHost: () => bridgeSend({ type: "agent/reload", requestId: uid() }),
     }),
     [],

@@ -159,8 +159,6 @@ export default function Settings({
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [commands, setCommands] = useState<AgentCommand[]>([]);
   const [runtime, setRuntime] = useState<RuntimeSettings>({});
-  const [stderr, setStderr] = useState("");
-  const [showStderr, setShowStderr] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionId>("workspace");
   const [modelsSubTab, setModelsSubTab] = useState<"builtin" | "custom">("builtin");
   const [customModelsTrack, setCustomModelsTrack] = useState<"sdk" | "rpc">("sdk");
@@ -251,10 +249,6 @@ export default function Settings({
         pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
-      }),
-      bridgeOn("agent/stderr", (msg) => {
-        setStderr(msg.content);
-        setShowStderr(true);
       }),
     ];
     bridgeSend({ type: "chat/getSettingsSnapshot", requestId: uid() });
@@ -683,9 +677,8 @@ export default function Settings({
       enabled,
     });
   }
-  function requestStderr(): void {
-    setShowStderr(true);
-    bridgeSend({ type: "chat/getStderr", requestId: uid(), maxLines: 200 });
+  function openOutputLogs(): void {
+    bridgeSend({ type: "chat/showLogs", requestId: uid() });
   }
   function openModelsJson(): void {
     bridgeSend({ type: "chat/openModelsJson", requestId: uid() });
@@ -808,7 +801,6 @@ export default function Settings({
                 jumpToSection("models");
               }}
               onOpenExternalAgents={() => jumpToSection("runtimes")}
-              onViewLogs={requestStderr}
             />
           ) : null}
           {runtimeUnavailable ? (
@@ -984,16 +976,6 @@ export default function Settings({
                     <Zap size={11} />
                     Restart
                   </Button>
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="outline"
-                    title={RUNTIMES.sdkViewLogsTooltip}
-                    onClick={requestStderr}
-                  >
-                    <FileText size={11} />
-                    View logs
-                  </Button>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {RUNTIMES.sdkManageNote}{" "}
@@ -1005,7 +987,7 @@ export default function Settings({
                     Models tab →
                   </button>
                 </p>
-                <TroubleshootDisclosure actions={recoveryActions} onViewLogs={requestStderr} />
+                <TroubleshootDisclosure actions={recoveryActions} />
               </InstanceCard>
 
               {/* RPC instance card — always rendered so toggle is discoverable */}
@@ -1063,16 +1045,6 @@ export default function Settings({
                         <RefreshCw size={11} />
                         Reconnect
                       </Button>
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="outline"
-                        title={RUNTIMES.rpcViewLogsTooltip}
-                        onClick={requestStderr}
-                      >
-                        <FileText size={11} />
-                        View logs
-                      </Button>
                     </div>
 
                     {/* Session controls */}
@@ -1127,7 +1099,7 @@ export default function Settings({
                       </div>
                     </details>
 
-                    <TroubleshootDisclosure actions={recoveryActions} onViewLogs={requestStderr} />
+                    <TroubleshootDisclosure actions={recoveryActions} />
                   </>
                 )}
               </InstanceCard>
@@ -1556,32 +1528,13 @@ export default function Settings({
                   type="button"
                   size="xs"
                   variant="outline"
-                  title={SUPPORT.stderrTooltip}
-                  onClick={requestStderr}
+                  title={SUPPORT.outputLogTooltip}
+                  onClick={openOutputLogs}
                 >
-                  {SUPPORT.stderrLabel}
+                  <FileText size={12} />
+                  {SUPPORT.outputLogLabel}
                 </Button>
               </div>
-              {showStderr && (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                      Runtime stderr
-                    </span>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => void navigator.clipboard?.writeText(stderr)}
-                    >
-                      {SUPPORT.stderrCopyLabel}
-                    </Button>
-                  </div>
-                  <pre className="max-h-56 overflow-auto rounded-sm border bg-muted/30 p-2 font-mono text-[10px] leading-relaxed text-muted-foreground">
-                    {stderr || "No stderr captured."}
-                  </pre>
-                </div>
-              )}
             </div>
 
             {/* Privacy */}
@@ -1592,7 +1545,7 @@ export default function Settings({
                 label={SUPPORT.telemetryLabel}
                 description={
                   telemetrySettings.vscodeTelemetryEnabled === false
-                    ? "AFX preference is saved, but VS Code telemetry is off so Clarity stays disabled."
+                    ? SUPPORT.telemetryDisabledByVscodeDescription
                     : SUPPORT.telemetryDescription
                 }
                 tooltip={SUPPORT.telemetryTooltip}
@@ -1601,13 +1554,13 @@ export default function Settings({
                 disabled={!snapshot}
               />
               <ConfigField
-                label="Analytics status"
+                label={SUPPORT.telemetryStatusLabel}
                 value={telemetrySettings.effectiveEnabled ? "enabled" : "disabled"}
                 settingKey="afx.telemetry.enabled"
                 hint={
                   telemetrySettings.vscodeTelemetryEnabled === false
-                    ? "VS Code telemetry is disabled, so AFX analytics stays off."
-                    : "Respects this AFX toggle, VS Code telemetry, Do Not Track, and dashboard masking rules."
+                    ? SUPPORT.telemetryStatusDisabledByVscodeHint
+                    : SUPPORT.telemetryStatusHint
                 }
               />
             </div>
@@ -1752,20 +1705,14 @@ function InstanceCard({
 
 // ─── Troubleshoot disclosure ──────────────────────────────────────────────────
 
-function TroubleshootDisclosure({
-  actions,
-  onViewLogs,
-}: {
-  actions?: AgentRecoveryActions;
-  onViewLogs: () => void;
-}) {
+function TroubleshootDisclosure({ actions }: { actions?: AgentRecoveryActions }) {
   return (
     <details className="group rounded-md border bg-card/25 px-2.5 py-2">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-2 text-[11px] text-muted-foreground marker:hidden hover:text-foreground">
         <span>{RUNTIMES.troubleshootLabel} ▾</span>
       </summary>
       <div className="mt-2">
-        <RuntimeRecoveryButtonGrid actions={actions} onViewLogs={onViewLogs} />
+        <RuntimeRecoveryButtonGrid actions={actions} />
       </div>
     </details>
   );
@@ -1796,14 +1743,12 @@ function RuntimeConfigurationNotice({
   recoveryActions,
   onOpenApiProviders,
   onOpenExternalAgents,
-  onViewLogs,
 }: {
   apiProvidersEnabled: boolean;
   rpcEnabled: boolean;
   recoveryActions?: AgentRecoveryActions;
   onOpenApiProviders: () => void;
   onOpenExternalAgents: () => void;
-  onViewLogs: () => void;
 }) {
   const detail =
     !apiProvidersEnabled && !rpcEnabled
@@ -1842,11 +1787,7 @@ function RuntimeConfigurationNotice({
                   </p>
                 </div>
               </div>
-              <RuntimeRecoveryButtonGrid
-                actions={recoveryActions}
-                className="mt-2"
-                onViewLogs={onViewLogs}
-              />
+              <RuntimeRecoveryButtonGrid actions={recoveryActions} className="mt-2" />
             </div>
           ) : null}
         </div>
@@ -1858,11 +1799,9 @@ function RuntimeConfigurationNotice({
 function RuntimeRecoveryButtonGrid({
   actions,
   className,
-  onViewLogs,
 }: {
   actions?: AgentRecoveryActions;
   className?: string;
-  onViewLogs: () => void;
 }) {
   return (
     <div className={cn("grid grid-cols-2 gap-1.5 @[280px]:flex @[280px]:flex-wrap", className)}>
@@ -1889,17 +1828,6 @@ function RuntimeRecoveryButtonGrid({
       >
         <Zap size={12} />
         <span className="truncate">Restart</span>
-      </Button>
-      <Button
-        type="button"
-        size="xs"
-        variant="outline"
-        className="min-w-0 justify-start"
-        title={SUPPORT.stderrTooltip}
-        onClick={onViewLogs}
-      >
-        <FileText size={12} />
-        <span className="truncate">View logs</span>
       </Button>
       <Button
         type="button"

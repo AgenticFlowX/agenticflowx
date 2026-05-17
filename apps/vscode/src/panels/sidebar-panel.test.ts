@@ -995,10 +995,11 @@ describe("sidebar-panel host bridge", () => {
     ).toBe(false);
   });
 
-  it("chat/getStderr delegates to agent.getStderr (sync)", () => {
+  it("chat/showLogs opens the AgenticFlowX output channel command", () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
     const inbound = setup();
-    inbound.fire({ type: "chat/getStderr", requestId: "req-4" });
-    expect(agent.getStderr).toHaveBeenCalledOnce();
+    inbound.fire({ type: "chat/showLogs", requestId: "logs-1" });
+    expect(executeCommand).toHaveBeenCalledWith("afx.showLogs");
   });
 
   it("appearance/update persists validated theme and style settings", async () => {

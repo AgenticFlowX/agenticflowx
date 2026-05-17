@@ -263,14 +263,12 @@ describe("createMockTransport", () => {
     t.on("agent/commands", () => types.push("agent/commands"));
     t.on("agent/files", () => types.push("agent/files"));
     t.on("agent/settingsSnapshot", () => types.push("agent/settingsSnapshot"));
-    t.on("agent/stderr", () => types.push("agent/stderr"));
     t.on("agent/runtimeSettings", () => types.push("agent/runtimeSettings"));
     t.on("agent/compacted", () => types.push("agent/compacted"));
     t.send({ type: "chat/getModels", requestId: "m1" });
     t.send({ type: "chat/getCommands", requestId: "c1" });
     t.send({ type: "chat/listFiles", requestId: "f1" });
     t.send({ type: "chat/getSettingsSnapshot", requestId: "s1" });
-    t.send({ type: "chat/getStderr", requestId: "e1" });
     t.send({ type: "chat/setThinkingLevel", requestId: "r1", level: "high" });
     t.send({ type: "chat/setSteeringMode", requestId: "r2", mode: "one-at-a-time" });
     t.send({ type: "chat/setFollowUpMode", requestId: "r3", mode: "all" });
@@ -281,7 +279,6 @@ describe("createMockTransport", () => {
       "agent/commands",
       "agent/files",
       "agent/settingsSnapshot",
-      "agent/stderr",
       "agent/runtimeSettings",
       "agent/runtimeSettings",
       "agent/runtimeSettings",

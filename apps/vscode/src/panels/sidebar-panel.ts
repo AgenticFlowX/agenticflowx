@@ -1507,9 +1507,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleSetEphemeralSession(msg.requestId, msg.enabled);
         return;
       }
-      // @see docs/specs/350-agent-manager/design.md [DES-API]
-      case "chat/getStderr": {
-        handleGetStderr(msg.requestId, msg.maxLines);
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]
+      case "chat/showLogs": {
+        void vscode.commands.executeCommand("afx.showLogs");
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
@@ -2052,11 +2052,6 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       log.error("getCommands failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
-  }
-
-  function handleGetStderr(requestId: string, maxLines = 200): void {
-    const { content, truncated } = truncateTextFromHead(agentManager.getStderr(), maxLines);
-    post({ type: "agent/stderr", requestId, content, truncated });
   }
 
   async function handleListFiles(requestId: string, query = "**/*", limit = 200): Promise<void> {
@@ -2865,19 +2860,6 @@ function extractFirstChangedLine(result: unknown): number | undefined {
   const r = result as { details?: { firstChangedLine?: unknown } } | undefined;
   const v = r?.details?.firstChangedLine;
   return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined;
-}
-
-function truncateTextFromHead(
-  content: string,
-  maxLines: number,
-): { content: string; truncated: boolean } {
-  const lines = content.split(/\r?\n/);
-  if (lines.length <= maxLines) return { content, truncated: false };
-  const hidden = lines.length - maxLines;
-  return {
-    content: [`... ${hidden} earlier lines hidden`, ...lines.slice(-maxLines)].join("\n"),
-    truncated: true,
-  };
 }
 
 async function groupProviders(

@@ -1935,15 +1935,10 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       });
       return;
     }
-    if (msg.type === "chat/getStderr") {
-      emit({
-        type: "agent/stderr",
-        requestId: msg.requestId,
-        content: "Runtime stderr buffer is quiet in this mock run.",
-      });
+    if (msg.type === "chat/openSettings") {
       return;
     }
-    if (msg.type === "chat/openSettings") {
+    if (msg.type === "chat/showLogs") {
       return;
     }
     if (msg.type === "chat/compact") {

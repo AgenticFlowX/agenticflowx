@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "0.1"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-17T13:51:34.000Z"
 tags: ["app", "workbench", "impact-lens", "traceability", "intent-ledger"]
 depends_on:
   [
@@ -21,7 +21,6 @@ depends_on:
 
 ## References
 
-- **Upstream sprint brief**: [/Users/rix/Workspace/afx-project/docs/specs/001-vscode-impact-lens/001-vscode-impact-lens.md](/Users/rix/Workspace/afx-project/docs/specs/001-vscode-impact-lens/001-vscode-impact-lens.md)
 - **Parent shell**: [docs/specs/220-app-workbench/spec.md](../220-app-workbench/spec.md)
 - **Shell/tab route**: [docs/specs/227-app-workbench-shell/spec.md](../227-app-workbench-shell/spec.md)
 - **Existing host `@see` providers**: [docs/specs/203-app-vscode-see-navigation/spec.md](../203-app-vscode-see-navigation/spec.md)

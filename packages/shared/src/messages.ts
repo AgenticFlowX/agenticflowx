@@ -603,12 +603,12 @@ export type ChatToAgent =
    */
   | { type: "external/setEphemeral"; requestId: string; enabled: boolean }
   /**
-   * Settings diagnostics: pull recent agent stderr.
+   * Open the host's AgenticFlowX output channel.
    *
-   * @see docs/specs/350-agent-manager/spec.md [FR-1]
-   * @see docs/specs/350-agent-manager/design.md [DES-API]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-4]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-DIAGNOSTICS]
    */
-  | { type: "chat/getStderr"; requestId: string; maxLines?: number }
+  | { type: "chat/showLogs"; requestId: string }
   /**
    * Open a VSCode settings UI focused on a known AFX configuration key.
    *
@@ -1060,7 +1060,7 @@ export type AgentToChat =
       appearance: RuntimeAppearanceSnapshot;
     }
   /**
-   * Settings diagnostics: agent stderr buffer.
+   * Diagnostics/debug transport event: agent stderr buffer.
    *
    * @see docs/specs/350-agent-manager/spec.md [FR-1]
    * @see docs/specs/350-agent-manager/design.md [DES-API]

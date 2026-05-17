@@ -4,7 +4,7 @@
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-4]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-RECOVERY-CARD] [DES-SETTINGS-MOCKUP-RECOVERY]
  */
-import { AlertTriangle, FileText, RefreshCw, RotateCcw, Settings, Zap } from "lucide-react";
+import { AlertTriangle, RefreshCw, RotateCcw, Settings, Zap } from "lucide-react";
 
 import type { AgentRuntimeStatus } from "@afx/shared";
 import { Button } from "@afx/ui/components/button";
@@ -21,7 +21,6 @@ export interface AgentRecoveryActions {
   onRetryConnection?: () => void;
   onRestartAgent?: () => void;
   onOpenSettings?: () => void;
-  onViewLogs?: () => void;
   onReloadHost?: () => void;
 }
 
@@ -95,16 +94,6 @@ export function AgentRecoveryCard({
           >
             <Settings size={12} />
             Open settings
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="ghost"
-            onClick={actions?.onViewLogs}
-            disabled={!actions?.onViewLogs}
-          >
-            <FileText size={12} />
-            View logs
           </Button>
           <Button
             type="button"

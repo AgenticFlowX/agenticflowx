@@ -871,7 +871,10 @@ describe("chat App", () => {
 
     await user.click(screen.getByRole("tab", { name: "Settings" }));
     expect(screen.getByText("Connecting to agent…")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "View buffered stderr" })).toBeEnabled();
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: "Open AgenticFlowX output" }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "chat/showLogs" }));
     // Troubleshoot disclosure is always rendered inside each instance card.
     expect(screen.getAllByText("Troubleshoot ▾").length).toBeGreaterThan(0);
 
@@ -987,7 +990,7 @@ describe("chat App", () => {
     expect(screen.getAllByText("Past session answer").length).toBeGreaterThan(0);
   });
 
-  it("keeps Settings runtime debug controls visible for Pi/API troubleshooting", async () => {
+  it("keeps Settings runtime recovery controls visible for Pi/API troubleshooting", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();
     initTransport(transport);
@@ -1023,9 +1026,7 @@ describe("chat App", () => {
     await user.click(screen.getAllByRole("button", { name: "Restart" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/restart" }));
 
-    await user.click(screen.getAllByRole("button", { name: "View logs" })[0]);
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "chat/getStderr" }));
-    expect(screen.getByText("Runtime stderr")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View logs" })).not.toBeInTheDocument();
 
     await user.click(screen.getAllByRole("button", { name: "Reload" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/reload" }));
@@ -1381,8 +1382,7 @@ describe("chat App", () => {
     await user.click(screen.getAllByRole("button", { name: "Reconnect" })[0]);
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "agent/checkStatus" }));
 
-    await user.click(screen.getAllByRole("button", { name: "View logs" })[0]);
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "chat/getStderr" }));
+    expect(screen.queryByRole("button", { name: "View logs" })).not.toBeInTheDocument();
   });
 
   it("groups SDK and Pi RPC settings with clear help text", async () => {
