@@ -2,6 +2,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.0.15] - 2026-05-18
+
+### Added
+
+- **Componentized chat window** — split the monolithic chat view into focused controller, timeline, composer, top bar, panel, and empty-state components, with route-contract, performance, and Playwright benchmark coverage.
+
+### Changed
+
+- **Chat UI structure** — refreshed the composer, file attachments panel, document actions panel, timeline, and result-action surfaces as part of the chat restructure.
+- **Settings, logs, and support cleanup** — simplified Settings copy and support surfaces, tightened host/sidebar logging behaviour, and removed stale transport mock data.
+- **Bundled AFX skills metadata** — refreshed the skills signature pin and clarified telemetry copy for the VS Code extension manifest.
+
+### Fixed
+
+- **Host-owned AFX next actions** — result actions now render action payloads supplied by the VS Code host overlay instead of relying on legacy in-message UI action markers.
+- **VS Code e2e run order** — moved VS Code Electron tests to the explicit `test:e2e` path so full verification builds the extension bundle before launching the e2e host.
+
 ## [2.0.14] - 2026-05-12
 
 ### Changed
