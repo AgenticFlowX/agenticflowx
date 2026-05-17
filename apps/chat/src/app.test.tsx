@@ -1299,7 +1299,9 @@ describe("chat App", () => {
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
       screen.getByPlaceholderText(/Spec mode/i) as HTMLTextAreaElement;
 
-    await user.type(screen.getByLabelText("What are you building?"), "Add compact onboarding");
+    fireEvent.change(screen.getByLabelText("What are you building?"), {
+      target: { value: "Add compact onboarding" },
+    });
     expect(screen.getByText(/Looks like:/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Start" }));
     expect(
@@ -1328,7 +1330,9 @@ describe("chat App", () => {
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
 
     await user.click(screen.getByRole("button", { name: /Improve an existing spec/i }));
-    await user.type(screen.getByLabelText("Spec or sprint target"), "auth-flow");
+    fireEvent.change(screen.getByLabelText("Spec or sprint target"), {
+      target: { value: "auth-flow" },
+    });
     await user.click(screen.getByRole("button", { name: "Create" }));
     expect(
       screen.getByRole("region", { name: /Improve existing spec command receipt/i }),
@@ -1984,7 +1988,7 @@ describe("chat App", () => {
     });
 
     const input = screen.getByPlaceholderText("Queue a follow-up… (⌘⏎ to steer this turn)");
-    await user.type(input, "do this next");
+    fireEvent.change(input, { target: { value: "do this next" } });
     expect(screen.getByText("Follow-up")).toBeInTheDocument();
     expect(screen.getByText("⏎")).toBeInTheDocument();
     expect(screen.getByText("Steer")).toBeInTheDocument();
@@ -1994,7 +1998,7 @@ describe("chat App", () => {
       expect.objectContaining({ type: "chat/followUp", content: "do this next" }),
     );
 
-    await user.type(input, "nudge now");
+    fireEvent.change(input, { target: { value: "nudge now" } });
     await user.click(screen.getByRole("button", { name: "Steer turn" }));
     expect(transport.send).toHaveBeenCalledWith(
       expect.objectContaining({ type: "chat/steer", content: "nudge now" }),

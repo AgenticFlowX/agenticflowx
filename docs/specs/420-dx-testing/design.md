@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-17T14:35:46.000Z"
 tags: ["dx", "testing", "vitest", "playwright", "vscode-test", "traceability"]
 spec: spec.md
 ---
@@ -119,7 +119,7 @@ The test infrastructure itself is validated by running the full test suite in CI
 ### [DES-DX-TESTING-ROLLOUT-E2E] Phase 2: Add a new E2E test
 
 1. Add `*.spec.ts` to `apps/chat/e2e/` (Playwright) **or** `*.test.ts` to `apps/vscode-e2e/src/` (vscode-test-electron has no `.spec` convention; see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-5])
-2. Run the appropriate runner (`pnpm --filter apps/chat test:e2e` or `pnpm --filter apps/vscode-e2e test`)
+2. Run the appropriate runner (`pnpm --filter apps/chat test:e2e` or `pnpm --filter apps/vscode-e2e test:e2e`)
 
 ### [DES-DX-TESTING-ROLLOUT-ROLLBACK] Rollback Plan
 

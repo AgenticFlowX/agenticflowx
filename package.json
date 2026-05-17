@@ -47,7 +47,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "pnpm --filter apps/chat test:e2e",
-    "test:e2e:vscode": "pnpm --filter apps/vscode-e2e test",
+    "test:e2e:vscode": "pnpm --filter apps/vscode-e2e test:e2e",
     "test:e2e:all": "pnpm run test:e2e && pnpm run test:e2e:vscode",
     "test:naming-guard": "vitest run --project conventions",
     "setup:e2e": "pnpm --filter apps/chat exec playwright install chromium",

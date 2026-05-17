@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-17T14:35:46.000Z"
 tags: ["ci", "code-qa", "pr-gate", "lint", "types", "e2e", "traceability"]
 spec: spec.md
 ---
@@ -34,7 +34,7 @@ spec: spec.md
     unit        → pnpm test                  (Vitest workspace, V8 coverage)
     e2e-webview → pnpm --filter apps/chat test:e2e  (Playwright, Chromium)
     e2e-vscode  → matrix [ubuntu-latest, windows-latest]
-                  pnpm --filter apps/vscode-e2e test  (vscode-test-electron)
+                  pnpm --filter apps/vscode-e2e test:e2e  (vscode-test-electron)
     bundle-size → pnpm size-limit            (apps/chat bundle budget)
     pr-title    → action: amannn/action-semantic-pull-request
 ```

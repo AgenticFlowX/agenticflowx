@@ -4,7 +4,7 @@
   "private": true,
   "license": "Apache-2.0",
   "scripts": {
-    "test": "tsc -p tsconfig.json && vscode-test",
+    "test:e2e": "pnpm --filter ../vscode build && tsc -p tsconfig.json && vscode-test",
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
