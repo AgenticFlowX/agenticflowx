@@ -166,34 +166,7 @@ Next (ranked):
 5. /afx-session note "<note>" # Capture context
 ```
 
-After the ranked prose, emit an additive UI action block when the top recommendations include concrete `/afx-*` commands. Keep the prose unchanged; the block is only for UI hosts. Include at most three actions, use resolved commands rather than placeholders, and skip entries that are advice rather than commands.
-
-````markdown
-<!-- AFX-UI-ACTIONS:START -->
-
-```json
-[
-  {
-    "rank": 1,
-    "label": "Verify task",
-    "command": "/afx-task verify onboarding#7.4",
-    "mode": "run",
-    "reason": "Recent implementation work appears complete.",
-    "vocabulary": "Verify = check implementation evidence against approved intent."
-  },
-  {
-    "rank": 2,
-    "label": "Capture context",
-    "command": "/afx-session note \"verification findings\"",
-    "mode": "insert",
-    "reason": "Preserve findings before switching context.",
-    "vocabulary": "Capture = preserve useful context in the project record."
-  }
-]
-```
-
-<!-- AFX-UI-ACTIONS:END -->
-````
+Keep the output host-agnostic: emit the ranked prose only. Do not emit host-specific JSON or marker blocks; UI hosts may convert the ranked prose into clickable actions.
 
 ## Examples
 

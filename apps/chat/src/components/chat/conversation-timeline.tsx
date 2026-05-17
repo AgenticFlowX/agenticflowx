@@ -19,12 +19,14 @@ import {
 import type { ChatMessageView, ChatTimelineItem, ChatToolView } from "@afx/shared";
 import { cn } from "@afx/ui/lib/utils";
 
-import { parseAfxUiActions, stripAfxUiActionBlocks } from "../../lib/afx-ui-actions";
-import { parseResultActions } from "../../lib/result-actions";
+import {
+  parseResultActions,
+  stripLegacyUiActionBlocks,
+  stripResultActionSections,
+} from "../../lib/result-actions";
 import { toolDescriptor } from "../../lib/tool-descriptor";
 import { AfxLogoIcon } from "../afx-logo";
 import { MarkdownMessage } from "../markdown-message";
-import { NextActionRail } from "../next-action-rail";
 import { OutputCard } from "../output-card";
 import { ResultActions } from "../result-actions";
 
@@ -453,12 +455,25 @@ function useUserRowScrolledAbove(ref: RefObject<HTMLElement | null>): boolean {
     if (!node || typeof IntersectionObserver === "undefined") return;
 
     const scrollRoot = findScrollRoot(node);
+    let frame: number | null = null;
+    const requestFrame =
+      window.requestAnimationFrame ??
+      ((callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 16));
+    const cancelFrame = window.cancelAnimationFrame ?? window.clearTimeout;
     const computeScrolledAbove = (
       rowRect = node.getBoundingClientRect(),
       rootRect = scrollRoot?.getBoundingClientRect() ?? null,
     ) => {
       const rootTop = rootRect?.top ?? 0;
-      setIsScrolledAbove(rowRect.bottom < rootTop);
+      const next = scrollRoot && scrollRoot.scrollTop <= 0 ? false : rowRect.bottom < rootTop;
+      setIsScrolledAbove((current) => (current === next ? current : next));
+    };
+    const scheduleCompute = () => {
+      if (frame !== null) cancelFrame(frame);
+      frame = requestFrame(() => {
+        frame = null;
+        computeScrolledAbove();
+      });
     };
 
     const observer = new IntersectionObserver(
@@ -475,8 +490,16 @@ function useUserRowScrolledAbove(ref: RefObject<HTMLElement | null>): boolean {
 
     observer.observe(node);
     computeScrolledAbove();
+    const scrollTarget: HTMLElement | Window = scrollRoot ?? window;
+    scrollTarget.addEventListener("scroll", scheduleCompute, { passive: true });
+    window.addEventListener("resize", scheduleCompute, { passive: true });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      scrollTarget.removeEventListener("scroll", scheduleCompute);
+      window.removeEventListener("resize", scheduleCompute);
+      if (frame !== null) cancelFrame(frame);
+    };
   }, [ref]);
 
   return isScrolledAbove;
@@ -849,18 +872,16 @@ function EventBody({
   }
   if (event.kind === "assistant") {
     if (event.message.content) {
-      const resultActions = event.message.streaming
-        ? []
-        : parseResultActions(event.message.content).slice(0, 5);
-      const uiActions = event.message.streaming ? [] : parseAfxUiActions(event.message.content);
-      const visibleContent = stripAfxUiActionBlocks(event.message.content);
+      const sanitizedContent = stripLegacyUiActionBlocks(event.message.content);
+      const resultActions = event.message.streaming ? [] : parseResultActions(sanitizedContent);
+      const visibleContent =
+        resultActions.length > 0 ? stripResultActionSections(sanitizedContent) : sanitizedContent;
       return (
         <div className="mt-0.5">
           <MarkdownMessage content={visibleContent} />
-          <ResultActions actions={resultActions} onSend={(command) => onSendCommand(command)} />
-          <NextActionRail
-            actions={uiActions}
-            onRun={(command) => onSendCommand(command)}
+          <ResultActions
+            actions={resultActions}
+            onSend={(command) => onSendCommand(command)}
             onInsert={(command) => onInsertCommand(command)}
           />
           <AssistantMeta message={event.message} />

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-17T13:11:29.000Z"
 tags: ["agent", "runtime", "manager"]
 spec: spec.md
 design: design.md
@@ -82,7 +82,9 @@ Verify manager and webview status payloads
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task | Action     | Files Modified                           | Agent | Human |
-| ---------- | ---- | ---------- | ---------------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/350-agent-manager/            | [x]   | [x]   |
-| 2026-05-03 | 1.2  | Coded      | design.md, agent manager source comments | [x]   | [x]   |
+| Date                     | Task | Action     | Files Modified                                                                                                                                                                                                                          | Agent | Human |
+| ------------------------ | ---- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1  | Scaffolded | docs/specs/350-agent-manager/                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-05-03               | 1.2  | Coded      | design.md, agent manager source comments                                                                                                                                                                                                | [x]   | [x]   |
+| 2026-05-17T12:34:48.000Z | FR-5 | Fixed      | extension.ts, agent-factory.ts, Pi RPC/SDK manager args, host overlay docs/tests                                                                                                                                                        | [x]   | [ ]   |
+| 2026-05-17T13:11:29.000Z | FR-5 | Fixed      | apps/vscode/resources/harness-overlays/common/agenticflowx-vscode.md, apps/vscode/src/host-overlay-content.test.ts, docs/specs/350-agent-manager/spec.md, docs/specs/350-agent-manager/design.md, docs/specs/350-agent-manager/tasks.md | [x]   | [ ]   |

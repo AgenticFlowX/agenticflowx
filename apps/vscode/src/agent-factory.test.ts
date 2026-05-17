@@ -116,6 +116,33 @@ describe("agent-factory", () => {
     );
   });
 
+  it("passes host overlay system prompt paths to both configured runtimes", async () => {
+    const { createConfiguredAgentInstances } = await import("./agent-factory");
+    const { logger } = createMockLogger();
+    const secretStore = { getApiKey: vi.fn(async () => "secret") };
+    const additionalSystemPromptPaths = [
+      "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
+    ];
+
+    await createConfiguredAgentInstances({
+      logger,
+      ephemeral: false,
+      rpcEnabled: true,
+      sessionDir: "/tmp/agenticflowx-sessions",
+      bootstrapPath: "/tmp/bootstrap.js",
+      sdkDefaultModel: "openai:gpt-5.2",
+      secretStore: secretStore as never,
+      additionalSystemPromptPaths,
+    });
+
+    expect(createPiAgentManager).toHaveBeenCalledWith(
+      expect.objectContaining({ additionalSystemPromptPaths }),
+    );
+    expect(createPiSdkAgentManager).toHaveBeenCalledWith(
+      expect.objectContaining({ additionalSystemPromptPaths }),
+    );
+  });
+
   it("keeps API Providers available when Pi RPC is disabled", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();

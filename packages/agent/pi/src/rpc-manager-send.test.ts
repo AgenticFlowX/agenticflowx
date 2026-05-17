@@ -85,6 +85,37 @@ describe("PiRpcManager send rewrite", () => {
     );
   });
 
+  it("passes host overlay system prompt paths to Pi without extension loading", async () => {
+    const clientMod = await import("./rpc-client");
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: false,
+      sessionDir: "/tmp/agenticflowx-sessions",
+      cwd: "/tmp/workspace",
+      additionalSkillPaths: ["/tmp/agenticflowx/skills"],
+      defaultConfigPath: "/tmp/agenticflowx/defaults/.afx.yaml",
+      additionalSystemPromptPaths: ["/tmp/agenticflowx/harness-overlays/common/afx-vscode.md"],
+    });
+
+    await manager.getStatus();
+
+    expect(vi.mocked(clientMod.createPiClient)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: [
+          "--session-dir",
+          "/tmp/agenticflowx-sessions",
+          "--skill",
+          "/tmp/agenticflowx/skills",
+          "--append-system-prompt",
+          "/tmp/agenticflowx/defaults/.afx.yaml",
+          "--append-system-prompt",
+          "/tmp/agenticflowx/harness-overlays/common/afx-vscode.md",
+        ],
+      }),
+    );
+  });
+
   it("passes environment overrides to the spawned runtime", async () => {
     const clientMod = await import("./rpc-client");
     const { createAgentManager } = await import("./rpc-manager");

@@ -14,6 +14,7 @@ import { ConversationTimeline } from "./conversation-timeline";
 const noop = vi.fn();
 const MAY_16 = new Date(2026, 4, 16, 9, 0, 0).getTime();
 const MAY_17 = new Date(2026, 4, 17, 9, 0, 0).getTime();
+const LEGACY_MARKER = `AFX-UI-${"ACTIONS"}`;
 
 describe("ConversationTimeline", () => {
   it("renders day groups and core row kinds in chronological order inside a polite log", () => {
@@ -80,6 +81,36 @@ describe("ConversationTimeline", () => {
     expect(screen.getByText("2 turns")).toBeInTheDocument();
     expect(screen.getByText("1 turn")).toBeInTheDocument();
     expect(screen.queryByTestId("timeline-turn-context")).not.toBeInTheDocument();
+  });
+
+  it("hides obsolete machine-action marker blocks from stale assistant rows", () => {
+    render(
+      <ConversationTimeline
+        messages={[
+          msg(
+            "a1",
+            "assistant",
+            `Visible result.
+
+<!-- ${LEGACY_MARKER}:START -->
+{"actions":[{"label":"Run"}]}
+<!-- ${LEGACY_MARKER}:END -->
+
+Still visible.`,
+            MAY_16,
+          ),
+        ]}
+        noteEvents={[]}
+        commandOutputs={[]}
+        onSendCommand={noop}
+        onInsertCommand={noop}
+      />,
+    );
+
+    expect(screen.getByText("Visible result.")).toBeInTheDocument();
+    expect(screen.getByText("Still visible.")).toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(LEGACY_MARKER))).not.toBeInTheDocument();
+    expect(screen.queryByText(/"actions"/)).not.toBeInTheDocument();
   });
 
   it("keeps sticky day headers above opaque rail markers", () => {

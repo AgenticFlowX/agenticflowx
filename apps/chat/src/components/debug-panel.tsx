@@ -169,6 +169,7 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
     icon: MonitorCog,
     items: [
       { name: "spec-doc-actions", label: "Spec actions", accent: "bg-afx-brand" },
+      { name: "long-next-actions", label: "Long next", accent: "bg-afx-brand" },
       { name: "sprint-doc-actions", label: "Sprint actions", accent: "bg-afx-brand" },
       { name: "journal-doc-actions", label: "Journal actions", accent: "bg-afx-brand" },
       { name: "global-journal-doc-actions", label: "Global journal", accent: "bg-afx-brand" },

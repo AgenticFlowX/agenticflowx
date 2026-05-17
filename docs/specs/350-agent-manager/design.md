@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-17T13:11:29.000Z"
 tags: ["agent", "runtime", "manager"]
 spec: spec.md
 ---
@@ -58,10 +58,11 @@ No direct UI is owned here. Webviews use runtime status/configuration payloads t
 
 ## [DES-DEC] Key Decisions
 
-| Decision        | Options Considered                                          | Choice                 | Rationale                                                           |
-| --------------- | ----------------------------------------------------------- | ---------------------- | ------------------------------------------------------------------- |
-| Pi split        | Keep all in `300-infra-pi`, manager/adapters split          | Manager/adapters split | Prevents generic runtime behavior from duplicating Pi-specific docs |
-| Adapter imports | Host imports adapter internals, host uses factory/contracts | Factory/contracts      | Preserves architecture boundary                                     |
+| Decision         | Options Considered                                                                                                       | Choice                             | Rationale                                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Pi split         | Keep all in `300-infra-pi`, manager/adapters split                                                                       | Manager/adapters split             | Prevents generic runtime behavior from duplicating Pi-specific docs                                                                                            |
+| Adapter imports  | Host imports adapter internals, host uses factory/contracts                                                              | Factory/contracts                  | Preserves architecture boundary                                                                                                                                |
+| AFX host overlay | Mutate `/afx-*` prompts in multiplexer, synced skill edits, host-loaded Pi extension, conditional appended system prompt | Conditional appended system prompt | Preserves Pi skill expansion, keeps workflow skills portable, avoids brittle runtime extension loaders, and lets future harnesses reuse the same host guidance |
 
 ---
 
@@ -179,6 +180,67 @@ Implementation: `MultiplexedAgentManager` forwards each call via `requireActive(
 
 ---
 
+### [DES-AGENT-AFX-HOST-OVERLAY] AFX Skill Host Overlay
+
+The VS Code host can add small UI-specific guidance to AFX skill turns, but it
+must not alter the user prompt before a harness expands `/skill:afx-*`.
+`extension.ts` therefore resolves reusable markdown overlays from
+`resources/harness-overlays/common/` and passes them to Pi runtimes as additional
+`--append-system-prompt` files. The overlay text is conditional: it applies its
+compact `Next:` guidance only when the current turn is an AFX skill invocation,
+and it explicitly opts out for non-AFX turns. Deprecated UI action marker tokens
+must not be spelled out in the overlay because some models echo negative examples
+from system instructions.
+
+The directory rule is strict:
+
+- `apps/vscode/resources/harness-overlays/common/` contains reusable plain overlay content.
+- Future harnesses such as `opencode/` or `oh-my-pi/` add sibling overlay/adaptor folders only when a harness cannot consume the common prompt file directly.
+- The AFX host overlay must not use Pi `--extension` loading, because extension module resolution can fail before the provider request is created.
+- `MultiplexedAgentManager` forwards `/afx-*` and `/skill:afx-*` text unchanged.
+
+```text
+User input
+  |
+  |  /afx-hello
+  v
+MultiplexedAgentManager
+  |  forwards unchanged
+  v
+Pi RPC adapter
+  |  rewrites /afx-hello -> /skill:afx-hello
+  |  starts Pi with:
+  |    --skill resources/skills/agenticflowx
+  |    --append-system-prompt resources/defaults/.afx.yaml
+  |    --append-system-prompt resources/harness-overlays/common/agenticflowx-vscode.md
+  v
+Pi skill expansion
+  |  prompt becomes <skill name="afx-hello">...
+  v
+System prompt append
+  |  contains conditional VS Code host overlay guidance
+  v
+Provider request
+  |  contains skill XML + VS Code host overlay guidance
+  v
+Model response
+```
+
+The rejected shape is:
+
+```text
+/afx-hello
+
+<afx_vscode_host_overlay>...</afx_vscode_host_overlay>
+```
+
+That shape makes the overlay look like user task arguments and can prevent Pi's
+skill command expansion. Tests must keep this regression covered by asserting
+both the expanded `<skill name="afx-...">` block and the overlay marker reach the
+provider payload in the bundled-skill e2e.
+
+---
+
 ### [DES-AGENT-DIAGNOSTICS] Diagnostics Flow
 
 Stderr buffer is captured by the runtime adapter and surfaced in chat settings on demand
@@ -195,13 +257,14 @@ through `agent/status` rather than command return values.
 
 ## [DES-FILES] File Structure
 
-| File                                         | Purpose                          |
-| -------------------------------------------- | -------------------------------- |
-| `packages/shared/src/agent.ts`               | Runtime contracts                |
-| `packages/shared/src/provider-catalog.ts`    | Provider/model catalog contracts |
-| `apps/vscode/src/agent-factory.ts`           | Runtime factory                  |
-| `apps/vscode/src/multiplex-agent-manager.ts` | Runtime multiplexing             |
-| `apps/vscode/src/agent-runtime-monitor.ts`   | Runtime readiness monitor        |
+| File                                                                   | Purpose                               |
+| ---------------------------------------------------------------------- | ------------------------------------- |
+| `packages/shared/src/agent.ts`                                         | Runtime contracts                     |
+| `packages/shared/src/provider-catalog.ts`                              | Provider/model catalog contracts      |
+| `apps/vscode/src/agent-factory.ts`                                     | Runtime factory                       |
+| `apps/vscode/src/multiplex-agent-manager.ts`                           | Runtime multiplexing                  |
+| `apps/vscode/src/agent-runtime-monitor.ts`                             | Runtime readiness monitor             |
+| `apps/vscode/resources/harness-overlays/common/agenticflowx-vscode.md` | Reusable VS Code overlay instructions |
 
 ---
 
@@ -228,7 +291,11 @@ Runtime manager code must not expose provider secrets to webviews. Secret values
 
 ## [DES-TEST] Testing Strategy
 
-Test shared contracts, runtime monitor transitions, multiplex fallback, and provider selection behavior.
+Test shared contracts, runtime monitor transitions, multiplex fallback, provider
+selection behavior, and the host-overlay path. The overlay regression test must
+prove the multiplexer leaves AFX slash prompts unchanged while the bundled-skill
+e2e proves the provider request contains both expanded skill XML and
+`<afx_vscode_host_overlay>`.
 
 ---
 
@@ -252,14 +319,15 @@ If manager/adapters split is too early, route adapter-neutral files back to `300
 
 ## Code Locator Map
 
-| Map ID                           | Code anchor                                                                   | Messages/settings/commands                                          | Tests                                              |
-| -------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
-| `[AgentManager.AdapterContract]` | `packages/shared/src/agent.ts` `AgentManager`, status/event types             | `AgentManager` methods, `AgentEvent`, `AgentRuntimeStatus`          | `packages/shared/src/agent-runtime-status.test.ts` |
-| `[AgentManager.Factory]`         | `apps/vscode/src/agent-factory.ts` `createConfiguredAgentInstances`           | `afx.rpc.enabled`, `afx.sdk.*`, provider key availability           | `apps/vscode/src/agent-factory.test.ts`            |
-| `[AgentManager.Multiplexer]`     | `apps/vscode/src/multiplex-agent-manager.ts`                                  | active runtime selection, model tagging, session switching          | `multiplex-agent-manager.test.ts`                  |
-| `[AgentManager.RuntimeMonitor]`  | `apps/vscode/src/agent-runtime-monitor.ts`                                    | `agent/checkStatus`, `agent/restart`, runtime status events         | `agent-runtime-monitor.test.ts`                    |
-| `[AgentManager.HostBridge]`      | `apps/vscode/src/panels/sidebar-panel.ts` inbound dispatch and event handlers | `chat/send`, `chat/steer`, `chat/followUp`, `agent/runtimeSettings` | `sidebar-panel.test.ts`, `extension.test.ts`       |
-| `[Bridge.ChatToAgent]`           | `apps/chat/src/lib/bridge.ts`, `apps/vscode/src/panels/sidebar-panel.ts`      | `ChatToAgent`, `HostToChat`, `@afx/transport` postMessage bridge    | `sidebar-panel.test.ts`, chat bridge tests         |
+| Map ID                           | Code anchor                                                                                                | Messages/settings/commands                                                                        | Tests                                                                                                                |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `[AgentManager.AdapterContract]` | `packages/shared/src/agent.ts` `AgentManager`, status/event types                                          | `AgentManager` methods, `AgentEvent`, `AgentRuntimeStatus`                                        | `packages/shared/src/agent-runtime-status.test.ts`                                                                   |
+| `[AgentManager.Factory]`         | `apps/vscode/src/agent-factory.ts` `createConfiguredAgentInstances`                                        | `afx.rpc.enabled`, `afx.sdk.*`, provider key availability                                         | `apps/vscode/src/agent-factory.test.ts`                                                                              |
+| `[AgentManager.Multiplexer]`     | `apps/vscode/src/multiplex-agent-manager.ts`                                                               | active runtime selection, model tagging, session switching, unchanged AFX skill prompt forwarding | `multiplex-agent-manager.test.ts`                                                                                    |
+| `[AgentManager.AfxHostOverlay]`  | `apps/vscode/resources/harness-overlays/common/agenticflowx-vscode.md`, `apps/vscode/src/agent-factory.ts` | conditional VS Code host guidance for AFX skill prompts, appended as system prompt files          | `agent-factory.test.ts`, `rpc-manager-send.test.ts`, `sdk-rpc-manager.test.ts`, `apps/vscode-e2e/src/skills.test.ts` |
+| `[AgentManager.RuntimeMonitor]`  | `apps/vscode/src/agent-runtime-monitor.ts`                                                                 | `agent/checkStatus`, `agent/restart`, runtime status events                                       | `agent-runtime-monitor.test.ts`                                                                                      |
+| `[AgentManager.HostBridge]`      | `apps/vscode/src/panels/sidebar-panel.ts` inbound dispatch and event handlers                              | `chat/send`, `chat/steer`, `chat/followUp`, `agent/runtimeSettings`                               | `sidebar-panel.test.ts`, `extension.test.ts`                                                                         |
+| `[Bridge.ChatToAgent]`           | `apps/chat/src/lib/bridge.ts`, `apps/vscode/src/panels/sidebar-panel.ts`                                   | `ChatToAgent`, `HostToChat`, `@afx/transport` postMessage bridge                                  | `sidebar-panel.test.ts`, chat bridge tests                                                                           |
 
 ---
 

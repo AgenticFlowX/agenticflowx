@@ -150,6 +150,37 @@ describe("createPiSdkAgentManager", () => {
     });
   });
 
+  it("passes host overlay system prompt paths to the Pi SDK RPC client without extension loading", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      sessionDir: "/sessions",
+      getApiKey: () => "secret-key",
+      additionalSkillPaths: ["/extension/resources/skills/agenticflowx"],
+      defaultConfigPath: "/extension/resources/defaults/.afx.yaml",
+      additionalSystemPromptPaths: [
+        "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
+      ],
+    });
+
+    await manager.getStatus();
+
+    expect(mocks.clients[0]!.options).toMatchObject({
+      args: [
+        "--session-dir",
+        "/sessions",
+        "--skill",
+        "/extension/resources/skills/agenticflowx",
+        "--append-system-prompt",
+        "/extension/resources/defaults/.afx.yaml",
+        "--append-system-prompt",
+        "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
+      ],
+    });
+  });
+
   it("logs sanitized SDK RPC calls and responses to the host logger", async () => {
     const manager = createPiSdkAgentManager({
       logger,

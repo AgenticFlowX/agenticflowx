@@ -155,6 +155,13 @@ export async function activate(
     "defaults",
     ".afx.yaml",
   ).fsPath;
+  const bundledAfxSkillOverlayPath = vscode.Uri.joinPath(
+    context.extensionUri,
+    "resources",
+    "harness-overlays",
+    "common",
+    "agenticflowx-vscode.md",
+  ).fsPath;
   const bundledPiSdkBootstrapPath = vscode.Uri.joinPath(
     context.extensionUri,
     "resources",
@@ -165,10 +172,19 @@ export async function activate(
   const defaultConfigPath = existsSync(bundledDefaultConfigPath)
     ? bundledDefaultConfigPath
     : undefined;
+  const additionalSystemPromptPaths = existsSync(bundledAfxSkillOverlayPath)
+    ? [bundledAfxSkillOverlayPath]
+    : undefined;
   if (!additionalSkillPaths) {
     logger.warn("bundled skills path missing; Pi will rely on workspace-discovered skills", {
       bundledSkillsPath,
     });
+  }
+  if (!additionalSystemPromptPaths) {
+    logger.warn(
+      "AFX skill invocation host overlay missing; bundled skills will run without host hints",
+      { bundledAfxSkillOverlayPath },
+    );
   }
 
   async function buildAgentInstances(): Promise<AgentInstance[]> {
@@ -191,6 +207,7 @@ export async function activate(
       ephemeral: cfg.get<boolean>("agentEphemeralSession", false),
       sessionDir: resolveAfxSessionDir(context),
       cwd: workspaceRoot,
+      additionalSystemPromptPaths,
       additionalSkillPaths,
       defaultConfigPath,
       secretStore,

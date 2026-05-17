@@ -2286,7 +2286,7 @@ describe("chat App", () => {
     });
   });
 
-  it("runs parsed Next result actions directly without changing the composer draft", async () => {
+  it("inserts draft-first parsed Next result actions without sending immediately", async () => {
     const transport = createControlledTransport();
     initTransport(transport);
     render(<App transport={transport} />);
@@ -2325,21 +2325,17 @@ describe("chat App", () => {
 
     await userEvent
       .setup()
-      .click(screen.getByRole("button", { name: /Code: \/afx-task code 2\.3/i }));
+      .click(screen.getByRole("button", { name: /Insert Code: \/afx-task code 2\.3/i }));
 
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "chat/send",
-        content: "/afx-task code 2.3",
-      }),
-    );
-    expect(composer).toHaveValue("");
+    expect(send).not.toHaveBeenCalled();
+    expect(composer).toHaveValue("/afx-task code 2.3");
   });
 
-  it("renders AFX UI action blocks as a next-action rail and hides the raw block", async () => {
+  it("renders one run-next rail from explicit Next prose and hides the parsed block", async () => {
     const transport = createControlledTransport();
     initTransport(transport);
     render(<App transport={transport} />);
+    const longSpec = "dapi-394-warm-container-app-poc-with-approval-gates-and-long-name";
 
     act(() => {
       transport.emit({
@@ -2360,26 +2356,13 @@ describe("chat App", () => {
             role: "assistant",
             content: `Review complete.
 
-<!-- AFX-UI-ACTIONS:START -->
-\`\`\`json
-[
-  {
-    "rank": 1,
-    "label": "Approve spec",
-    "command": "/afx-spec approve auth",
-    "mode": "run",
-    "reason": "Spec is ready for design"
-  },
-  {
-    "rank": 2,
-    "label": "Refine spec",
-    "command": "/afx-spec refine auth",
-    "mode": "insert",
-    "reason": "Keep this dialogic"
-  }
-]
-\`\`\`
-<!-- AFX-UI-ACTIONS:END -->`,
+**Next (ranked):**
+
+1. /afx-sprint design ${longSpec} --approve # Design is still Draft
+2. Then /afx-sprint task ${longSpec} -- approve — Tasks are still Draft
+3. Then re-run /afx-sprint verify ${longSpec} # Confirm all gates pass
+   ──
+4. /afx-next # Re-orient`,
             createdAt: 2,
             streaming: false,
           },
@@ -2389,29 +2372,33 @@ describe("chat App", () => {
 
     const chatPanel = screen.getByRole("tabpanel", { name: "Chat" });
     expect(within(chatPanel).getByText("Review complete.")).toBeInTheDocument();
-    expect(within(chatPanel).queryByText(/AFX-UI-ACTIONS:START/i)).toBeNull();
-    expect(
-      within(chatPanel).getByRole("region", { name: "Ranked next actions" }),
-    ).toBeInTheDocument();
+    expect(within(chatPanel).queryByText(/Next \(ranked\):/i)).toBeNull();
+    expect(within(chatPanel).queryByText(/Re-orient/i)).toBeNull();
+    expect(within(chatPanel).getAllByTestId("result-actions-row")).toHaveLength(1);
+    expect(within(chatPanel).getAllByTestId("result-action-button")).toHaveLength(3);
 
     const composer = document.querySelector<HTMLTextAreaElement>("#afx-chat-composer");
     if (!composer) throw new Error("Composer textarea not found.");
 
     const user = userEvent.setup();
     await user.click(
-      screen.getByRole("button", { name: /Insert Refine spec: \/afx-spec refine auth/i }),
+      screen.getByRole("button", {
+        name: `Insert Refine Design: /afx-sprint design ${longSpec} --approve`,
+      }),
     );
-    expect(composer).toHaveValue("/afx-spec refine auth");
+    expect(composer).toHaveValue(`/afx-sprint design ${longSpec} --approve`);
 
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
     await user.click(
-      screen.getByRole("button", { name: /Run Approve spec: \/afx-spec approve auth/i }),
+      screen.getByRole("button", {
+        name: `Run Verify: /afx-sprint verify ${longSpec}`,
+      }),
     );
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "chat/send",
-        content: "/afx-spec approve auth",
+        content: `/afx-sprint verify ${longSpec}`,
       }),
     );
   });

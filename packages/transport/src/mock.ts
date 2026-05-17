@@ -921,6 +921,45 @@ This is a long-running response on purpose so the queue stays visible while you 
   }
 
   /**
+   * Dev/e2e scenario for long ranked next actions rendered by the chat host.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  function runLongNextActions(): void {
+    const feature = "dapi-394-warm-container-app-poc-with-approval-gates-and-long-name";
+    emit({
+      type: "chat/activeDocContext",
+      format: "sprint",
+      section: "TASKS",
+      docKind: "tasks",
+      feature,
+      filePath: `/workspace/docs/specs/${feature}.md`,
+      approvalStatus: "Draft",
+      specStatus: "Approved",
+      designStatus: "Draft",
+      tasksStatus: "Draft",
+      sectionOffsets: { spec: 18, design: 84, tasks: 146, sessions: 248 },
+    });
+
+    const id = uid();
+    emit({
+      type: "chat/messageStart",
+      id,
+      role: "assistant",
+      createdAt: Date.now(),
+      content: `Review complete for ${feature}.
+
+Result: NOT READY FOR CODING
+
+Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
+/afx-sprint design ${feature} add explicit Key Decisions table or N/A note
+/afx-sprint spec ${feature} --approve`,
+    });
+    emit({ type: "chat/messageEnd", id, stopReason: "end_turn" });
+  }
+
+  /**
    * Dev/e2e scenario for a single-document sprint. The same file owns Spec,
    * Design, Tasks, Journal companion data, and Work Sessions offsets, so the
    * stepper must send `chat/openFile` with a line number instead of looking for
@@ -2020,6 +2059,7 @@ This is a long-running response on purpose so the queue stays visible while you 
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
     "spec-doc-actions": () => runSpecDocActions(),
+    "long-next-actions": () => runLongNextActions(),
     "sprint-doc-actions": () => runSprintDocActions(),
     "journal-doc-actions": () => runJournalDocActions(),
     "global-journal-doc-actions": () => runGlobalJournalDocActions(),

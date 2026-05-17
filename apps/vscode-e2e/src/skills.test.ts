@@ -189,6 +189,9 @@ suite("AFX bundled skills — real Pi RPC", function (this: Mocha.Suite) {
     assert.strictEqual(request.path, "/v1/chat/completions");
     assert.match(serializedRequest, /<skill name=\\"afx-hello\\"/);
     assert.match(serializedRequest, /Verify AFX installation and environment/);
+    assert.match(serializedRequest, /<afx_vscode_host_overlay>/);
+    assert.match(serializedRequest, /Never emit legacy machine-readable UI action marker blocks/);
+    assert.doesNotMatch(serializedRequest, new RegExp(["AFX", "UI", "ACTIONS"].join("-")));
     assert.match(await textPromise, /AFX skill e2e OK/);
   });
 

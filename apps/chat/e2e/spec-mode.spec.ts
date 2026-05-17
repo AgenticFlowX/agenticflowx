@@ -111,7 +111,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(composer).toHaveAttribute("data-workspace-mode", "code");
   });
 
-  test("doc-action More/focus menu drafts refinements while result-action chips run directly", async ({
+  test("doc-action More/focus menu drafts refinements while draft-first result actions insert", async ({
     page,
   }) => {
     await openSpecDocActionsScenario(page);
@@ -126,10 +126,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
 
     await expect(page.getByTestId("result-action-button")).toContainText("/afx-task code 2.3");
     await page.getByTestId("result-action-button").click();
-    await expect(composer).toHaveValue(/\/afx-spec refine auth performance/);
-    await expect(
-      page.locator("div.whitespace-pre-wrap").filter({ hasText: /^\/afx-task code 2\.3$/ }),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(composer).toHaveValue("/afx-task code 2.3");
   });
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]

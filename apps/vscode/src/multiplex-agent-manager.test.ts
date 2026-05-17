@@ -164,6 +164,17 @@ describe("MultiplexedAgentManager", () => {
     expect(sdk.manager.send).not.toHaveBeenCalled();
   });
 
+  it("forwards AFX skill sends unchanged so the runtime can expand them", async () => {
+    const pi = instance("pi", "pi");
+    const manager = new MultiplexedAgentManager([pi]);
+
+    await manager.send("/afx-next");
+    await manager.steer("  /skill:afx-task verify dapi-394-long-name");
+
+    expect(pi.manager.send).toHaveBeenCalledWith("/afx-next");
+    expect(pi.manager.steer).toHaveBeenCalledWith("  /skill:afx-task verify dapi-394-long-name");
+  });
+
   it("forwards events only from the active runtime", () => {
     const pi = instance("pi", "pi");
     const sdk = instance("pi-sdk", "pi-sdk");

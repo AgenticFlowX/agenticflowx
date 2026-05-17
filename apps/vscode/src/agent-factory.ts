@@ -45,6 +45,7 @@ export interface AgentFactoryOptions {
   ephemeral: boolean;
   sessionDir?: string;
   cwd?: string;
+  additionalSystemPromptPaths?: readonly string[];
   additionalSkillPaths?: readonly string[];
   defaultConfigPath?: string;
   secretStore?: SecretStore;
@@ -147,6 +148,7 @@ export async function createConfiguredAgentInstances(
         ephemeral: opts.ephemeral,
         sessionDir: opts.sessionDir,
         cwd: opts.cwd,
+        additionalSystemPromptPaths: opts.additionalSystemPromptPaths,
         additionalSkillPaths: opts.additionalSkillPaths,
         defaultConfigPath: opts.defaultConfigPath,
         ollamaBaseUrl: opts.ollamaBaseUrl,

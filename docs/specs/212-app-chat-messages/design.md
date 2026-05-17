@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-16T03:31:12.000Z"
+updated_at: "2026-05-17T11:58:31.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -62,6 +62,36 @@ Messages should preserve readability during streaming and make tool/thinking sta
 |         The footer now says ...                                |
 |                                                                  |
 |         Used 8.4k actual . Context 41% . Cost $0.0123           |
++------------------------------------------------------------------+
+```
+
+### [DES-MESSAGES-MOCKUP-FLOATING-TURN] Floating User-Turn Context
+
+At the top of the thread, no floating context is shown because the prompt row is
+still visible in the scroll root:
+
+```text
++------------------------------------------------------------------+
+| o You                                             14:02           |
+|   +------------------------------------------------------------+ |
+|   | Update the chat footer instruction                         | |
+|   +------------------------------------------------------------+ |
+|       |                                                         |
+|       o AFX                                      14:03           |
+|         Working through the change...                           |
++------------------------------------------------------------------+
+```
+
+After the user row scrolls above the transcript viewport, a compact sticky
+context chip appears above the assistant content:
+
+```text
++------------------------------------------------------------------+
+| [You] Update the chat footer instruction                          |
+|------------------------------------------------------------------|
+|       o AFX                                      14:03           |
+|         Working through the change...                           |
+|         ...                                                      |
 +------------------------------------------------------------------+
 ```
 
@@ -197,6 +227,7 @@ Timeline
 | `MarkdownMessage`            | Renders assistant markdown and delegates fenced code to `CodeFence`                          |
 | `ToolEvent` / `ToolEventRow` | Renders compact tool input/output table, running/error state, and multiline output expansion |
 | `ThinkingTrace`              | Renders collapsible live thinking preview                                                    |
+| `useUserRowScrolledAbove`    | Tracks whether the current user prompt row has moved above the conversation scroll root      |
 | `AssistantMeta`              | Renders usage, context, cost, and friendly stop reasons                                      |
 
 ### [DES-MESSAGES-COMPONENT-TIMELINE] Timeline And Rows
@@ -208,6 +239,20 @@ Timeline
 | `Marker`      | Maps row kind to avatar/icon tone and keeps system/tool events visually quieter than human/AFX turns |
 | `EventHeader` | Renders row label, timestamp, and streaming pulse for non-tool rows                                  |
 | `EventBody`   | Owns per-kind body rendering for user, assistant, error, info, thinking, compaction, and note rows   |
+
+### [DES-MESSAGES-FLOATING-TURN-CONTEXT] Floating Turn Context
+
+`ConversationTimeline` may render a sticky user-turn context preview for the
+active assistant response, but only when the matching user row has scrolled
+above the real conversation scroll root. The helper listens to the scroll root,
+uses an `IntersectionObserver` as an additive signal, and schedules measurement
+with `requestAnimationFrame` on scroll/resize. When `scrollTop <= 0`, the
+computed state is forced false so a stale observer callback cannot leave the
+preview visible at the top of the thread.
+
+The preview belongs to message rendering, not composer state: it mirrors durable
+timeline content and never creates a second prompt. It should remain compact and
+truncate long prompts instead of covering assistant output.
 
 ### [DES-MESSAGES-COMPONENT-MARKDOWN] MarkdownMessage And CodeFence
 
@@ -396,14 +441,15 @@ Rendered markdown/tool content must not execute arbitrary scripts or expose secr
 
 ## [DES-TEST] Testing Strategy
 
-| Coverage target                          | Current/Future test anchor                                     |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| Timeline tab/root rendering              | `apps/chat/src/app.test.tsx`                                   |
-| Stream state transitions                 | `apps/chat/src/app.test.tsx`; future focused timeline tests    |
-| Markdown/code fence rendering            | Future `markdown-message.test.tsx`                             |
-| Tool descriptor mapping                  | Future `tool-descriptor.test.ts`                               |
-| Tool card running/error/multiline states | Future `conversation-timeline.test.tsx` focused component test |
-| Assistant metadata and stop reasons      | Future `conversation-timeline.test.tsx` focused component test |
+| Coverage target                          | Current/Future test anchor                                        |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| Timeline tab/root rendering              | `apps/chat/src/app.test.tsx`                                      |
+| Stream state transitions                 | `apps/chat/src/app.test.tsx`; future focused timeline tests       |
+| Markdown/code fence rendering            | Future `markdown-message.test.tsx`                                |
+| Tool descriptor mapping                  | Future `tool-descriptor.test.ts`                                  |
+| Tool card running/error/multiline states | Future `conversation-timeline.test.tsx` focused component test    |
+| Assistant metadata and stop reasons      | Future `conversation-timeline.test.tsx` focused component test    |
+| Floating user-turn context scroll state  | `conversation-timeline.test.tsx`; `chat-window-benchmark.spec.ts` |
 
 ---
 
@@ -431,29 +477,31 @@ Route files back to `210-app-chat` only if this child spec stops providing clear
 
 ## [DES-MESSAGES-LOC] Code Locator Map
 
-| Map ID                      | Code anchor                                                                                                             | Messages/settings/commands                                                                                           | Tests                        |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `[DES-MESSAGES-COMPONENTS]` | `components/chat/conversation-timeline.tsx` `ConversationTimeline`, `TimelineRow`, `EventHeader`, `EventBody`, `Marker` | `chat/message*`, local note events                                                                                   | `apps/chat/src/app.test.tsx` |
-| `[DES-MESSAGES-EVENT-FLOW]` | `components/chat/chat-controller.tsx` bridge handlers and `conversation-timeline.tsx` flattening                        | `chat/state`, `chat/messageStart`, `chat/messageDelta`, `chat/toolStart`, `chat/toolEnd`, `chat/usage`, `chat/error` | `apps/chat/src/app.test.tsx` |
-| `[DES-MESSAGES-MARKDOWN]`   | `markdown-message.tsx` `MarkdownMessage`, `CodeFence`                                                                   | assistant markdown content                                                                                           | future markdown tests        |
-| `[DES-MESSAGES-TOOLS]`      | `tool-descriptor.ts`, `conversation-timeline.tsx` `ToolEvent`, `ToolEventRow`                                           | tool args/status/summary                                                                                             | future tool-card tests       |
-| `[DES-MESSAGES-META]`       | `conversation-timeline.tsx` `AssistantMeta`, `FRIENDLY_STOP_REASONS`                                                    | usage and stop reasons                                                                                               | future metadata tests        |
+| Map ID                                 | Code anchor                                                                                                             | Messages/settings/commands                                                                                           | Tests                                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `[DES-MESSAGES-COMPONENTS]`            | `components/chat/conversation-timeline.tsx` `ConversationTimeline`, `TimelineRow`, `EventHeader`, `EventBody`, `Marker` | `chat/message*`, local note events                                                                                   | `apps/chat/src/app.test.tsx`                                      |
+| `[DES-MESSAGES-FLOATING-TURN-CONTEXT]` | `components/chat/conversation-timeline.tsx` `useUserRowScrolledAbove`                                                   | scroll/resize state for sticky user prompt context                                                                   | `conversation-timeline.test.tsx`, `chat-window-benchmark.spec.ts` |
+| `[DES-MESSAGES-EVENT-FLOW]`            | `components/chat/chat-controller.tsx` bridge handlers and `conversation-timeline.tsx` flattening                        | `chat/state`, `chat/messageStart`, `chat/messageDelta`, `chat/toolStart`, `chat/toolEnd`, `chat/usage`, `chat/error` | `apps/chat/src/app.test.tsx`                                      |
+| `[DES-MESSAGES-MARKDOWN]`              | `markdown-message.tsx` `MarkdownMessage`, `CodeFence`                                                                   | assistant markdown content                                                                                           | future markdown tests                                             |
+| `[DES-MESSAGES-TOOLS]`                 | `tool-descriptor.ts`, `conversation-timeline.tsx` `ToolEvent`, `ToolEventRow`                                           | tool args/status/summary                                                                                             | future tool-card tests                                            |
+| `[DES-MESSAGES-META]`                  | `conversation-timeline.tsx` `AssistantMeta`, `FRIENDLY_STOP_REASONS`                                                    | usage and stop reasons                                                                                               | future metadata tests                                             |
 
 ## [DES-MESSAGES-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                         | Code anchors                                                    | Verification                                 |
-| ----------- | -------------------------------------------------------------------- | --------------------------------------------------------------- | -------------------------------------------- |
-| FR-1        | `DES-MESSAGES-MOCKUP-ASSISTANT`, `DES-MESSAGES-COMPONENTS`           | `Timeline`, `TimelineRow`, `Marker`, `EventHeader`, `EventBody` | `apps/chat/src/app.test.tsx`                 |
-| FR-2        | `DES-MESSAGES-EVENT-FLOW`, `DES-MESSAGES-MOCKUP-THINKING`            | `chat/messageDelta`, `chat/thinkingDelta`, `ThinkingTrace`      | future focused timeline tests                |
-| FR-3        | `DES-MESSAGES-MARKDOWN`                                              | `MarkdownMessage`, `CodeFence`                                  | future markdown tests                        |
-| FR-4        | `DES-MESSAGES-MOCKUP-TOOL`, `DES-MESSAGES-TOOLS`                     | `ToolEvent`, `ToolEventRow`, `toolDescriptor`                   | future tool-card tests                       |
-| FR-5        | `DES-MESSAGES-META`                                                  | `AssistantMeta`, `FRIENDLY_STOP_REASONS`                        | future metadata tests                        |
-| FR-6        | `DES-MESSAGES-MOCKUP-SYSTEM`, `DES-MESSAGES-MOCKUP-COMPACTION-TOAST` | `EventHeader`, `EventBody`, `CompactionCard`, note event branch | `apps/chat/src/app.test.tsx`                 |
-| FR-7        | `DES-DEC`                                                            | Composer behavior routed to `211-app-chat-composer`             | child spec boundary                          |
-| NFR-1       | `DES-MESSAGES-EVENT-FLOW`                                            | incremental React state updates                                 | `apps/chat/src/app.test.tsx`                 |
-| NFR-2       | `DES-MESSAGES-MARKDOWN`, `DES-MESSAGES-TOOLS`                        | semantic markdown, buttons, details/summary                     | future accessibility assertions              |
-| NFR-3       | `DES-MESSAGES-MOCKUPS`                                               | compact rail/table/meta layouts                                 | visual review/e2e when layout changes        |
-| NFR-4       | `DES-MESSAGES-REFS`, `DES-MESSAGES-LOC`                              | local `@see` anchors                                            | `rg "@see docs/specs/212-app-chat-messages"` |
+| Requirement | Design nodes                                                              | Code anchors                                                    | Verification                                                      |
+| ----------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- |
+| FR-1        | `DES-MESSAGES-MOCKUP-ASSISTANT`, `DES-MESSAGES-COMPONENTS`                | `Timeline`, `TimelineRow`, `Marker`, `EventHeader`, `EventBody` | `apps/chat/src/app.test.tsx`                                      |
+| FR-2        | `DES-MESSAGES-EVENT-FLOW`, `DES-MESSAGES-MOCKUP-THINKING`                 | `chat/messageDelta`, `chat/thinkingDelta`, `ThinkingTrace`      | future focused timeline tests                                     |
+| FR-3        | `DES-MESSAGES-MARKDOWN`                                                   | `MarkdownMessage`, `CodeFence`                                  | future markdown tests                                             |
+| FR-4        | `DES-MESSAGES-MOCKUP-TOOL`, `DES-MESSAGES-TOOLS`                          | `ToolEvent`, `ToolEventRow`, `toolDescriptor`                   | future tool-card tests                                            |
+| FR-5        | `DES-MESSAGES-META`                                                       | `AssistantMeta`, `FRIENDLY_STOP_REASONS`                        | future metadata tests                                             |
+| FR-6        | `DES-MESSAGES-MOCKUP-SYSTEM`, `DES-MESSAGES-MOCKUP-COMPACTION-TOAST`      | `EventHeader`, `EventBody`, `CompactionCard`, note event branch | `apps/chat/src/app.test.tsx`                                      |
+| FR-7        | `DES-DEC`                                                                 | Composer behavior routed to `211-app-chat-composer`             | child spec boundary                                               |
+| FR-9        | `DES-MESSAGES-MOCKUP-FLOATING-TURN`, `DES-MESSAGES-FLOATING-TURN-CONTEXT` | `useUserRowScrolledAbove`, sticky user context branch           | `conversation-timeline.test.tsx`, `chat-window-benchmark.spec.ts` |
+| NFR-1       | `DES-MESSAGES-EVENT-FLOW`                                                 | incremental React state updates                                 | `apps/chat/src/app.test.tsx`                                      |
+| NFR-2       | `DES-MESSAGES-MARKDOWN`, `DES-MESSAGES-TOOLS`                             | semantic markdown, buttons, details/summary                     | future accessibility assertions                                   |
+| NFR-3       | `DES-MESSAGES-MOCKUPS`                                                    | compact rail/table/meta layouts                                 | visual review/e2e when layout changes                             |
+| NFR-4       | `DES-MESSAGES-REFS`, `DES-MESSAGES-LOC`                                   | local `@see` anchors                                            | `rg "@see docs/specs/212-app-chat-messages"`                      |
 
 ---
 

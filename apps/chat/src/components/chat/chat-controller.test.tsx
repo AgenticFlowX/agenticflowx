@@ -21,6 +21,8 @@ import {
   useChatController,
 } from "./chat-controller";
 
+const LEGACY_MARKER = `AFX-UI-${"ACTIONS"}`;
+
 function createStatefulTransport(initialState?: unknown): Transport & { state: unknown } {
   let state = initialState;
   return {
@@ -105,6 +107,34 @@ describe("chat controller", () => {
       commandOutputs: [],
       noteEvents: [],
       workspaceMode: "spec",
+    });
+  });
+
+  it("scrubs obsolete machine-action blocks from persisted assistant rows", () => {
+    initTransport(
+      createStatefulTransport({
+        chatView: {
+          messages: [
+            {
+              id: "a1",
+              role: "assistant",
+              content: `Before.
+<!-- ${LEGACY_MARKER}:START -->
+{"actions":[]}
+<!-- ${LEGACY_MARKER}:END -->
+After.`,
+              createdAt: 1,
+            },
+          ],
+          commandOutputs: [],
+          noteEvents: [],
+        },
+      }),
+    );
+
+    expect(readPersistedChatViewState()?.messages[0]).toMatchObject({
+      id: "a1",
+      content: "Before.\nAfter.",
     });
   });
 

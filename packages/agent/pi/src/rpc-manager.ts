@@ -74,6 +74,8 @@ export interface PiRpcManagerOptions {
   sessionDir?: string;
   /** From vscode.workspace.workspaceFolders[0]. */
   cwd?: string;
+  /** Additional host prompt files appended as repeated `--append-system-prompt <path>` CLI args. */
+  additionalSystemPromptPaths?: readonly string[];
   /** Additional skill roots appended as repeated `--skill <path>` CLI args. */
   additionalSkillPaths?: readonly string[];
   /** Absolute path to a default .afx.yaml bundled with the extension. Passed as `--append-system-prompt <path>` so the model has fallback config. */
@@ -97,6 +99,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     ephemeral,
     sessionDir,
     cwd,
+    additionalSystemPromptPaths = [],
     additionalSkillPaths = [],
     defaultConfigPath,
     env,
@@ -127,6 +130,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       ...(ephemeral ? ["--no-session"] : []),
       ...additionalSkillPaths.flatMap((p) => ["--skill", p]),
       ...(defaultConfigPath ? ["--append-system-prompt", defaultConfigPath] : []),
+      ...additionalSystemPromptPaths.flatMap((p) => ["--append-system-prompt", p]),
     ];
 
     const c = createPiClient({

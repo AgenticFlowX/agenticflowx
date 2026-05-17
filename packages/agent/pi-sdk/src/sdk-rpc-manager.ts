@@ -84,6 +84,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       ...(opts.ephemeral ? ["--no-session"] : []),
       ...(opts.additionalSkillPaths?.flatMap((p) => ["--skill", p]) ?? []),
       ...(opts.defaultConfigPath ? ["--append-system-prompt", opts.defaultConfigPath] : []),
+      ...(opts.additionalSystemPromptPaths?.flatMap((p) => ["--append-system-prompt", p]) ?? []),
     ];
     const env = buildBootstrapEnv({
       provider: providerId,

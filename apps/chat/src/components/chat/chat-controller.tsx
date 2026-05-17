@@ -41,6 +41,7 @@ import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../../lib/
 import { deriveModifiedFiles } from "../../lib/derive-modified-files";
 import { type ActiveDocCtx, EMPTY_DOC_CTX, type MemoryCatalogItem } from "../../lib/doc-actions";
 import { extractMentions } from "../../lib/mentions";
+import { stripLegacyUiActionBlocks } from "../../lib/result-actions";
 import { analyzeDanger } from "../../lib/system-command";
 import type { AgentRecoveryActions } from "../agent-recovery-card";
 import { ChatDocActionsPanelBody, ChatDocActionsPanelTitle } from "../chat-doc-actions-panel";
@@ -601,7 +602,7 @@ export function useChatController({
         // Full snapshot from host
         bridge.on("chat/state", (msg) => {
           setHasReceivedStateSnapshot(true);
-          setMessages(msg.messages);
+          setMessages(sanitizeTimelineMessages(msg.messages));
           if (msg.messages.length === 0) {
             setCommandOutputs([]);
             setNoteEvents([]);
@@ -626,7 +627,10 @@ export function useChatController({
                   {
                     id: msg.id,
                     role: msg.role,
-                    content: msg.content ?? "",
+                    content:
+                      msg.role === "assistant"
+                        ? stripLegacyUiActionBlocks(msg.content ?? "")
+                        : (msg.content ?? ""),
                     createdAt: msg.createdAt,
                     streaming: msg.role === "assistant",
                   },
@@ -649,9 +653,14 @@ export function useChatController({
 
         bridge.on("chat/messageEnd", (msg) => {
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === msg.id ? { ...m, streaming: false, stopReason: msg.stopReason } : m,
-            ),
+            prev.map((m) => {
+              if (m.id !== msg.id || !("content" in m)) return m;
+              return sanitizeTimelineMessage({
+                ...m,
+                streaming: false,
+                stopReason: msg.stopReason,
+              });
+            }),
           );
           if (
             pendingAfxCommandSuggestRef.current &&
@@ -974,7 +983,7 @@ export function useChatController({
     persistAction(
       hasTimelineContent
         ? {
-            messages: [...messages],
+            messages: sanitizeTimelineMessages(messages),
             commandOutputs: [...commandOutputs],
             noteEvents: [...noteEvents],
             workspaceMode,
@@ -1810,7 +1819,7 @@ export function readPersistedChatViewState(): PersistedChatViewState | null {
   if (!persisted || typeof persisted !== "object") return null;
 
   const messages = Array.isArray(persisted.messages)
-    ? persisted.messages.map((m) => ({ ...m }))
+    ? sanitizeTimelineMessages(persisted.messages)
     : [];
   const commandOutputs = Array.isArray(persisted.commandOutputs)
     ? persisted.commandOutputs.map((output) => ({ ...output }))
@@ -1829,6 +1838,15 @@ export function readPersistedChatViewState(): PersistedChatViewState | null {
   }
 
   return { messages, commandOutputs, noteEvents, workspaceMode: persisted.workspaceMode };
+}
+
+function sanitizeTimelineMessages(messages: readonly ChatTimelineItem[]): ChatTimelineItem[] {
+  return messages.map(sanitizeTimelineMessage);
+}
+
+function sanitizeTimelineMessage(message: ChatTimelineItem): ChatTimelineItem {
+  if (!("content" in message) || message.role !== "assistant") return { ...message };
+  return { ...message, content: stripLegacyUiActionBlocks(message.content) };
 }
 
 export function collectPromptHistory(

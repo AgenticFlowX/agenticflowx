@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-17T13:11:29.000Z"
 tags: ["agent", "runtime", "manager"]
 depends_on: ["100-package-shared", "200-app-vscode"]
 ---
@@ -46,12 +46,13 @@ Developers adding runtimes/providers and agents changing runtime readiness behav
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                | Priority  |
-| ---- | -------------------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1 | Own the `AgentManager` contract, runtime status model, provider/model catalog integration, and runtime readiness semantics | Must Have |
-| FR-2 | Own VSCode host runtime factory, multiplex manager, and runtime monitor behavior                                           | Must Have |
-| FR-3 | Keep adapter-specific RPC/bootstrap behavior in adapter child specs such as `351-agent-pi`                                 | Must Have |
-| FR-4 | Keep webview settings/composer presentation in app child specs while providing shared runtime payloads                     | Must Have |
+| ID   | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                             | Priority  |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| FR-1 | Own the `AgentManager` contract, runtime status model, provider/model catalog integration, and runtime readiness semantics                                                                                                                                                                                                                                                                                                              | Must Have |
+| FR-2 | Own VSCode host runtime factory, multiplex manager, and runtime monitor behavior                                                                                                                                                                                                                                                                                                                                                        | Must Have |
+| FR-3 | Keep adapter-specific RPC/bootstrap behavior in adapter child specs such as `351-agent-pi`                                                                                                                                                                                                                                                                                                                                              | Must Have |
+| FR-4 | Keep webview settings/composer presentation in app child specs while providing shared runtime payloads                                                                                                                                                                                                                                                                                                                                  | Must Have |
+| FR-5 | Own host-scoped harness overlay loading for VS Code-only AFX skill guidance. The host must append reusable overlay content from `resources/harness-overlays/common/` as a system prompt file, avoid runtime extension loading for this overlay, keep deprecated UI marker tokens out of the overlay text, and keep `MultiplexedAgentManager` forwarding `/afx-*` and `/skill:afx-*` prompts unchanged so skill expansion remains intact | Must Have |
 
 ### Non-Functional Requirements
 
@@ -69,6 +70,7 @@ Developers adding runtimes/providers and agents changing runtime readiness behav
 - [ ] Shared agent contracts and VSCode runtime manager files route here
 - [ ] Pi adapter files route to `351-agent-pi`
 - [ ] Webview settings/composer UI depends on this spec for runtime semantics only
+- [ ] AFX skill host overlays are injected through appended system prompt files, not by mutating user prompts in the multiplexer or by loading runtime extension hooks
 
 ---
 
@@ -98,18 +100,18 @@ None.
 
 ### Agent Entry Map
 
-| Field           | Values                                                                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Agent runtime abstraction, status, multiplex manager, factory, monitor                                                                                                                                  |
-| Owned files     | `packages/shared/src/agent.ts`, `packages/shared/src/provider-catalog.ts`, `apps/vscode/src/agent-factory.ts`, `apps/vscode/src/multiplex-agent-manager.ts`, `apps/vscode/src/agent-runtime-monitor.ts` |
-| Local anchors   | `AgentManager`, runtime status derivation, provider catalog entries, multiplex manager methods, runtime monitor interface/factory                                                                       |
-| Bridge messages | Runtime status, provider/model catalog, settings/runtime snapshots                                                                                                                                      |
-| Settings keys   | Runtime/provider/model/log settings that influence manager selection                                                                                                                                    |
-| Commands        | Runtime start/stop/status/configuration commands if introduced                                                                                                                                          |
-| Tests           | Shared agent status tests, multiplex manager tests, runtime monitor tests                                                                                                                               |
-| Dependencies    | `351-agent-pi`, `214-app-chat-settings`, `211-app-chat-composer`                                                                                                                                        |
-| Out of scope    | Pi RPC framing, SDK bundling, webview layout                                                                                                                                                            |
-| Example prompts | "Change runtime readiness", "Add provider selection behavior", "Update multiplex manager fallback"                                                                                                      |
+| Field           | Values                                                                                                                                                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Agent runtime abstraction, status, multiplex manager, factory, monitor                                                                                                                                                                                                          |
+| Owned files     | `packages/shared/src/agent.ts`, `packages/shared/src/provider-catalog.ts`, `apps/vscode/src/agent-factory.ts`, `apps/vscode/src/multiplex-agent-manager.ts`, `apps/vscode/src/agent-runtime-monitor.ts`, `apps/vscode/resources/harness-overlays/common/agenticflowx-vscode.md` |
+| Local anchors   | `AgentManager`, runtime status derivation, provider catalog entries, multiplex manager methods, runtime monitor interface/factory                                                                                                                                               |
+| Bridge messages | Runtime status, provider/model catalog, settings/runtime snapshots                                                                                                                                                                                                              |
+| Settings keys   | Runtime/provider/model/log settings that influence manager selection                                                                                                                                                                                                            |
+| Commands        | Runtime start/stop/status/configuration commands if introduced                                                                                                                                                                                                                  |
+| Tests           | Shared agent status tests, multiplex manager tests, runtime monitor tests, host overlay tests, bundled skill e2e payload assertions                                                                                                                                             |
+| Dependencies    | `351-agent-pi`, `214-app-chat-settings`, `211-app-chat-composer`                                                                                                                                                                                                                |
+| Out of scope    | Pi RPC framing, SDK bundling, webview layout                                                                                                                                                                                                                                    |
+| Example prompts | "Change runtime readiness", "Add provider selection behavior", "Update multiplex manager fallback"                                                                                                                                                                              |
 
 ### Glossary
 

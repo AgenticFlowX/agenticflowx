@@ -19,6 +19,8 @@ export interface PiSdkManagerOptions {
   sessionDir?: string;
   /** From vscode.workspace.workspaceFolders[0]. */
   cwd?: string;
+  /** Additional host prompt files appended as repeated `--append-system-prompt <path>` CLI args. */
+  additionalSystemPromptPaths?: readonly string[];
   /** Additional skill roots appended as repeated `--skill <path>` CLI args. */
   additionalSkillPaths?: readonly string[];
   /** Optional Ollama endpoint for local provider models. */
