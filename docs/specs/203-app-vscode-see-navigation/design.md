@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 tags: ["app", "vscode", "see-navigation", "traceability"]
 spec: spec.md
 ---

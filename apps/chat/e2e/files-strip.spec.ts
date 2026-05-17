@@ -19,6 +19,14 @@ async function fireScenario(page: Page, label: string): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
+function modifiedPanelHeader(page: Page) {
+  return page.locator("#composer-panel-modified");
+}
+
+function modifiedFilePills(page: Page) {
+  return page.getByTestId("files-panel-pill");
+}
+
 test.describe("Modified files strip (FR-10)", () => {
   test("is hidden on a fresh chat with no tool calls", async ({ page }) => {
     await page.goto("/");
@@ -30,14 +38,14 @@ test.describe("Modified files strip (FR-10)", () => {
     await fireScenario(page, "edit");
 
     // Wait for the toolStart to land (~60ms) and the strip to render expanded.
-    const header = page.getByRole("button", { name: /Modified/i });
+    const header = modifiedPanelHeader(page);
     await expect(header).toBeVisible({ timeout: 5_000 });
     // Default-expanded: aria-expanded=true, pill is visible.
     await expect(header).toHaveAttribute("aria-expanded", "true");
     await expect(header).toContainText("· 1");
 
     // The "tool-edit-file" mock scenario edits apps/chat/src/views/chat.tsx.
-    const pill = page.getByTestId("files-strip-pill");
+    const pill = modifiedFilePills(page);
     await expect(pill).toHaveCount(1);
     await expect(pill).toHaveText(/chat\.tsx/);
     await expect(pill).toHaveAttribute("aria-label", /Open .*chat\.tsx/);
@@ -48,27 +56,27 @@ test.describe("Modified files strip (FR-10)", () => {
   }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
-    const header = page.getByRole("button", { name: /Modified/i });
+    const header = modifiedPanelHeader(page);
     await expect(header).toBeVisible({ timeout: 5_000 });
     await expect(header).toHaveAttribute("aria-expanded", "true");
 
     await header.click();
     await expect(header).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByTestId("files-strip-pill")).toHaveCount(0);
+    await expect(modifiedFilePills(page).first()).toBeHidden();
 
     await header.click();
     await expect(header).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByTestId("files-strip-pill")).toHaveCount(1);
+    await expect(modifiedFilePills(page)).toHaveCount(1);
   });
 
   test("renders the firstChangedLine forwarded by the tool result", async ({ page }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
-    const header = page.getByRole("button", { name: /Modified/i });
+    const header = modifiedPanelHeader(page);
     await expect(header).toBeVisible({ timeout: 5_000 });
     // Pill is visible immediately (default-expanded). Wait for toolEnd to add the
     // firstChangedLine to the tool view — only toolEnd carries it.
-    const pill = page.getByTestId("files-strip-pill");
+    const pill = modifiedFilePills(page);
     await expect(pill).toBeVisible({ timeout: 5_000 });
     // Mock scenario emits firstChangedLine: 142 for the tool-edit-file edit.
     await expect(pill).toHaveAttribute("aria-label", /at line 142/i, { timeout: 5_000 });
@@ -80,20 +88,26 @@ test.describe("Modified files strip (FR-10)", () => {
   }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
-    const header = page.getByRole("button", { name: /Modified/i });
+    const header = modifiedPanelHeader(page);
     await expect(header).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText(/Done\. I added a scroll-to-bottom button/).first()).toBeVisible({
+      timeout: 10_000,
+    });
 
-    // Dismiss the strip immediately — no need to wait for streaming to complete.
+    // Dismiss after the first turn settles. The next assistant turn should
+    // clear this dismissal as soon as a fresh edit tool starts.
     // Scope the close button by walking up from the visible toggle to its
     // sibling close button inside the same header.
-    const closeBtn = header.locator("xpath=following-sibling::button[@aria-label='Close']");
+    const closeBtn = header.locator(
+      "xpath=ancestor::section//button[@aria-label='Dismiss Modified']",
+    );
     await expect(closeBtn).toBeVisible({ timeout: 5_000 });
     await closeBtn.click();
-    await expect(page.getByRole("button", { name: /Modified/i })).toHaveCount(0);
+    await expect(modifiedPanelHeader(page)).toHaveCount(0);
 
     // Fire another edit turn — strip should reappear (same path → count stays 1).
     await fireScenario(page, "edit");
-    await expect(page.getByRole("button", { name: /Modified/i })).toBeVisible({
+    await expect(modifiedPanelHeader(page)).toBeVisible({
       timeout: 5_000,
     });
   });

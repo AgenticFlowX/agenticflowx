@@ -1,7 +1,7 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T07:46:18.000Z"
@@ -54,14 +54,15 @@ Extension engineers, AFX agents updating spec parsing or sprint detection.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                     | Priority  |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1 | Discover spec docs across the workspace (`docs/specs/**/*.md`) and child project roots, slice sprint files, expose typed payloads to workbench  | Must Have |
-| FR-2 | Parse spec frontmatter, FR/NFR/DES/task anchors using `@afx/parsers`                                                                            | Must Have |
-| FR-3 | Detect when the active editor is inside a sprint section (`SPEC` / `DESIGN` / `TASKS`) and set `afx.isSprint`, `afx.sprintSection` context keys | Must Have |
-| FR-4 | Provide spec/design/task validate/review/approve commands as data services that read frontmatter and emit toast feedback                        | Must Have |
-| FR-5 | Cache parsed payloads with debounced refresh on file changes                                                                                    | Must Have |
-| FR-6 | Service contracts must be testable without launching VSCode (pure parsing in `@afx/parsers`; host adapters in this zone)                        | Must Have |
+| ID   | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Priority  |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| FR-1 | Discover spec docs across the workspace (`docs/specs/**/*.md`) and child project roots, slice sprint files, expose typed payloads to workbench                                                                                                                                                                                                                                                                                                                                   | Must Have |
+| FR-2 | Parse spec frontmatter, FR/NFR/DES/task anchors using `@afx/parsers`                                                                                                                                                                                                                                                                                                                                                                                                             | Must Have |
+| FR-3 | Detect when the active editor is inside a sprint section (`SPEC` / `DESIGN` / `TASKS`) and set `afx.isSprint`, `afx.sprintSection` context keys                                                                                                                                                                                                                                                                                                                                  | Must Have |
+| FR-4 | Provide spec/design/task validate/review/approve commands as data services that read frontmatter and emit toast feedback                                                                                                                                                                                                                                                                                                                                                         | Must Have |
+| FR-5 | Cache parsed payloads with debounced refresh on file changes                                                                                                                                                                                                                                                                                                                                                                                                                     | Must Have |
+| FR-6 | Service contracts must be testable without launching VSCode (pure parsing in `@afx/parsers`; host adapters in this zone)                                                                                                                                                                                                                                                                                                                                                         | Must Have |
+| FR-7 | Sprint files always resolve to a section: cursor in `SESSIONS` rolls up to `TASKS`; cursor that does not match any `SPRINT-SECTION` marker or heading-fallback pattern defaults to `SPEC`. Default applies to both the `afx.sprintSection` context key and the chat doc-actions bridge payload (`section` / `docKind`) so the editor menu, the chat panel, and the spec stepper stay visible for non-canonical sprint briefs (H1 section headings, freeform wording, no markers) | Must Have |
 
 ### Non-Functional Requirements
 
@@ -78,6 +79,7 @@ Extension engineers, AFX agents updating spec parsing or sprint detection.
 - [ ] Workbench documents tab populates from `specs-data` payload
 - [ ] Editor title menu shows AFX submenu only on `spec.md` / `design.md` / `tasks.md` / sprint files
 - [ ] `afx.sprintSection` context key flips between `SPEC` / `DESIGN` / `TASKS` as the cursor moves through a sprint file
+- [ ] Opening a sprint file with non-canonical headings (H1 `# 1. Spec`, no `SPRINT-SECTION` markers) still surfaces the chat doc-actions panel with the SPEC stepper highlighted; cursor in the SESSIONS slice keeps the panel on TASKS rather than disappearing
 - [ ] `afx.action.specValidate` and friends correctly read frontmatter status before emitting toast
 - [ ] Cache survives editor save/format with no double-scan within debounce window
 

@@ -35,6 +35,32 @@ test("Chat tab is selected by default", async ({ page }) => {
   await expect(page.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
 });
 
+test("componentized chat shell exposes composer and top-bar actions", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Chat composer" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Chat composer" })).toHaveAttribute(
+    "aria-describedby",
+    "afx-chat-composer-hint",
+  );
+  await expect(page.getByRole("button", { name: "Mention file" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Attach file or image" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New session" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Compact session" })).toBeVisible();
+  await expect(page.getByRole("log")).toHaveCount(0);
+});
+
+test("componentized chat shell remains usable at narrow viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Chat composer" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Attach file or image" })).toBeVisible();
+  await expect(page.getByText(/Planning a new feature/i)).toBeVisible();
+});
+
 test("can switch to Settings tab", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Settings" }).click();

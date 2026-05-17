@@ -1551,14 +1551,14 @@ describe("chat App", () => {
       });
     });
 
-    const pill = screen.getByTestId("files-strip-pill");
+    const pill = screen.getByTestId("files-panel-pill");
     expect(pill).toHaveAttribute("data-status", "running");
 
     act(() => {
       transport.emit({ type: "chat/aborted" });
     });
 
-    expect(screen.getByTestId("files-strip-pill")).toHaveAttribute("data-status", "error");
+    expect(screen.getByTestId("files-panel-pill")).toHaveAttribute("data-status", "error");
   });
 
   it("shows tool arguments immediately while a file tool is running", () => {
@@ -1632,8 +1632,12 @@ describe("chat App", () => {
       });
     });
 
-    const userMessage = screen.getByText("review this research file");
+    const userMessage = screen
+      .getAllByText("review this research file")
+      .find((element) => element.closest('[data-timeline-event="user"]'));
     const toolLabel = screen.getByText("read");
+    expect(userMessage).toBeDefined();
+    if (!userMessage) throw new Error("Expected visible user timeline message");
     expect(userMessage.compareDocumentPosition(toolLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
@@ -2235,6 +2239,51 @@ describe("chat App", () => {
     expect(screen.getByPlaceholderText(/Spec mode/i)).toHaveValue("/afx-spec refine auth");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/followUp" }));
+  });
+
+  it("clicks sprint stepper pills with the in-file section line from activeDocContext", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          lastReadyAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, {}, null, "spec");
+      transport.emit({
+        type: "chat/activeDocContext",
+        format: "sprint",
+        section: "SPEC",
+        docKind: "spec",
+        feature: "postgresql-marketplace-backend-rewrite",
+        filePath: "/repo/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+        approvalStatus: "Draft",
+        specStatus: "Draft",
+        designStatus: "Draft",
+        tasksStatus: "Draft",
+        sectionOffsets: { spec: 22, design: 84, tasks: 140, sessions: 220 },
+      });
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: /Design step/i }));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "/repo/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+      line: 84,
+    });
   });
 
   it("runs parsed Next result actions directly without changing the composer draft", async () => {

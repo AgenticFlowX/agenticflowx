@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-06T05:32:45.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md

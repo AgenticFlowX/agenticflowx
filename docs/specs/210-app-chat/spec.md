@@ -1,13 +1,24 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T15:15:37.000Z"
-approved_at: "2026-05-05T15:15:37.000Z"
-tags: [app, chat, webview, streaming, devoverlay, routing, hydration, mode, workspace-mode]
+updated_at: "2026-05-15T09:37:01.000Z"
+tags:
+  [
+    app,
+    chat,
+    webview,
+    streaming,
+    devoverlay,
+    routing,
+    hydration,
+    mode,
+    workspace-mode,
+    componentization,
+  ]
 depends_on: [100-package-shared, 110-package-transport, 130-package-ui]
 ---
 
@@ -31,13 +42,14 @@ This parent spec owns the chat app boundary. Composer, message timeline, history
 
 ## Child Zone Route Map
 
-| Spec                    | Start Here For                                                                                                                               |
-| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `211-app-chat-composer` | Composer input, footer hints, queue strip, activity bar, slash/mention helpers, model/thinking controls, mode control, blocked-command strip |
-| `212-app-chat-messages` | Message timeline, markdown rendering, tool cards, thinking blocks, streaming output                                                          |
-| `213-app-chat-history`  | History view, conversation list, history event mapping                                                                                       |
-| `214-app-chat-settings` | Settings panel, provider cards, API key/runtime readiness UX, theme preview, workspace mode card                                             |
-| `215-app-chat-notes`    | Save-to-notes, note capture bridge, chat/editor note entry points                                                                            |
+| Spec                                   | Start Here For                                                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `211-app-chat-composer`                | Composer input, footer hints, queue strip, activity bar, slash/mention helpers, model/thinking controls, mode control, blocked-command strip |
+| `212-app-chat-messages`                | Message timeline, markdown rendering, tool cards, thinking blocks, streaming output                                                          |
+| `213-app-chat-history`                 | History view, conversation list, history event mapping                                                                                       |
+| `216-app-chat-window-componentization` | Chat tab component boundaries, state/controller ownership, composition root, and durable refactor `@see` anchors                             |
+| `214-app-chat-settings`                | Settings panel, provider cards, API key/runtime readiness UX, theme preview, workspace mode card                                             |
+| `215-app-chat-notes`                   | Save-to-notes, note capture bridge, chat/editor note entry points                                                                            |
 
 ---
 
@@ -113,6 +125,12 @@ Users of the AgenticFlowX sidebar panel; developers iterating on the chat UI.
 
 ---
 
+## Open Questions
+
+None.
+
+---
+
 ## Dependencies
 
 - `@afx/shared` (message types)
@@ -129,11 +147,11 @@ This is a parent spec. It owns the chat webview boundary (shell, app entry, tran
 **does not** own per-zone functional requirements. The table below routes incoming requests to the
 right child zone before reading any source file.
 
-| Field           | Values                                                                                                                                                                                                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Chat webview shell (`apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, transport bootstrap); **routing only** for feature behavior                                                                                                                                                            |
-| Owned files     | `apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, `apps/chat/src/lib/bridge.ts` (shared bridge entry), `apps/chat/vite.config.ts`                                                                                                                                                            |
-| Children        | `211-app-chat-composer`, `212-app-chat-messages`, `213-app-chat-history`, `214-app-chat-settings`, `215-app-chat-notes`                                                                                                                                                                        |
-| Routing rules   | "footer/composer/queue/slash/@-mention/send/abort/steer/follow-up" -> 211; "message stream/tool call/thinking block/markdown" -> 212; "history/conversation list/timeline" -> 213; "settings/provider/API key/model picker/runtime control" -> 214; "save to notes/composer note strip" -> 215 |
-| Out of scope    | Functional requirements for any specific zone; those live in the child specs                                                                                                                                                                                                                   |
-| Example prompts | "Update the composer footer" -> 211; "Render tool call card differently" -> 212; "Add filter to history" -> 213; "Add provider validation" -> 214; "Notes shortcut behavior" -> 215                                                                                                            |
+| Field           | Values                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Chat webview shell (`apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, transport bootstrap); **routing only** for feature behavior                                                                                                                                                                                                                                          |
+| Owned files     | `apps/chat/src/index.tsx`, `apps/chat/src/app.tsx`, `apps/chat/src/lib/bridge.ts` (shared bridge entry), `apps/chat/vite.config.ts`                                                                                                                                                                                                                                          |
+| Children        | `211-app-chat-composer`, `212-app-chat-messages`, `213-app-chat-history`, `214-app-chat-settings`, `215-app-chat-notes`, `216-app-chat-window-componentization`                                                                                                                                                                                                              |
+| Routing rules   | "footer/composer/queue/slash/@-mention/send/abort/steer/follow-up" -> 211; "message stream/tool call/thinking block/markdown" -> 212; "history/conversation list/timeline" -> 213; "settings/provider/API key/model picker/runtime control" -> 214; "save to notes/composer note strip" -> 215; "chat window refactor/component boundary/controller/composition root" -> 216 |
+| Out of scope    | Functional requirements for any specific zone; those live in the child specs                                                                                                                                                                                                                                                                                                 |
+| Example prompts | "Update the composer footer" -> 211; "Render tool call card differently" -> 212; "Add filter to history" -> 213; "Add provider validation" -> 214; "Notes shortcut behavior" -> 215                                                                                                                                                                                          |

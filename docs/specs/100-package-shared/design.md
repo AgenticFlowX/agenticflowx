@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Draft
+status: Living
 owner: "@rixrix"
 version: "1.9"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-10T10:24:08.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md

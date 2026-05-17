@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 tags: [ci, code-qa, pr-gate, lint, types, e2e]
 depends_on: [410-dx-quality, 420-dx-testing, 310-infra-build]
 ---

@@ -153,16 +153,6 @@ body,
   }
 }
 
-@keyframes composer-strip-fill {
-  from {
-    width: 100%;
-  }
-
-  to {
-    width: 0%;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .afx-thinking-word,
   .afx-thinking-dot {

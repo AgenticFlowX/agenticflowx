@@ -1,13 +1,20 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-15T09:13:06.000Z"
 tags: ["app", "chat", "messages", "streaming"]
-depends_on: ["100-package-shared", "110-package-transport", "130-package-ui", "210-app-chat"]
+depends_on:
+  [
+    "100-package-shared",
+    "110-package-transport",
+    "130-package-ui",
+    "210-app-chat",
+    "216-app-chat-window-componentization",
+  ]
 ---
 
 # App Chat Messages - Product Specification
@@ -106,18 +113,18 @@ None.
 
 ### Agent Entry Map
 
-| Field           | Values                                                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Owned surface   | Chat message timeline, markdown, tool calls, thinking blocks                                                                   |
-| Owned files     | `apps/chat/src/views/chat.tsx` message sections, `apps/chat/src/components/tool-*.tsx`, `apps/chat/src/lib/tool-descriptor.ts` |
-| Local anchors   | Timeline rendering helpers, message/tool/thinking components, tool descriptor mappings, stream event handlers                  |
-| Bridge messages | Agent response stream, tool-call/status events, chat error events                                                              |
-| Settings keys   | Display settings only when they affect rendered messages                                                                       |
-| Commands        | Message-level actions inside chat                                                                                              |
-| Tests           | Message renderer, tool card, streaming state tests                                                                             |
-| Dependencies    | `211-app-chat-composer`, `213-app-chat-history`, `131-package-ui-design-system`                                                |
-| Out of scope    | Input composition, provider setup, extension host commands                                                                     |
-| Example prompts | "Change tool call card rendering", "Update thinking block display", "Fix streamed markdown spacing"                            |
+| Field           | Values                                                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Chat message timeline, markdown, tool calls, thinking blocks                                                                                                                                                      |
+| Owned files     | `apps/chat/src/components/chat/conversation-timeline.tsx`, `apps/chat/src/components/chat/conversation-empty-states.tsx`, `apps/chat/src/components/markdown-message.tsx`, `apps/chat/src/lib/tool-descriptor.ts` |
+| Local anchors   | Timeline rendering helpers, message/tool/thinking components, tool descriptor mappings, stream event handlers                                                                                                     |
+| Bridge messages | Agent response stream, tool-call/status events, chat error events                                                                                                                                                 |
+| Settings keys   | Display settings only when they affect rendered messages                                                                                                                                                          |
+| Commands        | Message-level actions inside chat                                                                                                                                                                                 |
+| Tests           | Message renderer, tool card, streaming state tests                                                                                                                                                                |
+| Dependencies    | `211-app-chat-composer`, `213-app-chat-history`, `216-app-chat-window-componentization`, `131-package-ui-design-system`                                                                                           |
+| Out of scope    | Input composition, provider setup, extension host commands                                                                                                                                                        |
+| Example prompts | "Change tool call card rendering", "Update thinking block display", "Fix streamed markdown spacing"                                                                                                               |
 
 ### Glossary
 

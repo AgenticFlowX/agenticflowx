@@ -15,6 +15,7 @@ export default defineConfig({
       exclude: [
         "**/packages/ui/**",
         "**/node_modules/**",
+        "**/coverage/**",
         "**/dist/**",
         "**/out/**",
         "**/.vscode-test/**",

@@ -1,10 +1,10 @@
 /**
- * ChatDocActionsStrip — subtle AFX document command rail for the chat composer.
+ * ChatDocActionsPanel — subtle AFX document command rail for the chat composer.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { BadgeCheck, ChevronDown, MoreHorizontal, PenLine, Scissors, Zap } from "lucide-react";
 
@@ -45,10 +45,14 @@ import {
 import { ChatCommandPresetSubmenu } from "./chat-command-preset-submenu";
 import { docKindVisual } from "./chat-doc-kind-visual";
 import { ChatMemoryMenuButton } from "./chat-memory-menu-button";
-import { ComposerStrip } from "./composer-strip";
 import { SpecStepper, type SpecStepperSegmentKey } from "./spec-stepper";
 
-export interface ChatDocActionsStripProps {
+const DOC_ACTION_ROW_BUTTON_CLASS =
+  "!h-5 !min-h-5 gap-0.5 !px-1.5 !py-0 !text-[10px] !font-normal font-mono leading-none";
+const DOC_ACTION_FLAT_BUTTON_CLASS = DOC_ACTION_ROW_BUTTON_CLASS;
+const DOC_ACTION_MENU_BUTTON_CLASS = cn(DOC_ACTION_ROW_BUTTON_CLASS, "!pr-1");
+
+export interface ChatDocActionsPanelProps {
   workspaceMode: WorkspaceMode;
   docContext: ActiveDocCtx;
   dismissed: boolean;
@@ -58,7 +62,7 @@ export interface ChatDocActionsStripProps {
   /** Send the slash command immediately, bypassing the draft (deterministic verbs). */
   onAutoSend: (text: string) => void;
   /**
-   * Dispatch a host-side document mutation triggered from the strip — currently
+   * Dispatch a host-side document mutation triggered from the panel; currently
    * only `tasks.signOff` (Work Sessions Human column tick + status promotion).
    * Optional so existing call sites and tests can omit it; the Sign Off button
    * is hidden when the prop is missing.
@@ -68,9 +72,8 @@ export interface ChatDocActionsStripProps {
    */
   onHostAction?: (action: "tasks.signOff", uri: string) => void;
   /**
-   * Selection callback for the strip-header Memory ▾ anchor. Optional — when
-   * omitted the strip header skips the Memory trigger so existing tests and
-   * harness modes don't need to wire the catalog through.
+   * Selection callback for the panel-header Memory control. Optional call
+   * sites omit it and the header skips the trigger.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-18]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
@@ -78,7 +81,7 @@ export interface ChatDocActionsStripProps {
   onMemorySelect?: (item: MemoryCatalogItem) => void;
   /**
    * Open a workspace file at an optional 1-indexed line. Required by the spec
-   * stepper for per-step navigation. Optional so legacy call sites and tests
+   * stepper for per-step navigation. Optional so call sites and tests
    * keep compiling — when omitted the stepper still renders but every pill is
    * non-interactive.
    *
@@ -88,22 +91,101 @@ export interface ChatDocActionsStripProps {
   onOpenFile?: (path: string, line?: number) => void;
 }
 
-export function ChatDocActionsStrip({
+/**
+ * Body-only doc-actions content. Mounted by `ComposerPanelStack` through the
+ * controller's `composerPanelStackConfig`. Chrome (title, dismiss, header
+ * extras) comes from `ComposerPanel`.
+ *
+ * @see docs/specs/216-app-chat-window-componentization/design.md [DES-DATA]
+ */
+export type ChatDocActionsPanelBodyProps = Omit<
+  ChatDocActionsPanelProps,
+  "dismissed" | "onDismiss"
+>;
+
+export function ChatDocActionsPanelBody({
   workspaceMode,
   docContext,
-  dismissed,
-  onDismiss,
   onInsert,
   onAutoSend,
   onHostAction,
-  onMemorySelect,
   onOpenFile,
-}: ChatDocActionsStripProps) {
-  if (dismissed) return null;
+}: ChatDocActionsPanelBodyProps): ReactElement | null {
   if (!docContext.docKind) return null;
-
   const actions = resolveDocActions(docContext).slice(0, 5);
   if (actions.length === 0) return null;
+  return (
+    <DocActionsBodyContent
+      workspaceMode={workspaceMode}
+      docContext={docContext}
+      actions={actions}
+      onInsert={onInsert}
+      onAutoSend={onAutoSend}
+      onHostAction={onHostAction}
+      onOpenFile={onOpenFile}
+    />
+  );
+}
+
+/**
+ * Header-extras slot for the doc-actions panel. ChatWindow embeds this in the
+ * `ComposerPanelDefinition.headerExtras` field when memory selection is wired.
+ */
+export function ChatDocActionsPanelHeaderExtras({
+  onMemorySelect,
+}: {
+  onMemorySelect?: (item: MemoryCatalogItem) => void;
+}): ReactElement | null {
+  if (!onMemorySelect) return null;
+  return <ChatMemoryMenuButton onSelect={onMemorySelect} side="top" align="end" />;
+}
+
+/**
+ * Header title slot for the doc-actions panel.
+ */
+export function ChatDocActionsPanelTitle({
+  docContext,
+}: {
+  docContext: ActiveDocCtx;
+}): ReactElement | null {
+  if (!docContext.docKind) return null;
+  const docLabel = describeDoc(docContext);
+  const status = docContext.approvalStatus
+    ? docContext.approvalStatus.charAt(0).toUpperCase() + docContext.approvalStatus.slice(1)
+    : null;
+  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5">
+      <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
+      <span className="min-w-0 truncate">{docLabel}</span>
+      {status ? (
+        <span className="hidden shrink-0 text-muted-foreground/60 @[320px]:inline">· {status}</span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * Body renderer for `ChatDocActionsPanelBody`. Inline so the body and the
+ * computation that drives it stay in one place.
+ */
+function DocActionsBodyContent({
+  workspaceMode,
+  docContext,
+  actions,
+  onInsert,
+  onAutoSend,
+  onHostAction,
+  onOpenFile,
+}: {
+  workspaceMode: WorkspaceMode;
+  docContext: ActiveDocCtx;
+  actions: DocAction[];
+  onInsert: (text: string) => void;
+  onAutoSend: (text: string) => void;
+  onHostAction?: (action: "tasks.signOff", uri: string) => void;
+  onOpenFile?: (path: string, line?: number) => void;
+}): ReactElement {
   // Loosened visibility: surface the button whenever there is at least one
   // pending Human cell, even if body tasks or Agent rows are still incomplete.
   // The popover surfaces warnings for the unmet conditions; the host action
@@ -115,104 +197,126 @@ export function ChatDocActionsStrip({
     (docContext.signOff?.signable || docContext.signOff?.ready),
   );
   const breadcrumbSegments = buildBreadcrumbSegments(docContext);
-  // Stepper is useful whenever the user is inside an SDD-bearing doc — drop
-  // the prior `workspaceMode === "spec"` gate so Code/Explore modes can still
-  // pivot between Spec/Design/Tasks/Journal without a context switch.
   const stepperKinds: Array<NonNullable<ActiveDocCtx["docKind"]>> = [
     "spec",
     "design",
     "tasks",
     "journal",
   ];
+  const hasWorkflowStepperContext =
+    docContext.docKind !== "journal" ||
+    Boolean(
+      docContext.feature ||
+      docContext.siblingPaths?.spec ||
+      docContext.siblingPaths?.design ||
+      docContext.siblingPaths?.tasks ||
+      docContext.sectionOffsets?.sessions,
+    );
   const showStepper =
     docContext.docKind != null &&
     stepperKinds.includes(docContext.docKind) &&
+    hasWorkflowStepperContext &&
     breadcrumbSegments.length > 0;
-  const showStripMemory = Boolean(onMemorySelect);
   const activeStepperKey = resolveActiveStepperKey(docContext);
   const journalActive = docContext.docKind === "journal";
-
   const docLabel = describeDoc(docContext);
-  const status = docContext.approvalStatus
-    ? docContext.approvalStatus.charAt(0).toUpperCase() + docContext.approvalStatus.slice(1)
-    : null;
-  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
-  const primaryActions = selectPrimaryActions(actions, docContext, workspaceMode);
-  const actionGroups = groupPrimaryActions(primaryActions, docContext);
-  const hasMore =
-    actions.length > primaryActions.length ||
-    Boolean(docContext.parsedFocuses?.length) ||
-    docContext.docKind === "tasks";
+  const primaryActions = useMemo(
+    () => selectPrimaryActions(actions, docContext, workspaceMode),
+    [actions, docContext, workspaceMode],
+  );
+  const actionRowRef = useRef<HTMLDivElement>(null);
+  const [visiblePrimaryCount, setVisiblePrimaryCount] = useState(primaryActions.length);
+  const boundedVisiblePrimaryCount = Math.min(visiblePrimaryCount, primaryActions.length);
+  const visiblePrimaryActions = primaryActions.slice(0, boundedVisiblePrimaryCount);
+  const hiddenPrimaryActions = primaryActions.slice(boundedVisiblePrimaryCount);
+  const actionGroups = groupPrimaryActions(visiblePrimaryActions, docContext);
+  // The More menu owns command presets and secondary actions that never appear
+  // as primary buttons, so it stays available even when the visible row fits.
+  const showMore = actions.length > 0;
   const overflowGroups = overflowCatalogGroups(docContext);
 
-  function runAction(action: DocAction) {
-    if (action.autoSend) {
-      onAutoSend(action.command);
-    } else {
-      onInsert(action.command);
+  useLayoutEffect(() => {
+    const node = actionRowRef.current;
+    if (!node) {
+      setVisiblePrimaryCount(primaryActions.length);
+      return;
     }
-  }
 
-  function runPreset(preset: ResolvedContextPreset) {
-    if (preset.autoSend) {
-      onAutoSend(preset.command);
-    } else {
-      onInsert(preset.command);
+    const updateVisibleActions = () => {
+      const width = node.getBoundingClientRect().width;
+      setVisiblePrimaryCount(
+        computeVisiblePrimaryActionCount(width, primaryActions, docContext, {
+          reserveMore: false,
+          reserveSignOff: showSignOff,
+        }),
+      );
+    };
+    const scheduleVisibleActionsUpdate = () => {
+      updateVisibleActions();
+      window.requestAnimationFrame(updateVisibleActions);
+    };
+
+    scheduleVisibleActionsUpdate();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const observer = new ResizeObserver(scheduleVisibleActionsUpdate);
+      observer.observe(node);
+      window.addEventListener("resize", scheduleVisibleActionsUpdate);
+      return () => {
+        observer.disconnect();
+        window.removeEventListener("resize", scheduleVisibleActionsUpdate);
+      };
     }
+
+    window.addEventListener("resize", scheduleVisibleActionsUpdate);
+    return () => window.removeEventListener("resize", scheduleVisibleActionsUpdate);
+  }, [docContext, primaryActions, showSignOff]);
+
+  function runAction(action: DocAction) {
+    if (action.autoSend) onAutoSend(action.command);
+    else onInsert(action.command);
+  }
+  function runPreset(preset: ResolvedContextPreset) {
+    if (preset.autoSend) onAutoSend(preset.command);
+    else onInsert(preset.command);
   }
 
   return (
-    <ComposerStrip
-      title={
-        <span className="inline-flex min-w-0 items-center gap-1.5">
-          <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
-          <span className="min-w-0 truncate">{docLabel}</span>
-          {status ? (
-            <span className="hidden shrink-0 text-muted-foreground/60 @[320px]:inline">
-              · {status}
-            </span>
-          ) : null}
-        </span>
-      }
-      headerExtras={
-        showStripMemory && onMemorySelect ? (
-          <ChatMemoryMenuButton onSelect={onMemorySelect} side="top" align="end" />
-        ) : null
-      }
-      onDismiss={onDismiss}
-    >
-      <TooltipProvider delayDuration={250}>
-        {showStepper ? (
-          <div className="mb-2">
-            <SpecStepper
-              segments={breadcrumbSegments}
-              active={activeStepperKey}
-              format={docContext.format}
-              filePath={docContext.filePath ?? null}
-              siblingPaths={docContext.siblingPaths}
-              sectionOffsets={docContext.sectionOffsets}
-              journalActive={journalActive}
-              tasksCompleted={docContext.tasksCompleted}
-              tasksTotal={docContext.tasksTotal}
-              workSessionsTotal={docContext.workSessionsTotal}
-              workSessionsSigned={docContext.workSessionsSigned}
-              onOpenFile={(path, line) => {
-                if (onOpenFile) onOpenFile(path, line);
-              }}
-              onInsertDraft={onInsert}
-            />
-          </div>
-        ) : null}
-        <div className="flex items-center">
-          <CompactDocActionsMenu
-            actions={actions}
-            docLabel={docLabel}
-            docContext={docContext}
-            onRun={runAction}
+    <TooltipProvider delayDuration={250}>
+      {showStepper ? (
+        <div className="mb-2">
+          <SpecStepper
+            segments={breadcrumbSegments}
+            active={activeStepperKey}
+            format={docContext.format}
+            filePath={docContext.filePath ?? null}
+            siblingPaths={docContext.siblingPaths}
+            sectionOffsets={docContext.sectionOffsets}
+            journalActive={journalActive}
+            tasksCompleted={docContext.tasksCompleted}
+            tasksTotal={docContext.tasksTotal}
+            workSessionsTotal={docContext.workSessionsTotal}
+            workSessionsSigned={docContext.workSessionsSigned}
+            onOpenFile={(path, line) => {
+              if (onOpenFile) onOpenFile(path, line);
+            }}
+            onInsertDraft={onInsert}
           />
         </div>
+      ) : null}
+      {/* Layout contract: primary actions spend the available row width first;
+          More is trailing support chrome for presets and true overflow. */}
+      <div
+        className="flex w-full min-w-0 flex-nowrap items-center gap-1"
+        data-testid="doc-actions-row"
+      >
         <div
-          className="hidden flex-wrap items-center gap-1.5 @[420px]:flex"
+          // Keep primary buttons to one physical line. Width measurement
+          // decides how many remain visible before the rest moves to More.
+          // The More trigger itself sits outside this clipped strip so it can
+          // never be eaten by primary-action overflow.
+          ref={actionRowRef}
+          className="flex min-w-0 flex-1 flex-nowrap items-center gap-1 overflow-hidden"
           data-testid="doc-actions-primary-row"
         >
           {actionGroups.map((group, index) => (
@@ -234,100 +338,58 @@ export function ChatDocActionsStrip({
               onConfirm={onHostAction}
             />
           ) : null}
-          {hasMore ? (
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="xs"
-                      aria-label="More document actions"
-                    >
-                      <MoreHorizontal size={12} aria-hidden />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="top" align="end" className="max-w-[220px] text-left">
-                  More AFX actions, focus targets, and command presets.
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent
-                side="top"
-                align="end"
-                sideOffset={8}
-                collisionPadding={12}
-                className="max-h-[min(28rem,calc(100vh-2rem))] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto"
-              >
-                <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-                  {docLabel} Commands
-                </DropdownMenuLabel>
-                {docContext.parsedFocuses?.length ? (
-                  <>
-                    <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-                      Compose
-                    </DropdownMenuLabel>
-                    {docContext.parsedFocuses.slice(0, 8).map((focus) => {
-                      const focusAction = preferredFocusAction(actions, docContext.docKind);
-                      if (!focusAction) return null;
-                      const command = `${focusAction.command} ${
-                        focus.commandSuffix ?? focus.slug
-                      }`.trim();
-                      return (
-                        <DropdownRowTooltip
-                          key={focus.id}
-                          title={focus.label}
-                          line={focus.line}
-                          description={focus.excerpt}
-                          command={command}
-                          modeLabel="Draft"
-                        >
-                          <DropdownMenuItem
-                            className="items-start gap-2 px-2 py-2"
-                            onSelect={() => onInsert(command)}
-                          >
-                            <Scissors
-                              size={11}
-                              className="mt-0.5 text-afx-brand-soft"
-                              aria-hidden
-                            />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[11px] font-medium">
-                                {focus.label}
-                              </span>
-                              <span className="block font-mono text-[10px] text-muted-foreground">
-                                Line {focus.line}
-                              </span>
-                            </span>
-                          </DropdownMenuItem>
-                        </DropdownRowTooltip>
-                      );
-                    })}
-                    <DropdownMenuSeparator />
-                  </>
-                ) : null}
-                {overflowGroups.map((group, groupIndex) => (
-                  <DropdownMenuGroup key={group.group}>
-                    {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-                      {group.label}
-                    </DropdownMenuLabel>
-                    {group.items.map((item) => (
+        </div>
+        {showMore ? (
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="More document actions"
+                    data-testid="doc-actions-more-trigger"
+                    className="ml-auto shrink-0 text-muted-foreground/80 hover:text-foreground data-[state=open]:text-foreground"
+                  >
+                    <MoreHorizontal size={12} aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top" align="end" className="max-w-[220px] text-left">
+                More AFX actions, focus targets, and command presets.
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent
+              side="top"
+              align="end"
+              sideOffset={8}
+              collisionPadding={12}
+              className="max-h-[min(28rem,calc(100vh-2rem))] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto"
+            >
+              <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+                {docLabel} Commands
+              </DropdownMenuLabel>
+              {hiddenPrimaryActions.length > 0 ? (
+                <>
+                  <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+                    Hidden Row Actions
+                  </DropdownMenuLabel>
+                  {hiddenPrimaryActions.map((action) => {
+                    const help = actionHelp(action);
+                    return (
                       <DropdownRowTooltip
-                        key={item.command}
-                        title={item.label}
-                        description={item.description}
-                        command={item.command}
-                        modeLabel={item.autoSend ? "Auto" : "Draft"}
+                        key={`compact-${action.command}`}
+                        title={action.label}
+                        description={help.description}
+                        command={action.command}
+                        modeLabel={help.modeLabel}
                       >
                         <DropdownMenuItem
                           className="items-start gap-2 px-2 py-2"
-                          onSelect={() =>
-                            item.autoSend ? onAutoSend(item.command) : onInsert(item.command)
-                          }
+                          onSelect={() => runAction(action)}
                         >
-                          {item.autoSend ? (
+                          {action.autoSend ? (
                             <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
                           ) : (
                             <PenLine
@@ -338,139 +400,124 @@ export function ChatDocActionsStrip({
                           )}
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[11px] font-medium">
-                              {item.label}
+                              {action.label}
                             </span>
                             <span className="block truncate text-[10px] leading-snug text-muted-foreground">
-                              {item.description}
+                              {help.description}
                             </span>
                             <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                              {item.command}
+                              {action.command}
                             </span>
                           </span>
                           <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                            {item.autoSend ? "Auto" : "Draft"}
+                            {action.autoSend ? "Auto" : "Draft"}
                           </span>
                         </DropdownMenuItem>
                       </DropdownRowTooltip>
-                    ))}
-                  </DropdownMenuGroup>
-                ))}
-                <DropdownMenuSeparator />
-                {actions.map((action) => (
-                  <ChatCommandPresetSubmenu
-                    key={`preset-${action.command}`}
-                    baseCommand={baseAfxCommand(action.command)}
-                    docContext={toPresetContext(docContext)}
-                    triggerLabel={`${action.label} presets`}
-                    onSelect={runPreset}
-                  />
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </div>
-      </TooltipProvider>
-    </ComposerStrip>
-  );
-}
-
-function CompactDocActionsMenu({
-  actions,
-  docLabel,
-  docContext,
-  onRun,
-}: {
-  actions: readonly DocAction[];
-  docLabel: string;
-  docContext: ActiveDocCtx;
-  onRun: (action: DocAction) => void;
-}) {
-  return (
-    <DropdownMenu>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              aria-label="Document actions"
-              className="h-7 min-w-7 px-1.5 @[420px]:hidden"
-            >
-              <MoreHorizontal size={13} aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="start" className="max-w-[220px] text-left">
-          {docLabel} actions.
-        </TooltipContent>
-      </Tooltip>
-      <DropdownMenuContent
-        side="top"
-        align="start"
-        sideOffset={8}
-        collisionPadding={12}
-        className="max-h-[min(28rem,calc(100vh-2rem))] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto"
-      >
-        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-          {docLabel} Actions
-        </DropdownMenuLabel>
-        {actions.map((action) => {
-          const help = actionHelp(action);
-          return (
-            <DropdownRowTooltip
-              key={action.command}
-              title={action.label}
-              description={help.description}
-              command={action.command}
-              modeLabel={help.modeLabel}
-            >
-              <DropdownMenuItem
-                className="items-start gap-2 px-2 py-2"
-                onSelect={() => onRun(action)}
-              >
-                {action.autoSend ? (
-                  <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
-                ) : (
-                  <PenLine size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
-                )}
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-medium">{action.label}</span>
-                  <span className="block truncate text-[10px] leading-snug text-muted-foreground">
-                    {help.description}
-                  </span>
-                  <span className="block truncate font-mono text-[10px] text-muted-foreground">
-                    {action.command}
-                  </span>
-                </span>
-                <span className="font-mono text-[9px] uppercase text-muted-foreground">
-                  {action.autoSend ? "Auto" : "Draft"}
-                </span>
-              </DropdownMenuItem>
-            </DropdownRowTooltip>
-          );
-        })}
-        {docContext.parsedFocuses?.length ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
-              Focus Targets
-            </DropdownMenuLabel>
-            {docContext.parsedFocuses.slice(0, 8).map((focus) => (
-              <DropdownMenuItem key={focus.id} disabled className="items-start gap-2 px-2 py-2">
-                <Scissors size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[11px] font-medium">{focus.label}</span>
-                  <span className="block font-mono text-[10px] text-muted-foreground">
-                    Line {focus.line}
-                  </span>
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </>
+                    );
+                  })}
+                  <DropdownMenuSeparator />
+                </>
+              ) : null}
+              {docContext.parsedFocuses?.length ? (
+                <>
+                  <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+                    Compose
+                  </DropdownMenuLabel>
+                  {docContext.parsedFocuses.slice(0, 8).map((focus) => {
+                    const focusAction = preferredFocusAction(actions, docContext.docKind);
+                    if (!focusAction) return null;
+                    const command = `${focusAction.command} ${
+                      focus.commandSuffix ?? focus.slug
+                    }`.trim();
+                    return (
+                      <DropdownRowTooltip
+                        key={focus.id}
+                        title={focus.label}
+                        line={focus.line}
+                        description={focus.excerpt}
+                        command={command}
+                        modeLabel="Draft"
+                      >
+                        <DropdownMenuItem
+                          className="items-start gap-2 px-2 py-2"
+                          onSelect={() => onInsert(command)}
+                        >
+                          <Scissors size={11} className="mt-0.5 text-afx-brand-soft" aria-hidden />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-[11px] font-medium">
+                              {focus.label}
+                            </span>
+                            <span className="block font-mono text-[10px] text-muted-foreground">
+                              Line {focus.line}
+                            </span>
+                          </span>
+                        </DropdownMenuItem>
+                      </DropdownRowTooltip>
+                    );
+                  })}
+                  <DropdownMenuSeparator />
+                </>
+              ) : null}
+              {overflowGroups.map((group, groupIndex) => (
+                <DropdownMenuGroup key={group.group}>
+                  {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
+                  <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+                    {group.label}
+                  </DropdownMenuLabel>
+                  {group.items.map((item) => (
+                    <DropdownRowTooltip
+                      key={item.command}
+                      title={item.label}
+                      description={item.description}
+                      command={item.command}
+                      modeLabel={item.autoSend ? "Auto" : "Draft"}
+                    >
+                      <DropdownMenuItem
+                        className="items-start gap-2 px-2 py-2"
+                        onSelect={() =>
+                          item.autoSend ? onAutoSend(item.command) : onInsert(item.command)
+                        }
+                      >
+                        {item.autoSend ? (
+                          <Zap size={11} className="mt-0.5 text-amber-500" aria-hidden />
+                        ) : (
+                          <PenLine size={11} className="mt-0.5 text-muted-foreground" aria-hidden />
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] font-medium">
+                            {item.label}
+                          </span>
+                          <span className="block truncate text-[10px] leading-snug text-muted-foreground">
+                            {item.description}
+                          </span>
+                          <span className="block truncate font-mono text-[10px] text-muted-foreground">
+                            {item.command}
+                          </span>
+                        </span>
+                        <span className="font-mono text-[9px] uppercase text-muted-foreground">
+                          {item.autoSend ? "Auto" : "Draft"}
+                        </span>
+                      </DropdownMenuItem>
+                    </DropdownRowTooltip>
+                  ))}
+                </DropdownMenuGroup>
+              ))}
+              <DropdownMenuSeparator />
+              {actions.map((action) => (
+                <ChatCommandPresetSubmenu
+                  key={`preset-${action.command}`}
+                  baseCommand={baseAfxCommand(action.command)}
+                  docContext={toPresetContext(docContext)}
+                  triggerLabel={`${action.label} presets`}
+                  onSelect={runPreset}
+                />
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+      </div>
+    </TooltipProvider>
   );
 }
 
@@ -498,14 +545,14 @@ function ActionCluster({
       {showDivider ? (
         <span
           aria-hidden
-          className="mx-0.5 select-none font-mono text-[11px] text-muted-foreground/60"
+          className="mx-0.5 shrink-0 select-none font-mono text-[11px] text-muted-foreground/60"
           data-testid="doc-actions-intent-separator"
         >
           |
         </span>
       ) : null}
       <span
-        className="inline-flex flex-wrap items-center gap-1.5"
+        className="inline-flex shrink-0 flex-nowrap items-center gap-1"
         data-testid={`doc-actions-${group}-group`}
       >
         {actions.map((action) => (
@@ -526,12 +573,14 @@ function ActionCluster({
 function ActionButton({
   action,
   docContext,
+  className,
   onRun,
   onInsert,
   onAutoSend,
 }: {
   action: DocAction;
   docContext: ActiveDocCtx;
+  className?: string;
   onRun: (action: DocAction) => void;
   onInsert: (text: string) => void;
   onAutoSend: (text: string) => void;
@@ -546,6 +595,7 @@ function ActionButton({
         action={action}
         docContext={docContext}
         targets={taskTargets}
+        className={className}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />
@@ -558,6 +608,7 @@ function ActionButton({
         action={action}
         docContext={docContext}
         targets={focusTargets}
+        className={className}
         onInsert={onInsert}
       />
     );
@@ -572,11 +623,12 @@ function ActionButton({
           variant="outline"
           aria-label={`${action.label}: ${help.modeLabel}`}
           onClick={() => onRun(action)}
+          className={cn(DOC_ACTION_FLAT_BUTTON_CLASS, className)}
         >
           {action.autoSend ? (
-            <Zap size={11} className="shrink-0 text-amber-500" aria-hidden />
+            <Zap size={10} className="shrink-0 text-amber-500" aria-hidden />
           ) : (
-            <PenLine size={11} className="shrink-0 text-muted-foreground" aria-hidden />
+            <PenLine size={10} className="shrink-0 text-muted-foreground" aria-hidden />
           )}
           <span>{action.label}</span>
         </Button>
@@ -637,11 +689,13 @@ function FocusMenuActionButton({
   action,
   docContext,
   targets,
+  className,
   onInsert,
 }: {
   action: DocAction;
   docContext: ActiveDocCtx;
   targets: readonly FocusActionTarget[];
+  className?: string;
   onInsert: (text: string) => void;
 }) {
   return (
@@ -653,13 +707,13 @@ function FocusMenuActionButton({
               type="button"
               variant="outline"
               size="xs"
-              className="gap-1.5 pr-1.5"
+              className={cn(DOC_ACTION_MENU_BUTTON_CLASS, className)}
               aria-label={`${action.label} options`}
               data-testid="doc-actions-focus-menu"
             >
-              <PenLine size={11} className="shrink-0 text-muted-foreground" aria-hidden />
+              <PenLine size={10} className="shrink-0 text-muted-foreground" aria-hidden />
               <span>{action.label}</span>
-              <ChevronDown size={11} className="text-muted-foreground" aria-hidden />
+              <ChevronDown size={10} className="text-muted-foreground" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -796,12 +850,14 @@ function TaskMenuActionButton({
   action,
   docContext,
   targets,
+  className,
   onInsert,
   onAutoSend,
 }: {
   action: DocAction;
   docContext: ActiveDocCtx;
   targets: readonly TaskActionTarget[];
+  className?: string;
   onInsert: (text: string) => void;
   onAutoSend: (text: string) => void;
 }) {
@@ -829,13 +885,13 @@ function TaskMenuActionButton({
               type="button"
               variant="outline"
               size="xs"
-              className="gap-1.5 pr-1.5"
+              className={cn(DOC_ACTION_MENU_BUTTON_CLASS, className)}
               aria-label={`${action.label} options`}
               data-testid={`doc-actions-${verb}-menu`}
             >
-              <ModeIcon size={11} className={cn("shrink-0", modeIconClassName)} aria-hidden />
+              <ModeIcon size={10} className={cn("shrink-0", modeIconClassName)} aria-hidden />
               <span>{action.label}</span>
-              <ChevronDown size={11} className="text-muted-foreground" aria-hidden />
+              <ChevronDown size={10} className="text-muted-foreground" aria-hidden />
             </Button>
           </DropdownMenuTrigger>
         </TooltipTrigger>
@@ -1005,15 +1061,15 @@ function SignOffActionButton({
           data-testid="doc-actions-sign-off-button"
           data-warn={hasWarnings ? "true" : "false"}
           className={cn(
-            "gap-1.5",
+            DOC_ACTION_MENU_BUTTON_CLASS,
             hasWarnings
               ? "border-muted-foreground/40 text-muted-foreground hover:bg-muted/40"
               : "border-amber-500/50 text-amber-600 hover:bg-amber-500/10 dark:text-amber-300 dark:hover:bg-amber-500/15",
           )}
         >
-          <BadgeCheck size={11} className="shrink-0" aria-hidden />
+          <BadgeCheck size={10} className="shrink-0" aria-hidden />
           <span>Sign Off</span>
-          <ChevronDown size={11} className="text-muted-foreground" aria-hidden />
+          <ChevronDown size={10} className="text-muted-foreground" aria-hidden />
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -1112,7 +1168,7 @@ function SignOffActionButton({
 /**
  * Spec-stepper segment shape — derived client-side from
  * `ctx.{specStatus, designStatus, tasksStatus, tasksCompleted, tasksTotal}`
- * so the stepper renders `[1 Spec ✓] [2 Design …] [3 Tasks 3/8]` without an
+ * so the stepper renders `[1 Spec] [2 Design] [3 Tasks 3/8]` without an
  * extra bridge call. The terminal `Code` pseudo-segment was dropped — the
  * action row already covers the implementation phase via Code/Verify/Pick.
  *
@@ -1127,15 +1183,13 @@ type BreadcrumbSegment = {
   hint: string;
 };
 
-// Plain text glyphs only — emoji pictographs (⏳ ⚠) render at a larger
-// font metric than the surrounding mono text on macOS/Windows and bust the
-// pill's height bounds. `…` and `!` keep the rhythm tight.
+// Status lives in tone + tooltip; visible stepper labels stay navigation-only.
 const STATUS_GLYPH: Record<BreadcrumbSegment["status"], string> = {
-  approved: "✓",
-  draft: "…",
-  blocked: "!",
-  progress: "·",
-  pending: "·",
+  approved: "",
+  draft: "",
+  blocked: "",
+  progress: "",
+  pending: "",
 };
 
 function buildBreadcrumbSegments(ctx: ActiveDocCtx): BreadcrumbSegment[] {
@@ -1291,6 +1345,41 @@ type OverflowCatalogGroup = {
 const OVERFLOW_MODE_ORDER: readonly OverflowModeGroup[] = ["compose", "run"];
 const CATALOG_INTENT_ORDER: readonly CatalogIntentGroup[] = ["quality", "state", "action"];
 
+function computeVisiblePrimaryActionCount(
+  width: number,
+  actions: readonly DocAction[],
+  docContext: ActiveDocCtx,
+  options: { reserveMore: boolean; reserveSignOff: boolean },
+): number {
+  if (actions.length === 0) return 0;
+  if (!Number.isFinite(width) || width <= 0) return actions.length;
+
+  const reserved = (options.reserveMore ? 28 : 0) + (options.reserveSignOff ? 92 : 0);
+  const available = Math.max(0, width - reserved);
+  let used = 0;
+  let count = 0;
+  let previousMode: PrimaryActionGroup | null = null;
+
+  for (const action of actions) {
+    const mode = actionInteractionMode(action, docContext);
+    const divider = previousMode && previousMode !== mode ? 14 : 0;
+    const gap = count > 0 ? 4 : 0;
+    const next = estimatePrimaryActionWidth(action, docContext) + divider + gap;
+    if (count > 0 && used + next > available) break;
+    used += next;
+    previousMode = mode;
+    count += 1;
+  }
+
+  return Math.max(1, Math.min(count, actions.length));
+}
+
+function estimatePrimaryActionWidth(action: DocAction, docContext: ActiveDocCtx): number {
+  const hasMenu =
+    isTaskMenuAction(action, docContext) || focusActionTargets(action, docContext).length > 0;
+  return 26 + action.label.length * 6 + (hasMenu ? 8 : 0);
+}
+
 /**
  * Select the visible primary action set per docKind + workspace mode. Spec
  * mode keeps the full spec/design lifecycle set defined by `resolveDocActions`; Code /
@@ -1320,7 +1409,8 @@ function selectPrimaryActions(
     if (docContext.docKind === "spec" || docContext.docKind === "design") {
       return actions.slice(0, 5);
     }
-    return actions.slice(0, docContext.docKind === "tasks" ? 4 : 3);
+    if (docContext.docKind === "tasks") return actions.slice(0, 4);
+    return actions.slice(0, 5);
   }
 
   const labelsByKind: Partial<Record<NonNullable<ActiveDocCtx["docKind"]>, string[]>> = {

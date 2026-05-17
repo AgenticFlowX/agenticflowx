@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-16T03:31:12.000Z"
 tags: ["app", "chat", "history"]
 spec: spec.md
 ---
@@ -20,6 +20,8 @@ The history zone renders the chat webview's active-session work log. It owns the
 visible History tab, local filtering/search, runtime state branches, context
 save affordance, and the data adapter that converts current chat timeline items
 into narrative/trace/audit event rows.
+
+Chat-window componentization reserves future load/export slots in `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`. This history spec remains the behavior owner for persistence format, load UX, export schema, and reload semantics in a follow-on pass.
 
 ---
 
@@ -389,12 +391,13 @@ does not own persistence or cross-session conversation storage.
 
 ## [DES-DEPS] Dependencies
 
-| Dependency              | Use                                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------- |
-| `100-package-shared`    | `AgentStatus`, `AgentRuntimeStatus`, `ChatTimelineItem`, `ChatMessageView`, usage/tool types |
-| `110-package-transport` | Chat webview bridge subscription/send surface through `apps/chat/src/lib/bridge.ts`          |
-| `210-app-chat`          | Parent chat app shell and tab routing                                                        |
-| `212-app-chat-messages` | Shared tool descriptor behavior used by both live message timeline and History rows          |
+| Dependency                             | Use                                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `100-package-shared`                   | `AgentStatus`, `AgentRuntimeStatus`, `ChatTimelineItem`, `ChatMessageView`, usage/tool types |
+| `110-package-transport`                | Chat webview bridge subscription/send surface through `apps/chat/src/lib/bridge.ts`          |
+| `210-app-chat`                         | Parent chat app shell and tab routing                                                        |
+| `212-app-chat-messages`                | Shared tool descriptor behavior used by both live message timeline and History rows          |
+| `216-app-chat-window-componentization` | Reserved ChatTopBar/ComposerPanelStack slots for future history load/export surfaces         |
 
 ---
 
@@ -491,13 +494,21 @@ Route files back to `210-app-chat` only if this child spec is no longer useful.
 
 ## [DES-HISTORY-REFS] File Reference Map
 
-| Task | File                                  | Required @see                                                         |
-| ---- | ------------------------------------- | --------------------------------------------------------------------- |
-| 1.x  | `apps/chat/src/views/history.tsx`     | `design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-COMPONENT-OVERLAY]` |
-| 1.x  | `apps/chat/src/lib/history-events.ts` | `design.md [DES-DATA]`                                                |
+| Task | File                                                                            | Required @see                                                                                                    |
+| ---- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/history.tsx`                                               | `design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-COMPONENT-OVERLAY]`                                            |
+| 1.x  | `apps/chat/src/lib/history-events.ts`                                           | `design.md [DES-DATA]`                                                                                           |
+| 2.x  | `apps/chat/src/components/chat/chat-controller.tsx` future history store slot   | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`                                        |
+| 2.x  | future `ChatHistoryPanel` / `ChatHistoryLoadAction` / `ChatHistoryExportAction` | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`; persistence behavior TBD in this spec |
 
 ---
 
 ## [DES-HISTORY-QUESTIONS] Open Technical Questions
 
-None.
+Reserved-slot questions deferred from `216-app-chat-window-componentization`:
+
+1. What serialized `ChatHistorySession` schema is reloadable and stable across versions?
+2. Should load UX activate a composer panel, a top-bar picker, or both?
+3. Should reload replace the current session, open a separate session, or present a split preview?
+
+These questions do not block the componentization refactor; they block only the follow-on history persistence implementation.

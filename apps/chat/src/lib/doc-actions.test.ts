@@ -169,6 +169,19 @@ describe("resolveDocActions", () => {
     expect(actions.every((a) => a.command.startsWith("/afx-session "))).toBe(true);
   });
 
+  it("routes the global journal without a feature suffix", () => {
+    const actions = resolveDocActions(
+      ctx({ docKind: "journal", format: "standard", feature: null }),
+    );
+    expect(actions.map((a) => a.command)).toEqual([
+      "/afx-session note",
+      "/afx-session log",
+      "/afx-session recap",
+      "/afx-session promote",
+      "/afx-session capture",
+    ]);
+  });
+
   it("routes ADR docs to /afx-adr review|supersede|list", () => {
     const actions = resolveDocActions(ctx({ docKind: "adr", format: "standard", feature: null }));
     expect(actions.map((a) => a.label)).toEqual(["Review", "Supersede", "List"]);

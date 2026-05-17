@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-02T00:08:26.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 tags: [app, workbench, webview, tasks, journal, board, pipeline, documents, notes, analytics]
 depends_on: [100-package-shared, 130-package-ui, 120-package-parsers]
 ---

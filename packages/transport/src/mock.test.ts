@@ -55,6 +55,24 @@ describe("createMockTransport", () => {
     t.dispose();
   });
 
+  it("replays tool metadata in chat/state after an edit scenario", async () => {
+    vi.useFakeTimers();
+    const t = createMockTransport();
+    let messages: unknown[] = [];
+    t.on("chat/state", (msg) => {
+      messages = msg.messages;
+    });
+
+    t.scenarios["tool-edit-file"]?.();
+    await vi.runAllTimersAsync();
+    t.send({ type: "chat/getState" });
+
+    expect(JSON.stringify(messages)).toContain('"toolName":"edit_file"');
+    expect(JSON.stringify(messages)).toContain('"firstChangedLine":142');
+    t.dispose();
+    vi.useRealTimers();
+  });
+
   it("onLog fires for each message", () => {
     const t = createMockTransport();
     const entries: string[] = [];
@@ -89,6 +107,7 @@ describe("createMockTransport", () => {
       "quick-reply",
       "streaming-reply",
       "large-response",
+      "coding-benchmark",
       "thinking-reply",
       "steer",
       "follow-up",
@@ -96,6 +115,9 @@ describe("createMockTransport", () => {
       "tool-read-file",
       "tool-edit-file",
       "spec-doc-actions",
+      "sprint-doc-actions",
+      "journal-doc-actions",
+      "global-journal-doc-actions",
       "multi-tool",
       "tool-error",
       "provider-error",
@@ -138,6 +160,65 @@ describe("createMockTransport", () => {
     t.scenarios["disconnected"]?.();
     expect(running).toBe(false);
     expect(phase).toBe("disconnected");
+    t.dispose();
+  });
+
+  it("coding benchmark scenario hydrates a long code-heavy transcript", () => {
+    const t = createMockTransport();
+    let messages: unknown[] = [];
+    t.on("chat/state", (msg) => {
+      messages = msg.messages;
+    });
+
+    t.scenarios["coding-benchmark"]?.();
+
+    expect(messages.length).toBeGreaterThanOrEqual(40);
+    expect(JSON.stringify(messages)).toContain("Benchmark refactor slice 24");
+    expect(messages.some((message) => isRole(message, "compactionSummary"))).toBe(true);
+    t.dispose();
+  });
+
+  it("sprint doc-actions scenario includes section offsets for in-file stepper jumps", () => {
+    const t = createMockTransport();
+    let payload: unknown;
+    t.on("chat/activeDocContext", (msg) => {
+      payload = msg;
+    });
+
+    t.scenarios["sprint-doc-actions"]?.();
+
+    expect(payload).toMatchObject({
+      format: "sprint",
+      docKind: "spec",
+      filePath: "/workspace/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+      sectionOffsets: {
+        spec: 22,
+        design: 84,
+        tasks: 140,
+        sessions: 220,
+      },
+    });
+    t.dispose();
+  });
+
+  it("global journal scenario has no feature or workflow siblings", () => {
+    const t = createMockTransport();
+    let payload: unknown;
+    t.on("chat/activeDocContext", (msg) => {
+      payload = msg;
+    });
+
+    t.scenarios["global-journal-doc-actions"]?.();
+
+    expect(payload).toMatchObject({
+      format: "standard",
+      section: null,
+      docKind: "journal",
+      feature: null,
+      filePath: "/workspace/docs/specs/journal.md",
+    });
+    expect(payload).not.toHaveProperty("siblingPaths");
+    expect(payload).not.toHaveProperty("sectionOffsets");
     t.dispose();
   });
 
@@ -372,3 +453,12 @@ describe("createMockTransport", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+function isRole(value: unknown, role: string): boolean {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "role" in value &&
+    (value as { role?: unknown }).role === role
+  );
+}

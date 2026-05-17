@@ -26,10 +26,10 @@ const markerEndRe = (s: SprintSection): RegExp =>
   new RegExp(`<!--\\s*SPRINT-SECTION-END\\s*:\\s*${s}\\b[^>]*-->`, "i");
 
 const HEADING_FALLBACK: Record<SprintSection, RegExp> = {
-  SPEC: /^##\s+(?:\d+\.\s+)?(?:Spec|Specification)\b/i,
-  DESIGN: /^##\s+(?:\d+\.\s+)?(?:Design|Plan)\b/i,
-  TASKS: /^##\s+(?:\d+\.\s+)?Tasks?\b/i,
-  SESSIONS: /^##\s+(?:\d+\.\s+)?(?:Work\s+Sessions?|Sessions)\b/i,
+  SPEC: /^#{1,2}\s+(?:\d+\.\s+)?(?:Spec|Specification)\b/i,
+  DESIGN: /^#{1,2}\s+(?:\d+\.\s+)?(?:Design|Plan)\b/i,
+  TASKS: /^#{1,2}\s+(?:\d+\.\s+)?Tasks?\b/i,
+  SESSIONS: /^#{1,2}\s+(?:\d+\.\s+)?(?:Work\s+Sessions?|Sessions)\b/i,
 };
 
 /** True iff the file's frontmatter declares a sprint-style document. */
@@ -59,14 +59,18 @@ export function sliceSprintSection(raw: string, section: SprintSection): Section
     }
   }
 
-  // Heading fallback — walk to the first matching heading and capture until the next h2.
+  // Heading fallback — walk to the first matching H1/H2 and capture until
+  // the next heading at the same or higher level. This lets older sprint
+  // docs use `# 1. Spec` sections with `##` content headings inside them.
   const fallbackRe = HEADING_FALLBACK[section];
   const startIdx = findLineMatching(lines, fallbackRe);
   if (startIdx === -1) return undefined;
+  const startDepth = headingDepth(lines[startIdx] ?? "") ?? 2;
 
   const collected: string[] = [];
   for (let i = startIdx; i < lines.length; i++) {
-    if (i > startIdx && /^##\s+/.test(lines[i] ?? "")) break;
+    const depth = headingDepth(lines[i] ?? "");
+    if (i > startIdx && depth != null && depth <= startDepth) break;
     if (/<!--\s*SPRINT-SECTION-(?:START|END)\b/i.test(lines[i] ?? "")) continue;
     collected.push(lines[i] ?? "");
   }
@@ -104,13 +108,15 @@ export function findSectionAt(raw: string, line: number): SprintSection | undefi
       return section;
     }
   }
-  // Heading fallback — walk through h2 headings, mapping each to a section if
-  // it matches a known fallback pattern. The line belongs to the most recent
-  // matching heading until the next h2.
+  // Heading fallback — walk through H1/H2 headings, mapping each to a section
+  // if it matches a known fallback pattern. The line belongs to the most
+  // recent matching heading until the next heading at the same or higher level.
   let currentSection: SprintSection | undefined;
+  let currentDepth: number | undefined;
   for (let i = 0; i <= line && i < lines.length; i++) {
     const ln = lines[i] ?? "";
-    if (!/^##\s+/.test(ln)) continue;
+    const depth = headingDepth(ln);
+    if (depth == null) continue;
     let matched: SprintSection | undefined;
     for (const section of SPRINT_SECTIONS) {
       if (HEADING_FALLBACK[section].test(ln)) {
@@ -118,8 +124,13 @@ export function findSectionAt(raw: string, line: number): SprintSection | undefi
         break;
       }
     }
-    if (matched) currentSection = matched;
-    else if (i < line) currentSection = undefined; // unrelated h2 ends the previous section
+    if (matched) {
+      currentSection = matched;
+      currentDepth = depth;
+    } else if (currentDepth != null && depth <= currentDepth) {
+      currentSection = undefined;
+      currentDepth = undefined;
+    }
   }
   return currentSection;
 }
@@ -148,4 +159,9 @@ function findLineMatching(lines: string[], re: RegExp): number {
     if (re.test(lines[i] ?? "")) return i;
   }
   return -1;
+}
+
+function headingDepth(line: string): number | undefined {
+  const match = /^(#{1,6})\s+/.exec(line);
+  return match?.[1]?.length;
 }

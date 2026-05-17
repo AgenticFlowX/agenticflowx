@@ -1,6 +1,6 @@
 /**
  * SpecStepper unit tests — pill rendering, click → openFile dispatch, sprint
- * vs standard mode, disabled-pill behavior, tier-2 chips with Related label.
+ * vs standard mode, disabled-pill behavior, and the tier-2 sibling chips.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
@@ -25,7 +25,7 @@ function segments(
 }
 
 describe("SpecStepper", () => {
-  it("renders three pills with numbered labels and Related tier-2 label", () => {
+  it("renders three pills with numbered labels and predictable tier-2 chips", () => {
     render(
       <SpecStepper
         segments={segments({
@@ -48,6 +48,11 @@ describe("SpecStepper", () => {
       "data-active",
       "true",
     );
+    expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveTextContent("1Spec");
+    expect(screen.getByTestId("spec-stepper-segment-design")).toHaveTextContent("2Design");
+    expect(screen.getByTestId("spec-stepper-segment-design")).not.toHaveTextContent("Draft");
+    expect(screen.getByTestId("spec-stepper-segment-spec")).not.toHaveTextContent("Approved");
+    expect(screen.getByTestId("spec-stepper-segment-design")).not.toHaveTextContent("…");
     expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveAttribute(
       "data-status",
       "approved",
@@ -56,8 +61,20 @@ describe("SpecStepper", () => {
     expect(screen.queryByTestId("spec-stepper-segment-code")).not.toBeInTheDocument();
     // Resume button is gone too.
     expect(screen.queryByTestId("spec-stepper-resume")).not.toBeInTheDocument();
-    // Tier-2 carries the explicit "Related" label.
-    expect(screen.getByText("Related")).toBeInTheDocument();
+    // Tier-2 renders only actionable sibling chips — no orphan "Related" label.
+    expect(screen.queryByText("Related")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Journal")).toHaveClass("inline-flex");
+    expect(screen.getByLabelText("Work Sessions")).toHaveClass(
+      "hidden",
+      "@[430px]:inline-flex",
+      "whitespace-nowrap",
+    );
+    expect(screen.getByTestId("spec-stepper-related-row")).toHaveClass(
+      "hidden",
+      "@[220px]:flex",
+      "overflow-hidden",
+      "whitespace-nowrap",
+    );
   });
 
   it("standard mode → pill click opens the sibling file via onOpenFile", async () => {
@@ -119,6 +136,27 @@ describe("SpecStepper", () => {
 
     await user.click(screen.getByRole("button", { name: /Design step/i }));
     expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/auth/sprint.md", 48);
+  });
+
+  it("sprint mode keeps pills clickable even when a section offset is missing", async () => {
+    const user = userEvent.setup();
+    const onOpenFile = vi.fn();
+
+    render(
+      <SpecStepper
+        segments={segments({
+          design: { status: "draft", glyph: "", hint: "Design: Draft" },
+        })}
+        active="spec"
+        format="sprint"
+        filePath="/work/docs/specs/auth/sprint.md"
+        sectionOffsets={{ spec: 12 }}
+        onOpenFile={onOpenFile}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Design step/i }));
+    expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/auth/sprint.md", undefined);
   });
 
   it("disabled pill (sibling path missing AND status pending) does not dispatch onOpenFile", () => {
@@ -243,7 +281,7 @@ describe("SpecStepper", () => {
     expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveAttribute("data-active", "false");
   });
 
-  it("sprint mode hides the Journal chip", () => {
+  it("sprint mode keeps Journal available and opens Work Sessions in-file", () => {
     render(
       <SpecStepper
         segments={segments({ spec: { status: "approved", glyph: "✓" } })}
@@ -255,8 +293,30 @@ describe("SpecStepper", () => {
       />,
     );
 
-    expect(screen.queryByTestId("spec-stepper-journal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-journal")).toBeInTheDocument();
     expect(screen.getByTestId("spec-stepper-sessions")).toBeInTheDocument();
+  });
+
+  it("sprint Journal chip inserts /afx-session note into composer draft", async () => {
+    const user = userEvent.setup();
+    const onInsertDraft = vi.fn();
+    const onOpenFile = vi.fn();
+
+    render(
+      <SpecStepper
+        segments={segments({ spec: { status: "approved", glyph: "✓" } })}
+        active="spec"
+        format="sprint"
+        filePath="/x/sprint.md"
+        sectionOffsets={{ spec: 1, sessions: 50 }}
+        onOpenFile={onOpenFile}
+        onInsertDraft={onInsertDraft}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Journal" }));
+    expect(onInsertDraft).toHaveBeenCalledWith("/afx-session note ");
+    expect(onOpenFile).not.toHaveBeenCalled();
   });
 
   it("Work Sessions chip click opens tasks.md scrolled to the sessions heading + label uses real session counts", async () => {

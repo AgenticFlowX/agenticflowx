@@ -2,7 +2,7 @@
  * Shared visual treatment for AFX document kinds in chat composer surfaces.
  *
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- * @see docs/specs/220-app-workbench/design.md
+ * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-SURFACE-TOKENS] [DES-WORKBENCH-DOCS-HELPERS]
  */
 import {
   BookOpen,

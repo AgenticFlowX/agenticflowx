@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: 2026-04-29T06:31:24.000Z
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 tags: [plan, workbench, traceability, vscode]
 ---
 

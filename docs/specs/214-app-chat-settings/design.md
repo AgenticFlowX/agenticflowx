@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-10T10:24:08.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md

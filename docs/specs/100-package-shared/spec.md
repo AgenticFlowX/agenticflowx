@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
  owner: "@rixrix"
  version: "1.4"
  created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-09T07:34:10.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: [package, shared, protocol, types, agent, logging, mode, workspace-mode]
 ---

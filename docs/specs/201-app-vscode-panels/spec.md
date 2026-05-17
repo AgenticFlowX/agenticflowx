@@ -1,11 +1,11 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-05T15:18:06.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "composer"]
 depends_on: ["100-package-shared", "110-package-transport", "200-app-vscode"]

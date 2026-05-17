@@ -1,0 +1,33 @@
+{
+  "schema": "afx-chat-window-e2e-benchmark-v1",
+  "captured_at": "2026-05-15T13:52:27.353Z",
+  "source": "playwright-e2e",
+  "command": "pnpm --filter apps/chat exec playwright test e2e/chat-window-benchmark.spec.ts --reporter=json",
+  "scenario": "coding-benchmark",
+  "notes": [
+    "Runs against the browser dev harness and mock transport, not the VS Code Electron webview.",
+    "Budgets are catastrophic-regression caps for CI/dev stability; use measurements as the comparison baseline for future optimization work.",
+    "Heap is sampled through Chromium CDP Performance metrics after an attempted garbage collection."
+  ],
+  "budgets": {
+    "hydrateMs": 3000,
+    "composerTypingMs": 8000,
+    "maxTimelineRows": 90,
+    "maxDomNodes": 30000,
+    "maxHeapDeltaMb": 128
+  },
+  "measurements": {
+    "hydrateMs": 312,
+    "composerTypingMs": 3775,
+    "timelineRows": 57,
+    "heapBeforeMb": 14.36,
+    "heapAfterMb": 19.42,
+    "heapDeltaMb": 5.06,
+    "domNodes": 4527
+  },
+  "coverage": {
+    "e2e": "apps/chat/e2e/chat-window-benchmark.spec.ts",
+    "scenario": "packages/transport/src/mock.ts#coding-benchmark",
+    "renderIsolation": "apps/chat/src/components/chat/chat-window.performance.test.tsx"
+  }
+}

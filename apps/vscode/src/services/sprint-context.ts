@@ -8,6 +8,7 @@
  *
  * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-3]
  * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-DATA]
+ * @see docs/specs/204-app-vscode-spec-services/spec.md [FR-3] [FR-7]
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
  */
 import * as fs from "node:fs";
@@ -210,39 +211,60 @@ export function createSprintContextSync(
     if (isSprintFile(text)) {
       setSprint(true);
       const cursorLine = editor.selection.active.line;
-      const section = findSectionAt(text, cursorLine);
-      setSection(section);
-      // Cursor in the SESSIONS slice rolls up to TASKS so the spec stepper
-      // and action row keep rendering — Sessions is the work-log half of the
-      // tasks workflow, not a standalone document phase. Without this rollup
-      // the strip would disappear the moment the user clicked into the Work
-      // Sessions table, breaking sprint single-file navigation.
-      // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
-      const sprintSection = section === "SESSIONS" ? "TASKS" : (section ?? null);
-      const docKind = sprintSection
-        ? sprintSection === "SPEC"
-          ? "spec"
-          : sprintSection === "DESIGN"
-            ? "design"
-            : "tasks"
-        : null;
+      const detected = findSectionAt(text, cursorLine);
+      // Two coercions that keep the doc-actions panel visible across every
+      // sprint cursor position:
+      //
+      //   1. SESSIONS rolls up to TASKS — Sessions is the work-log half of
+      //      the tasks workflow, not a standalone document phase. Without
+      //      this the strip would disappear the moment the user clicked into
+      //      the Work Sessions table.
+      //
+      //   2. Unresolved sections default to SPEC — `findSectionAt` returns
+      //      `undefined` for non-canonical sprint briefs (e.g. files using
+      //      `# 1. Spec` H1 headings, no `SPRINT-SECTION` markers, or
+      //      freeform wording like "## Functional Requirements" that doesn't
+      //      hit the heading-fallback regex). Sprint files are always at
+      //      least a Spec, so defaulting keeps the panel + stepper visible
+      //      instead of silently hiding the entire AFX surface.
+      //
+      // The default is applied to BOTH the VSCode context key (so the
+      // editor-title menu still surfaces SPEC actions) and the chat bridge
+      // payload (so the composer panel + stepper render). The raw `detected`
+      // value is preserved for `extractSprintApprovalStatus` so the approval
+      // status it returns matches the actual cursor section, not the
+      // defaulted one — important when cursor is genuinely outside a section
+      // (e.g. in the file header) we want the top-level `status` field, not
+      // approval.spec.
+      //
+      // @see docs/specs/204-app-vscode-spec-services/spec.md [FR-3] [FR-7]
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
+      const resolvedSection: SprintSection =
+        detected === "SESSIONS" ? "TASKS" : (detected ?? "SPEC");
+      setSection(resolvedSection);
+      const sprintSection: "SPEC" | "DESIGN" | "TASKS" = resolvedSection;
+      const docKind: "spec" | "design" | "tasks" =
+        sprintSection === "SPEC" ? "spec" : sprintSection === "DESIGN" ? "design" : "tasks";
       setDocContext(
         withWorkSessionCounts(
           withSectionOffsets(
             withSiblingStatuses(
               withTaskPhases(
                 withParsedFocuses(
-                  {
-                    format: "sprint",
-                    section: sprintSection,
-                    docKind,
-                    feature: extractFeatureFromPath(docPath, null),
-                    filePath: fsPath,
-                    approvalStatus: extractSprintApprovalStatus(text, section),
-                  },
-                  parseSprintFocuses(text, section, docKind),
+                  withSiblingPaths(
+                    {
+                      format: "sprint",
+                      section: sprintSection,
+                      docKind,
+                      feature: extractFeatureFromPath(docPath, null),
+                      filePath: fsPath,
+                      approvalStatus: extractSprintApprovalStatus(text, detected),
+                    },
+                    collectSprintCompanionPaths(fsPath),
+                  ),
+                  parseSprintFocuses(text, resolvedSection, docKind),
                 ),
-                parseSprintTaskSummary(text, section, docKind),
+                parseSprintTaskSummary(text, resolvedSection, docKind),
               ),
               extractSprintSiblingStatuses(text),
             ),
@@ -386,7 +408,16 @@ function readSiblingStatus(featureDir: string, filename: string): string | null 
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
  */
 function deriveFeatureDir(fsPath: string, docKind: ActiveDocContext["docKind"]): string | null {
-  if (docKind !== "spec" && docKind !== "design" && docKind !== "tasks") return null;
+  if (docKind !== "spec" && docKind !== "design" && docKind !== "tasks" && docKind !== "journal") {
+    return null;
+  }
+  if (docKind === "journal" && extractFeatureFromPath(normalizeDocPath(fsPath), docKind) === null) {
+    return null;
+  }
+  return parentDir(fsPath);
+}
+
+function parentDir(fsPath: string): string | null {
   const sep = fsPath.includes("\\") ? "\\" : "/";
   const lastSep = fsPath.lastIndexOf(sep);
   return lastSep === -1 ? null : fsPath.slice(0, lastSep);
@@ -456,14 +487,17 @@ function detectDocKind(fsPath: string, text: string): ActiveDocContext["docKind"
   // Disambiguate by frontmatter `type` if present; otherwise default to research.
   if (/\/docs\/specs\/.+\/research\//.test(fsPath)) {
     const data = parseFrontmatter(text).data ?? {};
-    const type = typeof data["type"] === "string" ? data["type"].toUpperCase() : "";
+    const type = typeof data["type"] === "string" ? data["type"].trim().toUpperCase() : "";
     if (type === "ADR") return "adr";
     return "research";
   }
 
   // Last-resort frontmatter check for misnamed but typed files.
   const data = parseFrontmatter(text).data ?? {};
-  const type = typeof data["type"] === "string" ? data["type"].toUpperCase() : "";
+  const type = typeof data["type"] === "string" ? data["type"].trim().toUpperCase() : "";
+  if (type === "SPEC") return "spec";
+  if (type === "DESIGN") return "design";
+  if (type === "TASKS") return "tasks";
   if (type === "CONTEXT") return "context";
   if (type === "JOURNAL") return "journal";
   if (type === "ADR") return "adr";
@@ -627,6 +661,19 @@ function collectSiblingPaths(
   return out;
 }
 
+function collectSprintCompanionPaths(
+  sprintPath: string,
+): NonNullable<ActiveDocContext["siblingPaths"]> {
+  const featureDir = parentDir(sprintPath);
+  if (!featureDir) return {};
+  const journalPath = `${featureDir}/journal.md`;
+  try {
+    return fs.existsSync(journalPath) ? { journal: journalPath } : {};
+  } catch {
+    return {};
+  }
+}
+
 /**
  * Attach Work Sessions row counts onto the bridge payload so the spec
  * stepper's tier-2 chip reads `Work Sessions n/m` from real session-log
@@ -672,7 +719,36 @@ function extractSprintSectionOffsets(
     const slice = sliceSprintSection(text, section);
     if (slice) out[key] = slice.startLine + 1; // protocol uses 1-indexed lines
   }
+  if (!out.spec) {
+    const fallbackSpecOffset = deriveSprintSpecFallbackOffset(text);
+    if (fallbackSpecOffset) out.spec = fallbackSpecOffset;
+  }
   return out;
+}
+
+function deriveSprintSpecFallbackOffset(text: string): number | undefined {
+  const lines = text.split(/\r?\n/);
+  let start = 0;
+  if (lines[0]?.trim() === "---") {
+    for (let i = 1; i < lines.length; i++) {
+      if (lines[i]?.trim() === "---") {
+        start = i + 1;
+        break;
+      }
+    }
+  }
+
+  const nonSpecSectionHeading =
+    /^#{1,6}\s+(?:\d+\.\s+)?(?:Design|Plan|Tasks?|Work\s+Sessions?|Sessions)\b/i;
+  for (let i = start; i < lines.length; i++) {
+    const line = lines[i]?.trim() ?? "";
+    if (!line || nonSpecSectionHeading.test(line)) continue;
+    if (/^#{1,6}\s+/.test(line)) return i + 1;
+  }
+  for (let i = start; i < lines.length; i++) {
+    if ((lines[i]?.trim() ?? "").length > 0) return i + 1;
+  }
+  return undefined;
 }
 
 /**

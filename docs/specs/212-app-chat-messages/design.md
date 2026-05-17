@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-16T03:31:12.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -29,10 +29,12 @@ input or settings configuration.
 @afx/shared ChatTimelineItem[]
         |
         v
-apps/chat/src/views/chat.tsx
+apps/chat/src/components/chat/chat-controller.tsx
   bridgeOn(chat/message*, chat/tool*, chat/usage, chat/error)
-  -> messages React state
-  -> Timeline event flattening
+  -> messages/controller state
+  -> ConversationSlice
+  -> ConversationPane
+  -> ConversationTimeline event flattening
   -> TimelineRow / EventHeader / EventBody / ToolEvent
         |
         +--> apps/chat/src/components/markdown-message.tsx
@@ -237,18 +239,18 @@ Timeline
 
 ## [DES-MESSAGES-EVENT-FLOW] Stream Event To Timeline Flow
 
-| Inbound event        | Source anchor            | Local effect                                         | Rendered by                                                                  |
-| -------------------- | ------------------------ | ---------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `chat/state`         | bridge effect in `Chat`  | Replace `messages` and streaming flag                | `Timeline`                                                                   |
-| `chat/messageStart`  | bridge effect in `Chat`  | Append user/assistant placeholder if missing         | `TimelineRow`                                                                |
-| `chat/messageDelta`  | bridge effect in `Chat`  | Append assistant text delta                          | `MarkdownMessage`                                                            |
-| `chat/thinkingDelta` | bridge effect in `Chat`  | Accumulate live thinking preview                     | `ActivityBar`; timeline thinking support remains message-owned when rendered |
-| `chat/messageEnd`    | bridge effect in `Chat`  | Mark message non-streaming and store stop reason     | `AssistantMeta`                                                              |
-| `chat/toolStart`     | bridge effect in `Chat`  | Attach running tool to most recent assistant message | `ToolEvent`                                                                  |
-| `chat/toolEnd`       | bridge effect in `Chat`  | Mark tool ok/error and summary                       | `ToolEvent`                                                                  |
-| `chat/usage`         | bridge effect in `Chat`  | Attach usage to message and footer state             | `AssistantMeta`                                                              |
-| `chat/error`         | bridge effect in `Chat`  | Optional transcript-visible error row                | `EventBody` error branch                                                     |
-| local note event     | `saveAsNote` in composer | Append note event after messages                     | `EventHeader`/`EventBody` note branch                                        |
+| Inbound event        | Source anchor            | Local effect                                         | Rendered by                                                                          |
+| -------------------- | ------------------------ | ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `chat/state`         | bridge effect in `Chat`  | Replace `messages` and streaming flag                | `Timeline`                                                                           |
+| `chat/messageStart`  | bridge effect in `Chat`  | Append user/assistant placeholder if missing         | `TimelineRow`                                                                        |
+| `chat/messageDelta`  | bridge effect in `Chat`  | Append assistant text delta                          | `MarkdownMessage`                                                                    |
+| `chat/thinkingDelta` | controller bridge effect | Accumulate live thinking preview                     | `ComposerActivityBar`; timeline thinking support remains message-owned when rendered |
+| `chat/messageEnd`    | bridge effect in `Chat`  | Mark message non-streaming and store stop reason     | `AssistantMeta`                                                                      |
+| `chat/toolStart`     | bridge effect in `Chat`  | Attach running tool to most recent assistant message | `ToolEvent`                                                                          |
+| `chat/toolEnd`       | bridge effect in `Chat`  | Mark tool ok/error and summary                       | `ToolEvent`                                                                          |
+| `chat/usage`         | bridge effect in `Chat`  | Attach usage to message and footer state             | `AssistantMeta`                                                                      |
+| `chat/error`         | bridge effect in `Chat`  | Optional transcript-visible error row                | `EventBody` error branch                                                             |
+| local note event     | `saveAsNote` in composer | Append note event after messages                     | `EventHeader`/`EventBody` note branch                                                |
 
 ## [DES-MESSAGES-MARKDOWN] Markdown And Code Fence Rendering
 
@@ -324,14 +326,14 @@ Compaction (`agent/compacted`) inserts a `compactionSummary` row in the timeline
 
 Message data comes from shared chat protocol events and local render state for streaming/tool status.
 
-| Data shape              | Owner                                  | Purpose                                                                                                  |
-| ----------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `ChatTimelineItem`      | `@afx/shared`                          | Source transcript item stream consumed by `Timeline`                                                     |
-| `ChatMessageView`       | `@afx/shared`                          | User/assistant/error/info message shape with content, tools, usage, streaming, and stop reason           |
-| `ChatToolView`          | `@afx/shared`                          | Tool call id, name, args, status, and summary                                                            |
-| `TimelineEvent`         | `apps/chat/src/views/chat.tsx`         | UI-local flattened row union for user, assistant, tool, thinking, error, info, compaction, and note rows |
-| `UsageStats`            | `apps/chat/src/views/chat.tsx`         | Token/cost/context metadata rendered by footer and assistant metadata                                    |
-| `ToolDescriptor` result | `apps/chat/src/lib/tool-descriptor.ts` | Action label, target detail, and icon for live tool cards and history rows                               |
+| Data shape              | Owner                                              | Purpose                                                                                                  |
+| ----------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `ChatTimelineItem`      | `@afx/shared`                                      | Source transcript item stream consumed by `Timeline`                                                     |
+| `ChatMessageView`       | `@afx/shared`                                      | User/assistant/error/info message shape with content, tools, usage, streaming, and stop reason           |
+| `ChatToolView`          | `@afx/shared`                                      | Tool call id, name, args, status, and summary                                                            |
+| `TimelineEvent`         | `components/chat/conversation-timeline.tsx`        | UI-local flattened row union for user, assistant, tool, thinking, error, info, compaction, and note rows |
+| `UsageStats`            | `chat-controller.tsx` / footer and timeline slices | Token/cost/context metadata rendered by footer and assistant metadata                                    |
+| `ToolDescriptor` result | `apps/chat/src/lib/tool-descriptor.ts`             | Action label, target detail, and icon for live tool cards and history rows                               |
 
 ---
 
@@ -355,11 +357,15 @@ The zone consumes shared chat message and agent event payloads. It does not defi
 
 ## [DES-FILES] File Structure
 
-| File                                            | Purpose                                     |
-| ----------------------------------------------- | ------------------------------------------- |
-| `apps/chat/src/views/chat.tsx`                  | Timeline composition                        |
-| `apps/chat/src/components/markdown-message.tsx` | Assistant markdown and code-fence rendering |
-| `apps/chat/src/lib/tool-descriptor.ts`          | Tool display metadata                       |
+| File                                                           | Purpose                                                                                   |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `apps/chat/src/views/chat.tsx`                                 | Stable route shell; componentization refs route to `216-app-chat-window-componentization` |
+| `apps/chat/src/components/chat/conversation-pane.tsx`          | Conversation viewport and state routing                                                   |
+| `apps/chat/src/components/chat/conversation-timeline.tsx`      | Timeline composition, event adapter, rows                                                 |
+| `apps/chat/src/components/chat/conversation-empty-states.tsx`  | Loading/welcome/empty states                                                              |
+| `apps/chat/src/components/chat/conversation-scroll-button.tsx` | Jump-to-latest affordance                                                                 |
+| `apps/chat/src/components/markdown-message.tsx`                | Assistant markdown and code-fence rendering                                               |
+| `apps/chat/src/lib/tool-descriptor.ts`                         | Tool display metadata                                                                     |
 
 ---
 
@@ -390,14 +396,14 @@ Rendered markdown/tool content must not execute arbitrary scripts or expose secr
 
 ## [DES-TEST] Testing Strategy
 
-| Coverage target                          | Current/Future test anchor                                  |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| Timeline tab/root rendering              | `apps/chat/src/app.test.tsx`                                |
-| Stream state transitions                 | `apps/chat/src/app.test.tsx`; future focused timeline tests |
-| Markdown/code fence rendering            | Future `markdown-message.test.tsx`                          |
-| Tool descriptor mapping                  | Future `tool-descriptor.test.ts`                            |
-| Tool card running/error/multiline states | Future `chat.tsx` focused component test                    |
-| Assistant metadata and stop reasons      | Future `chat.tsx` focused component test                    |
+| Coverage target                          | Current/Future test anchor                                     |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| Timeline tab/root rendering              | `apps/chat/src/app.test.tsx`                                   |
+| Stream state transitions                 | `apps/chat/src/app.test.tsx`; future focused timeline tests    |
+| Markdown/code fence rendering            | Future `markdown-message.test.tsx`                             |
+| Tool descriptor mapping                  | Future `tool-descriptor.test.ts`                               |
+| Tool card running/error/multiline states | Future `conversation-timeline.test.tsx` focused component test |
+| Assistant metadata and stop reasons      | Future `conversation-timeline.test.tsx` focused component test |
 
 ---
 
@@ -413,21 +419,25 @@ Route files back to `210-app-chat` only if this child spec stops providing clear
 
 ## [DES-MESSAGES-REFS] File Reference Map
 
-| Task | File                                            | Required @see                                                   |
-| ---- | ----------------------------------------------- | --------------------------------------------------------------- |
-| 1.x  | `apps/chat/src/views/chat.tsx`                  | `design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]` |
-| 1.x  | `apps/chat/src/components/markdown-message.tsx` | `design.md [DES-MESSAGES-MARKDOWN]`                             |
-| 1.x  | `apps/chat/src/lib/tool-descriptor.ts`          | `design.md [DES-MESSAGES-TOOLS]`                                |
+| Task | File                                                           | Required @see                                                                                                                                   |
+| ---- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/chat.tsx`                                 | `docs/specs/216-app-chat-window-componentization/design.md [DES-API]`                                                                           |
+| 1.x  | `apps/chat/src/components/chat/conversation-pane.tsx`          | `docs/specs/216-app-chat-window-componentization/design.md [DES-UI]` + `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]` |
+| 1.x  | `apps/chat/src/components/chat/conversation-timeline.tsx`      | `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]`                                                |
+| 1.x  | `apps/chat/src/components/chat/conversation-empty-states.tsx`  | `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]`                                                                        |
+| 1.x  | `apps/chat/src/components/chat/conversation-scroll-button.tsx` | `docs/specs/216-app-chat-window-componentization/design.md [DES-A11Y]`                                                                          |
+| 1.x  | `apps/chat/src/components/markdown-message.tsx`                | `design.md [DES-MESSAGES-MARKDOWN]`                                                                                                             |
+| 1.x  | `apps/chat/src/lib/tool-descriptor.ts`                         | `design.md [DES-MESSAGES-TOOLS]`                                                                                                                |
 
 ## [DES-MESSAGES-LOC] Code Locator Map
 
-| Map ID                      | Code anchor                                                                | Messages/settings/commands                                                                                           | Tests                        |
-| --------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| `[DES-MESSAGES-COMPONENTS]` | `chat.tsx` `Timeline`, `TimelineRow`, `EventHeader`, `EventBody`, `Marker` | `chat/message*`, local note events                                                                                   | `apps/chat/src/app.test.tsx` |
-| `[DES-MESSAGES-EVENT-FLOW]` | `chat.tsx` bridge handlers and timeline flattening                         | `chat/state`, `chat/messageStart`, `chat/messageDelta`, `chat/toolStart`, `chat/toolEnd`, `chat/usage`, `chat/error` | `apps/chat/src/app.test.tsx` |
-| `[DES-MESSAGES-MARKDOWN]`   | `markdown-message.tsx` `MarkdownMessage`, `CodeFence`                      | assistant markdown content                                                                                           | future markdown tests        |
-| `[DES-MESSAGES-TOOLS]`      | `tool-descriptor.ts`, `chat.tsx` `ToolEvent`, `ToolEventRow`               | tool args/status/summary                                                                                             | future tool-card tests       |
-| `[DES-MESSAGES-META]`       | `chat.tsx` `AssistantMeta`, `FRIENDLY_STOP_REASONS`                        | usage and stop reasons                                                                                               | future metadata tests        |
+| Map ID                      | Code anchor                                                                                                             | Messages/settings/commands                                                                                           | Tests                        |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `[DES-MESSAGES-COMPONENTS]` | `components/chat/conversation-timeline.tsx` `ConversationTimeline`, `TimelineRow`, `EventHeader`, `EventBody`, `Marker` | `chat/message*`, local note events                                                                                   | `apps/chat/src/app.test.tsx` |
+| `[DES-MESSAGES-EVENT-FLOW]` | `components/chat/chat-controller.tsx` bridge handlers and `conversation-timeline.tsx` flattening                        | `chat/state`, `chat/messageStart`, `chat/messageDelta`, `chat/toolStart`, `chat/toolEnd`, `chat/usage`, `chat/error` | `apps/chat/src/app.test.tsx` |
+| `[DES-MESSAGES-MARKDOWN]`   | `markdown-message.tsx` `MarkdownMessage`, `CodeFence`                                                                   | assistant markdown content                                                                                           | future markdown tests        |
+| `[DES-MESSAGES-TOOLS]`      | `tool-descriptor.ts`, `conversation-timeline.tsx` `ToolEvent`, `ToolEventRow`                                           | tool args/status/summary                                                                                             | future tool-card tests       |
+| `[DES-MESSAGES-META]`       | `conversation-timeline.tsx` `AssistantMeta`, `FRIENDLY_STOP_REASONS`                                                    | usage and stop reasons                                                                                               | future metadata tests        |
 
 ## [DES-MESSAGES-TRACE] Functional Trace Matrix
 

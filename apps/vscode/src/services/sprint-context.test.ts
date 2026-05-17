@@ -1,7 +1,12 @@
 /**
  * @see docs/specs/200-app-vscode/spec.md [FR-3] [FR-4]
+ * @see docs/specs/204-app-vscode-spec-services/spec.md [FR-3] [FR-7]
  * @see docs/specs/220-app-workbench/spec.md [FR-7]
  */
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
@@ -353,6 +358,41 @@ describe("createSprintContextSync — onDocContextChange", () => {
     expect(docContexts.at(-1)).toMatchObject({ feature: "chat-foundation" });
   });
 
+  it("treats lower-case sprint frontmatter as sprint format", () => {
+    setupWith(
+      fakeEditor(
+        "/repo/docs/specs/foo/foo.md",
+        SPRINT_BODY.replace("type: SPRINT", "type: sprint"),
+        10,
+      ),
+    );
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "foo",
+    });
+  });
+
+  it("populates the sprint companion journal path when present", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "afx-sprint-context-"));
+    const featureDir = path.join(root, "docs", "specs", "foo");
+    const sprintPath = path.join(featureDir, "foo.md");
+    const journalPath = path.join(featureDir, "journal.md");
+    fs.mkdirSync(featureDir, { recursive: true });
+    fs.writeFileSync(journalPath, JOURNAL_BODY, "utf8");
+
+    setupWith(fakeEditor(sprintPath, SPRINT_BODY, 10));
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      docKind: "spec",
+      siblingPaths: {
+        journal: journalPath,
+      },
+    });
+  });
+
   it("emits a standard-format payload for spec.md / design.md / tasks.md", () => {
     setupWith(fakeEditor("/repo/docs/specs/auth/spec.md", SPEC_BODY));
     expect(docContexts.at(-1)).toMatchObject({
@@ -468,6 +508,95 @@ describe("createSprintContextSync — onDocContextChange", () => {
     });
   });
 
+  it("treats docs/specs/journal.md as the global journal with no feature siblings", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "afx-sprint-context-"));
+    const specsDir = path.join(root, "docs", "specs");
+    const journalPath = path.join(specsDir, "journal.md");
+    fs.mkdirSync(specsDir, { recursive: true });
+    fs.writeFileSync(journalPath, JOURNAL_BODY, "utf8");
+
+    setupWith(fakeEditor(journalPath, JOURNAL_BODY));
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      section: null,
+      docKind: "journal",
+      feature: null,
+      filePath: journalPath,
+      approvalStatus: "Living",
+    });
+    expect(docContexts.at(-1)?.siblingPaths).toBeUndefined();
+    expect(docContexts.at(-1)?.specStatus).toBeUndefined();
+    expect(docContexts.at(-1)?.designStatus).toBeUndefined();
+    expect(docContexts.at(-1)?.tasksStatus).toBeUndefined();
+  });
+
+  it("populates standard sibling paths and statuses when journal.md is active", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "afx-sprint-context-"));
+    const featureDir = path.join(root, "docs", "specs", "journal-siblings");
+    fs.mkdirSync(featureDir, { recursive: true });
+    const files = {
+      spec: path.join(featureDir, "spec.md"),
+      design: path.join(featureDir, "design.md"),
+      tasks: path.join(featureDir, "tasks.md"),
+      journal: path.join(featureDir, "journal.md"),
+    };
+    fs.writeFileSync(
+      files.spec,
+      `---
+afx: true
+type: SPEC
+status: Approved
+---
+
+# Spec
+`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      files.design,
+      `---
+afx: true
+type: DESIGN
+status: Draft
+---
+
+# Design
+`,
+      "utf8",
+    );
+    fs.writeFileSync(
+      files.tasks,
+      `---
+afx: true
+type: TASKS
+status: Approved
+---
+
+# Tasks
+`,
+      "utf8",
+    );
+    fs.writeFileSync(files.journal, JOURNAL_BODY, "utf8");
+
+    setupWith(fakeEditor(files.journal, JOURNAL_BODY));
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "journal",
+      feature: "journal-siblings",
+      specStatus: "Approved",
+      designStatus: "Draft",
+      tasksStatus: "Approved",
+      siblingPaths: {
+        spec: files.spec,
+        design: files.design,
+        tasks: files.tasks,
+        journal: files.journal,
+      },
+    });
+  });
+
   it("detects global ADR files under docs/adr/", () => {
     setupWith(fakeEditor("/repo/docs/adr/ADR-0001-foo.md", ADR_BODY));
     expect(docContexts.at(-1)).toMatchObject({
@@ -501,6 +630,31 @@ describe("createSprintContextSync — onDocContextChange", () => {
       format: "standard",
       docKind: "context",
       feature: null,
+    });
+  });
+
+  it("detects frontmatter doc types case-insensitively when filenames drift", () => {
+    setupWith(
+      fakeEditor("/repo/docs/specs/auth/brief.md", SPEC_BODY.replace("type: SPEC", "type: spec")),
+    );
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "auth",
+    });
+
+    docContexts.length = 0;
+    setupWith(
+      fakeEditor(
+        "/repo/docs/specs/auth/research/decision.md",
+        ADR_BODY.replace("type: ADR", "type: adr"),
+      ),
+    );
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "standard",
+      docKind: "adr",
+      feature: "auth",
     });
   });
 
@@ -745,6 +899,159 @@ status: Approved
     // `tasksCompleted/tasksTotal` (which would say 2/2 for this fixture).
     expect(ctx?.workSessionsTotal).toBe(1);
     expect(ctx?.workSessionsSigned).toBe(0);
+  });
+
+  // Non-canonical sprint briefs — H1 section headings, no markers (FR-7)
+  // Mirrors a real user file (postgresql-marketplace-backend-rewrite.md) that
+  // uses `# 1. Spec` / `# 2. Design` / `# 3. Tasks` as H1 headings, with no
+  // SPRINT-SECTION markers. H1 sections should still provide docKind and
+  // stepper anchors; only file-level content above every section falls back to
+  // SPEC so the doc-actions panel stays present.
+  //   @see docs/specs/204-app-vscode-spec-services/spec.md [FR-3] [FR-7]
+  //   @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
+  const SPRINT_H1_NO_MARKERS = [
+    "---",
+    "afx: true",
+    "type: SPRINT",
+    "status: Draft",
+    "approval:",
+    "  spec: Draft",
+    "  design: Draft",
+    "  tasks: Draft",
+    "---",
+    "",
+    "# Feature Title",
+    "",
+    "## Sprint Status",
+    "",
+    "Notes about state.",
+    "",
+    "# 1. Spec",
+    "",
+    "## Problem Statement",
+    "Body.",
+    "",
+    "# 2. Design",
+    "",
+    "## [DES-OVR] Overview",
+    "Body.",
+    "",
+    "# 3. Tasks",
+    "",
+    "## Phase 1",
+    "- [ ] Task",
+  ].join("\n");
+
+  const SPRINT_FREEFORM_SPEC = [
+    "---",
+    "afx: true",
+    "type: sprint",
+    "status: Draft",
+    "approval:",
+    "  spec: Draft",
+    "  design: Draft",
+    "  tasks: Draft",
+    "---",
+    "",
+    "# PostgreSQL Marketplace Backend Rewrite",
+    "",
+    "## Sprint Status",
+    "",
+    "| Section | Status |",
+    "| --- | --- |",
+    "| Spec | Draft |",
+    "",
+    "## Context",
+    "",
+    "The sprint plans a backend rewrite.",
+    "",
+    "## Design",
+    "",
+    "Use PostgreSQL.",
+    "",
+    "## Tasks",
+    "",
+    "- [ ] Implement.",
+    "",
+    "## Work Sessions",
+    "",
+    "| Date | Agent | Human | Notes |",
+    "| ---- | ----- | ----- | ----- |",
+    "| 2026-05-16 | [x] | [ ] | Baseline |",
+  ].join("\n");
+
+  it("defaults non-canonical sprint files to docKind=spec so the doc-actions panel renders", () => {
+    // Cursor at line 4 sits in `## Sprint Status` — above every section, with
+    // no marker or section fallback in play. Without the default, docKind would be
+    // null and the chat panel would not render for this file at all.
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_H1_NO_MARKERS, 4));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "foo",
+    });
+  });
+
+  it("preserves true approval status when defaulting a non-canonical sprint to SPEC", () => {
+    // approval.spec=Draft in frontmatter — but the cursor is in a header
+    // region above any detectable section. extractSprintApprovalStatus is
+    // called with the raw `detected` (undefined), which falls through to the
+    // top-level `status` field ("Draft") rather than approval.spec. This
+    // matches the existing contract: defaulting affects rendering, not the
+    // truth of which approval gate the cursor is actually in.
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_H1_NO_MARKERS, 4));
+    expect(docContexts.at(-1)?.approvalStatus).toBe("Draft");
+  });
+
+  it("uses H1 sprint section headings as stepper anchors", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_H1_NO_MARKERS, 23));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "DESIGN",
+      docKind: "design",
+      feature: "foo",
+      sectionOffsets: {
+        spec: 17,
+        design: 22,
+        tasks: 27,
+      },
+    });
+  });
+
+  it("adds a SPEC fallback stepper anchor for freeform sprint files", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_FREEFORM_SPEC, 19));
+    expect(docContexts.at(-1)).toMatchObject({
+      format: "sprint",
+      section: "SPEC",
+      docKind: "spec",
+      sectionOffsets: {
+        spec: 11,
+        design: 23,
+        tasks: 27,
+        sessions: 31,
+      },
+    });
+  });
+
+  it("sets afx.sprintSection to SPEC by default so the editor-title menu still surfaces SPEC actions", () => {
+    // Same fixture as above but exercises the VSCode setContext side of the
+    // default. Without this the editor title menu would offer no spec/design
+    // /tasks actions on non-canonical sprint briefs.
+    const ctxCalls: Array<{ key: string; value: unknown }> = [];
+    vi.spyOn(vscode.commands, "executeCommand").mockImplementation(
+      async (command: string, ...args: unknown[]) => {
+        if (command === "setContext") {
+          ctxCalls.push({ key: String(args[0]), value: args[1] });
+        }
+        return undefined;
+      },
+    );
+    setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_H1_NO_MARKERS, 4));
+    expect(ctxCalls).toEqual([
+      { key: "afx.isSprint", value: true },
+      { key: "afx.sprintSection", value: "SPEC" },
+    ]);
   });
 
   // Sprint single-file SESSIONS cursor (FR-17)

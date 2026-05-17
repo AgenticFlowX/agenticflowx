@@ -15,8 +15,10 @@ import {
   type AgentRuntimePhase,
   type AgentRuntimeStatus,
   type AgentToChat,
+  type ChatMessageView,
   type ChatTimelineItem,
   type ChatToAgent,
+  type ChatToolView,
   type MessageOf,
   PROVIDER_DETAILS,
   type SettingsSnapshot,
@@ -300,6 +302,47 @@ export function createMockTransport(): MockTransport {
       }
       return;
     }
+    if (msg.type === "chat/toolStart") {
+      const m = lastTrackedAssistantMessage();
+      if (!m) return;
+      const tool: ChatToolView = {
+        toolCallId: msg.toolCallId,
+        toolName: msg.toolName,
+        status: "running",
+        args: msg.args as Record<string, unknown> | undefined,
+      };
+      m.tools = [...(m.tools ?? []), tool];
+      return;
+    }
+    if (msg.type === "chat/toolEnd") {
+      for (let i = trackedMessages.length - 1; i >= 0; i--) {
+        const m = trackedMessages[i];
+        if (!m || m.role !== "assistant" || !("tools" in m) || !m.tools?.length) continue;
+        let matched = false;
+        const nextTools = m.tools.map((tool) => {
+          if (tool.toolCallId !== msg.toolCallId) return tool;
+          matched = true;
+          return {
+            ...tool,
+            status: msg.ok ? ("ok" as const) : ("error" as const),
+            summary: msg.summary,
+            firstChangedLine: msg.firstChangedLine ?? tool.firstChangedLine,
+          };
+        });
+        if (matched) {
+          m.tools = nextTools;
+          return;
+        }
+      }
+    }
+  }
+
+  function lastTrackedAssistantMessage(): ChatMessageView | null {
+    for (let i = trackedMessages.length - 1; i >= 0; i--) {
+      const m = trackedMessages[i];
+      if (m?.role === "assistant") return m;
+    }
+    return null;
   }
 
   function emitRuntimeSettings(requestId?: string, patch?: Partial<RuntimeSettings>): void {
@@ -540,6 +583,116 @@ Adding cloud support means:
 
 The chat UI is already cloud-ready. It just needs the right transport injected at startup.`;
 
+  const CODING_BENCHMARK_TURN_COUNT = 24;
+
+  function createCodingBenchmarkMessages(now = Date.now()): ChatTimelineItem[] {
+    const messages: ChatTimelineItem[] = [];
+
+    for (let index = 0; index < CODING_BENCHMARK_TURN_COUNT; index += 1) {
+      const turn = index + 1;
+      const createdAt = now + index * 10;
+      messages.push({
+        id: `benchmark-user-${turn}`,
+        role: "user",
+        content: [
+          `Benchmark refactor slice ${turn}: inspect the chat window extraction.`,
+          `Focus on render isolation, long markdown, tool summaries, and composer responsiveness.`,
+        ].join(" "),
+        createdAt,
+      });
+
+      messages.push({
+        id: `benchmark-assistant-${turn}`,
+        role: "assistant",
+        content: [
+          `Benchmark refactor slice ${turn} result: the controller keeps bridge state stable while the visual regions render from narrow props.`,
+          "",
+          "```tsx",
+          `const slice${turn} = {`,
+          `  id: "turn-${turn}",`,
+          `  files: ["apps/chat/src/components/chat/chat-window.tsx", "apps/chat/src/components/chat/conversation-timeline.tsx"],`,
+          `  checks: ["render-isolation", "keyboard-shortcuts", "a11y-hints"],`,
+          "};",
+          "```",
+          "",
+          `Next practical step ${turn}: keep timeline rows stable while the user types or the footer receives usage updates.`,
+        ].join("\n"),
+        createdAt: createdAt + 1,
+        ...(index % 3 === 0
+          ? {
+              tools: [
+                {
+                  toolCallId: `benchmark-tool-${turn}`,
+                  toolName: index % 2 === 0 ? "read_file" : "edit_file",
+                  status: "ok" as const,
+                  args: {
+                    path:
+                      index % 2 === 0
+                        ? "apps/chat/src/components/chat/chat-window.tsx"
+                        : "apps/chat/src/components/chat/composer-panel.tsx",
+                  },
+                  summary:
+                    index % 2 === 0
+                      ? "Read component boundary and render contract."
+                      : "Applied small panel-state preservation patch.",
+                  ...(index % 2 === 0 ? {} : { firstChangedLine: 64 + index }),
+                },
+              ],
+            }
+          : {}),
+        usage: {
+          tokens: {
+            input: 4800 + index * 80,
+            output: 1200 + index * 30,
+            cacheRead: 2200,
+            cacheWrite: 64,
+            total: 8264 + index * 110,
+          },
+          cost: 0.018 + index * 0.0004,
+          contextUsage: {
+            tokens: 8264 + index * 110,
+            contextWindow: 200_000,
+            percent: 4.1 + index * 0.05,
+          },
+        },
+      });
+    }
+
+    messages.push({
+      id: "benchmark-compaction",
+      role: "compactionSummary",
+      summary:
+        "Benchmark retained the latest implementation context, active tasks, and verification notes after a long coding conversation.",
+      tokensBefore: 64_000,
+      createdAt: now + 250,
+    });
+
+    return messages;
+  }
+
+  function runCodingBenchmark(): void {
+    const messages = createCodingBenchmarkMessages();
+    emit({
+      type: "chat/state",
+      isStreaming: false,
+      messages,
+      tools: [],
+    });
+    emitRuntimeSettings(undefined, {
+      isCompacting: false,
+      messageCount: messages.length,
+      thinkingLevel: runtimeSettings.thinkingLevel,
+    });
+    emitAgentStatus({ running: true, isStreaming: false, model: MOCK_MODEL });
+    emit({
+      type: "chat/usage",
+      messageId: `benchmark-assistant-${CODING_BENCHMARK_TURN_COUNT}`,
+      tokens: { input: 9800, output: 2600, cacheRead: 4200, cacheWrite: 128, total: 16_728 },
+      cost: 0.064,
+      contextUsage: { tokens: 16_728, contextWindow: 200_000, percent: 8.36 },
+    });
+  }
+
   async function runQuickReply(): Promise<void> {
     emitUserMessage(QUICK_PROMPT);
     const id = startAssistant();
@@ -765,6 +918,100 @@ This is a long-running response on purpose so the queue stays visible while you 
       content: "Reviewed the active spec.\n\nNext: /afx-task code 2.3",
     });
     emit({ type: "chat/messageEnd", id, stopReason: "end_turn" });
+  }
+
+  /**
+   * Dev/e2e scenario for a single-document sprint. The same file owns Spec,
+   * Design, Tasks, Journal companion data, and Work Sessions offsets, so the
+   * stepper must send `chat/openFile` with a line number instead of looking for
+   * design.md/tasks.md siblings.
+   *
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
+   */
+  function runSprintDocActions(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "sprint",
+      section: "SPEC",
+      docKind: "spec",
+      feature: "999-fleet/postgresql-marketplace-backend-rewrite",
+      filePath: "/workspace/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+      approvalStatus: "Draft",
+      specStatus: "Draft",
+      designStatus: "Draft",
+      tasksStatus: "Draft",
+      tasksCompleted: 0,
+      tasksTotal: 0,
+      workSessionsSigned: 0,
+      workSessionsTotal: 1,
+      siblingPaths: {
+        journal: "/workspace/docs/specs/999-fleet/journal.md",
+      },
+      sectionOffsets: {
+        spec: 22,
+        design: 84,
+        tasks: 140,
+        sessions: 220,
+      },
+      parsedFocuses: [
+        { id: "context", label: "Context", slug: "context", line: 32 },
+        { id: "scope", label: "Scope", slug: "scope", line: 46 },
+      ],
+    });
+  }
+
+  /**
+   * Dev/e2e scenario for the journal.md doc-actions strip. This covers the
+   * compact sibling row and journal-specific primary buttons, which differ
+   * enough from spec.md that the generic spec scenario does not protect them.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
+   */
+  function runJournalDocActions(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: null,
+      docKind: "journal",
+      feature: "auth",
+      filePath: "/workspace/docs/specs/auth/journal.md",
+      approvalStatus: "Living",
+      specStatus: "Approved",
+      designStatus: "Approved",
+      tasksStatus: "Approved",
+      tasksCompleted: 3,
+      tasksTotal: 3,
+      workSessionsSigned: 2,
+      workSessionsTotal: 3,
+      siblingPaths: {
+        spec: "/workspace/docs/specs/auth/spec.md",
+        design: "/workspace/docs/specs/auth/design.md",
+        tasks: "/workspace/docs/specs/auth/tasks.md",
+        journal: "/workspace/docs/specs/auth/journal.md",
+      },
+      sectionOffsets: { sessions: 88 },
+    });
+  }
+
+  /**
+   * Dev/e2e scenario for the global session journal at `docs/specs/journal.md`.
+   * It has no active feature and no spec/design/tasks siblings, so the chat UI
+   * should surface `/afx-session` actions without rendering the spec stepper.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+   */
+  function runGlobalJournalDocActions(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: "standard",
+      section: null,
+      docKind: "journal",
+      feature: null,
+      filePath: "/workspace/docs/specs/journal.md",
+      approvalStatus: "Living",
+    });
   }
 
   /**
@@ -1764,6 +2011,7 @@ This is a long-running response on purpose so the queue stays visible while you 
     "quick-reply": () => void runQuickReply(),
     "streaming-reply": () => void runStreamingReply(),
     "large-response": () => void runLargeResponse(),
+    "coding-benchmark": () => runCodingBenchmark(),
     "thinking-reply": () => void runThinkingReply(),
     steer: () => void runSteerSimulation(),
     "follow-up": () => void runFollowUpSimulation(),
@@ -1772,6 +2020,9 @@ This is a long-running response on purpose so the queue stays visible while you 
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
     "spec-doc-actions": () => runSpecDocActions(),
+    "sprint-doc-actions": () => runSprintDocActions(),
+    "journal-doc-actions": () => runJournalDocActions(),
+    "global-journal-doc-actions": () => runGlobalJournalDocActions(),
     "tasks-sign-off-ready": () => runTasksSignOffReady(),
     "tasks-sign-off-relaxed": () => runTasksSignOffRelaxed(),
     "multi-tool": () => void runMultiTool(),

@@ -1,7 +1,7 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T07:46:18.000Z"
@@ -50,12 +50,13 @@ createSprintContextSync
 
 ## [DES-DEC] Key Decisions
 
-| Decision            | Options Considered                                            | Choice                                        | Rationale                                                            |
-| ------------------- | ------------------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------- |
-| Service layer split | Inline in panel, dedicated services                           | Dedicated services                            | Keeps panels focused on dispatch; services testable in isolation     |
-| Cache strategy      | In-memory map, on-disk persistence, parser cache              | In-memory map with mtime/version tag          | Workspace size is bounded; persistence adds invalidation hazards     |
-| Sprint detection    | Regex on file content per cursor move, sliced sections cached | Sliced sections cached + cursor binary search | Sprint files are large; rescan-per-tick would jank the editor        |
-| Spec validate UX    | Side-panel form, status bar, toast                            | Toast (read-only validate)                    | Validate is informational; mutation goes through `*Approve` commands |
+| Decision               | Options Considered                                                                                      | Choice                                        | Rationale                                                                                                                                                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Service layer split    | Inline in panel, dedicated services                                                                     | Dedicated services                            | Keeps panels focused on dispatch; services testable in isolation                                                                                                                                                                                                              |
+| Cache strategy         | In-memory map, on-disk persistence, parser cache                                                        | In-memory map with mtime/version tag          | Workspace size is bounded; persistence adds invalidation hazards                                                                                                                                                                                                              |
+| Sprint detection       | Regex on file content per cursor move, sliced sections cached                                           | Sliced sections cached + cursor binary search | Sprint files are large; rescan-per-tick would jank the editor                                                                                                                                                                                                                 |
+| Sprint default section | Hide panel when section unresolved · default to SPEC · expand heading regex to cover every author style | Default to SPEC                               | Sprint files are always at least a Spec. Hiding the panel made the bug invisible for freeform briefs (H1 headings, no markers); expanding regex chases a moving target as authors invent new wording. Defaulting keeps the panel rendering without over-fitting parsing rules |
+| Spec validate UX       | Side-panel form, status bar, toast                                                                      | Toast (read-only validate)                    | Validate is informational; mutation goes through `*Approve` commands                                                                                                                                                                                                          |
 
 ---
 

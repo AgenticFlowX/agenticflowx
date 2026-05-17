@@ -1,13 +1,20 @@
 ---
 afx: true
 type: SPEC
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-15T09:37:01.000Z"
 tags: ["app", "chat", "history"]
-depends_on: ["100-package-shared", "110-package-transport", "210-app-chat", "212-app-chat-messages"]
+depends_on:
+  [
+    "100-package-shared",
+    "110-package-transport",
+    "210-app-chat",
+    "212-app-chat-messages",
+    "216-app-chat-window-componentization",
+  ]
 ---
 
 # App Chat History - Product Specification
@@ -28,6 +35,10 @@ chat timeline data.
 This spec gives History its own route so changes to work-log filtering, event
 classification, context copy, recovery states, and row rendering do not require
 reading composer or live message-rendering code first.
+
+Chat-window componentization reserves future history load/export slots in
+`216-app-chat-window-componentization`; this spec remains the owner for any
+persistence format, load UX, export schema, and reload semantics.
 
 ---
 
@@ -53,19 +64,20 @@ Users navigating previous conversations and agents changing history behavior.
 
 ### Functional Requirements
 
-| ID    | Requirement                                                                                                                                                   | Priority  |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1  | Own the History tab root, visible work-log layout, header, context card, filter bar, body state branches, section grouping, and event rows                    | Must Have |
-| FR-2  | Subscribe to chat/runtime bridge events and request initial chat state with `chat/getState`                                                                   | Must Have |
-| FR-3  | Render session header metadata, event/message/queue/compaction/live chips, and refresh behavior with runtime-aware disabled states                            | Must Have |
-| FR-4  | Render the Context card with agent-session copy, workspace-context copy, and `/afx-context save` insertion affordance                                         | Must Have |
-| FR-5  | Provide local density filtering for `narrative`, `trace`, and `audit`, plus search filtering with runtime-specific placeholder and disabled states            | Must Have |
-| FR-6  | Render the body state matrix for checking runtime, unconfigured runtime, unavailable runtime with cached rows, no active events, no matching events, and rows | Must Have |
-| FR-7  | Group filtered history events by day and render sticky section headings plus row icons, action, target, detail, live status, compaction, usage, and timestamp | Must Have |
-| FR-8  | Derive history events from chat timeline items, including user messages, assistant messages, usage rows, tool rows, and compaction summaries                  | Must Have |
-| FR-9  | Classify tools into file read/edit, command, search, list, failed, and generic activity rows without exposing raw secrets                                     | Must Have |
-| FR-10 | Keep live composer input, live message rendering, provider setup, and persistence outside this child spec unless the visible History surface changes          | Must Have |
-| FR-11 | Maintain ASCII UI mockups, component overlays, locator maps, and 1:1 trace rows for History code before future surgical work relies on this zone              | Must Have |
+| ID    | Requirement                                                                                                                                                   | Priority    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1  | Own the History tab root, visible work-log layout, header, context card, filter bar, body state branches, section grouping, and event rows                    | Must Have   |
+| FR-2  | Subscribe to chat/runtime bridge events and request initial chat state with `chat/getState`                                                                   | Must Have   |
+| FR-3  | Render session header metadata, event/message/queue/compaction/live chips, and refresh behavior with runtime-aware disabled states                            | Must Have   |
+| FR-4  | Render the Context card with agent-session copy, workspace-context copy, and `/afx-context save` insertion affordance                                         | Must Have   |
+| FR-5  | Provide local density filtering for `narrative`, `trace`, and `audit`, plus search filtering with runtime-specific placeholder and disabled states            | Must Have   |
+| FR-6  | Render the body state matrix for checking runtime, unconfigured runtime, unavailable runtime with cached rows, no active events, no matching events, and rows | Must Have   |
+| FR-7  | Group filtered history events by day and render sticky section headings plus row icons, action, target, detail, live status, compaction, usage, and timestamp | Must Have   |
+| FR-8  | Derive history events from chat timeline items, including user messages, assistant messages, usage rows, tool rows, and compaction summaries                  | Must Have   |
+| FR-9  | Classify tools into file read/edit, command, search, list, failed, and generic activity rows without exposing raw secrets                                     | Must Have   |
+| FR-10 | Keep live composer input, live message rendering, and provider setup outside this child spec unless the visible History surface changes                       | Must Have   |
+| FR-11 | Maintain ASCII UI mockups, component overlays, locator maps, and 1:1 trace rows for History code before future surgical work relies on this zone              | Must Have   |
+| FR-12 | Own follow-on chat-history persistence behavior after `216-app-chat-window-componentization` reserves load/export slots                                       | Should Have |
 
 ### Non-Functional Requirements
 
@@ -113,6 +125,7 @@ Users navigating previous conversations and agents changing history behavior.
 - Composer input behavior
 - Live streaming rendering
 - Provider/API settings
+- Chat-window component boundary implementation, except reserved history slots
 
 ---
 
@@ -127,6 +140,7 @@ None.
 - `100-package-shared`
 - `110-package-transport`
 - `210-app-chat`
+- `216-app-chat-window-componentization`
 
 ---
 
@@ -143,7 +157,7 @@ None.
 | Settings keys   | No persisted keys yet; local `density` and `query` state only                                                                                                                        |
 | Commands        | Refresh via `chat/getState`; context save insertion via `/afx-context save`                                                                                                          |
 | Tests           | `apps/chat/src/app.test.tsx`, `apps/chat/src/lib/history-events.test.ts`                                                                                                             |
-| Dependencies    | `100-package-shared`, `110-package-transport`, `210-app-chat`, `212-app-chat-messages`                                                                                               |
+| Dependencies    | `100-package-shared`, `110-package-transport`, `210-app-chat`, `212-app-chat-messages`, `216-app-chat-window-componentization`                                                       |
 | Out of scope    | Live response streaming, composer queue, provider setup                                                                                                                              |
 | Example prompts | "Change History cached-state copy", "Add a density mode", "Fix failed tool event labels"                                                                                             |
 

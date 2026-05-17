@@ -1,12 +1,23 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
-tags: ["app", "chat", "webview", "streaming", "devoverlay", "code-spec-alignment", "hydration"]
+updated_at: "2026-05-15T09:13:06.000Z"
+tags:
+  [
+    "app",
+    "chat",
+    "webview",
+    "streaming",
+    "devoverlay",
+    "code-spec-alignment",
+    "hydration",
+    "componentization",
+    "feature-inventory",
+  ]
 spec: spec.md
 ---
 
@@ -31,11 +42,12 @@ apps/chat/src/
 ├── lib/
 │   └── bridge.ts      ← initTransport(), bridgeGetState(), bridgeSetState(), bridgeSend(), bridgeOn()
 ├── views/
-│   ├── chat.tsx        ← main chat view (message list + input)
+│   ├── chat.tsx        ← stable Chat route shell; componentized by spec 216
 │   ├── history.tsx     ← session history
 │   ├── explorer.tsx    ← coming soon
 │   └── settings.tsx    ← theme + provider settings
 └── components/
+    ├── chat/               ← ChatWindow region components; owned by spec 216
     ├── debug-panel.tsx     ← DevOverlay (scenario grid + logs + speed slider)
     ├── markdown-message.tsx← renders assistant markdown with remark-gfm
     └── coming-soon.tsx     ← placeholder for unimplemented views
@@ -69,11 +81,18 @@ This section exists as a stable traceability node for app-level development harn
 
 ## [DES-UI] User Interface & UX
 
-Chat view layout:
+Chat view layout now routes detailed chat-window componentization to `docs/specs/216-app-chat-window-componentization/design.md`. This parent spec remains the app-shell source of truth: transport bootstrap, tab strip, route selection, persisted app-level state, toasts, and DevOverlay.
 
-- Top: Tab bar (Chat / History / Explorer / Settings)
-- Center: Scrollable message list
-- Bottom: Input area with send + abort buttons
+Durable region names for the Chat tab are:
+
+- App tab strip: Chat / History / Settings, owned by `app.tsx`.
+- Chat root: `ChatWindow`, owned by `components/chat/chat-window.tsx`.
+- Top action row: `ChatTopBar`.
+- Conversation area: `ConversationPane`, `ConversationTimeline`, `ConversationEmptyStates`, `ConversationScrollButton`.
+- Composer area: `ComposerDock`, `ComposerActivityBar`, `ComposerPanelStack`, `ComposerPanel`, `ComposerAttachmentTray`, `ComposerInput`, `ComposerToolbar`, `ComposerActions`, `ComposerFooter`.
+- Global overlays: toast stack and DevOverlay remain app-level overlays.
+
+Source-code `@see` annotations for Chat tab componentization should point to `docs/specs/216-app-chat-window-componentization/design.md`, not to fleet/sprint planning documents.
 
 ### Remount Hydration
 
@@ -104,29 +123,17 @@ bridgeGetState()
                                    render transcript or empty state
 ```
 
-### [DES-UI-MOCKUP-HYDRATION] ASCII UI Mockup
+### [DES-UI-COMPONENTIZATION-ROUTE] Componentization Route
 
-```text
-+------------------------------------------------------------------+
-| returning to AFX                                                 |
-|                                                                  |
-| [cached transcript]                                              |
-|   o You                                                         |
-|     Update the footer hint                                       |
-|   o AFX                                                         |
-|     The footer now says ...                                      |
-|                                                                  |
-| [only when no cache exists]                                      |
-|   Connecting to agent…                                           |
-|   Loading workspace state                                         |
-+------------------------------------------------------------------+
-```
-
-DevOverlay (bottom-right, dev mode):
-
-- Scenario button grid (13 buttons)
-- Transport log panel (collapsible)
-- Stream speed slider
+| UI Region                | Durable Owner                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| App shell tab strip      | `210-app-chat/design.md [DES-ARCH]`                                                                  |
+| Chat window shell        | `216-app-chat-window-componentization/design.md [DES-ARCH] [DES-UI]`                                 |
+| Controller/state owner   | `216-app-chat-window-componentization/design.md [DES-STATE]`                                         |
+| Conversation timeline    | `212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS]` + `216` component boundary               |
+| Composer behavior        | `211-app-chat-composer/design.md [DES-COMPOSER-COMPONENTS]` + `216` component boundary               |
+| History load/export slot | `216-app-chat-window-componentization/design.md [DES-HISTORY]`; future persistence remains in `213`. |
+| DevOverlay/toasts        | `210-app-chat/design.md [DES-ARCH] [DES-UI]`                                                         |
 
 ---
 
@@ -158,18 +165,19 @@ function bridgeOn<T extends AgentToChat["type"]>(
 
 ## [DES-FILES] File Structure
 
-| File                                            | Purpose                                       |
-| ----------------------------------------------- | --------------------------------------------- |
-| `apps/chat/src/main.tsx`                        | Entry point — transport detection + injection |
-| `apps/chat/src/app.tsx`                         | root component — chat view + DevOverlay       |
-| `apps/chat/src/lib/bridge.ts`                   | Transport singleton module                    |
-| `apps/chat/src/views/chat.tsx`                  | Main chat view                                |
-| `apps/chat/src/views/history.tsx`               | Session history                               |
-| `apps/chat/src/views/explorer.tsx`              | Explorer (coming soon)                        |
-| `apps/chat/src/views/settings.tsx`              | Settings panel                                |
-| `apps/chat/src/components/debug-panel.tsx`      | DevOverlay                                    |
-| `apps/chat/src/components/markdown-message.tsx` | Markdown renderer                             |
-| `apps/chat/src/components/coming-soon.tsx`      | Stub placeholder                              |
+| File                                            | Purpose                                                                                           |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `apps/chat/src/main.tsx`                        | Entry point — transport detection + injection                                                     |
+| `apps/chat/src/app.tsx`                         | root component — chat view + DevOverlay                                                           |
+| `apps/chat/src/lib/bridge.ts`                   | Transport singleton module                                                                        |
+| `apps/chat/src/views/chat.tsx`                  | Stable Chat route shell; componentization details route to `216-app-chat-window-componentization` |
+| `apps/chat/src/components/chat/*`               | Chat window region components owned by `216-app-chat-window-componentization`                     |
+| `apps/chat/src/views/history.tsx`               | Session history                                                                                   |
+| `apps/chat/src/views/explorer.tsx`              | Explorer (coming soon)                                                                            |
+| `apps/chat/src/views/settings.tsx`              | Settings panel                                                                                    |
+| `apps/chat/src/components/debug-panel.tsx`      | DevOverlay                                                                                        |
+| `apps/chat/src/components/markdown-message.tsx` | Markdown renderer                                                                                 |
+| `apps/chat/src/components/coming-soon.tsx`      | Stub placeholder                                                                                  |
 
 ---
 
@@ -225,12 +233,12 @@ function bridgeOn<T extends AgentToChat["type"]>(
 
 ## File Reference Map
 
-| Task | File                                            | Required @see                                         |
-| ---- | ----------------------------------------------- | ----------------------------------------------------- |
-| —    | `apps/chat/src/main.tsx`                        | `spec.md [FR-1]` + `design.md [DES-ARCH]`             |
-| —    | `apps/chat/src/app.tsx`                         | `spec.md [FR-5]` + `design.md [DES-ARCH]`             |
-| —    | `apps/chat/src/lib/bridge.ts`                   | `spec.md [FR-1]` + `design.md [DES-API]`              |
-| —    | `apps/chat/vite.config.ts`                      | `spec.md [FR-1]` + `design.md [DES-DEV]`              |
-| —    | `apps/chat/src/views/chat.tsx`                  | `spec.md [FR-2] [FR-3] [FR-4]` + `design.md [DES-UI]` |
-| —    | `apps/chat/src/components/debug-panel.tsx`      | `spec.md [FR-5]` + `design.md [DES-UI]`               |
-| —    | `apps/chat/src/components/markdown-message.tsx` | `spec.md [FR-2]` + `design.md [DES-DEC]`              |
+| Task | File                                            | Required @see                                                                                          |
+| ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| —    | `apps/chat/src/main.tsx`                        | `spec.md [FR-1]` + `design.md [DES-ARCH]`                                                              |
+| —    | `apps/chat/src/app.tsx`                         | `spec.md [FR-5]` + `design.md [DES-ARCH]`                                                              |
+| —    | `apps/chat/src/lib/bridge.ts`                   | `spec.md [FR-1]` + `design.md [DES-API]`                                                               |
+| —    | `apps/chat/vite.config.ts`                      | `spec.md [FR-1]` + `design.md [DES-DEV]`                                                               |
+| —    | `apps/chat/src/views/chat.tsx`                  | `spec.md [FR-2] [FR-3] [FR-4]` + `docs/specs/216-app-chat-window-componentization/design.md [DES-API]` |
+| —    | `apps/chat/src/components/debug-panel.tsx`      | `spec.md [FR-5]` + `design.md [DES-UI]`                                                                |
+| —    | `apps/chat/src/components/markdown-message.tsx` | `spec.md [FR-2]` + `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-MARKDOWN]`                |

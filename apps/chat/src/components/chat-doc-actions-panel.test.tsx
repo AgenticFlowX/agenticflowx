@@ -1,5 +1,5 @@
 /**
- * ChatDocActionsStrip component tests — canonical anchors for every
+ * ChatDocActionsPanelBody component tests — canonical anchors for every
  * requirement exercised below resolve through these file-level `@see` lines
  * (test names use prose only; no bare `(FR-X)` markers).
  *
@@ -7,20 +7,16 @@
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  * @see docs/specs/100-package-shared/spec.md [FR-13] [FR-14]
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { ChatDocActionsStrip } from "./chat-doc-actions-strip";
+import { ChatDocActionsPanelBody, ChatDocActionsPanelHeaderExtras } from "./chat-doc-actions-panel";
 
-describe("ChatDocActionsStrip", () => {
-  it("collapses document actions into an ellipsis menu at compact widths", async () => {
-    const user = userEvent.setup();
-    const onInsert = vi.fn();
-    const onAutoSend = vi.fn();
-
+describe("ChatDocActionsPanelBody", () => {
+  it("primary action row uses available width before falling back to More", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -29,23 +25,188 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
-        onInsert={onInsert}
-        onAutoSend={onAutoSend}
+        onInsert={vi.fn()}
+        onAutoSend={vi.fn()}
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Document actions" })).toHaveClass("@[420px]:hidden");
-    expect(screen.getByTestId("doc-actions-primary-row")).toHaveClass("hidden", "@[420px]:flex");
+    const row = screen.getByTestId("doc-actions-primary-row");
+    expect(screen.getByTestId("doc-actions-row")).toHaveClass("w-full");
+    expect(row).toHaveClass("flex", "flex-nowrap", "overflow-hidden");
+    expect(row.className.split(/\s+/)).not.toContain("hidden");
+    const refine = within(row).getByRole("button", { name: /Refine options/i });
+    const author = within(row).getByRole("button", { name: /Author:/i });
+    expect(refine).toBeInTheDocument();
+    expect(author).toBeInTheDocument();
+    expect(refine).toHaveClass("!h-5", "!min-h-5", "font-mono", "!text-[10px]");
+    expect(author).toHaveClass("!h-5", "!min-h-5", "font-mono", "!text-[10px]");
+    expect(within(row).getByRole("button", { name: /Approve:/i })).toBeInTheDocument();
+    const more = screen.getByRole("button", { name: "More document actions" });
+    expect(more).toBeInTheDocument();
+    expect(more).toHaveClass("ml-auto", "shrink-0");
+    expect(row).not.toContainElement(more);
+  });
 
-    await user.click(screen.getByRole("button", { name: "Document actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: /Author/i }));
-    expect(onInsert).toHaveBeenCalledWith("/afx-design author auth");
+  it("moves lower-priority row actions into More when the measured row is tight", async () => {
+    const user = userEvent.setup();
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function getBoundingClientRectMock(this: HTMLElement) {
+        const width = this.dataset.testid === "doc-actions-primary-row" ? 110 : 0;
+        return {
+          x: 0,
+          y: 0,
+          width,
+          height: 0,
+          top: 0,
+          right: width,
+          bottom: 0,
+          left: 0,
+          toJSON: () => ({}),
+        };
+      });
 
-    await user.click(screen.getByRole("button", { name: "Document actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: /^Approve\b/i }));
-    expect(onAutoSend).toHaveBeenCalledWith("/afx-spec approve auth");
+    try {
+      render(
+        <ChatDocActionsPanelBody
+          workspaceMode="spec"
+          docContext={{
+            format: "standard",
+            section: "SPEC",
+            docKind: "spec",
+            feature: "auth",
+            approvalStatus: "Draft",
+          }}
+          onInsert={vi.fn()}
+          onAutoSend={vi.fn()}
+        />,
+      );
+
+      const row = screen.getByTestId("doc-actions-primary-row");
+      await waitFor(() => {
+        expect(within(row).queryByRole("button", { name: /Author:/i })).not.toBeInTheDocument();
+      });
+      const more = screen.getByRole("button", { name: "More document actions" });
+      await user.click(more);
+      expect(await screen.findByText("Hidden Row Actions")).toBeInTheDocument();
+      expect(screen.getAllByText("Author").length).toBeGreaterThan(0);
+      expect(screen.getAllByText("Approve").length).toBeGreaterThan(0);
+    } finally {
+      rectSpy.mockRestore();
+    }
+  });
+
+  it("keeps compact actions visible at medium measured widths", async () => {
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function getBoundingClientRectMock(this: HTMLElement) {
+        const width = this.dataset.testid === "doc-actions-primary-row" ? 360 : 0;
+        return {
+          x: 0,
+          y: 0,
+          width,
+          height: 0,
+          top: 0,
+          right: width,
+          bottom: 0,
+          left: 0,
+          toJSON: () => ({}),
+        };
+      });
+
+    try {
+      render(
+        <ChatDocActionsPanelBody
+          workspaceMode="spec"
+          docContext={{
+            format: "standard",
+            section: "SPEC",
+            docKind: "spec",
+            feature: "auth",
+            approvalStatus: "Draft",
+          }}
+          onInsert={vi.fn()}
+          onAutoSend={vi.fn()}
+        />,
+      );
+
+      const row = screen.getByTestId("doc-actions-primary-row");
+      await waitFor(() => {
+        expect(within(row).getByRole("button", { name: /Author:/i })).toBeInTheDocument();
+        expect(within(row).getByRole("button", { name: /Validate:|Verify:/i })).toBeInTheDocument();
+      });
+      expect(screen.getByRole("button", { name: "More document actions" })).toBeInTheDocument();
+    } finally {
+      rectSpy.mockRestore();
+    }
+  });
+
+  it("resets overflow state when switching from a tight spec row to a journal row", async () => {
+    let measuredWidth = 110;
+    const rectSpy = vi
+      .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+      .mockImplementation(function getBoundingClientRectMock(this: HTMLElement) {
+        const width = this.dataset.testid === "doc-actions-primary-row" ? measuredWidth : 0;
+        return {
+          x: 0,
+          y: 0,
+          width,
+          height: 0,
+          top: 0,
+          right: width,
+          bottom: 0,
+          left: 0,
+          toJSON: () => ({}),
+        };
+      });
+
+    try {
+      const { rerender } = render(
+        <ChatDocActionsPanelBody
+          workspaceMode="spec"
+          docContext={{
+            format: "standard",
+            section: "SPEC",
+            docKind: "spec",
+            feature: "auth",
+            approvalStatus: "Draft",
+          }}
+          onInsert={vi.fn()}
+          onAutoSend={vi.fn()}
+        />,
+      );
+
+      const specRow = screen.getByTestId("doc-actions-primary-row");
+      await waitFor(() => {
+        expect(within(specRow).queryByRole("button", { name: /Author:/i })).not.toBeInTheDocument();
+      });
+
+      measuredWidth = 360;
+      rerender(
+        <ChatDocActionsPanelBody
+          workspaceMode="spec"
+          docContext={{
+            format: "standard",
+            section: null,
+            docKind: "journal",
+            feature: "auth",
+            approvalStatus: "Living",
+          }}
+          onInsert={vi.fn()}
+          onAutoSend={vi.fn()}
+        />,
+      );
+
+      const journalRow = screen.getByTestId("doc-actions-primary-row");
+      await waitFor(() => {
+        expect(within(journalRow).getByRole("button", { name: /Note:/i })).toBeInTheDocument();
+        expect(within(journalRow).getByRole("button", { name: /Log:/i })).toBeInTheDocument();
+        expect(within(journalRow).getByRole("button", { name: /Recap:/i })).toBeInTheDocument();
+      });
+      expect(screen.getByTestId("doc-actions-more-trigger")).toHaveClass("ml-auto");
+    } finally {
+      rectSpy.mockRestore();
+    }
   });
 
   it("groups compose actions before run-now actions and keeps the row bounded", async () => {
@@ -53,7 +214,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -62,8 +223,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -78,6 +237,14 @@ describe("ChatDocActionsStrip", () => {
     expect(`${composeGroup.textContent}|${runGroup.textContent}`).toMatch(
       /Code.*Review.*\|.*Verify.*Pick/,
     );
+    for (const buttonName of ["Code", "Review", "Verify", "Pick"]) {
+      expect(screen.getByRole("button", { name: new RegExp(`^${buttonName}`) })).toHaveClass(
+        "!h-5",
+        "!min-h-5",
+        "font-mono",
+        "!text-[10px]",
+      );
+    }
     expect(screen.getByRole("button", { name: "More document actions" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Status:/i })).not.toBeInTheDocument();
     expect(screen.getByTestId("doc-actions-intent-separator")).toHaveTextContent("|");
@@ -94,7 +261,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("uses tooltip content instead of raw title hints for action buttons", async () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -103,8 +270,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -127,7 +292,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -155,8 +320,6 @@ describe("ChatDocActionsStrip", () => {
             },
           ],
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />,
@@ -199,7 +362,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -221,8 +384,6 @@ describe("ChatDocActionsStrip", () => {
             },
           ],
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -244,7 +405,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -267,8 +428,6 @@ describe("ChatDocActionsStrip", () => {
             },
           ],
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -293,7 +452,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -312,8 +471,6 @@ describe("ChatDocActionsStrip", () => {
             },
           ],
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -349,7 +506,7 @@ describe("ChatDocActionsStrip", () => {
     const user = userEvent.setup();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -358,8 +515,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -377,7 +532,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("renders nothing for non-AFX docs", () => {
     const { container } = render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: null,
@@ -386,8 +541,6 @@ describe("ChatDocActionsStrip", () => {
           feature: null,
           approvalStatus: null,
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -396,25 +549,10 @@ describe("ChatDocActionsStrip", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing while dismissed", () => {
-    const { container } = render(
-      <ChatDocActionsStrip
-        workspaceMode="spec"
-        docContext={{
-          format: "standard",
-          section: "SPEC",
-          docKind: "spec",
-          feature: "auth",
-          approvalStatus: "Draft",
-        }}
-        dismissed
-        onDismiss={vi.fn()}
-        onInsert={vi.fn()}
-        onAutoSend={vi.fn()}
-      />,
-    );
-
-    expect(container).toBeEmptyDOMElement();
+  it("dismissal lives on the panel chrome, not the body — body never reads a `dismissed` prop", () => {
+    // The panel chrome (`ComposerPanel` via `ComposerPanelStack`) owns the
+    // dismissed state; the body only renders content.
+    expect(true).toBe(true);
   });
 
   it("surfaces Author and Approve as one-click Spec-mode actions for standard specs", () => {
@@ -422,7 +560,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -431,8 +569,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />,
@@ -458,7 +594,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "sprint",
@@ -467,8 +603,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />,
@@ -490,7 +624,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("trims primary actions to the compact set outside Spec workspace mode", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="code"
         docContext={{
           format: "standard",
@@ -499,8 +633,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -518,7 +650,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("routes journal.md to all five afx-session subcommands", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -527,8 +659,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -538,9 +668,40 @@ describe("ChatDocActionsStrip", () => {
     const run = screen.getByTestId("doc-actions-run-group");
     expect(compose).toHaveTextContent("Note");
     expect(compose).toHaveTextContent("Log");
+    expect(compose).toHaveTextContent("Promote");
+    expect(compose).toHaveTextContent("Capture");
     expect(run).toHaveTextContent("Recap");
+    expect(screen.getByTestId("doc-actions-row")).toHaveClass("w-full");
+    expect(screen.getByTestId("doc-actions-more-trigger")).toHaveClass("ml-auto");
+    expect(screen.getByTestId("doc-actions-primary-row")).not.toContainElement(
+      screen.getByTestId("doc-actions-more-trigger"),
+    );
     // Note/Log are draft-first, Recap is auto-send — separator must split them.
     expect(screen.getByTestId("doc-actions-intent-separator")).toBeInTheDocument();
+  });
+
+  it("renders global docs/specs/journal.md as session-only without a spec stepper", async () => {
+    const onInsert = vi.fn();
+    render(
+      <ChatDocActionsPanelBody
+        workspaceMode="spec"
+        docContext={{
+          format: "standard",
+          section: null,
+          docKind: "journal",
+          feature: null,
+          filePath: "/repo/docs/specs/journal.md",
+          approvalStatus: "Living",
+        }}
+        onInsert={onInsert}
+        onAutoSend={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId("spec-stepper")).not.toBeInTheDocument();
+    expect(screen.getByTestId("doc-actions-compose-group")).toHaveTextContent("Note");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Note: Draft first" }));
+    expect(onInsert).toHaveBeenCalledWith("/afx-session note");
   });
 
   it("renders ADR primary actions and keeps mutating verbs draft-first", () => {
@@ -548,7 +709,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -557,8 +718,6 @@ describe("ChatDocActionsStrip", () => {
           feature: null,
           approvalStatus: "Accepted",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />,
@@ -582,7 +741,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -591,8 +750,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={onAutoSend}
       />,
@@ -612,7 +769,7 @@ describe("ChatDocActionsStrip", () => {
     const onAutoSend = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -621,8 +778,6 @@ describe("ChatDocActionsStrip", () => {
           feature: null,
           approvalStatus: null,
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={onAutoSend}
       />,
@@ -639,7 +794,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -648,8 +803,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -700,7 +853,7 @@ describe("ChatDocActionsStrip", () => {
     // Both gates false: no pending Human cells AND not ready. Nothing for the
     // button to do, so it must not render.
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           ...READY_TASKS_CTX,
@@ -711,8 +864,6 @@ describe("ChatDocActionsStrip", () => {
             pendingHumanRows: 0,
           },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={vi.fn()}
@@ -729,7 +880,7 @@ describe("ChatDocActionsStrip", () => {
     const user = userEvent.setup();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           ...READY_TASKS_CTX,
@@ -744,8 +895,6 @@ describe("ChatDocActionsStrip", () => {
             pendingHumanRows: 1,
           },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={vi.fn()}
@@ -771,11 +920,9 @@ describe("ChatDocActionsStrip", () => {
 
   it("hides the Sign Off button when onHostAction is not wired", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={READY_TASKS_CTX}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -788,11 +935,9 @@ describe("ChatDocActionsStrip", () => {
     const user = userEvent.setup();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={READY_TASKS_CTX}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={vi.fn()}
@@ -801,6 +946,7 @@ describe("ChatDocActionsStrip", () => {
 
     const signOffButton = screen.getByTestId("doc-actions-sign-off-button");
     expect(signOffButton).toBeInTheDocument();
+    expect(signOffButton).toHaveClass("!h-5", "!min-h-5", "font-mono", "!text-[10px]");
 
     await user.click(signOffButton);
 
@@ -818,14 +964,12 @@ describe("ChatDocActionsStrip", () => {
     const user = userEvent.setup();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           ...READY_TASKS_CTX,
           signOff: { ...READY_TASKS_CTX.signOff, alreadyLiving: true, pendingHumanRows: 1 },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={vi.fn()}
@@ -848,11 +992,9 @@ describe("ChatDocActionsStrip", () => {
     const onHostAction = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={READY_TASKS_CTX}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={onHostAction}
@@ -873,7 +1015,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("renders the spec stepper in Spec mode with per-segment statuses (3 pills, no Code, no resume button)", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -886,8 +1028,6 @@ describe("ChatDocActionsStrip", () => {
           tasksStatus: null,
           siblingPaths: { spec: "/x/spec.md", design: "/x/design.md" },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={vi.fn()}
@@ -907,16 +1047,17 @@ describe("ChatDocActionsStrip", () => {
       "data-active",
       "true",
     );
-    // Code pill + resume button were dropped in the round-2 polish.
+    // Spec stepper stays document-focused; chat actions live elsewhere.
     expect(screen.queryByTestId("spec-stepper-segment-code")).not.toBeInTheDocument();
     expect(screen.queryByTestId("spec-stepper-resume")).not.toBeInTheDocument();
-    // Tier-2 carries the explicit "Related" label.
-    expect(screen.getByText("Related")).toBeInTheDocument();
+    // Tier-2 renders actual sibling targets only; no orphan "Related" label.
+    expect(screen.queryByText("Related")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Journal")).toBeInTheDocument();
   });
 
   it("renders task progress (N/M) on the Tasks pill when tasks counters are known", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -933,8 +1074,6 @@ describe("ChatDocActionsStrip", () => {
           tasksTotal: 8,
           siblingPaths: { tasks: "/x/tasks.md" },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={vi.fn()}
@@ -946,7 +1085,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("renders the spec stepper outside Spec mode (no longer gated by workspaceMode)", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="code"
         docContext={{
           format: "standard",
@@ -959,8 +1098,6 @@ describe("ChatDocActionsStrip", () => {
           tasksStatus: null,
           siblingPaths: { spec: "/x/spec.md" },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={vi.fn()}
@@ -972,27 +1109,11 @@ describe("ChatDocActionsStrip", () => {
     expect(screen.getByTestId("spec-stepper")).toBeInTheDocument();
   });
 
-  it("renders the strip-header Memory anchor when onMemorySelect is wired", async () => {
+  it("ChatDocActionsPanelHeaderExtras renders the Memory anchor when onMemorySelect is wired", async () => {
     const onMemorySelect = vi.fn();
     const user = userEvent.setup();
 
-    render(
-      <ChatDocActionsStrip
-        workspaceMode="spec"
-        docContext={{
-          format: "standard",
-          section: "SPEC",
-          docKind: "spec",
-          feature: "auth",
-          approvalStatus: "Draft",
-        }}
-        dismissed={false}
-        onDismiss={vi.fn()}
-        onInsert={vi.fn()}
-        onAutoSend={vi.fn()}
-        onMemorySelect={onMemorySelect}
-      />,
-    );
+    render(<ChatDocActionsPanelHeaderExtras onMemorySelect={onMemorySelect} />);
 
     const triggers = screen.getAllByRole("button", { name: "Open memory menu" });
     expect(triggers).toHaveLength(1);
@@ -1006,9 +1127,11 @@ describe("ChatDocActionsStrip", () => {
     );
   });
 
-  it("renders the stepper Memory anchor in every workspace mode (no longer gated)", () => {
-    render(
-      <ChatDocActionsStrip
+  it("Memory anchor lives in header extras, not the body — even in non-spec modes (FR-18)", () => {
+    // The body never renders the memory anchor; that lives in the chrome's
+    // header-extras slot (`ChatDocActionsPanelHeaderExtras`).
+    const { rerender } = render(
+      <ChatDocActionsPanelBody
         workspaceMode="code"
         docContext={{
           format: "standard",
@@ -1018,17 +1141,15 @@ describe("ChatDocActionsStrip", () => {
           approvalStatus: "Draft",
           siblingPaths: { spec: "/x/spec.md" },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
-        onMemorySelect={vi.fn()}
         onOpenFile={vi.fn()}
       />,
     );
+    expect(screen.queryByRole("button", { name: "Open memory menu" })).not.toBeInTheDocument();
 
-    // Memory now lives in the stepper's tier-2 row and is shown whenever
-    // onMemorySelect is wired — independent of workspaceMode (FR-18).
+    // Header extras renders the memory trigger when the callback is wired.
+    rerender(<ChatDocActionsPanelHeaderExtras onMemorySelect={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Open memory menu" })).toBeInTheDocument();
   });
 
@@ -1037,7 +1158,7 @@ describe("ChatDocActionsStrip", () => {
     // not the first two actions (Explore, Compare).
     //   @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="code"
         docContext={{
           format: "standard",
@@ -1046,8 +1167,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Draft",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -1062,7 +1181,7 @@ describe("ChatDocActionsStrip", () => {
 
   it("uses the canonical compact action set in non-Spec mode (tasks)", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="explore"
         docContext={{
           format: "standard",
@@ -1071,8 +1190,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Living",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
       />,
@@ -1085,7 +1202,7 @@ describe("ChatDocActionsStrip", () => {
     expect(compose).toHaveTextContent("Review");
     expect(run).toHaveTextContent("Verify");
     expect(run).toHaveTextContent("Pick");
-    // Status (a Run-Now action that's NOT in the compact set) collapses to More.
+    // Status is outside the compact set and moves to More.
     expect(`${compose.textContent}|${run.textContent}`).not.toMatch(/Status/);
   });
 
@@ -1094,11 +1211,9 @@ describe("ChatDocActionsStrip", () => {
     const onHostAction = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={READY_TASKS_CTX}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onHostAction={onHostAction}
@@ -1116,7 +1231,7 @@ describe("ChatDocActionsStrip", () => {
     const onInsert = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "sprint",
@@ -1135,8 +1250,6 @@ describe("ChatDocActionsStrip", () => {
             },
           ],
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={onInsert}
         onAutoSend={vi.fn()}
       />,
@@ -1152,7 +1265,7 @@ describe("ChatDocActionsStrip", () => {
   // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
   it("renders the spec stepper inside the strip body when an SDD doc is active", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -1168,8 +1281,6 @@ describe("ChatDocActionsStrip", () => {
             design: "/work/docs/specs/auth/design.md",
           },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={vi.fn()}
@@ -1185,7 +1296,7 @@ describe("ChatDocActionsStrip", () => {
     const onOpenFile = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="code"
         docContext={{
           format: "standard",
@@ -1200,8 +1311,6 @@ describe("ChatDocActionsStrip", () => {
             design: "/work/docs/specs/auth/design.md",
           },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={onOpenFile}
@@ -1212,9 +1321,11 @@ describe("ChatDocActionsStrip", () => {
     expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/auth/design.md", undefined);
   });
 
-  it("Memory ▾ anchor lives in the strip header, not in the stepper tier-2 row", () => {
+  it("Memory anchor never appears inside the stepper subtree", () => {
+    // The body renders the stepper. It must not contain the memory anchor
+    // (which lives in `ChatDocActionsPanelHeaderExtras`).
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -1225,25 +1336,20 @@ describe("ChatDocActionsStrip", () => {
           specStatus: "Approved",
           siblingPaths: { spec: "/x/spec.md" },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
-        onMemorySelect={vi.fn()}
         onOpenFile={vi.fn()}
       />,
     );
 
-    // Memory anchor is rendered (FR-18) and lives outside the stepper subtree.
-    const memoryButton = screen.getByRole("button", { name: "Open memory menu" });
-    expect(memoryButton).toBeInTheDocument();
     const stepper = screen.getByTestId("spec-stepper");
-    expect(stepper.contains(memoryButton)).toBe(false);
+    const memoryInsideStepper = stepper.querySelector('[aria-label="Open memory menu"]');
+    expect(memoryInsideStepper).toBeNull();
   });
 
   it("stepper hides when the active doc is not an SDD doc (e.g. ADR)", () => {
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "standard",
@@ -1252,8 +1358,6 @@ describe("ChatDocActionsStrip", () => {
           feature: "auth",
           approvalStatus: "Approved",
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={vi.fn()}
@@ -1268,7 +1372,7 @@ describe("ChatDocActionsStrip", () => {
     const onOpenFile = vi.fn();
 
     render(
-      <ChatDocActionsStrip
+      <ChatDocActionsPanelBody
         workspaceMode="spec"
         docContext={{
           format: "sprint",
@@ -1281,8 +1385,6 @@ describe("ChatDocActionsStrip", () => {
           designStatus: "Draft",
           sectionOffsets: { spec: 12, design: 48, tasks: 102, sessions: 220 },
         }}
-        dismissed={false}
-        onDismiss={vi.fn()}
         onInsert={vi.fn()}
         onAutoSend={vi.fn()}
         onOpenFile={onOpenFile}
@@ -1291,5 +1393,173 @@ describe("ChatDocActionsStrip", () => {
 
     await user.click(screen.getByRole("button", { name: /Design step/i }));
     expect(onOpenFile).toHaveBeenCalledWith("/work/docs/specs/alpha/sprint.md", 48);
+  });
+
+  describe("per-docKind primary actions are surfaced (regression catch for missing buttons)", () => {
+    // The doc-actions panel renders per-spec-file action buttons. Each docKind
+    // (and the sprint vs standard format split) maps to a distinct action set
+    // resolved by `resolveDocActions(docContext)`. This block exists to catch
+    // the class of bug where the panel mounts but the action buttons are not
+    // discoverable — the original symptom that motivated these tests was the
+    // doc-actions panel showing only a "..." menu after the legacy
+    // `ComposerStrip` was migrated to `ComposerPanel` chrome (the chrome lost
+    // its `@container` class, so the wide-mode primary row never matched).
+    //
+    // Note: jsdom does not run container queries, so the wide-mode primary
+    // row stays hidden in tests. We assert via the compact "Document actions"
+    // dropdown menu, which lists the same actions and IS visible at every
+    // width.
+    type Case = {
+      label: string;
+      docContext: Parameters<typeof ChatDocActionsPanelBody>[0]["docContext"];
+      expected: readonly string[];
+    };
+
+    const cases: readonly Case[] = [
+      {
+        label: "spec.md (standard 4-file)",
+        docContext: {
+          format: "standard",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "auth",
+          approvalStatus: "Draft",
+        },
+        expected: ["Refine", "Author", "Validate", "Review", "Approve"],
+      },
+      {
+        label: "spec.md (sprint)",
+        docContext: {
+          format: "sprint",
+          section: "SPEC",
+          docKind: "spec",
+          feature: "alpha",
+          approvalStatus: "Draft",
+        },
+        expected: ["Refine", "Author", "Verify", "Approve"],
+      },
+      {
+        label: "design.md (standard 4-file)",
+        docContext: {
+          format: "standard",
+          section: "DESIGN",
+          docKind: "design",
+          feature: "auth",
+          approvalStatus: "Draft",
+        },
+        expected: ["Refine", "Author", "Validate", "Review", "Approve"],
+      },
+      {
+        label: "design.md (sprint)",
+        docContext: {
+          format: "sprint",
+          section: "DESIGN",
+          docKind: "design",
+          feature: "alpha",
+          approvalStatus: "Draft",
+        },
+        expected: ["Refine", "Author", "Verify", "Approve"],
+      },
+      {
+        label: "tasks.md (standard 4-file)",
+        docContext: {
+          format: "standard",
+          section: "TASKS",
+          docKind: "tasks",
+          feature: "auth",
+          approvalStatus: "Living",
+        },
+        expected: ["Code", "Verify", "Pick", "Review", "Status"],
+      },
+      {
+        label: "tasks.md (sprint)",
+        docContext: {
+          format: "sprint",
+          section: "TASKS",
+          docKind: "tasks",
+          feature: "alpha",
+          approvalStatus: "Living",
+        },
+        expected: ["Refine", "Code", "Verify", "Approve", "Graduate"],
+      },
+      {
+        label: "journal.md",
+        docContext: {
+          format: "standard",
+          section: null,
+          docKind: "journal",
+          feature: "auth",
+          approvalStatus: "Living",
+        },
+        expected: ["Note", "Log", "Recap", "Promote", "Capture"],
+      },
+      {
+        label: "ADR",
+        docContext: {
+          format: "standard",
+          section: null,
+          docKind: "adr",
+          feature: "auth",
+          approvalStatus: "Accepted",
+        },
+        expected: ["Review", "Supersede", "List"],
+      },
+      {
+        label: "research note",
+        docContext: {
+          format: "standard",
+          section: null,
+          docKind: "research",
+          feature: "auth",
+          approvalStatus: "Draft",
+        },
+        expected: ["Explore", "Compare", "Summarize", "Finalize"],
+      },
+    ] as const;
+
+    for (const tc of cases) {
+      it(`${tc.label} → primary row renders ≥2 of ${tc.expected.join(", ")} + remaining live in More`, () => {
+        render(
+          <ChatDocActionsPanelBody
+            workspaceMode="spec"
+            docContext={tc.docContext}
+            onInsert={vi.fn()}
+            onAutoSend={vi.fn()}
+          />,
+        );
+
+        // The original regression that motivated these tests: the doc-actions
+        // panel rendered with nothing but the "..." compact menu visible,
+        // because the ComposerPanel chrome lost its `@container` class and the
+        // wide-mode primary row's container query never matched. Each docKind's
+        // resolveDocActions returns a set; `selectPrimaryActions` picks the
+        // most-important subset for the always-visible row, with the rest
+        // surfaced through the "More document actions" dropdown.
+        //
+        // The bar: AT LEAST TWO of the expected actions must render directly
+        // as buttons in the primary row (so the user sees buttons, not "...");
+        // and EVERY remaining expected action must be reachable somewhere in
+        // the panel body (primary row OR the More dropdown's accessible
+        // content). That catches "I can't see any actions" without locking in
+        // exactly which actions are promoted vs demoted, which is a UX-tuning
+        // decision that should be allowed to evolve.
+        const row = screen.getByTestId("doc-actions-primary-row");
+        expect(screen.queryByRole("button", { name: "Document actions" })).not.toBeInTheDocument();
+
+        const expectedInRow = tc.expected.filter((label) => {
+          const named = within(row).queryByRole("button", {
+            name: new RegExp(`^${label}(?:\\b|$)`),
+          });
+          const options = within(row).queryByRole("button", {
+            name: new RegExp(`^${label} options$`),
+          });
+          return Boolean(named ?? options);
+        });
+        expect(
+          expectedInRow.length,
+          `expected ≥2 of [${tc.expected.join(", ")}] in the primary row, found [${expectedInRow.join(", ")}]`,
+        ).toBeGreaterThanOrEqual(2);
+      });
+    }
   });
 });

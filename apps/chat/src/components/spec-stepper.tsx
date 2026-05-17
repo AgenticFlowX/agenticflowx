@@ -6,10 +6,10 @@
  * 4-file mode it opens the sibling SDD file, in sprint single-file mode it
  * scrolls to the matching `## SPEC` / `## DESIGN` / `## TASKS` heading.
  *
- * A muted tier-2 row directly below carries `Related · Journal · Work
- * Sessions n/m` chips — sibling artifacts of the same feature. The Memory ▾
- * anchor lives in the strip header (a workspace-wide tool, not a
- * feature-scoped artifact) and is owned by `ChatDocActionsStrip`.
+ * A muted tier-2 row directly below carries compact Journal and Work Sessions
+ * chips for sibling artifacts of the same feature. It stays single-line and
+ * hides low-priority chips at tight widths. The Memory anchor lives in the
+ * chat top bar and composer actions, not in the stepper.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
@@ -43,7 +43,7 @@ export interface SpecStepperProps {
   segments: readonly SpecStepperSegment[];
   /** Which segment is currently active (matches the open editor file/section). */
   active: SpecStepperSegmentKey | null;
-  /** Format of the active doc — gates Journal visibility (sprint = single file). */
+  /** Format of the active doc — controls standard sibling vs sprint section navigation. */
   format: "sprint" | "standard" | null;
   /** Absolute path of the active doc — used for sprint section jumps. */
   filePath?: string | null;
@@ -120,7 +120,7 @@ export function SpecStepper({
     }
     if (format === "sprint") {
       const line = sectionOffsets?.[key];
-      if (!filePath || !line) return null;
+      if (!filePath) return null;
       return { path: filePath, line };
     }
     // Standard mode: prefer the host-resolved sibling path, but fall back to
@@ -153,7 +153,7 @@ export function SpecStepper({
         ? { path: siblingPaths.tasks, line: sectionOffsets.sessions }
         : null;
 
-  const showJournal = format !== "sprint";
+  const showJournal = true;
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -190,17 +190,16 @@ export function SpecStepper({
             );
           })}
         </div>
-        {/* Tier-2 — sibling artifacts of the same feature. The leading
-            `Related` label tells you why these chips are here (so they don't
-            read as leftover UI). Memory ▾ is a workspace-wide tool, owned
-            by the strip header — not this row. */}
-        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-dashed border-border/40 pt-1 text-[10px] text-muted-foreground">
-          <span aria-hidden className="font-mono uppercase tracking-[0.12em] opacity-60">
-            Related
-          </span>
-          <span aria-hidden className="opacity-40">
-            ·
-          </span>
+        {/* Tier-2 — sibling artifacts of the same feature. Hide the whole row
+            until a real target can fit; otherwise it reads like stray chrome.
+            Memory is workspace-wide and lives in the chat top bar/composer. */}
+        <div
+          className={cn(
+            "hidden min-h-5 max-h-6 min-w-0 flex-nowrap items-center justify-center gap-x-2 overflow-hidden whitespace-nowrap border-t border-dashed border-border/40 pt-1 text-[10px] leading-none text-muted-foreground @[430px]:gap-x-3",
+            showJournal ? "@[220px]:flex" : "@[360px]:flex",
+          )}
+          data-testid="spec-stepper-related-row"
+        >
           {showJournal ? (
             <SecondaryChip
               icon={<BookOpen size={10} aria-hidden />}
@@ -219,6 +218,7 @@ export function SpecStepper({
               onOpenFile={onOpenFile}
               onInsertDraft={onInsertDraft}
               testId="spec-stepper-journal"
+              className="inline-flex whitespace-nowrap"
             />
           ) : null}
           <SecondaryChip
@@ -238,6 +238,11 @@ export function SpecStepper({
             onOpenFile={onOpenFile}
             onInsertDraft={onInsertDraft}
             testId="spec-stepper-sessions"
+            className={
+              showJournal
+                ? "hidden whitespace-nowrap @[430px]:inline-flex"
+                : "inline-flex whitespace-nowrap"
+            }
           />
         </div>
       </div>
@@ -260,7 +265,7 @@ function SegmentPill({
   const tone = pillTone(segment, active);
   const interactive = Boolean(target);
   const disabled = !target;
-  const glyph = displayGlyph(segment);
+  const inlineProgress = displayInlineProgress(segment);
 
   const inner = (
     <span
@@ -282,7 +287,11 @@ function SegmentPill({
         {number}
       </span>
       <span className="hidden truncate @[300px]:inline">{segment.label}</span>
-      <span aria-hidden>{glyph}</span>
+      {inlineProgress ? (
+        <span aria-hidden className="shrink-0">
+          {inlineProgress}
+        </span>
+      ) : null}
     </span>
   );
 
@@ -343,6 +352,7 @@ function SecondaryChip({
   onOpenFile,
   onInsertDraft,
   testId,
+  className,
 }: {
   icon: ReactNode;
   label: string;
@@ -360,9 +370,10 @@ function SecondaryChip({
   onOpenFile: (path: string, line?: number) => void;
   onInsertDraft?: (text: string) => void;
   testId: string;
+  className?: string;
 }) {
   const interactive = action !== null;
-  const className = cn(
+  const chipClassName = cn(
     "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors",
     interactive && "cursor-pointer hover:bg-muted hover:text-foreground",
     !interactive && "cursor-not-allowed opacity-70",
@@ -370,7 +381,7 @@ function SecondaryChip({
   );
 
   const content = (
-    <span className={className} data-testid={testId} data-active={active ? "true" : "false"}>
+    <span className={chipClassName} data-testid={testId} data-active={active ? "true" : "false"}>
       {active ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-afx-brand" /> : null}
       {icon}
       <span>{label}</span>
@@ -393,7 +404,7 @@ function SecondaryChip({
             onClick={handleClick}
             aria-label={label}
             data-action-kind={action.kind}
-            className="inline-flex"
+            className={cn("inline-flex shrink-0", className)}
           >
             {content}
           </button>
@@ -408,7 +419,7 @@ function SecondaryChip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="inline-flex" aria-label={label}>
+        <span className={cn("inline-flex shrink-0", className)} aria-label={label}>
           {content}
         </span>
       </TooltipTrigger>
@@ -502,14 +513,9 @@ function pillTone(segment: SpecStepperSegment, active: boolean): string {
   }
 }
 
-function displayGlyph(segment: SpecStepperSegment): string {
-  // For the in-progress Tasks pill, the glyph IS the live n/m fraction —
-  // surface it next to the number so it's legible without expanding.
+function displayInlineProgress(segment: SpecStepperSegment): string {
   if (segment.key === "tasks" && segment.status === "progress") {
     return segment.glyph;
   }
-  if (segment.status === "approved") return "✓";
-  if (segment.status === "draft") return "…";
-  if (segment.status === "blocked") return "!";
-  return "·";
+  return "";
 }

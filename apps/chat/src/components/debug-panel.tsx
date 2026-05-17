@@ -147,6 +147,7 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
       { name: "quick-reply", label: "Quick", accent: "bg-afx-success" },
       { name: "streaming-reply", label: "Streaming", accent: "bg-afx-success" },
       { name: "large-response", label: "Large", accent: "bg-afx-success" },
+      { name: "coding-benchmark", label: "Coding bench", accent: "bg-afx-success" },
       { name: "thinking-reply", label: "Thinking", accent: "bg-afx-info" },
       { name: "steer", label: "Steer", accent: "bg-afx-info" },
       { name: "follow-up", label: "Follow-up", accent: "bg-afx-info" },
@@ -168,6 +169,9 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
     icon: MonitorCog,
     items: [
       { name: "spec-doc-actions", label: "Spec actions", accent: "bg-afx-brand" },
+      { name: "sprint-doc-actions", label: "Sprint actions", accent: "bg-afx-brand" },
+      { name: "journal-doc-actions", label: "Journal actions", accent: "bg-afx-brand" },
+      { name: "global-journal-doc-actions", label: "Global journal", accent: "bg-afx-brand" },
       { name: "tasks-sign-off-ready", label: "Sign Off ready", accent: "bg-afx-warning" },
       { name: "tasks-sign-off-relaxed", label: "Sign Off relaxed", accent: "bg-muted-foreground" },
     ],

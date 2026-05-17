@@ -1,11 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Approved
+status: Living
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T15:23:18.000Z"
+updated_at: "2026-05-17T09:04:20.000Z"
 approved_at: "2026-05-05T11:53:21.000Z"
 tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode]
 spec: spec.md

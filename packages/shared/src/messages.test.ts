@@ -194,12 +194,26 @@ describe("chat-foundation shared protocol", () => {
       tasksStatus: "Draft",
       tasksCompleted: 3,
       tasksTotal: 4,
+      workSessionsSigned: 1,
+      workSessionsTotal: 2,
+      siblingPaths: {
+        spec: "docs/specs/auth/spec.md",
+        design: "docs/specs/auth/design.md",
+        tasks: "docs/specs/auth/tasks.md",
+        journal: "docs/specs/auth/journal.md",
+      },
+      sectionOffsets: {
+        sessions: 120,
+      },
     };
 
     expect(oldPayload.taskPhases).toBeUndefined();
     expect(newPayload.taskPhases?.[0]?.items[0]?.text).toBe("Wire bridge");
     expect(newPayload.parsedFocuses?.[0]?.excerpt).toBe("Bridge tasks for the active phase.");
     expect(newPayload.signOff?.pendingHumanRows).toBe(2);
+    expect(newPayload.siblingPaths?.journal).toBe("docs/specs/auth/journal.md");
+    expect(newPayload.sectionOffsets?.sessions).toBe(120);
+    expect(newPayload.workSessionsSigned).toBe(1);
   });
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-15]
