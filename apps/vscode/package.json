@@ -3,7 +3,7 @@
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
   "version": "2.0.14",
-  "afxSkillsPin": "be868413dec19e1961d917a3d10925d3e131b9c3",
+  "afxSkillsPin": "7f85f154f66d27047ac22f0c2974b84a555b6abc",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",
@@ -168,7 +168,7 @@
         "afx.telemetry.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable anonymous UI analytics (Microsoft Clarity) for AgenticFlowX webviews. Respects VS Code telemetry enablement and Do Not Track.",
+          "description": "Enable anonymous UI analytics for AgenticFlowX webviews. On by default; respects VS Code telemetry and Do Not Track.",
           "tags": [
             "telemetry",
             "usesOnlineServices"
