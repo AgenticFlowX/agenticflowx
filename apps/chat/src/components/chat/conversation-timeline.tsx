@@ -533,7 +533,7 @@ const TurnEventRow = memo(function TurnEventRow({
         className="relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5"
         data-timeline-event={event.kind}
       >
-        <div className="relative z-10 flex justify-center pt-0.5">
+        <div className="relative z-[8] flex justify-center pt-0.5">
           <Marker event={event} />
         </div>
         <UserBlock event={event} />
@@ -547,7 +547,7 @@ const TurnEventRow = memo(function TurnEventRow({
         className="relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5"
         data-timeline-event={event.kind}
       >
-        <div className="relative z-10 flex justify-center pt-0.5">
+        <div className="relative z-[8] flex justify-center pt-0.5">
           <Marker event={event} />
         </div>
         <AfxBlock event={event} onSendCommand={onSendCommand} onInsertCommand={onInsertCommand} />
@@ -560,7 +560,7 @@ const TurnEventRow = memo(function TurnEventRow({
       className="relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5 pl-7"
       data-timeline-event={event.kind}
     >
-      <div className="relative z-10 flex justify-center pt-0.5">
+      <div className="relative z-[8] flex justify-center pt-0.5">
         <Marker event={event} />
       </div>
       <div className="min-w-0">
@@ -621,7 +621,7 @@ function SystemRow({
       className="relative grid grid-cols-[20px_minmax(0,1fr)] gap-x-2.5 pl-7"
       data-timeline-event={event.kind}
     >
-      <div className="relative z-10 flex justify-center pt-0.5">
+      <div className="relative z-[8] flex justify-center pt-0.5">
         <Marker event={event} />
       </div>
       <div className="min-w-0">

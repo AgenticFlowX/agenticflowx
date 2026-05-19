@@ -253,3 +253,56 @@ test("sticky day header masks rail markers while transcript scrolls", async ({
     contentType: "image/png",
   });
 });
+
+test("floating turn context renders above marker icon", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 920, height: 720 });
+  await page.goto("/");
+  await expect(page.locator("#root")).toBeVisible();
+
+  await fireScenario(page, "Coding bench");
+  const pane = page.getByRole("region", { name: "Conversation" });
+  const timeline = page.locator('ol[role="log"]');
+  await expect(timeline).toContainText("Benchmark refactor slice 24", { timeout: 5_000 });
+
+  // Scroll until the floating turn context bar is visible.
+  const context = page.getByTestId("timeline-turn-context").first();
+  let foundContext = false;
+  for (const scrollTop of [120, 180, 240, 320, 420, 560, 720]) {
+    await pane.evaluate((node, next) => {
+      node.scrollTop = next;
+    }, scrollTop);
+    await page.waitForTimeout(50);
+    if ((await context.count()) > 0 && (await context.isVisible())) {
+      foundContext = true;
+      break;
+    }
+  }
+  expect(foundContext).toBe(true);
+
+  const stackMetrics = await page.evaluate(() => {
+    const contextBar = document.querySelector<HTMLElement>('[data-testid="timeline-turn-context"]');
+    const markerSpan = document.querySelector<HTMLElement>('[data-timeline-marker="assistant"]');
+    if (!contextBar || !markerSpan) {
+      throw new Error("Turn context bar or assistant marker was not rendered");
+    }
+    const markerContainer = markerSpan.parentElement;
+    if (!markerContainer) {
+      throw new Error("Marker container not found");
+    }
+    const contextBarStyle = window.getComputedStyle(contextBar.parentElement ?? contextBar);
+    const markerContainerStyle = window.getComputedStyle(markerContainer);
+    return {
+      contextBarZIndex: Number(contextBarStyle.zIndex),
+      markerContainerZIndex: Number(markerContainerStyle.zIndex),
+    };
+  });
+
+  expect(stackMetrics.contextBarZIndex).toBeGreaterThan(stackMetrics.markerContainerZIndex);
+
+  const screenshot = testInfo.outputPath("timeline-context-stacking.png");
+  await page.screenshot({ path: screenshot });
+  await testInfo.attach("timeline-context-stacking.png", {
+    path: screenshot,
+    contentType: "image/png",
+  });
+});

@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T11:58:31.000Z"
+updated_at: "2026-05-19T14:55:06.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -253,6 +253,15 @@ preview visible at the top of the thread.
 The preview belongs to message rendering, not composer state: it mirrors durable
 timeline content and never creates a second prompt. It should remain compact and
 truncate long prompts instead of covering assistant output.
+
+The timeline uses a three-layer z-index stack to keep the floating preview
+readable over the marker rail:
+
+| Layer | z-index | Element                                        |
+| ----- | ------- | ---------------------------------------------- |
+| Top   | `z-20`  | `DayHeader` — sticky date separator            |
+| Mid   | `z-[9]` | `TurnContextBar` — sticky prompt preview       |
+| Base  | `z-[8]` | `Marker` icon column — sits behind the preview |
 
 ### [DES-MESSAGES-COMPONENT-MARKDOWN] MarkdownMessage And CodeFence
 
