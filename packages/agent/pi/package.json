@@ -18,8 +18,8 @@
     "@afx/shared": "workspace:*"
   },
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.70.2",
-    "@types/node": "^25.6.0",
+    "@mariozechner/pi-coding-agent": "^0.73.1",
+    "@types/node": "^25.9.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.9"
   }
