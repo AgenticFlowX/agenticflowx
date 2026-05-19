@@ -305,6 +305,49 @@ describe("extension.activate", () => {
     );
   });
 
+  it("falls back to workspace Composer Intent settings when global settings cannot be written", async () => {
+    const update = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Unable to write into user settings."))
+      .mockResolvedValue(undefined);
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 } as vscode.WorkspaceFolder,
+    ]);
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        if (key === "composer.intent.slot") return 1 as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setIntent",
+    )?.[1] as ((slot?: 1 | 2 | 3 | 4) => Promise<void>) | undefined;
+
+    await handler?.(4);
+
+    expect(update).toHaveBeenNthCalledWith(
+      1,
+      "composer.intent.slot",
+      4,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenNthCalledWith(
+      2,
+      "composer.intent.slot",
+      4,
+      vscode.ConfigurationTarget.Workspace,
+    );
+  });
+
   it("offers parent-aware Composer Intent choices when afx.setIntent is invoked without args", async () => {
     const update = vi.fn(async () => {});
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({

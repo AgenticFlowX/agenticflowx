@@ -440,6 +440,45 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("falls back to workspace Composer Intent settings when user settings cannot be written", async () => {
+    const { update, values } = mockAfxConfiguration();
+    update.mockRejectedValueOnce(new Error("Unable to write into user settings."));
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 } as vscode.WorkspaceFolder,
+    ]);
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/setIntentSlot", requestId: "intent-fallback-slot", slot: 3 });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenNthCalledWith(
+      1,
+      "composer.intent.slot",
+      3,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenNthCalledWith(
+      2,
+      "composer.intent.slot",
+      3,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(values.get("composer.intent.slot")).toBe(3);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "intent-fallback-slot",
+        snapshot: expect.objectContaining({
+          intent: expect.objectContaining({
+            effective: { slot: 3, minimized: false },
+            workspace: { slot: 3 },
+            hasWorkspaceOverride: true,
+          }),
+        }),
+      }),
+    );
+  });
+
   it("reports Composer Intent workspace overrides in settings snapshots", async () => {
     mockAfxConfiguration(
       {

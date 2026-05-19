@@ -62,6 +62,10 @@ import type {
 } from "@afx/shared";
 
 import { type AgentRuntimeMonitor, createAgentRuntimeMonitor } from "../agent-runtime-monitor";
+import {
+  configurationTargetFor,
+  updateAfxConfigurationWithWorkspaceFallback,
+} from "../configuration-target";
 import type { SecretStore } from "../secret-store";
 import type {
   CustomProvidersMutation,
@@ -410,13 +414,6 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       workspace: hasWorkspaceOverride ? workspace : undefined,
       hasWorkspaceOverride,
     };
-  }
-
-  function configurationTargetFor(key: string): vscode.ConfigurationTarget {
-    const inspected = vscode.workspace.getConfiguration("afx").inspect(key);
-    return inspected?.workspaceValue === undefined
-      ? vscode.ConfigurationTarget.Global
-      : vscode.ConfigurationTarget.Workspace;
   }
 
   function isExploreMode(): boolean {
@@ -2337,9 +2334,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   async function handleSetIntentSlot(requestId: string, slot: IntentSlot): Promise<void> {
     try {
       const normalized = normalizeIntentSlot(slot);
-      await vscode.workspace
-        .getConfiguration("afx")
-        .update("composer.intent.slot", normalized, configurationTargetFor("composer.intent.slot"));
+      await updateAfxConfigurationWithWorkspaceFallback(
+        "composer.intent.slot",
+        normalized,
+        configurationTargetFor("composer.intent.slot"),
+        log,
+      );
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set Intent slot failed", err instanceof Error ? err : undefined);
@@ -2349,13 +2349,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   async function handleSetIntentMinimized(requestId: string, minimized: boolean): Promise<void> {
     try {
-      await vscode.workspace
-        .getConfiguration("afx")
-        .update(
-          "composer.intent.minimized",
-          minimized,
-          configurationTargetFor("composer.intent.minimized"),
-        );
+      await updateAfxConfigurationWithWorkspaceFallback(
+        "composer.intent.minimized",
+        minimized,
+        configurationTargetFor("composer.intent.minimized"),
+        log,
+      );
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set Intent minimized failed", err instanceof Error ? err : undefined);

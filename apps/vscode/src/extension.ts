@@ -42,6 +42,10 @@ import {
   createCustomProvidersAdapter,
 } from "./agent-factory";
 import { createAgentRuntimeMonitor } from "./agent-runtime-monitor";
+import {
+  configurationTargetFor,
+  updateAfxConfigurationWithWorkspaceFallback,
+} from "./configuration-target";
 import { MultiplexedAgentManager } from "./multiplex-agent-manager";
 import {
   SIDEBAR_VIEW_TYPE,
@@ -401,9 +405,12 @@ export async function activate(
       );
       const nextMode = mode ?? (await pickWorkspaceMode(currentMode));
       if (!nextMode || nextMode === currentMode) return;
-      await vscode.workspace
-        .getConfiguration("afx")
-        .update("mode.active", nextMode, configurationTargetFor("mode.active"));
+      await updateAfxConfigurationWithWorkspaceFallback(
+        "mode.active",
+        nextMode,
+        configurationTargetFor("mode.active"),
+        logger,
+      );
     }),
     // @see docs/specs/211-app-chat-composer/spec.md [FR-20]
     // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
@@ -420,7 +427,12 @@ export async function activate(
       const nextSlot = slot ?? (await pickComposerIntent(mode, currentSlot));
       if (!nextSlot || nextSlot === currentSlot) return;
       const target = configurationTargetFor("composer.intent.slot");
-      await cfg.update("composer.intent.slot", nextSlot, target);
+      await updateAfxConfigurationWithWorkspaceFallback(
+        "composer.intent.slot",
+        nextSlot,
+        target,
+        logger,
+      );
     }),
     // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand(
@@ -682,13 +694,6 @@ async function pickComposerIntent(
     },
   );
   return selected?.value ?? current;
-}
-
-function configurationTargetFor(key: string): vscode.ConfigurationTarget {
-  const inspected = vscode.workspace.getConfiguration("afx").inspect(key);
-  return inspected?.workspaceValue === undefined
-    ? vscode.ConfigurationTarget.Global
-    : vscode.ConfigurationTarget.Workspace;
 }
 
 // @see docs/specs/100-package-shared/spec.md [FR-11]
