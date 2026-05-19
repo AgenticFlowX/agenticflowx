@@ -34,6 +34,12 @@ export default defineConfig({
   test: {
     name: "chat",
     environment: "jsdom",
+    execArgv: ["--no-experimental-webstorage"],
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost/",
+      },
+    },
     globals: true,
     include: ["src/**/*.test.{ts,tsx}"],
     exclude: ["e2e/**", "node_modules/**", "dist/**"],

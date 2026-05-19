@@ -4,9 +4,13 @@
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-TEST]
  */
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { expect, test } from "@playwright/test";
 
 const TAB_LABELS = ["Workbench", "Pipeline", "Documents", "Analytics", "Journal", "Board", "Notes"];
+const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screenshots");
 
 test("workbench root mounts", async ({ page }) => {
   await page.goto("/");
@@ -29,13 +33,15 @@ test("Workbench tab is selected by default", async ({ page }) => {
 });
 
 test("can switch tabs and capture screenshot of each view", async ({ page }, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.goto("/");
   for (const label of TAB_LABELS) {
     await page.getByRole("tab", { name: label }).click();
     await expect(page.getByRole("tab", { name: label })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(200);
-    const screenshotPath = `screenshots/workbench-${label.toLowerCase()}.png`;
+    const screenshotPath = resolve(SCREENSHOT_DIR, `workbench-${label.toLowerCase()}.png`);
     const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
+    expect(buf.length).toBeGreaterThan(10_000);
     await testInfo.attach(`workbench-${label.toLowerCase()}.png`, {
       body: buf,
       contentType: "image/png",

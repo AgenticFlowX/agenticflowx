@@ -2,9 +2,16 @@
   "$schema": "https://raw.githubusercontent.com/JamieMason/syncpack/master/syncpack.schema.json",
   "source": [
     "package.json",
-    "apps/*/package.json",
-    "packages/*/package.json",
-    "packages/agent/*/package.json"
+    "apps/chat/package.json",
+    "apps/vscode/package.json",
+    "apps/vscode-e2e/package.json",
+    "apps/workbench/package.json",
+    "packages/agent/pi/package.json",
+    "packages/agent/pi-sdk/package.json",
+    "packages/parsers/package.json",
+    "packages/shared/package.json",
+    "packages/transport/package.json",
+    "packages/ui/package.json"
   ],
   "semverGroups": [
     {
@@ -13,12 +20,40 @@
       "range": "workspace:*"
     },
     {
+      "label": "Peer dependency compatibility ranges are intentional",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    },
+    {
+      "label": "pnpm overrides pin exact remediation versions",
+      "dependencyTypes": ["pnpmOverrides"],
+      "isIgnored": true
+    },
+    {
+      "label": "Pinned DX tooling uses exact versions",
+      "dependencies": [
+        "eslint-plugin-check-file",
+        "eslint-plugin-no-secrets",
+        "eslint-plugin-no-unsanitized",
+        "eslint-plugin-security",
+        "license-checker-rseidelsohn",
+        "syncpack",
+        "turbo"
+      ],
+      "range": ""
+    },
+    {
       "label": "Catch-all: prefer caret range",
       "dependencies": ["**"],
       "range": "^"
     }
   ],
   "versionGroups": [
+    {
+      "label": "Peer dependency compatibility ranges are intentional",
+      "dependencyTypes": ["peer"],
+      "isIgnored": true
+    },
     {
       "label": "Internal workspace packages — pinned to current source",
       "dependencies": ["@afx/**"],

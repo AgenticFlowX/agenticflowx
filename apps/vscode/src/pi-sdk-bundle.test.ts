@@ -19,9 +19,7 @@ describe("bundled Pi SDK bootstrap", () => {
     const bootstrapPath = path.resolve(resourceRoot, "bootstrap.js");
     const source = readFileSync(bootstrapPath, "utf8");
 
-    expect(source).not.toMatch(
-      /^\s*import\s+[\s\S]*?\s+from\s+["']@mariozechner\/|import\(\s*["']@mariozechner\//m,
-    );
+    expect(source).not.toMatch(/(?:from\s*["']@mariozechner\/|import\(\s*["']@mariozechner\/)/);
   });
 
   it("marks the resource folder as ESM for Node startup", () => {

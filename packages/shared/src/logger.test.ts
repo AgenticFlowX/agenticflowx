@@ -260,6 +260,35 @@ describe("consoleSink", () => {
     expect(errSpy).toHaveBeenCalledWith("[x] oops", { req: 1 }, err);
     errSpy.mockRestore();
   });
+
+  it("routes trace and debug to console.debug when available", () => {
+    const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {});
+    const log = createLogger({ scope: "x", level: "trace", sinks: [consoleSink()] });
+
+    log.debug("d");
+    log.trace("t");
+
+    expect(debugSpy).toHaveBeenCalledWith("[x] d");
+    expect(debugSpy).toHaveBeenCalledWith("[x] t");
+    debugSpy.mockRestore();
+  });
+});
+
+describe("outputChannelSink — defensive serialization", () => {
+  it("renders circular object fields without throwing", () => {
+    const lines: string[] = [];
+    const log = createLogger({
+      scope: "afx",
+      level: "info",
+      sinks: [outputChannelSink({ appendLine: (l) => lines.push(l) })],
+    });
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    log.info("circular", { circular });
+
+    expect(lines[0]).toContain("json=<unserialisable:");
+  });
 });
 
 describe("memorySink", () => {

@@ -3,8 +3,7 @@
   "ignore": [
     "apps/workbench/src/components/coming-soon.tsx",
     "apps/workbench/src/lib/documents.ts",
-    "apps/workbench/src/lib/pipeline.ts",
-    "scripts/conventions/vitest.config.ts"
+    "apps/workbench/src/lib/pipeline.ts"
   ],
   "ignoreExportsUsedInFile": true,
   "workspaces": {

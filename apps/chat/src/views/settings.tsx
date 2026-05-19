@@ -5,7 +5,15 @@
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlertTriangle,
@@ -551,7 +559,7 @@ export default function Settings({
     [pendingRemoveId],
   );
 
-  function renderCustomSdkList(): JSX.Element {
+  function renderCustomSdkList(): ReactElement {
     const providers: readonly CustomProviderSummary[] =
       snapshot?.customModels?.piSdk.providers ?? [];
     return (
@@ -589,7 +597,7 @@ export default function Settings({
     );
   }
 
-  function renderCustomSdkEdit(providerId: string): JSX.Element {
+  function renderCustomSdkEdit(providerId: string): ReactElement {
     const summary = snapshot?.customModels?.piSdk.providers.find((p) => p.id === providerId);
     if (!summary) {
       return (

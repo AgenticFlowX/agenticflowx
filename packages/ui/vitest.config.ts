@@ -13,6 +13,12 @@ export default defineConfig({
   test: {
     name: "ui",
     environment: "jsdom",
+    execArgv: ["--no-experimental-webstorage"],
+    environmentOptions: {
+      jsdom: {
+        url: "http://localhost/",
+      },
+    },
     globals: true,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     setupFiles: ["./vitest.setup.ts"],

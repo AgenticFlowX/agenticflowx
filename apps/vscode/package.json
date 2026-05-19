@@ -578,7 +578,7 @@
     "check-types": "tsc --noEmit",
     "watch:tsc": "tsc --noEmit --watch",
     "pretest": "pnpm run prepare:pi-sdk",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "test:watch": "vitest",
     "package": "pnpm vsce package --out ../../bin/ --no-dependencies"
   },
@@ -587,14 +587,14 @@
     "@afx/parsers": "workspace:*",
     "@afx/agent-pi": "workspace:*",
     "@afx/agent-pi-sdk": "workspace:*",
-    "@types/vscode": "^1.96.0"
+    "@types/vscode": "^1.120.0"
   },
   "devDependencies": {
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.8.0",
     "@vscode/vsce": "^3.9.1",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.28.0",
     "typescript": "^5.7.2",
-    "vitest": "^2.1.9",
-    "@vitest/coverage-v8": "^2.1.9"
+    "vitest": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.6"
   }
 }

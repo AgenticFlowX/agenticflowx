@@ -7,6 +7,7 @@
  * @see docs/specs/210-app-chat/design.md [DES-DEPS]
  * @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-4] [FR-6]
  */
+/// <reference types="node" />
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

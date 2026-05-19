@@ -8,5 +8,6 @@
       "@afx/shared/*": ["packages/shared/src/*"]
     }
   },
-  "include": ["src", "../shared/src"]
+  "include": ["src", "../shared/src"],
+  "exclude": ["../shared/src/**/*.test.ts", "../shared/src/**/*.spec.ts"]
 }

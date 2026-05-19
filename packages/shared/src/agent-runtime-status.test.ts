@@ -107,6 +107,49 @@ describe("agent runtime status derivation", () => {
     expect(status.info).toMatch(/automatic retries/i);
   });
 
+  it("formats Error, string, and object failures once startup grace is exhausted", () => {
+    const base = {
+      status: { running: false, isStreaming: false },
+      now: 31_000,
+      startedAt: 0,
+    };
+
+    expect(deriveAgentRuntimeStatus({ ...base, error: new Error("boom") }).info).toBe("boom");
+    expect(deriveAgentRuntimeStatus({ ...base, error: "plain failure" }).info).toBe(
+      "plain failure",
+    );
+    expect(deriveAgentRuntimeStatus({ ...base, error: { code: "E_FAIL" } }).info).toBe(
+      '{"code":"E_FAIL"}',
+    );
+  });
+
+  it("carries forward runtime metadata from the previous status while checking", () => {
+    const previous: AgentRuntimeStatus = {
+      phase: "busy",
+      running: true,
+      isStreaming: true,
+      model: "provider:model",
+      rpcEnabled: true,
+      runtimeConfigured: true,
+      checkedAt: 1_000,
+      lastReadyAt: 1_000,
+      consecutiveFailures: 0,
+    };
+
+    const status = deriveAgentRuntimeStatus({
+      previous,
+      status: { running: false, isStreaming: false },
+      now: 2_000,
+      startedAt: 0,
+    });
+
+    expect(status.phase).toBe("checking");
+    expect(status.model).toBe("provider:model");
+    expect(status.rpcEnabled).toBe(true);
+    expect(status.runtimeConfigured).toBe(true);
+    expect(status.lastReadyAt).toBe(1_000);
+  });
+
   it("marks explicitly unconfigured runtimes without treating them as recovery failures", () => {
     const status = deriveAgentRuntimeStatus({
       status: {

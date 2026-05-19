@@ -163,6 +163,51 @@ describe("parseJournal edge cases", () => {
     expect(result.totalCount).toBe(0);
   });
 
+  it("extracts heading discussions with generated IDs and status classification", () => {
+    const raw = [
+      "## Resolved 2026-04-25T10:00:00.000Z",
+      "",
+      "Body",
+      "## Promoted: Carry forward",
+      "",
+      "2026-04-26T11:30Z",
+      "## Open follow-up",
+    ].join("\n");
+
+    const result = parseJournal(raw);
+
+    expect(result.discussions).toEqual([
+      {
+        id: "J-001",
+        timestamp: "2026-04-25T10:00:00.000Z",
+        status: "resolved",
+        summary: "Resolved 2026-04-25T10:00:00.000Z",
+        line: 1,
+      },
+      {
+        id: "J-002",
+        timestamp: "2026-04-26T11:30Z",
+        status: "promoted",
+        summary: "Promoted: Carry forward",
+        line: 4,
+      },
+      {
+        id: "J-003",
+        timestamp: "",
+        status: "open",
+        summary: "Open follow-up",
+        line: 7,
+      },
+    ]);
+  });
+
+  it("deduplicates multiple discussion IDs on the same journal line", () => {
+    const result = parseJournal("01-D001 links to 01-D002");
+
+    expect(result.discussions).toHaveLength(1);
+    expect(result.discussions[0]?.id).toBe("01-D001");
+  });
+
   it("handles discussion without timestamp on prior line", () => {
     const raw = `\n\n01-D001 some discussion`;
     const result = parseJournal(raw);

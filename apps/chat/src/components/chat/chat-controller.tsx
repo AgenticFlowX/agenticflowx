@@ -10,7 +10,6 @@ import {
   type ComponentType,
   type DependencyList,
   type Dispatch,
-  type ReactNode,
   type SetStateAction,
   useCallback,
   useEffect,
@@ -1916,4 +1915,4 @@ function useDebugQueueInjectionEffect(setQueued: Dispatch<SetStateAction<QueuedM
 }
 
 // Re-export to keep imports stable.
-export type { AgentToChat, ReactNode };
+export type { AgentToChat };

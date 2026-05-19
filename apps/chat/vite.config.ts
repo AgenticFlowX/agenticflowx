@@ -58,6 +58,9 @@ export default defineConfig({
   resolve: {
     alias: [{ find: "@", replacement: resolve(__dirname, "src") }],
   },
+  build: {
+    chunkSizeWarningLimit: 1024,
+  },
   server: {
     host: DEV_SERVER_HOST,
     cors: { origin: "*", methods: "*", allowedHeaders: "*" },

@@ -656,8 +656,8 @@ export function DebugPanel({ transport }: DebugPanelProps) {
                 </div>
               ) : (
                 <>
-                  {state.log.map((e) => (
-                    <LogRow key={e.id} entry={e} />
+                  {state.log.map((e, index) => (
+                    <LogRow key={`${e.id}:${index}`} entry={e} />
                   ))}
                   <div ref={logEndRef} />
                 </>
