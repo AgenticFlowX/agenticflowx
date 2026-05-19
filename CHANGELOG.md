@@ -2,6 +2,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.1.0] - 2026-05-20
+
+### Added
+
+- **Composer intent modes** — added parent-aware Composer Intent prompts across Code and Explore, with shared prompt copy, intent strip UI, preview affordances, host protocol updates, and unit/e2e coverage.
+- **Global mode defaults** — settings now let users choose explicit global or workspace scope for mode defaults, preserving workspace overrides while making global mode persistence the default path.
+- **Privacy documentation** — added a simplified privacy document for clearer user-facing data-handling guidance.
+
+### Changed
+
+- **Dependency and verification refresh** — upgraded outdated packages and GitHub Actions, refreshed the lockfile, restored Turbo coverage outputs, and made package test scripts emit coverage artifacts instead of leaving verification signals implicit.
+- **Screenshot verification** — added Playwright screenshot capture to the full verification path for the primary chat and workbench surfaces.
+
+### Fixed
+
+- **Mode and intent settings fallback** — automatic mode and Composer Intent saves now fall back to workspace settings when VS Code rejects a global user-settings write, keeping the sidebar controls responsive when User settings cannot be edited.
+- **Security audit cleanup** — dependency updates and overrides clear the production audit gate while keeping full verification active.
+- **Floating turn context layering** — transcript marker icons no longer render above the sticky prompt preview while long chat transcripts scroll.
+- **Chat e2e dev server port** — restored the Playwright dev-server port after the temporary port change.
+
 ## [2.0.15] - 2026-05-18
 
 ### Added
