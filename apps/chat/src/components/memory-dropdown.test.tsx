@@ -27,19 +27,17 @@ describe("MemoryDropdown", () => {
     const topRight = renderDropdown("Top-right memory");
     const topRightSnapshot = catalogSnapshot();
 
-    expect(topRightSnapshot).toMatchInlineSnapshot(`
-      [
-        "Save/afx-context saveDraft",
-        "Load/afx-context loadAuto",
-        "History/afx-context historyAuto",
-        "Impact/afx-context impactDraft",
-        "Note/afx-session noteDraft",
-        "Log/afx-session logDraft",
-        "Recap/afx-session recapAuto",
-        "Promote/afx-session promoteDraft",
-        "Capture/afx-session captureDraft",
-      ]
-    `);
+    expect(topRightSnapshot).toEqual([
+      "Save/afx-context saveDraft",
+      "Load/afx-context loadAuto",
+      "History/afx-context historyAuto",
+      "Impact/afx-context impactDraft",
+      "Note/afx-session noteDraft",
+      "Log/afx-session logDraft",
+      "Recap/afx-session recapAuto",
+      "Promote/afx-session promoteDraft",
+      "Capture/afx-session captureDraft",
+    ]);
 
     topRight.unmount();
     cleanup();

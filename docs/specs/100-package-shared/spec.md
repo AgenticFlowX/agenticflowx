@@ -3,11 +3,11 @@ afx: true
 type: SPEC
 status: Living
  owner: "@rixrix"
- version: "1.4"
+ version: "1.5"
  created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-19T14:32:26.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
-tags: [package, shared, protocol, types, agent, logging, mode, workspace-mode]
+tags: [package, shared, protocol, types, agent, logging, mode, workspace-mode, intent]
 ---
 
 # @afx/shared — Product Specification
@@ -62,6 +62,7 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 | FR-12 | Host-to-webview protocol includes `chat/activeDocContext` carrying `{ format, section, docKind, feature, approvalStatus }` plus optional focus/sign-off/status summary fields so the chat composer can render contextual doc-action, focus, sign-off, and onboarding strips                                                                       | Must Have   |
 | FR-13 | `chat/activeDocContext` carries optional `taskPhases`, `parsedFocuses`, `tasksCompleted`/`tasksTotal`, sibling `specStatus` / `designStatus` / `tasksStatus`, and `signOff: SignOffSummary` so the composer can render the FR-15 doc-actions strip, FR-16 workflow-position breadcrumb, and FR-19 brass Sign Off button without extra round-trips | Must Have   |
 | FR-14 | Chat-to-host protocol includes a `chat/hostAction` envelope for deterministic document mutations triggered from the composer; the host posts a separate inbound event (`agent/signOffComplete`) for toast/error UX rather than returning via callback envelope                                                                                    | Must Have   |
+| FR-15 | Shared Composer Intent contracts include `IntentSlot`, `ComposerIntentState`, parent-aware prompt entries, human-facing prompt-overhead copy helpers, `SettingsSnapshot.intent`, optional `intentSlot` on outbound chat turn messages, and mutations for `chat/setIntentSlot` / `chat/setIntentMinimized`                                         | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -83,6 +84,9 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 - [x] `ChatToAgent` includes a toggle mutation for the active-file context preference
 - [x] `SettingsSnapshot` includes a `mode.active` workspace posture
 - [x] `ChatToAgent` includes a toggle mutation for the workspace mode preference
+- [x] `SettingsSnapshot` includes `intent.slot` and `intent.minimized`
+- [x] `ChatToAgent` outbound turn messages can carry optional `intentSlot`
+- [x] `ChatToAgent` includes Composer Intent mutations
 
 ### Domain Types
 

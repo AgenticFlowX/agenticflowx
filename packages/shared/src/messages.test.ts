@@ -267,4 +267,24 @@ describe("chat-foundation shared protocol", () => {
       "docActionsTooltipSeen",
     ]);
   });
+
+  it("supports scoped Composer Intent settings mutations", () => {
+    const messages: ChatToAgent[] = [
+      { type: "chat/setIntentScope", requestId: "intent-global", scope: "global", slot: 2 },
+      {
+        type: "chat/setIntentScope",
+        requestId: "intent-workspace",
+        scope: "workspace",
+        slot: 4,
+        minimized: true,
+      },
+      { type: "chat/clearIntentWorkspace", requestId: "intent-clear" },
+    ];
+
+    expect(messages.map((message) => message.type)).toEqual([
+      "chat/setIntentScope",
+      "chat/setIntentScope",
+      "chat/clearIntentWorkspace",
+    ]);
+  });
 });

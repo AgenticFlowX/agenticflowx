@@ -69,24 +69,35 @@ suite("AFX Extension — activation", () => {
 
 /**
  * Workspace mode switching — covers Spec mode end-to-end through the real
- * VSCode `afx.setMode` command and the `afx.mode.active` workspace setting.
+ * VSCode `afx.setMode` command and the effective `afx.mode.active` setting.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-11]
  * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
  * @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
  */
 suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
+  let originalGlobalMode: string | undefined;
+  let originalWorkspaceMode: string | undefined;
+
   suiteSetup(async () => {
     const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
     assert.ok(ext);
     await ext.activate();
+
+    const inspected = vscode.workspace.getConfiguration("afx").inspect<string>("mode.active");
+    originalGlobalMode = inspected?.globalValue;
+    originalWorkspaceMode = inspected?.workspaceValue;
+  });
+
+  setup(async () => {
+    await resetModeToGlobalCode();
   });
 
   suiteTeardown(async () => {
-    // Restore default Code mode so the test workspace doesn't carry state.
-    await vscode.workspace
-      .getConfiguration("afx")
-      .update("mode.active", "code", vscode.ConfigurationTarget.Workspace);
+    // Restore the profile/workspace values the suite observed on entry.
+    const config = vscode.workspace.getConfiguration("afx");
+    await config.update("mode.active", originalWorkspaceMode, vscode.ConfigurationTarget.Workspace);
+    await config.update("mode.active", originalGlobalMode, vscode.ConfigurationTarget.Global);
   });
 
   test("afx.setMode is registered", async () => {
@@ -101,10 +112,24 @@ suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
     assert.ok(["code", "explore", "spec"].includes(config.get<string>("mode.active") ?? "code"));
   });
 
-  test("afx.setMode('spec') persists 'spec' to mode.active at workspace scope", async () => {
+  test("afx.setMode('spec') persists 'spec' globally when no workspace override exists", async () => {
     await vscode.commands.executeCommand("afx.setMode", "spec");
+    const inspected = vscode.workspace.getConfiguration("afx").inspect<string>("mode.active");
     const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active");
     assert.strictEqual(value, "spec", `expected 'spec', got '${value}'`);
+    assert.strictEqual(inspected?.globalValue, "spec");
+    assert.strictEqual(inspected?.workspaceValue, undefined);
+  });
+
+  test("afx.setMode preserves an existing workspace mode override", async () => {
+    const config = vscode.workspace.getConfiguration("afx");
+    await config.update("mode.active", "code", vscode.ConfigurationTarget.Workspace);
+
+    await vscode.commands.executeCommand("afx.setMode", "explore");
+    const inspected = vscode.workspace.getConfiguration("afx").inspect<string>("mode.active");
+    const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active");
+    assert.strictEqual(value, "explore");
+    assert.strictEqual(inspected?.workspaceValue, "explore");
   });
 
   test("afx.setMode('code') clears spec posture and restores default", async () => {
@@ -121,3 +146,9 @@ suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
     assert.strictEqual(value, "explore");
   });
 });
+
+async function resetModeToGlobalCode(): Promise<void> {
+  const config = vscode.workspace.getConfiguration("afx");
+  await config.update("mode.active", undefined, vscode.ConfigurationTarget.Workspace);
+  await config.update("mode.active", "code", vscode.ConfigurationTarget.Global);
+}

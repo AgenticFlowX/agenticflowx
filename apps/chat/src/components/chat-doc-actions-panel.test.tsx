@@ -1050,9 +1050,11 @@ describe("ChatDocActionsPanelBody", () => {
     // Spec stepper stays document-focused; chat actions live elsewhere.
     expect(screen.queryByTestId("spec-stepper-segment-code")).not.toBeInTheDocument();
     expect(screen.queryByTestId("spec-stepper-resume")).not.toBeInTheDocument();
-    // Tier-2 renders actual sibling targets only; no orphan "Related" label.
     expect(screen.queryByText("Related")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Journal")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Journal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-intent-label")).toHaveTextContent(
+      "Design — shape architecture and tradeoffs.",
+    );
   });
 
   it("renders task progress (N/M) on the Tasks pill when tasks counters are known", () => {

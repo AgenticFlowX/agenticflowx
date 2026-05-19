@@ -872,7 +872,7 @@ status: Approved
     });
   });
 
-  it("populates standard tasks.md sectionOffsets.sessions for the Work Sessions chip", () => {
+  it("populates standard tasks.md sectionOffsets.sessions for the Work pill", () => {
     setupWith(fakeEditor("/repo/docs/specs/auth/tasks.md", SIGN_OFF_READY_TASKS));
     const ctx = docContexts.at(-1);
     // SIGN_OFF_READY_TASKS embeds a `## Work Sessions` heading — the helper
@@ -1056,7 +1056,7 @@ status: Approved
 
   // Sprint single-file SESSIONS cursor (FR-17)
   // @see docs/specs/211-app-chat-composer/spec.md [FR-17]
-  it("rolls SESSIONS cursor up to TASKS so the spec stepper stays visible in sprint files", () => {
+  it("keeps SESSIONS cursor distinct so the spec stepper can highlight Work", () => {
     const sprintWithSessions = [
       "---",
       "afx: true",
@@ -1088,13 +1088,12 @@ status: Approved
       "",
     ].join("\n");
 
-    // Cursor at line 25 sits inside the SESSIONS slice. Without the rollup,
-    // docKind would be null and the chat strip would disappear; with the
-    // rollup, the strip + stepper stays visible with Tasks as the active key.
+    // Cursor at line 25 sits inside the SESSIONS slice. The chat strip stays
+    // visible with tasks commands, while the stepper can highlight Work.
     setupWith(fakeEditor("/repo/docs/specs/foo/foo.md", sprintWithSessions, 25));
     expect(docContexts.at(-1)).toMatchObject({
       format: "sprint",
-      section: "TASKS",
+      section: "SESSIONS",
       docKind: "tasks",
     });
   });

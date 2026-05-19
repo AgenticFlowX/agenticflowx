@@ -9,14 +9,22 @@
  */
 import type { ReactNode } from "react";
 
-import { AlertTriangle, Copy, CornerDownLeft, Trash2, X, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  CornerDownLeft,
+  Info,
+  Lightbulb,
+  Newspaper,
+  Trash2,
+  X,
+  Zap,
+} from "lucide-react";
 
 import type { WorkspaceMode } from "@afx/shared";
 import { Button } from "@afx/ui/components/button";
 import { cn } from "@afx/ui/lib/utils";
-
-import { type ActiveDocCtx, describeDoc, resolveDocActions } from "../../lib/doc-actions";
-import { docKindVisual } from "../chat-doc-kind-visual";
 
 export interface QueuedMessage {
   id: string;
@@ -24,6 +32,21 @@ export interface QueuedMessage {
   mode: "followUp" | "steer";
   sentAt: number;
 }
+
+export type ComposerNoticeKind = "tip" | "info" | "alert" | "news" | "success";
+
+export interface ComposerNoticePanelBodyProps {
+  kind?: ComposerNoticeKind;
+  children?: ReactNode;
+}
+
+const COMPOSER_NOTICE_VARIANTS = {
+  tip: { label: "Tip", Icon: Lightbulb, className: "text-afx-brand-soft" },
+  info: { label: "Info", Icon: Info, className: "text-muted-foreground" },
+  alert: { label: "Alert", Icon: AlertTriangle, className: "text-amber-500" },
+  news: { label: "News", Icon: Newspaper, className: "text-afx-brand-soft" },
+  success: { label: "Done", Icon: CheckCircle2, className: "text-emerald-500" },
+} satisfies Record<ComposerNoticeKind, { label: string; Icon: typeof Info; className: string }>;
 
 /** Host-blocked shell command surfaced when Explore mode rejects a runCommand. */
 export interface BlockedActionView {
@@ -139,67 +162,30 @@ export function BlockedCommandPanelBody({
 }
 
 /**
- * Header title for the mode-suggest panel — uses doc icon + detected file label.
+ * Generic notice body for low-noise tips, information, alerts, news, and success
+ * messages mounted inside standard `ComposerPanel` chrome.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-16]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-NOTICE-PANEL]
  */
-export function ModeSuggestPanelTitle({ docContext }: { docContext: ActiveDocCtx }) {
-  if (!docContext.docKind) return null;
-  const detected = docContext.format === "sprint" ? "Sprint" : "AFX";
-  const docLabelHint = describeDoc(docContext);
-  const { icon: DocIcon, accent } = docKindVisual(docContext.docKind);
+export function ComposerNoticePanelBody({ kind = "info", children }: ComposerNoticePanelBodyProps) {
+  const variant = COMPOSER_NOTICE_VARIANTS[kind];
+  const Icon = variant.Icon;
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <DocIcon size={11} className={cn("shrink-0", accent)} aria-hidden />
-      <span>
-        {detected} file detected (<span className="font-mono">{docLabelHint}</span>)
-      </span>
-    </span>
-  );
-}
-
-/**
- * Body for the mode-suggest panel — explanatory copy + quick-glance action pills.
- *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-15]
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- */
-export function ModeSuggestPanelBody({ docContext }: { docContext: ActiveDocCtx }) {
-  const actions = resolveDocActions(docContext).slice(0, 5);
-  return (
-    <>
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Switching unlocks targeted actions for this file. Spec mode stays focused on specs and docs
-        instead of source edits.
-      </p>
-      {actions.length > 0 ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {actions.map((action) => (
-            <span
-              key={action.command}
-              className="inline-flex items-center gap-1 rounded-sm border border-afx-brand-soft/30 bg-afx-brand-soft/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-afx-brand-soft"
-            >
-              {action.autoSend ? <Zap size={10} className="shrink-0 text-amber-500" /> : null}
-              {action.label}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </>
-  );
-}
-
-/**
- * Body for the AFX-command-suggest panel.
- *
- * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
- */
-export function AfxCommandSuggestPanelBody() {
-  return (
-    <p className="text-[11px] leading-relaxed text-muted-foreground">
-      That command worked here. Switch to Spec mode for the action rail, stage tracker, and approval
-      workflow.
-    </p>
+    <div className="flex items-start gap-2 text-[11px] leading-relaxed text-muted-foreground">
+      <Icon size={12} className={cn("mt-0.5 shrink-0", variant.className)} aria-hidden="true" />
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "font-mono text-[10px] font-semibold uppercase tracking-[0.14em]",
+            variant.className,
+          )}
+        >
+          {variant.label}
+        </p>
+        {children ? <div className="mt-0.5">{children}</div> : null}
+      </div>
+    </div>
   );
 }
 

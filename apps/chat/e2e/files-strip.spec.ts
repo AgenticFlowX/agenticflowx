@@ -20,7 +20,7 @@ async function fireScenario(page: Page, label: string): Promise<void> {
 }
 
 function modifiedPanelHeader(page: Page) {
-  return page.locator("#composer-panel-modified");
+  return page.locator("#composer-panel-modified-files");
 }
 
 function modifiedFilePills(page: Page) {

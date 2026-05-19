@@ -22,6 +22,7 @@ import type {
   CustomProviderSummary,
   HarnessId,
 } from "./custom-providers";
+import type { ComposerIntentState, IntentSlot } from "./intent";
 import type { WorkspaceMode } from "./types";
 import type { FocusOption, PhaseRow, SignOffSummary } from "./workbench-types";
 
@@ -239,6 +240,21 @@ export interface SettingsModeSnapshot {
 }
 
 /**
+ * Composer Intent settings mirrored between Settings, the composer strip, and
+ * the host prompt-composition path.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-4]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-3] [FR-11]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+ */
+export interface SettingsIntentSnapshot {
+  effective: ComposerIntentState;
+  global: ComposerIntentState;
+  workspace?: Partial<ComposerIntentState>;
+  hasWorkspaceOverride: boolean;
+}
+
+/**
  * One-time onboarding dismissal flags. Persisted in `ExtensionContext.workspaceState`.
  *
  * @see docs/specs/100-package-shared/spec.md [FR-12]
@@ -261,7 +277,7 @@ export interface ActiveFileContextSnapshot {
 }
 
 export type ActiveDocFormat = "sprint" | "standard" | null;
-export type ActiveDocSection = "SPEC" | "DESIGN" | "TASKS" | null;
+export type ActiveDocSection = "SPEC" | "DESIGN" | "TASKS" | "SESSIONS" | null;
 export type ActiveDocKind =
   | "spec"
   | "design"
@@ -298,7 +314,7 @@ export interface ActiveDocContextSnapshot {
   /**
    * Row counts for the `## Work Sessions` table inside `tasks.md` (or the
    * `## SESSIONS` slice of a sprint file). Powers the spec stepper's
-   * `Work Sessions n/m` chip — `n` is the number of rows whose Human cell is
+   * `Work n/m` segment — `n` is the number of rows whose Human cell is
    * ticked, `m` is the total row count. Distinct from `tasksCompleted/Total`
    * which counts body checkbox tasks, not session log entries.
    *
@@ -381,6 +397,7 @@ export interface SettingsSnapshot {
   sdk?: SettingsSdkSnapshot;
   context: SettingsContextSnapshot;
   mode: SettingsModeSnapshot;
+  intent: SettingsIntentSnapshot;
   /**
    * Optional — older transports / mock fixtures may omit this. Webview consumers
    * default missing flags to `false` (offer/tooltip not yet dismissed).
@@ -431,7 +448,13 @@ export type ChatToAgent =
    * @see docs/specs/211-app-chat-composer/spec.md [FR-1]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
-  | { type: "chat/send"; requestId: string; content: string; mentions?: string[] }
+  | {
+      type: "chat/send";
+      requestId: string;
+      content: string;
+      mentions?: string[];
+      intentSlot?: IntentSlot;
+    }
   /**
    * User clicked a pill in the composer's modified-files strip. The host opens the
    * file in the editor via `vscode.window.showTextDocument`. Relative paths are
@@ -519,6 +542,22 @@ export type ChatToAgent =
    * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
    */
   | { type: "chat/setMode"; requestId: string; mode: WorkspaceMode }
+  /**
+   * Composer Intent setting changes.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-6] [FR-11]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   */
+  | { type: "chat/setIntentSlot"; requestId: string; slot: IntentSlot }
+  | { type: "chat/setIntentMinimized"; requestId: string; minimized: boolean }
+  | {
+      type: "chat/setIntentScope";
+      requestId: string;
+      scope: "global" | "workspace";
+      slot?: IntentSlot;
+      minimized?: boolean;
+    }
+  | { type: "chat/clearIntentWorkspace"; requestId: string }
   /**
    * Persist a one-time onboarding dismissal (mode-suggest strip, tooltips) to
    * `ExtensionContext.workspaceState`.
@@ -630,7 +669,9 @@ export type ChatToAgent =
         | "afx.logLevel"
         | "afx.theme"
         | "afx.style"
-        | "afx.telemetry.enabled";
+        | "afx.telemetry.enabled"
+        | "afx.composer.intent.slot"
+        | "afx.composer.intent.minimized";
     }
   /**
    * Telemetry consent toggle.
@@ -716,14 +757,26 @@ export type ChatToAgent =
    * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
-  | { type: "chat/steer"; requestId: string; content: string; mentions?: string[] }
+  | {
+      type: "chat/steer";
+      requestId: string;
+      content: string;
+      mentions?: string[];
+      intentSlot?: IntentSlot;
+    }
   /**
    * Queue a message for after the active turn completes.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-4]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
-  | { type: "chat/followUp"; requestId: string; content: string; mentions?: string[] }
+  | {
+      type: "chat/followUp";
+      requestId: string;
+      content: string;
+      mentions?: string[];
+      intentSlot?: IntentSlot;
+    }
   /**
    * User saved the composer draft as a note (Cmd+Enter). Host writes to .afx/notes.md.
    *

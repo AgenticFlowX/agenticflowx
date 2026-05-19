@@ -1167,17 +1167,18 @@ function SignOffActionButton({
 
 /**
  * Spec-stepper segment shape — derived client-side from
- * `ctx.{specStatus, designStatus, tasksStatus, tasksCompleted, tasksTotal}`
- * so the stepper renders `[1 Spec] [2 Design] [3 Tasks 3/8]` without an
- * extra bridge call. The terminal `Code` pseudo-segment was dropped — the
- * action row already covers the implementation phase via Code/Verify/Pick.
+ * `ctx.{specStatus, designStatus, tasksStatus, tasksCompleted, tasksTotal,
+ * workSessionsSigned, workSessionsTotal}` so the stepper renders
+ * `[1 Spec] [2 Design] [3 Tasks 3/8] [4 Work 1/2]` without an extra bridge
+ * call. The terminal `Code` pseudo-segment was dropped — the action row
+ * already covers implementation commands via Code/Verify/Pick.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 type BreadcrumbSegment = {
-  key: "spec" | "design" | "tasks";
-  label: "Spec" | "Design" | "Tasks";
+  key: "spec" | "design" | "tasks" | "work";
+  label: "Spec" | "Design" | "Tasks" | "Work";
   glyph: string;
   status: "approved" | "draft" | "blocked" | "progress" | "pending";
   hint: string;
@@ -1202,6 +1203,17 @@ function buildBreadcrumbSegments(ctx: ActiveDocCtx): BreadcrumbSegment[] {
     ctx.tasksTotal > 0
       ? `${ctx.tasksCompleted}/${ctx.tasksTotal}`
       : null;
+  const workProgressGlyph =
+    typeof ctx.workSessionsSigned === "number" &&
+    typeof ctx.workSessionsTotal === "number" &&
+    ctx.workSessionsTotal > 0
+      ? `${ctx.workSessionsSigned}/${ctx.workSessionsTotal}`
+      : null;
+  const workComplete =
+    typeof ctx.workSessionsSigned === "number" &&
+    typeof ctx.workSessionsTotal === "number" &&
+    ctx.workSessionsTotal > 0 &&
+    ctx.workSessionsSigned >= ctx.workSessionsTotal;
 
   return [
     {
@@ -1227,14 +1239,24 @@ function buildBreadcrumbSegments(ctx: ActiveDocCtx): BreadcrumbSegment[] {
         ? `Tasks: ${taskProgressGlyph} done`
         : hintForSegment("Tasks", ctx.tasksStatus),
     },
+    {
+      key: "work",
+      label: "Work",
+      glyph: workProgressGlyph ?? "",
+      status: workProgressGlyph ? (workComplete ? "approved" : "progress") : "pending",
+      hint: workProgressGlyph
+        ? `Work Sessions: ${workProgressGlyph} signed`
+        : "Work Sessions: no rows yet",
+    },
   ];
 }
 
 /**
  * Map the active doc context to which spec-stepper segment should carry the
  * ring halo. Sprint files use the in-file `section` (`SPEC` / `DESIGN` /
- * `TASKS`); standard 4-file mode uses `docKind`. Journal active returns null
- * so the stepper stays "no main step active" and the tier-2 chip lights up.
+ * `TASKS` / `SESSIONS`); standard 4-file mode uses `docKind`. Journal active
+ * returns null so the stepper stays "no main step active" while the Spec-mode
+ * label names the journal context.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
  */
@@ -1243,6 +1265,7 @@ function resolveActiveStepperKey(ctx: ActiveDocCtx): SpecStepperSegmentKey | nul
     if (ctx.section === "SPEC") return "spec";
     if (ctx.section === "DESIGN") return "design";
     if (ctx.section === "TASKS") return "tasks";
+    if (ctx.section === "SESSIONS") return "work";
     return null;
   }
   if (ctx.docKind === "spec" || ctx.docKind === "design" || ctx.docKind === "tasks") {
@@ -1261,7 +1284,7 @@ function mapApprovalStatus(raw: string | null | undefined): BreadcrumbSegment["s
 }
 
 function hintForSegment(
-  label: "Spec" | "Design" | "Tasks",
+  label: "Spec" | "Design" | "Tasks" | "Work",
   raw: string | null | undefined,
 ): string {
   if (!raw) return `${label}: not started`;

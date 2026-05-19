@@ -15,7 +15,7 @@ import { type AfxCommandFamily, findSupportedAfxCommand } from "./command-catalo
 
 export type ActiveDocCtx = {
   format: "sprint" | "standard" | null;
-  section: "SPEC" | "DESIGN" | "TASKS" | null;
+  section: "SPEC" | "DESIGN" | "TASKS" | "SESSIONS" | null;
   docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
   feature: string | null;
   filePath?: string | null;
@@ -30,7 +30,7 @@ export type ActiveDocCtx = {
   tasksTotal?: number;
   /**
    * Counts for the `## Work Sessions` table — `signed/total` rows. Powers the
-   * spec stepper's tier-2 Work Sessions chip label.
+   * spec stepper's fourth Work pill label.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
    */
@@ -368,8 +368,7 @@ export function resolveDocActions(docContext: ActiveDocCtx): DocAction[] {
 }
 
 /**
- * Friendly label for the active AFX doc — used as the strip title and in the
- * mode-suggest hint.
+ * Friendly label for the active AFX doc — used as the doc-actions panel title.
  *
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */

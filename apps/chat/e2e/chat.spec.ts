@@ -45,10 +45,54 @@ test("componentized chat shell exposes composer and top-bar actions", async ({ p
     "afx-chat-composer-hint",
   );
   await expect(page.getByRole("button", { name: "Mention file" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Attach file or image" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Attach file or image" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "New session" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Compact session" })).toBeVisible();
   await expect(page.getByRole("log")).toHaveCount(0);
+});
+
+test("Composer Intent strip exposes slots and prompt preview", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByTestId("intent-strip")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Default Intent" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
+  await page.getByRole("button", { name: "Ask Intent" }).click();
+  await expect(page.getByRole("button", { name: "Ask Intent" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(page.getByTestId("intent-tagline")).toContainText("Ask");
+
+  await page.getByRole("button", { name: "Preview injected prompt for Ask" }).click();
+  await expect(page.getByText(/Mode: Ask/)).toBeVisible();
+  await expect(
+    page.getByText("Short intent guidance - about 26 tokens", { exact: true }),
+  ).toBeVisible();
+});
+
+test("doc-actions force the Intent panel into compact header-only mode", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByTestId("intent-strip")).toBeVisible();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Sprint actions" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+
+  await expect(page.getByRole("region", { name: /Intent/i })).toBeVisible();
+  await expect(page.getByTestId("intent-strip")).toBeHidden();
+  await expect(page.getByTestId("spec-stepper")).toBeVisible();
+  await expect(page.getByText(/Sprint file detected|AFX file detected/)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Switch to Spec" })).toBeVisible();
+  await page.getByRole("button", { name: /Switch Intent\. Current:/ }).click();
+  await page.getByRole("menuitemradio", { name: /Architect/ }).click();
+  await expect(
+    page.getByRole("button", { name: "Switch Intent. Current: Architect" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: /Expand Intent|Minimize Intent/ })).toHaveCount(0);
 });
 
 test("componentized chat shell remains usable at narrow viewport", async ({ page }) => {
@@ -57,7 +101,7 @@ test("componentized chat shell remains usable at narrow viewport", async ({ page
 
   await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Chat composer" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Attach file or image" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Attach file or image" })).toHaveCount(0);
   await expect(page.getByText(/Planning a new feature/i)).toBeVisible();
 });
 
@@ -83,6 +127,19 @@ test("Settings exposes runtime instance cards and RPC toggle", async ({ page }) 
   await expect(page.getByRole("switch", { name: "Enable Pi RPC" })).toBeVisible();
   // Behaviour card is always visible below the instance cards
   await expect(page.getByText("Thinking level")).toBeVisible();
+});
+
+test("Settings exposes Composer Intent defaults and scope controls", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Workspace", exact: true }).click();
+
+  await expect(page.getByText("Composer Intent")).toBeVisible();
+  await expect(page.getByText(/Default thinking style for the next turn/)).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Ask/ })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Minimize Intent strip" })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /Global default/ })).toBeVisible();
+  await expect(page.getByRole("radio", { name: /This workspace/ })).toBeVisible();
 });
 
 test("active tab has visible ::after strip indicator", async ({ page }) => {

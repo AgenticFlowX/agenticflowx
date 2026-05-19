@@ -14,6 +14,11 @@ describe("composeSettingsSnapshot", () => {
       },
       context: { includeActiveFileContext: true },
       mode: { active: "code" },
+      intent: {
+        effective: { slot: 1, minimized: false },
+        global: { slot: 1, minimized: false },
+        hasWorkspaceOverride: false,
+      },
       providers: expect.arrayContaining([
         expect.objectContaining({ id: "anthropic", state: "empty" }),
         expect.objectContaining({ id: "minimax", state: "empty" }),
@@ -100,6 +105,14 @@ describe("composeSettingsSnapshot", () => {
   it("defaults the workspace mode to Code and allows overriding it", () => {
     expect(composeSettingsSnapshot({}).mode).toEqual({ active: "code" });
     expect(composeSettingsSnapshot({ mode: "explore" }).mode).toEqual({ active: "explore" });
+  });
+
+  it("mirrors Composer Intent into effective and global settings defaults", () => {
+    expect(composeSettingsSnapshot({ intentSlot: 4, intentMinimized: true }).intent).toEqual({
+      effective: { slot: 4, minimized: true },
+      global: { slot: 4, minimized: true },
+      hasWorkspaceOverride: false,
+    });
   });
 
   it("marks telemetry ineffective when VS Code telemetry is disabled", () => {

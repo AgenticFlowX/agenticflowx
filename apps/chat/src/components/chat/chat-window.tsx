@@ -457,16 +457,6 @@ export function ChatWindow({
     controller.bridge.send({ type: "chat/listFiles", requestId: createChatUid(), limit: 200 });
   }, [controller.bridge, draft.length]);
 
-  /**
-   * Reserved attachment trigger. Until picker behavior lands, it restores
-   * composer focus without changing state.
-   *
-   * @see docs/specs/216-app-chat-window-componentization/design.md [DES-DATA] [DES-FILES]
-   */
-  const openAttachmentPicker = useStableCallback(() => {
-    focusComposer();
-  });
-
   // Wrappers that fold composerLocal into action calls (stable identity).
   const handleAbortClick = useStableCallback(() => {
     if (!derived.isStreaming) return;
@@ -639,7 +629,6 @@ export function ChatWindow({
                 activeFileDisplayPath={slices.composer.activeFileDisplayPath}
                 customProviderLabels={slices.composer.customProviderLabels}
                 onOpenMentionPicker={openMentionPicker}
-                onOpenAttachmentPicker={openAttachmentPicker}
                 onSelectModel={handleSelectModel}
                 onSelectThinkingLevel={actions.setThinkingLevel}
                 onOpenSettings={onOpenSettings}
@@ -670,6 +659,7 @@ export function ChatWindow({
             onPiWarningClick={slices.footer.onPiWarningClick}
             isSystemCommand={isSystemCommand}
             workspaceMode={slices.footer.workspaceMode}
+            intentLabel={slices.footer.intentLabel}
           />
         </ComposerDock>
       ) : null}

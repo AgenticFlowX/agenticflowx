@@ -9,12 +9,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { type ActiveDocCtx, EMPTY_DOC_CTX } from "../../lib/doc-actions";
 import {
-  AfxCommandSuggestPanelBody,
   BlockedCommandPanelBody,
-  ModeSuggestPanelBody,
-  ModeSuggestPanelTitle,
+  ComposerNoticePanelBody,
   QueueClearAllAction,
   QueuePanel,
 } from "./composer-panels";
@@ -65,35 +62,23 @@ describe("composer panel bodies", () => {
     expect(onCopyCommand).toHaveBeenCalledTimes(1);
   });
 
-  it("mode-suggest title is empty when no doc kind is active", () => {
-    const { container } = render(<ModeSuggestPanelTitle docContext={EMPTY_DOC_CTX} />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("mode-suggest body renders explanation copy", () => {
-    render(<ModeSuggestPanelBody docContext={EMPTY_DOC_CTX} />);
-    expect(screen.getByText(/Switching unlocks targeted actions/)).toBeInTheDocument();
-  });
-
-  it("mode-suggest body does not expose editor-menu implementation hints", () => {
-    const docContext: ActiveDocCtx = {
-      ...EMPTY_DOC_CTX,
-      format: "sprint",
-      section: "SPEC",
-      docKind: "spec",
-      feature: "postgresql-marketplace-backend-rewrite",
-      filePath: "/repo/docs/specs/postgresql-marketplace-backend-rewrite.md",
-      approvalStatus: "Draft",
-    };
-
-    render(<ModeSuggestPanelBody docContext={docContext} />);
-
-    expect(screen.getByText("Refine")).toBeInTheDocument();
-    expect(screen.queryByText(/editor menu/i)).not.toBeInTheDocument();
-  });
-
-  it("afx-command-suggest body renders the explanatory copy", () => {
-    render(<AfxCommandSuggestPanelBody />);
+  it("notice body renders reusable product guidance", () => {
+    render(
+      <ComposerNoticePanelBody kind="tip">
+        That command worked here. Switch to Spec mode for the action rail.
+      </ComposerNoticePanelBody>,
+    );
+    expect(screen.getByText("Tip")).toBeInTheDocument();
     expect(screen.getByText(/That command worked here/)).toBeInTheDocument();
+  });
+
+  it("notice body supports alert styling copy without custom panel chrome", () => {
+    render(
+      <ComposerNoticePanelBody kind="alert">
+        Attachment support is unavailable in this build.
+      </ComposerNoticePanelBody>,
+    );
+    expect(screen.getByText("Alert")).toBeInTheDocument();
+    expect(screen.getByText(/Attachment support is unavailable/)).toBeInTheDocument();
   });
 });

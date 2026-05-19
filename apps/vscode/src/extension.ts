@@ -24,10 +24,14 @@ import {
   type AgentEventListener,
   type AgentStatus,
   type Disposable,
+  type IntentSlot,
   type LogLevel,
   type Logger,
   type WorkspaceMode,
   createLogger,
+  formatIntentTokenEstimate,
+  getIntentPrompt,
+  normalizeIntentSlot,
   onErrorAutoShowSink,
   outputChannelSink,
 } from "@afx/shared";
@@ -297,6 +301,12 @@ export async function activate(
         void sidebarProvider?.refreshRuntimeConfiguration();
         refreshStatusBarMode();
       }
+      if (
+        e.affectsConfiguration("afx.composer.intent.slot") ||
+        e.affectsConfiguration("afx.composer.intent.minimized")
+      ) {
+        void sidebarProvider?.refreshRuntimeConfiguration();
+      }
       if (RUNTIME_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {
         void scheduleAgentRuntimeRebuild("configuration changed");
       }
@@ -393,7 +403,24 @@ export async function activate(
       if (!nextMode || nextMode === currentMode) return;
       await vscode.workspace
         .getConfiguration("afx")
-        .update("mode.active", nextMode, vscode.ConfigurationTarget.Workspace);
+        .update("mode.active", nextMode, configurationTargetFor("mode.active"));
+    }),
+    // @see docs/specs/211-app-chat-composer/spec.md [FR-20]
+    // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+    vscode.commands.registerCommand("afx.setIntent", async (slot?: IntentSlot) => {
+      const cfg = vscode.workspace.getConfiguration("afx");
+      const mode = normalizeWorkspaceMode(cfg.get<string>("mode.active", "code"));
+      if (mode === "spec") {
+        vscode.window.showInformationMessage(
+          "AgenticFlowX: Intent is available in Code and Explore modes.",
+        );
+        return;
+      }
+      const currentSlot = normalizeIntentSlot(cfg.get<number>("composer.intent.slot", 1));
+      const nextSlot = slot ?? (await pickComposerIntent(mode, currentSlot));
+      if (!nextSlot || nextSlot === currentSlot) return;
+      const target = configurationTargetFor("composer.intent.slot");
+      await cfg.update("composer.intent.slot", nextSlot, target);
     }),
     // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand(
@@ -632,6 +659,36 @@ async function pickWorkspaceMode(current: WorkspaceMode): Promise<WorkspaceMode 
     },
   );
   return selected?.value ?? current;
+}
+
+async function pickComposerIntent(
+  mode: Extract<WorkspaceMode, "code" | "explore">,
+  current: IntentSlot,
+): Promise<IntentSlot | undefined> {
+  const selected = await vscode.window.showQuickPick(
+    ([1, 2, 3, 4] as const).map((slot) => {
+      const intent = getIntentPrompt(mode, slot);
+      return {
+        label: `${slot === current ? "$(circle-filled)" : "$(circle-outline)"} ${intent.label}`,
+        description: formatIntentTokenEstimate(intent.estimatedTokens),
+        detail: intent.description,
+        value: slot,
+      };
+    }),
+    {
+      title: "AFX: Switch Composer Intent",
+      placeHolder: `Current: ${getIntentPrompt(mode, current).label}`,
+      ignoreFocusOut: true,
+    },
+  );
+  return selected?.value ?? current;
+}
+
+function configurationTargetFor(key: string): vscode.ConfigurationTarget {
+  const inspected = vscode.workspace.getConfiguration("afx").inspect(key);
+  return inspected?.workspaceValue === undefined
+    ? vscode.ConfigurationTarget.Global
+    : vscode.ConfigurationTarget.Workspace;
 }
 
 // @see docs/specs/100-package-shared/spec.md [FR-11]

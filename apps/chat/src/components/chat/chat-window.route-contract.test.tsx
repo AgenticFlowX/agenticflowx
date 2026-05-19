@@ -30,10 +30,10 @@ describe("Chat route contract", () => {
     expect(screen.getByPlaceholderText(/Ask AFX about this workspace/i)).toBeInTheDocument();
   });
 
-  it("wires reserved attachment action and composer hint accessibility through the shell", () => {
+  it("hides unavailable attachment action and wires composer hint accessibility through the shell", () => {
     renderWindow();
 
-    expect(screen.getByRole("button", { name: "Attach file or image" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Attach file or image" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Chat composer" })).toHaveAttribute(
       "aria-describedby",
       "afx-chat-composer-hint",

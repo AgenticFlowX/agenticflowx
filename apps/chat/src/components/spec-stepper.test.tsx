@@ -1,6 +1,6 @@
 /**
  * SpecStepper unit tests — pill rendering, click → openFile dispatch, sprint
- * vs standard mode, disabled-pill behavior, and the tier-2 sibling chips.
+ * vs standard mode, disabled-pill behavior, and the active SDD intent label.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
@@ -14,9 +14,10 @@ import { SpecStepper, type SpecStepperSegment, type SpecStepperSegmentKey } from
 function segments(
   overrides: Partial<Record<SpecStepperSegmentKey, Partial<SpecStepperSegment>>> = {},
 ): SpecStepperSegment[] {
-  return (["spec", "design", "tasks"] as const).map<SpecStepperSegment>((key) => ({
+  return (["spec", "design", "tasks", "work"] as const).map<SpecStepperSegment>((key) => ({
     key,
-    label: key === "spec" ? "Spec" : key === "design" ? "Design" : "Tasks",
+    label:
+      key === "spec" ? "Spec" : key === "design" ? "Design" : key === "tasks" ? "Tasks" : "Work",
     glyph: "·",
     status: "pending",
     hint: `${key}: not started`,
@@ -25,7 +26,7 @@ function segments(
 }
 
 describe("SpecStepper", () => {
-  it("renders three pills with numbered labels and predictable tier-2 chips", () => {
+  it("renders four pills with numbered labels and the SDD intent label", () => {
     render(
       <SpecStepper
         segments={segments({
@@ -50,6 +51,7 @@ describe("SpecStepper", () => {
     );
     expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveTextContent("1Spec");
     expect(screen.getByTestId("spec-stepper-segment-design")).toHaveTextContent("2Design");
+    expect(screen.getByTestId("spec-stepper-segment-work")).toHaveTextContent("4Work");
     expect(screen.getByTestId("spec-stepper-segment-design")).not.toHaveTextContent("Draft");
     expect(screen.getByTestId("spec-stepper-segment-spec")).not.toHaveTextContent("Approved");
     expect(screen.getByTestId("spec-stepper-segment-design")).not.toHaveTextContent("…");
@@ -61,19 +63,11 @@ describe("SpecStepper", () => {
     expect(screen.queryByTestId("spec-stepper-segment-code")).not.toBeInTheDocument();
     // Resume button is gone too.
     expect(screen.queryByTestId("spec-stepper-resume")).not.toBeInTheDocument();
-    // Tier-2 renders only actionable sibling chips — no orphan "Related" label.
     expect(screen.queryByText("Related")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Journal")).toHaveClass("inline-flex");
-    expect(screen.getByLabelText("Work Sessions")).toHaveClass(
-      "hidden",
-      "@[430px]:inline-flex",
-      "whitespace-nowrap",
-    );
-    expect(screen.getByTestId("spec-stepper-related-row")).toHaveClass(
-      "hidden",
-      "@[220px]:flex",
-      "overflow-hidden",
-      "whitespace-nowrap",
+    expect(screen.queryByLabelText("Journal")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Work Sessions")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-intent-label")).toHaveTextContent(
+      "Design — shape architecture and tradeoffs.",
     );
   });
 
@@ -226,13 +220,14 @@ describe("SpecStepper", () => {
     expect(onOpenFile).toHaveBeenCalledWith("C:\\work\\docs\\specs\\auth\\design.md", undefined);
   });
 
-  it("tasks 'in progress' pill renders the n/m glyph and triggers a gradient connector", () => {
+  it("tasks and work progress pills render n/m glyphs with four total segments", () => {
     render(
       <SpecStepper
         segments={segments({
           spec: { status: "approved", glyph: "✓" },
           design: { status: "approved", glyph: "✓" },
           tasks: { status: "progress", glyph: "3/8" },
+          work: { status: "progress", glyph: "4/6" },
         })}
         active="tasks"
         format="standard"
@@ -249,14 +244,13 @@ describe("SpecStepper", () => {
 
     const tasksPill = screen.getByTestId("spec-stepper-segment-tasks");
     expect(tasksPill).toHaveTextContent("3/8");
-    // With 3 segments now, connectors only sit BETWEEN steps (count = 2).
-    // The tasks pill is the last one — there's no outgoing connector to
-    // assert gradient on. Confirm the count instead.
+    const workPill = screen.getByTestId("spec-stepper-segment-work");
+    expect(workPill).toHaveTextContent("4/6");
     const connectors = screen.getAllByTestId("spec-stepper-connector");
-    expect(connectors).toHaveLength(2);
+    expect(connectors).toHaveLength(3);
   });
 
-  it("journalActive lights up the Journal chip and never marks a main pill active", () => {
+  it("journalActive renders a Journal label and never marks a main pill active", () => {
     render(
       <SpecStepper
         segments={segments({
@@ -277,11 +271,13 @@ describe("SpecStepper", () => {
       />,
     );
 
-    expect(screen.getByTestId("spec-stepper-journal")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("spec-stepper-intent-label")).toHaveTextContent(
+      "Journal — capture notes and decisions.",
+    );
     expect(screen.getByTestId("spec-stepper-segment-spec")).toHaveAttribute("data-active", "false");
   });
 
-  it("sprint mode keeps Journal available and opens Work Sessions in-file", () => {
+  it("sprint mode renders Work as the fourth step", () => {
     render(
       <SpecStepper
         segments={segments({ spec: { status: "approved", glyph: "✓" } })}
@@ -293,45 +289,27 @@ describe("SpecStepper", () => {
       />,
     );
 
-    expect(screen.getByTestId("spec-stepper-journal")).toBeInTheDocument();
-    expect(screen.getByTestId("spec-stepper-sessions")).toBeInTheDocument();
+    expect(screen.queryByTestId("spec-stepper-journal")).not.toBeInTheDocument();
+    expect(screen.getByTestId("spec-stepper-segment-work")).toBeInTheDocument();
+    expect(screen.queryByTestId("spec-stepper-sessions")).not.toBeInTheDocument();
   });
 
-  it("sprint Journal chip inserts /afx-session note into composer draft", async () => {
-    const user = userEvent.setup();
-    const onInsertDraft = vi.fn();
-    const onOpenFile = vi.fn();
-
-    render(
-      <SpecStepper
-        segments={segments({ spec: { status: "approved", glyph: "✓" } })}
-        active="spec"
-        format="sprint"
-        filePath="/x/sprint.md"
-        sectionOffsets={{ spec: 1, sessions: 50 }}
-        onOpenFile={onOpenFile}
-        onInsertDraft={onInsertDraft}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "Journal" }));
-    expect(onInsertDraft).toHaveBeenCalledWith("/afx-session note ");
-    expect(onOpenFile).not.toHaveBeenCalled();
-  });
-
-  it("Work Sessions chip click opens tasks.md scrolled to the sessions heading + label uses real session counts", async () => {
+  it("Work step click opens tasks.md scrolled to the sessions heading + label uses real session counts", async () => {
     const user = userEvent.setup();
     const onOpenFile = vi.fn();
 
     render(
       <SpecStepper
-        segments={segments({ tasks: { status: "progress", glyph: "3/8" } })}
+        segments={segments({
+          tasks: { status: "progress", glyph: "3/8" },
+          work: { status: "progress", glyph: "4/6" },
+        })}
         active="tasks"
         format="standard"
         siblingPaths={{ spec: "/x/spec.md", tasks: "/x/tasks.md" }}
         sectionOffsets={{ sessions: 144 }}
-        // Body checkbox tasks are 3/8 — but the Work Sessions chip should
-        // use the dedicated session-row counts, NOT the body-task fraction.
+        // Body checkbox tasks are 3/8 — but the Work pill should use the
+        // dedicated session-row counts, NOT the body-task fraction.
         tasksCompleted={3}
         tasksTotal={8}
         workSessionsTotal={6}
@@ -340,31 +318,24 @@ describe("SpecStepper", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Work Sessions 4/6" }));
+    await user.click(screen.getByRole("button", { name: /Work step/i }));
     expect(onOpenFile).toHaveBeenCalledWith("/x/tasks.md", 144);
   });
 
-  it("Journal chip inserts /afx-session note into composer draft (not opens a file)", async () => {
-    const user = userEvent.setup();
-    const onInsertDraft = vi.fn();
-    const onOpenFile = vi.fn();
-
+  it("Spec label describes the default SDD intent", () => {
     render(
       <SpecStepper
         segments={segments({ spec: { status: "approved", glyph: "✓" } })}
         active="spec"
         format="standard"
         filePath="/x/spec.md"
-        // No siblingPaths.journal — chip is still clickable because it's a
-        // draft-insert action, not a file-open action.
         siblingPaths={{ spec: "/x/spec.md" }}
-        onOpenFile={onOpenFile}
-        onInsertDraft={onInsertDraft}
+        onOpenFile={vi.fn()}
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Journal" }));
-    expect(onInsertDraft).toHaveBeenCalledWith("/afx-session note ");
-    expect(onOpenFile).not.toHaveBeenCalled();
+    expect(screen.getByTestId("spec-stepper-intent-label")).toHaveTextContent(
+      "Spec — clarify requirements, acceptance, and scope.",
+    );
   });
 });

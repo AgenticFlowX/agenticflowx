@@ -63,19 +63,24 @@ body,
     0 0 0 2px rgb(139 92 246 / 0.45);
 }
 
-/* Dropdown menu content lacks a visible border in both light and dark VS Code
- * themes — the upstream Shadcn primitive uses `ring-foreground/10` which is
- * too faint against the popover surface. We can't modify packages/ui/ (it's
- * read-only per AGENTS.md), so override at the chat-side via the data-slot
- * attribute the primitive already exposes.
+/* Floating content needs a visible edge in both light and dark VS Code themes.
+ * The shared primitives carry the baseline border; this chat-side layer tunes
+ * it to match VS Code contrast and keep dropdowns, popovers, and tooltips
+ * visually related.
  *
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-MODE-TOGGLE] */
-[data-slot="dropdown-menu-content"] {
+[data-slot="dropdown-menu-content"],
+[data-slot="popover-content"],
+[data-slot="tooltip-content"] {
   border: 1px solid color-mix(in srgb, var(--foreground) 22%, transparent);
 }
 
 .vscode-light [data-slot="dropdown-menu-content"],
-.vscode-high-contrast-light [data-slot="dropdown-menu-content"] {
+.vscode-light [data-slot="popover-content"],
+.vscode-light [data-slot="tooltip-content"],
+.vscode-high-contrast-light [data-slot="dropdown-menu-content"],
+.vscode-high-contrast-light [data-slot="popover-content"],
+.vscode-high-contrast-light [data-slot="tooltip-content"] {
   border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
   box-shadow:
     0 4px 16px color-mix(in srgb, var(--foreground) 12%, transparent),
@@ -83,12 +88,30 @@ body,
 }
 
 .vscode-dark [data-slot="dropdown-menu-content"],
-.vscode-high-contrast [data-slot="dropdown-menu-content"] {
+.vscode-dark [data-slot="popover-content"],
+.vscode-dark [data-slot="tooltip-content"],
+.vscode-high-contrast [data-slot="dropdown-menu-content"],
+.vscode-high-contrast [data-slot="popover-content"],
+.vscode-high-contrast [data-slot="tooltip-content"] {
   border-color: color-mix(in srgb, var(--foreground) 18%, transparent);
 }
 
 .afx-surface-composer textarea::placeholder {
   color: color-mix(in srgb, var(--foreground) 48%, transparent);
+}
+
+/* Composer Intent consumes semantic mode variables here so the component does
+ * not need raw palette classes for Code vs Explore styling.
+ *
+ * @see docs/specs/900-fleet/09-intent/09-intent.md [DES-TOKENS] */
+.afx-intent-strip {
+  --intent-accent-border: color-mix(in srgb, var(--afx-brand-soft) 50%, transparent);
+  --intent-accent-bg: color-mix(in srgb, var(--afx-brand-soft) 15%, transparent);
+}
+
+.afx-intent-strip[data-workspace-mode="explore"] {
+  --intent-accent-border: rgb(245 158 11 / 0.5);
+  --intent-accent-bg: rgb(245 158 11 / 0.15);
 }
 
 .afx-surface-composer:has(:disabled) {

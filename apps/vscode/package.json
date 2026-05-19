@@ -123,7 +123,23 @@
             "spec"
           ],
           "default": "code",
-          "description": "Workspace mode for the chat composer. Code is full-access; Explore is read-only; Spec is planning-only (docs and specs only)."
+          "description": "Default mode for the chat composer. Code is full-access; Explore is read-only; Spec is planning-only (docs and specs only). Saved globally unless this workspace has an override."
+        },
+        "afx.composer.intent.slot": {
+          "type": "number",
+          "enum": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "default": 1,
+          "description": "Composer Intent slot. 1 = Default, 2 = Ask, 3 = Architect, 4 = Code in Code mode or PRD in Explore mode."
+        },
+        "afx.composer.intent.minimized": {
+          "type": "boolean",
+          "default": false,
+          "description": "Minimize the Composer Intent strip to a one-line chip."
         },
         "afx.debugPerf": {
           "type": "boolean",
@@ -200,6 +216,11 @@
       {
         "command": "afx.setMode",
         "title": "Switch Workspace Mode",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.setIntent",
+        "title": "Switch Composer Intent",
         "category": "AFX"
       },
       {
@@ -565,6 +586,11 @@
         "command": "afx.setMode",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m"
+      },
+      {
+        "command": "afx.setIntent",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m"
       }
     ]
   },

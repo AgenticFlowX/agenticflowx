@@ -29,6 +29,7 @@ export interface ComposerFooterProps {
   onPiWarningClick?: () => void;
   isSystemCommand?: boolean;
   workspaceMode: WorkspaceMode;
+  intentLabel?: string | null;
 }
 
 export const ComposerFooter = memo(function ComposerFooter({
@@ -43,6 +44,7 @@ export const ComposerFooter = memo(function ComposerFooter({
   onPiWarningClick,
   isSystemCommand,
   workspaceMode,
+  intentLabel,
 }: ComposerFooterProps) {
   const hint =
     workspaceMode === "explore"
@@ -62,6 +64,8 @@ export const ComposerFooter = memo(function ComposerFooter({
                 : isStreaming
                   ? "⏎ follow-up · ⌘⏎ steer · ⌘⇧⏎ note · ↑ history"
                   : "⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history";
+
+  const displayHint = intentLabel ? appendIntentHint(hint, intentLabel) : hint;
 
   const statsText = usage
     ? [
@@ -93,11 +97,16 @@ export const ComposerFooter = memo(function ComposerFooter({
         id={hintId}
         className="hidden min-w-0 shrink-0 truncate text-right font-sans text-[10px] text-muted-foreground/60 @[280px]:inline"
       >
-        {hint}
+        {displayHint}
       </span>
     </div>
   );
 });
+
+function appendIntentHint(hint: string, intentLabel: string): string {
+  const [prefix, ...rest] = hint.split(" · ");
+  return [prefix, intentLabel, ...rest].join(" · ");
+}
 
 function PiPill({
   phase,

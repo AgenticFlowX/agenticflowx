@@ -45,13 +45,18 @@ import type {
   AgentCommand,
   AgentRuntimeStatus,
   AgentStatus,
+  IntentSlot,
   QueueMode,
   SettingsSnapshot,
   ThinkingLevel,
   WorkspaceMode,
 } from "@afx/shared";
 import type { CustomProviderPreset, CustomProviderSummary } from "@afx/shared";
-import { createCheckingAgentRuntimeStatus } from "@afx/shared";
+import {
+  createCheckingAgentRuntimeStatus,
+  getIntentPrompt,
+  normalizeIntentSlot,
+} from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@afx/ui/components/card";
@@ -80,6 +85,7 @@ import { ProviderCard } from "../components/provider-card";
 import { displayCommandName } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
+import { formatIntentPromptBadge, formatIntentPromptTitle } from "../lib/intent-copy";
 import { HEADER, LOOK, MODELS, RUNTIMES, SUPPORT, WORKSPACE } from "../lib/settings-copy";
 import { applyRuntimeAppearance } from "../lib/theme-preview";
 
@@ -143,6 +149,13 @@ const DEFAULT_CONTEXT_SETTINGS: SettingsSnapshot["context"] = {
   includeActiveFileContext: true,
 };
 
+const DEFAULT_INTENT_STATE = { slot: 1 as IntentSlot, minimized: false };
+const DEFAULT_INTENT_SETTINGS: SettingsSnapshot["intent"] = {
+  effective: DEFAULT_INTENT_STATE,
+  global: DEFAULT_INTENT_STATE,
+  hasWorkspaceOverride: false,
+};
+
 /**
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
@@ -185,6 +198,7 @@ export default function Settings({
 
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
   const pendingModeMutations = useRef<Map<string, string>>(new Map());
+  const pendingIntentMutations = useRef<Map<string, string>>(new Map());
   const pendingAppearanceMutations = useRef<Map<string, string>>(new Map());
   const pendingProviderMutations = useRef<Map<string, string>>(new Map());
   const pendingContextMutations = useRef<Map<string, string>>(new Map());
@@ -208,6 +222,11 @@ export default function Settings({
         if (modeLabel) {
           pendingModeMutations.current.delete(msg.requestId);
           toast.success(modeLabel);
+        }
+        const intentLabel = pendingIntentMutations.current.get(msg.requestId);
+        if (intentLabel) {
+          pendingIntentMutations.current.delete(msg.requestId);
+          toast.success(intentLabel);
         }
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
         if (telemetryLabel) {
@@ -241,12 +260,14 @@ export default function Settings({
         const providerLabel = pendingProviderMutations.current.get(msg.requestId);
         const contextLabel = pendingContextMutations.current.get(msg.requestId);
         const modeLabel = pendingModeMutations.current.get(msg.requestId);
+        const intentLabel = pendingIntentMutations.current.get(msg.requestId);
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
         const label =
           runtimeLabel ??
           appearanceLabel ??
           providerLabel ??
           contextLabel ??
+          intentLabel ??
           modeLabel ??
           telemetryLabel;
         if (!label) return;
@@ -254,6 +275,7 @@ export default function Settings({
         pendingAppearanceMutations.current.delete(msg.requestId);
         pendingProviderMutations.current.delete(msg.requestId);
         pendingContextMutations.current.delete(msg.requestId);
+        pendingIntentMutations.current.delete(msg.requestId);
         pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
@@ -275,6 +297,14 @@ export default function Settings({
   const telemetrySettings = snapshot?.telemetry ?? DEFAULT_TELEMETRY_SETTINGS;
   const contextSettings = snapshot?.context ?? DEFAULT_CONTEXT_SETTINGS;
   const activeMode = snapshot?.mode?.active ?? "code";
+  const activeIntentParent = activeMode === "explore" ? "explore" : "code";
+  const intentSettings = snapshot?.intent ?? DEFAULT_INTENT_SETTINGS;
+  const activeIntentSlot = normalizeIntentSlot(intentSettings.effective.slot);
+  const intentMinimized = intentSettings.effective.minimized;
+  const intentScope = intentSettings.hasWorkspaceOverride ? "workspace" : "global";
+  const intentScopeText = intentSettings.hasWorkspaceOverride
+    ? "Workspace override active"
+    : "Using global default";
   const providers = useMemo(() => snapshotProviders ?? [], [snapshotProviders]);
   const providerStats = useMemo(() => {
     return providers.reduce(
@@ -351,6 +381,11 @@ export default function Settings({
     pendingModeMutations.current.set(requestId, label);
     return requestId;
   }
+  function trackIntentMutation(label: string): string {
+    const requestId = uid();
+    pendingIntentMutations.current.set(requestId, label);
+    return requestId;
+  }
   function trackTelemetryMutation(label: string): string {
     const requestId = uid();
     pendingTelemetryMutations.current.set(requestId, label);
@@ -419,8 +454,103 @@ export default function Settings({
     setSnapshot((prev) => (prev ? { ...prev, mode: { active: mode } } : prev));
     bridgeSend({
       type: "chat/setMode",
-      requestId: trackModeMutation(`${mode === "explore" ? "Explore" : "Code"} mode selected`),
+      requestId: trackModeMutation(
+        `${mode === "explore" ? "Explore" : mode === "spec" ? "Spec" : "Code"} mode selected`,
+      ),
       mode,
+    });
+  }
+  function applyIntentSlot(slot: IntentSlot) {
+    const normalized = normalizeIntentSlot(slot);
+    setSnapshot((prev) =>
+      prev
+        ? (() => {
+            const current = prev.intent ?? DEFAULT_INTENT_SETTINGS;
+            const effective = { ...current.effective, slot: normalized };
+            return {
+              ...prev,
+              intent: {
+                ...current,
+                effective,
+                global: current.hasWorkspaceOverride
+                  ? current.global
+                  : { ...current.global, slot: normalized },
+                workspace: current.hasWorkspaceOverride
+                  ? { ...(current.workspace ?? {}), slot: normalized }
+                  : current.workspace,
+              },
+            };
+          })()
+        : prev,
+    );
+    bridgeSend({
+      type: "chat/setIntentSlot",
+      requestId: trackIntentMutation(
+        `${getIntentPrompt(activeIntentParent, normalized).label} Intent selected`,
+      ),
+      slot: normalized,
+    });
+  }
+  function applyIntentMinimized(minimized: boolean) {
+    setSnapshot((prev) =>
+      prev
+        ? (() => {
+            const current = prev.intent ?? DEFAULT_INTENT_SETTINGS;
+            const effective = { ...current.effective, minimized };
+            return {
+              ...prev,
+              intent: {
+                ...current,
+                effective,
+                global: current.hasWorkspaceOverride
+                  ? current.global
+                  : { ...current.global, minimized },
+                workspace: current.hasWorkspaceOverride
+                  ? { ...(current.workspace ?? {}), minimized }
+                  : current.workspace,
+              },
+            };
+          })()
+        : prev,
+    );
+    bridgeSend({
+      type: "chat/setIntentMinimized",
+      requestId: trackIntentMutation(`Intent strip ${minimized ? "minimized" : "expanded"}`),
+      minimized,
+    });
+  }
+  function applyIntentScope(scope: "global" | "workspace") {
+    const effective = { slot: activeIntentSlot, minimized: intentMinimized };
+    setSnapshot((prev) =>
+      prev
+        ? {
+            ...prev,
+            intent:
+              scope === "workspace"
+                ? {
+                    ...(prev.intent ?? DEFAULT_INTENT_SETTINGS),
+                    effective,
+                    workspace: effective,
+                    hasWorkspaceOverride: true,
+                  }
+                : {
+                    ...(prev.intent ?? DEFAULT_INTENT_SETTINGS),
+                    effective,
+                    global: effective,
+                    workspace: undefined,
+                    hasWorkspaceOverride: false,
+                  },
+          }
+        : prev,
+    );
+    bridgeSend({
+      type: "chat/setIntentScope",
+      requestId: trackIntentMutation(
+        scope === "workspace" ? "Workspace Intent override saved" : "Global Intent default saved",
+      ),
+      scope,
+      slot: activeIntentSlot,
+      minimized: intentMinimized,
     });
   }
   function jumpToSection(id: SectionId) {
@@ -935,6 +1065,134 @@ export default function Settings({
                   </div>
                 </label>
               </RadioGroup>
+            </div>
+
+            {/* Composer Intent — shared slots with parent-tuned slot 4 */}
+            <div className="flex flex-col gap-1.5 border-t border-border/50 pt-3">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-semibold text-foreground">
+                    {WORKSPACE.intentLabel}
+                  </p>
+                  <InfoTooltip content={WORKSPACE.intentTooltip} />
+                </div>
+                <p className="text-[10px] text-muted-foreground">{WORKSPACE.intentDescription}</p>
+              </div>
+              <RadioGroup
+                value={String(activeIntentSlot)}
+                onValueChange={(value) => applyIntentSlot(normalizeIntentSlot(Number(value)))}
+                className="grid grid-cols-2 gap-2"
+              >
+                {([1, 2, 3, 4] as const).map((slot) => {
+                  const entry = getIntentPrompt(activeIntentParent, slot);
+                  return (
+                    <label
+                      key={slot}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-2 rounded-sm border bg-muted/20 px-2 py-2 transition-colors hover:bg-muted/40",
+                        activeIntentSlot === slot && "border-border bg-muted/40",
+                      )}
+                    >
+                      <RadioGroupItem value={String(slot)} className="mt-0.5" />
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground">
+                          {entry.label}
+                          {entry.estimatedTokens > 0 ? (
+                            <span
+                              className="rounded-full border border-border/70 px-1.5 py-0.5 text-[9px] leading-none text-muted-foreground"
+                              title={formatIntentPromptTitle(entry.estimatedTokens)}
+                            >
+                              {formatIntentPromptBadge(entry.estimatedTokens)}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="text-[10px] leading-relaxed text-muted-foreground">
+                          {entry.description}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </RadioGroup>
+              <SwitchRow
+                id="intent-minimized"
+                label={WORKSPACE.intentMinimizedLabel}
+                description={WORKSPACE.intentMinimizedDescription}
+                tooltip={WORKSPACE.intentMinimizedTooltip}
+                checked={intentMinimized}
+                onCheckedChange={applyIntentMinimized}
+              />
+              <div className="rounded-sm border border-border/60 bg-muted/10 px-2 py-2">
+                <div className="flex min-w-0 items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[10px] font-medium text-foreground">
+                      {intentScopeText}
+                    </p>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      Effective: {getIntentPrompt(activeIntentParent, activeIntentSlot).label} ·{" "}
+                      {intentMinimized ? "minimized" : "expanded"}
+                    </p>
+                  </div>
+                </div>
+                <RadioGroup
+                  value={intentScope}
+                  onValueChange={(value) => applyIntentScope(value as "global" | "workspace")}
+                  className="mt-2 grid gap-1.5 @[420px]:grid-cols-2"
+                >
+                  <label
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2 rounded-sm border bg-background/40 px-2 py-1.5 transition-colors hover:bg-muted/40",
+                      intentScope === "global" && "border-border bg-muted/40",
+                    )}
+                    onClick={(event) => {
+                      if (
+                        (event.target as HTMLElement | null)?.closest(
+                          '[data-slot="radio-group-item"]',
+                        )
+                      ) {
+                        return;
+                      }
+                      applyIntentScope("global");
+                    }}
+                  >
+                    <RadioGroupItem value="global" className="mt-0.5" />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-[10px] font-medium text-foreground">
+                        Global default
+                      </span>
+                      <span className="text-[9px] leading-relaxed text-muted-foreground">
+                        Use across workspaces.
+                      </span>
+                    </span>
+                  </label>
+                  <label
+                    className={cn(
+                      "flex cursor-pointer items-start gap-2 rounded-sm border bg-background/40 px-2 py-1.5 transition-colors hover:bg-muted/40",
+                      intentScope === "workspace" && "border-border bg-muted/40",
+                    )}
+                    onClick={(event) => {
+                      if (
+                        (event.target as HTMLElement | null)?.closest(
+                          '[data-slot="radio-group-item"]',
+                        )
+                      ) {
+                        return;
+                      }
+                      applyIntentScope("workspace");
+                    }}
+                  >
+                    <RadioGroupItem value="workspace" className="mt-0.5" />
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-[10px] font-medium text-foreground">
+                        This workspace
+                      </span>
+                      <span className="text-[9px] leading-relaxed text-muted-foreground">
+                        Override just here.
+                      </span>
+                    </span>
+                  </label>
+                </RadioGroup>
+              </div>
             </div>
 
             {/* Active-file context — workspace default, mirrored in header chip */}

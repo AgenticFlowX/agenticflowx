@@ -22,7 +22,7 @@ export interface ComposerPanelProps {
   children: ReactNode;
   actions?: ReactNode;
   /** Right-aligned inline header content placed between the title and actions. */
-  headerExtras?: ReactNode;
+  headerExtras?: ReactNode | ((state: { collapsed: boolean }) => ReactNode);
   /** Numeric badge rendered next to the title (e.g. queue or modified-files count). */
   count?: number;
   tone?: ComposerPanelTone;
@@ -55,6 +55,8 @@ export const ComposerPanel = memo(function ComposerPanel({
   monoHeader = true,
 }: ComposerPanelProps) {
   const computedTitleId = titleId ?? `composer-panel-${slugifyTitle(title)}`;
+  const resolvedHeaderExtras =
+    typeof headerExtras === "function" ? headerExtras({ collapsed }) : headerExtras;
   const toneClass =
     tone === "brand"
       ? "border-afx-brand-soft/40"
@@ -108,8 +110,8 @@ export const ComposerPanel = memo(function ComposerPanel({
             ) : null}
           </h3>
         )}
-        {headerExtras ? (
-          <div className="flex shrink-0 items-center gap-1.5">{headerExtras}</div>
+        {resolvedHeaderExtras ? (
+          <div className="flex shrink-0 items-center gap-1.5">{resolvedHeaderExtras}</div>
         ) : null}
         {/* Panel actions appear before minimize and close. */}
         <div className="flex shrink-0 items-center gap-1">

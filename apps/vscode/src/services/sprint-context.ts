@@ -36,7 +36,7 @@ const SECTION_KEY = "afx.sprintSection";
  */
 export interface ActiveDocContext {
   format: "sprint" | "standard" | null;
-  section: "SPEC" | "DESIGN" | "TASKS" | null;
+  section: "SPEC" | "DESIGN" | "TASKS" | "SESSIONS" | null;
   docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
   feature: string | null;
   filePath: string | null;
@@ -68,9 +68,9 @@ export interface ActiveDocContext {
   designStatus?: string | null;
   tasksStatus?: string | null;
   /**
-   * Work Sessions table row counts — surfaces in the spec stepper's tier-2
-   * `Work Sessions n/m` chip. `total` = number of data rows in the
-   * `## Work Sessions` table; `humanSigned` = rows whose Human cell is `[x]`.
+   * Work Sessions table row counts — surfaces in the spec stepper's fourth
+   * `Work n/m` pill. `total` = number of data rows in the `## Work Sessions`
+   * table; `humanSigned` = rows whose Human cell is `[x]`.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
    */
@@ -212,37 +212,16 @@ export function createSprintContextSync(
       setSprint(true);
       const cursorLine = editor.selection.active.line;
       const detected = findSectionAt(text, cursorLine);
-      // Two coercions that keep the doc-actions panel visible across every
-      // sprint cursor position:
-      //
-      //   1. SESSIONS rolls up to TASKS — Sessions is the work-log half of
-      //      the tasks workflow, not a standalone document phase. Without
-      //      this the strip would disappear the moment the user clicked into
-      //      the Work Sessions table.
-      //
-      //   2. Unresolved sections default to SPEC — `findSectionAt` returns
-      //      `undefined` for non-canonical sprint briefs (e.g. files using
-      //      `# 1. Spec` H1 headings, no `SPRINT-SECTION` markers, or
-      //      freeform wording like "## Functional Requirements" that doesn't
-      //      hit the heading-fallback regex). Sprint files are always at
-      //      least a Spec, so defaulting keeps the panel + stepper visible
-      //      instead of silently hiding the entire AFX surface.
-      //
-      // The default is applied to BOTH the VSCode context key (so the
-      // editor-title menu still surfaces SPEC actions) and the chat bridge
-      // payload (so the composer panel + stepper render). The raw `detected`
-      // value is preserved for `extractSprintApprovalStatus` so the approval
-      // status it returns matches the actual cursor section, not the
-      // defaulted one — important when cursor is genuinely outside a section
-      // (e.g. in the file header) we want the top-level `status` field, not
-      // approval.spec.
+      // Keep SESSIONS distinct so the SDD stepper can highlight the Work
+      // segment. Unresolved sections still default to SPEC: sprint files are
+      // always at least a Spec, so defaulting keeps the panel + stepper
+      // visible for draft/non-canonical sprint briefs.
       //
       // @see docs/specs/204-app-vscode-spec-services/spec.md [FR-3] [FR-7]
       // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]
-      const resolvedSection: SprintSection =
-        detected === "SESSIONS" ? "TASKS" : (detected ?? "SPEC");
+      const resolvedSection: SprintSection = detected ?? "SPEC";
       setSection(resolvedSection);
-      const sprintSection: "SPEC" | "DESIGN" | "TASKS" = resolvedSection;
+      const sprintSection: ActiveDocContext["section"] = resolvedSection;
       const docKind: "spec" | "design" | "tasks" =
         sprintSection === "SPEC" ? "spec" : sprintSection === "DESIGN" ? "design" : "tasks";
       setDocContext(
@@ -676,8 +655,8 @@ function collectSprintCompanionPaths(
 
 /**
  * Attach Work Sessions row counts onto the bridge payload so the spec
- * stepper's tier-2 chip reads `Work Sessions n/m` from real session-log
- * data, not from the body checkbox `tasksCompleted/Total`.
+ * stepper's fourth `Work n/m` pill reads from real session-log data, not from
+ * the body checkbox `tasksCompleted/Total`.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
  */
@@ -754,8 +733,8 @@ function deriveSprintSpecFallbackOffset(text: string): number | undefined {
 /**
  * Locate the `## Work Sessions` (or `## Sessions`) heading inside a standard
  * tasks.md so the spec stepper can scroll the editor to that table when the
- * user clicks the tier-2 Work Sessions chip. Returns undefined when the
- * heading is absent so the chip stays disabled.
+ * user clicks the Work pill. Returns undefined when the heading is absent so
+ * the Work pill opens tasks.md without a line target.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
  */

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-19T13:55:39.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -20,7 +20,7 @@ spec: spec.md
 `apps/vscode/src/panels/` owns webview registration, the HTML shell, and inbound message
 dispatch for both the sidebar (chat) and bottom (workbench) panels. The sidebar panel is the
 busiest: its `dispatchInbound` is the host-side seam every chat-webview message flows through.
-It also owns the workspace posture bridge (`afx.mode.active`), the strict Explore prompt prefix,
+It also owns the effective posture bridge (`afx.mode.active`), the strict Explore prompt prefix,
 and the host guardrail that blocks shell commands before they can spawn.
 
 ---
@@ -55,7 +55,7 @@ loadWebviewHtml
 
 ## [DES-PANELS-MODE-WORKFLOW] Workspace Mode And Guardrail Workflow
 
-The sidebar panel does not invent a separate mode service. It reads the persisted workspace
+The sidebar panel does not invent a separate mode service. It reads the effective VS Code
 setting, routes mode changes through the shared `afx.setMode` command, and applies the same
 mode-aware guardrails to every outbound prompt path.
 
@@ -65,7 +65,7 @@ Composer/Settings mode control
   -> SidebarPanel.dispatchInbound
   -> vscode.commands.executeCommand("afx.setMode", mode)
   -> append compact timeline info row when the mode actually changes
-  -> extension.ts persists afx.mode.active at Workspace scope
+  -> extension.ts persists afx.mode.active globally unless a workspace override already exists
   -> agent/settingsSnapshot refresh
   -> chat + settings surfaces rehydrate the new mode
 
@@ -372,7 +372,7 @@ notes-utils and telemetry helpers.
 
 The panel keeps only a small amount of local state:
 
-- `workspaceMode()` reads `afx.mode.active` from workspace configuration and normalizes it to the
+- `workspaceMode()` reads effective `afx.mode.active` from VS Code configuration and normalizes it to the
   `WorkspaceMode` union.
 - `prefixWorkspaceModePrompt()` applies the strict guardrail prompt above when `workspaceMode() ===
 "explore"` and applies the hidden one-shot Code reset prompt only after the user switches back from

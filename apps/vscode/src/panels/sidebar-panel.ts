@@ -29,6 +29,9 @@ import {
   type ChatMessageView,
   type ChatTimelineItem,
   PROVIDER_DETAILS,
+  composeIntentControlBlock,
+  isIntentParentMode,
+  normalizeIntentSlot,
 } from "@afx/shared";
 import type {
   AfxStyleId,
@@ -47,7 +50,9 @@ import type {
   ChatToolView,
   ChatUsageView,
   CompactionResult,
+  ComposerIntentState,
   FocusOption,
+  IntentSlot,
   Logger,
   PhaseRow,
   RuntimeAppearanceSnapshot,
@@ -104,7 +109,7 @@ export interface SidebarPanelDeps {
  */
 export interface ActiveDocContextPayload {
   format: "sprint" | "standard" | null;
-  section: "SPEC" | "DESIGN" | "TASKS" | null;
+  section: "SPEC" | "DESIGN" | "TASKS" | "SESSIONS" | null;
   docKind: "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
   feature: string | null;
   filePath?: string | null;
@@ -119,8 +124,7 @@ export interface ActiveDocContextPayload {
   tasksTotal?: number;
   /**
    * Work Sessions table row counts — `total` = data rows; `signed` = rows
-   * with Human cell `[x]`. Powers the spec stepper's Work Sessions chip
-   * label.
+   * with Human cell `[x]`. Powers the spec stepper's fourth Work pill label.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-17]
    */
@@ -370,12 +374,53 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     return "code";
   }
 
-  function isExploreMode(): boolean {
-    return workspaceMode() === "explore";
+  function intentSlotSetting(): IntentSlot {
+    return normalizeIntentSlot(
+      vscode.workspace.getConfiguration("afx").get<number>("composer.intent.slot", 1),
+    );
   }
 
-  function isSpecMode(): boolean {
-    return workspaceMode() === "spec";
+  function intentMinimizedSetting(): boolean {
+    return vscode.workspace
+      .getConfiguration("afx")
+      .get<boolean>("composer.intent.minimized", false);
+  }
+
+  function intentSettingsSnapshot(): SettingsSnapshot["intent"] {
+    const cfg = vscode.workspace.getConfiguration("afx");
+    const slotInspect = cfg.inspect<number>("composer.intent.slot");
+    const minimizedInspect = cfg.inspect<boolean>("composer.intent.minimized");
+    const workspace: Partial<ComposerIntentState> = {};
+    if (slotInspect?.workspaceValue !== undefined) {
+      workspace.slot = normalizeIntentSlot(slotInspect.workspaceValue);
+    }
+    if (minimizedInspect?.workspaceValue !== undefined) {
+      workspace.minimized = minimizedInspect.workspaceValue === true;
+    }
+    const hasWorkspaceOverride = Object.keys(workspace).length > 0;
+    return {
+      effective: {
+        slot: intentSlotSetting(),
+        minimized: intentMinimizedSetting(),
+      },
+      global: {
+        slot: normalizeIntentSlot(slotInspect?.globalValue ?? 1),
+        minimized: minimizedInspect?.globalValue === true,
+      },
+      workspace: hasWorkspaceOverride ? workspace : undefined,
+      hasWorkspaceOverride,
+    };
+  }
+
+  function configurationTargetFor(key: string): vscode.ConfigurationTarget {
+    const inspected = vscode.workspace.getConfiguration("afx").inspect(key);
+    return inspected?.workspaceValue === undefined
+      ? vscode.ConfigurationTarget.Global
+      : vscode.ConfigurationTarget.Workspace;
+  }
+
+  function isExploreMode(): boolean {
+    return workspaceMode() === "explore";
   }
 
   /**
@@ -424,7 +469,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     return Array.from(new Set([activeFile, ...normalized]));
   }
 
-  function prefixWorkspaceModePrompt(content: string): string {
+  function prefixWorkspaceModePrompt(content: string, intentSlot?: IntentSlot): string {
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-SPEC-EXIT-PROMPT]
     //
@@ -437,12 +482,20 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       specModeResetPending = false;
       prefix = `${SPEC_MODE_EXIT_PROMPT}\n\n`;
     }
-    if (isExploreMode()) return `${prefix}${EXPLORE_GUARDRAIL_PROMPT}\n\n${content}`;
-    if (isSpecMode()) return `${prefix}${SPEC_MODE_PROMPT}\n\n${content}`;
+    const mode = workspaceMode();
+    const activeIntentSlot = normalizeIntentSlot(intentSlot ?? intentSlotSetting());
+    const intentBlock = isIntentParentMode(mode)
+      ? composeIntentControlBlock(mode, activeIntentSlot)
+      : null;
+    const suffix = intentBlock ? `\n\n${intentBlock}\n\n${content}` : `\n\n${content}`;
+    if (mode === "explore") return `${prefix}${EXPLORE_GUARDRAIL_PROMPT}${suffix}`;
+    if (mode === "spec") return `${prefix}${SPEC_MODE_PROMPT}\n\n${content}`;
     if (codeModeResetPending) {
       codeModeResetPending = false;
-      return `${prefix}${CODE_MODE_RESUME_PROMPT}\n\n${content}`;
+      const codeContent = intentBlock ? `${intentBlock}\n\n${content}` : content;
+      return `${prefix}${CODE_MODE_RESUME_PROMPT}\n\n${codeContent}`;
     }
+    if (intentBlock) return `${prefix}${intentBlock}\n\n${content}`;
     return prefix ? `${prefix}${content}` : content;
   }
 
@@ -1431,7 +1484,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/send": {
-        void handleSend(msg.requestId, msg.content, msg.mentions);
+        void handleSend(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
@@ -1448,6 +1501,33 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
       case "chat/setMode": {
         void handleSetMode(msg.requestId, msg.mode);
+        return;
+      }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-6] [FR-11]
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+      case "chat/setIntentSlot": {
+        void handleSetIntentSlot(msg.requestId, msg.slot);
+        return;
+      }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-7] [FR-11]
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+      case "chat/setIntentMinimized": {
+        void handleSetIntentMinimized(msg.requestId, msg.minimized);
+        return;
+      }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+      case "chat/setIntentScope": {
+        void handleSetIntentScope(msg.requestId, msg.scope, {
+          slot: msg.slot,
+          minimized: msg.minimized,
+        });
+        return;
+      }
+      // @see docs/specs/211-app-chat-composer/spec.md [FR-11]
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+      case "chat/clearIntentWorkspace": {
+        void handleClearIntentWorkspace(msg.requestId);
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
@@ -1579,12 +1659,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/steer": {
-        void handleSteer(msg.requestId, msg.content, msg.mentions);
+        void handleSteer(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/followUp": {
-        void handleFollowUp(msg.requestId, msg.content, msg.mentions);
+        void handleFollowUp(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
@@ -1691,6 +1771,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     requestId: string,
     content: string,
     mentions: readonly string[] = [],
+    intentSlot?: IntentSlot,
   ): Promise<void> {
     if (state.isCompacting) {
       postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
@@ -1721,7 +1802,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         content,
         normalizePromptMentions(content, mentions),
       );
-      await agentManager.send(prefixWorkspaceModePrompt(inflated));
+      await agentManager.send(prefixWorkspaceModePrompt(inflated, intentSlot));
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
       const message = err instanceof Error ? err.message : String(err);
@@ -2121,6 +2202,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         mode: {
           active: mode,
         },
+        intent: intentSettingsSnapshot(),
         onboarding: {
           // @see docs/specs/100-package-shared/spec.md [FR-12]
           specModeOfferDismissed:
@@ -2248,6 +2330,104 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set telemetry enabled failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetIntentSlot(requestId: string, slot: IntentSlot): Promise<void> {
+    try {
+      const normalized = normalizeIntentSlot(slot);
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("composer.intent.slot", normalized, configurationTargetFor("composer.intent.slot"));
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set Intent slot failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetIntentMinimized(requestId: string, minimized: boolean): Promise<void> {
+    try {
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update(
+          "composer.intent.minimized",
+          minimized,
+          configurationTargetFor("composer.intent.minimized"),
+        );
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set Intent minimized failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetIntentScope(
+    requestId: string,
+    scope: "global" | "workspace",
+    state: Partial<ComposerIntentState>,
+  ): Promise<void> {
+    try {
+      const cfg = vscode.workspace.getConfiguration("afx");
+      if (scope === "global") {
+        if (state.slot !== undefined) {
+          await cfg.update(
+            "composer.intent.slot",
+            normalizeIntentSlot(state.slot),
+            vscode.ConfigurationTarget.Global,
+          );
+        }
+        if (state.minimized !== undefined) {
+          await cfg.update(
+            "composer.intent.minimized",
+            state.minimized === true,
+            vscode.ConfigurationTarget.Global,
+          );
+        }
+        await cfg.update("composer.intent.slot", undefined, vscode.ConfigurationTarget.Workspace);
+        await cfg.update(
+          "composer.intent.minimized",
+          undefined,
+          vscode.ConfigurationTarget.Workspace,
+        );
+        await handleGetSettingsSnapshot(requestId);
+        return;
+      }
+
+      if (state.slot !== undefined) {
+        await cfg.update(
+          "composer.intent.slot",
+          normalizeIntentSlot(state.slot),
+          vscode.ConfigurationTarget.Workspace,
+        );
+      }
+      if (state.minimized !== undefined) {
+        await cfg.update(
+          "composer.intent.minimized",
+          state.minimized === true,
+          vscode.ConfigurationTarget.Workspace,
+        );
+      }
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set Intent scope failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleClearIntentWorkspace(requestId: string): Promise<void> {
+    try {
+      const cfg = vscode.workspace.getConfiguration("afx");
+      await cfg.update("composer.intent.slot", undefined, vscode.ConfigurationTarget.Workspace);
+      await cfg.update(
+        "composer.intent.minimized",
+        undefined,
+        vscode.ConfigurationTarget.Workspace,
+      );
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("clear Intent workspace override failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
     }
   }
@@ -2436,6 +2616,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     requestId: string,
     content: string,
     mentions: readonly string[] = [],
+    intentSlot?: IntentSlot,
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot steer: no turn is currently streaming.", "toast");
@@ -2447,7 +2628,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.steer(prefixWorkspaceModePrompt(inflated));
+        await agentManager.steer(prefixWorkspaceModePrompt(inflated, intentSlot));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });
@@ -2461,6 +2642,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     requestId: string,
     content: string,
     mentions: readonly string[] = [],
+    intentSlot?: IntentSlot,
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot queue follow-up: no turn is currently streaming.", "toast");
@@ -2472,7 +2654,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.followUp(prefixWorkspaceModePrompt(inflated));
+        await agentManager.followUp(prefixWorkspaceModePrompt(inflated, intentSlot));
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });

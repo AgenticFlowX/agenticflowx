@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-15T09:13:06.000Z"
-updated_at: "2026-05-16T04:04:46.000Z"
+updated_at: "2026-05-19T13:46:29.000Z"
 tags:
   [
     "app",
@@ -210,7 +210,7 @@ behavior.
 |  |     body:   [1 Spec] -------- [2 Design] -------- [3 Tasks]                                   |  |
 |  |             RELATED . Work Sessions                                                           |  |
 |  |             [Refine] [Author] | [Verify] [Approve]                                            |  |
-|  |   ComposerPanel(id="modified-files" | "queue" | "blocked-command" | "mode-suggest" | ...)     |  |
+|  |   ComposerPanel(id="modified-files" | "queue" | "blocked-command" | "notice:*" | ...)       |  |
 |  |                                                                                              |  |
 |  | ComposerAttachmentTray                                                                        |  |
 |  |   [selected-file] [selected-image]                                                            |  |
@@ -220,7 +220,7 @@ behavior.
 |  |   helpers: SlashPopup "/" and MentionPopup "@"                                                |  |
 |  |                                                                                              |  |
 |  | ComposerToolbar                                                ComposerActions                 |  |
-|  |   [@] [attach] [model/thinking] | [mode] [active-file-context]   [memory] [send/stop]          |  |
+|  |   [@] [model/thinking] | [mode] [active-file-context]       [memory] [send/stop]          |  |
 |  |                                                                                              |  |
 |  | ComposerFooter                                                                                |  |
 |  |   [PI] [usage tokens/context/cost]                                  Planning / Docs only ...  |  |
@@ -274,7 +274,7 @@ Spec owner: 216 for placement and panel registry; 211 for composer behavior.
 | ComposerDock                                                                                       |
 |                                                                                                    |
 |   ComposerPanelStack                                                                               |
-|     modified-files -> queue -> blocked-command -> doc-actions -> mode-suggest -> afx-command       |
+|     modified-files -> queue -> blocked-command -> doc-actions -> afx-command notice                |
 |                                                                                                    |
 |   ComposerAttachmentTray                                                                           |
 |     selected files/images                                                                          |
@@ -283,7 +283,7 @@ Spec owner: 216 for placement and panel registry; 211 for composer behavior.
 |     textarea + SlashPopup + MentionPopup                                                           |
 |                                                                                                    |
 |   ComposerToolbar                                      ComposerActions                             |
-|     @ attach model/thinking | mode file-context          memory send/follow-up/steer/stop          |
+|     @ model/thinking | mode file-context                 memory send/follow-up/steer/stop          |
 |                                                                                                    |
 |   ComposerFooter                                                                                    |
 |     PI + usage stats                                             mode/runtime/keyboard hint        |
@@ -320,7 +320,7 @@ Spec owner: 211-app-chat-composer for input, shortcuts, mode, model, memory, sen
 |   helpers: SlashPopup "/" and MentionPopup "@"                                                     |
 |                                                                                                    |
 | ComposerToolbar                                                  ComposerActions                    |
-|   [@] [attach] [model/thinking] | [Spec v] [post active file]       [Memory v] [Send/Stop]          |
+|   [@] [model/thinking] | [Spec v] [post active file]                [Memory v] [Send/Stop]  |
 |                                                                                                    |
 | ComposerFooter                                                                                     |
 |   . PI  [tokens / ctx / cost]                                  Planning / Docs only . Cmd+Shift+M  |
@@ -404,32 +404,32 @@ ComposerPanelStack
   ComposerPanel(id="blocked-command")
     Explore-mode blocked shell command with copy / switch-to-code affordance.
 
-  ComposerPanel(id="mode-suggest")
-    Suggests Spec mode when an AFX spec/design/tasks document is active.
+  ComposerPanel(id="notice:*")
+    Generic tips, information, alerts, news, or success notices owned by the feature that registers them.
 
   ComposerPanel(id="afx-command-suggest")
-    Suggests Spec mode after an AFX slash command succeeds in chat.
+    Composer notice that suggests Spec mode after an AFX slash command succeeds in chat.
 ```
 
 ### Visible Feature Locator
 
-| Visible UI / Label                             | Region / Slot                             | Owning Component(s)                                  | Source File(s)                                                                                                 | Behavior Reference                                                                         |
-| ---------------------------------------------- | ----------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `Chat`, `History`, `Settings` tabs             | App shell outside `ChatWindow`            | `AppTabs` / app-level tab shell                      | `apps/chat/src/app.tsx`                                                                                        | `docs/specs/210-app-chat/design.md`                                                        |
-| Top memory / compact / new / restart row       | `ChatTopBar`                              | `ChatTopBar`                                         | `apps/chat/src/components/chat/chat-top-bar.tsx`                                                               | This doc [DES-UI]; `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]`     |
-| Suggested Prompt card                          | `ConversationPane` empty-state branch     | `SpecModeWelcome`, `ConversationEmptyStates`         | `apps/chat/src/components/chat/conversation-empty-states.tsx`                                                  | `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]`                   |
-| `IDLE`, thinking, shell activity row           | `ComposerActivityBar`                     | `ComposerActivityBar`                                | `apps/chat/src/components/chat/composer-activity-bar.tsx`                                                      | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]`                         |
-| `SPEC.MD . DRAFT` panel header                 | `ComposerPanelStack` -> `doc-actions`     | `ComposerPanel`, `ChatDocActionsPanelTitle`          | `apps/chat/src/components/chat/composer-panel.tsx`; `apps/chat/src/components/chat-doc-actions-panel.tsx`      | This doc [DES-DATA]; `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]`            |
-| `[1 Spec] -> [2 Design] -> [3 Tasks]`          | `doc-actions` panel body                  | `ChatDocActionsPanelBody`, `SpecStepper`             | `apps/chat/src/components/chat-doc-actions-panel.tsx`; `apps/chat/src/components/spec-stepper.tsx`             | `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]`                                 |
-| `Related . Work Sessions`                      | `doc-actions` panel body                  | `ChatDocActionsPanelBody`, `SpecStepper`             | `apps/chat/src/components/chat-doc-actions-panel.tsx`; `apps/chat/src/components/spec-stepper.tsx`             | `docs/specs/211-app-chat-composer/spec.md [FR-17]`                                         |
-| `Refine`, `Author`, `Verify`, `Approve`        | `doc-actions` panel action row            | `ChatDocActionsPanelBody`                            | `apps/chat/src/components/chat-doc-actions-panel.tsx`                                                          | `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]`                                 |
-| `Clear all` queue action                       | `ComposerPanelStack` -> `queue`           | `QueuePanel`, `QueueClearAllAction`, `ComposerPanel` | `apps/chat/src/components/chat/composer-panels.tsx`; `apps/chat/src/components/chat/composer-panel.tsx`        | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE]`                          |
-| Blocked command warning                        | `ComposerPanelStack` -> `blocked-command` | `BlockedCommandPanelBody`, `ComposerPanel`           | `apps/chat/src/components/chat/composer-panels.tsx`; `apps/chat/src/components/chat/composer-panel.tsx`        | `docs/specs/211-app-chat-composer/spec.md [FR-13]`                                         |
-| Textarea and `/` / `@` popovers                | `ComposerInput`                           | `ComposerInput`, `SlashPopup`, `MentionPopup`        | `apps/chat/src/components/chat/composer-input.tsx`; `apps/chat/src/components/{slash-popup,mention-popup}.tsx` | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-KEYS] [DES-COMPOSER-HELPERS]`    |
-| `@`, attach, model, mode, active-file controls | `ComposerToolbar`                         | `ComposerToolbar`, `ModelCombobox`                   | `apps/chat/src/components/chat/composer-toolbar.tsx`; `apps/chat/src/components/model-combobox.tsx`            | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-CONTEXT]` |
-| Memory dropdown and send / stop button         | `ComposerActions`                         | `ComposerActions`, `ChatMemoryMenuButton`            | `apps/chat/src/components/chat/composer-actions.tsx`; `apps/chat/src/components/chat-memory-menu-button.tsx`   | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]`                           |
-| `PI`, token usage, mode hint footer            | `ComposerFooter`                          | `ComposerFooter`                                     | `apps/chat/src/components/chat/composer-footer.tsx`                                                            | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]`                         |
-| Toasts and debug overlay                       | Global overlays outside region flow       | `ToastStack`, `DebugPanel`                           | `apps/chat/src/components/debug-panel.tsx` and app-level toast host                                            | `docs/specs/210-app-chat/design.md`                                                        |
+| Visible UI / Label                       | Region / Slot                             | Owning Component(s)                                  | Source File(s)                                                                                                 | Behavior Reference                                                                         |
+| ---------------------------------------- | ----------------------------------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Chat`, `History`, `Settings` tabs       | App shell outside `ChatWindow`            | `AppTabs` / app-level tab shell                      | `apps/chat/src/app.tsx`                                                                                        | `docs/specs/210-app-chat/design.md`                                                        |
+| Top memory / compact / new / restart row | `ChatTopBar`                              | `ChatTopBar`                                         | `apps/chat/src/components/chat/chat-top-bar.tsx`                                                               | This doc [DES-UI]; `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]`     |
+| Suggested Prompt card                    | `ConversationPane` empty-state branch     | `SpecModeWelcome`, `ConversationEmptyStates`         | `apps/chat/src/components/chat/conversation-empty-states.tsx`                                                  | `docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]`                   |
+| `IDLE`, thinking, shell activity row     | `ComposerActivityBar`                     | `ComposerActivityBar`                                | `apps/chat/src/components/chat/composer-activity-bar.tsx`                                                      | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]`                         |
+| `SPEC.MD . DRAFT` panel header           | `ComposerPanelStack` -> `doc-actions`     | `ComposerPanel`, `ChatDocActionsPanelTitle`          | `apps/chat/src/components/chat/composer-panel.tsx`; `apps/chat/src/components/chat-doc-actions-panel.tsx`      | This doc [DES-DATA]; `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]`            |
+| `[1 Spec] -> [2 Design] -> [3 Tasks]`    | `doc-actions` panel body                  | `ChatDocActionsPanelBody`, `SpecStepper`             | `apps/chat/src/components/chat-doc-actions-panel.tsx`; `apps/chat/src/components/spec-stepper.tsx`             | `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-17]`                                 |
+| `Related . Work Sessions`                | `doc-actions` panel body                  | `ChatDocActionsPanelBody`, `SpecStepper`             | `apps/chat/src/components/chat-doc-actions-panel.tsx`; `apps/chat/src/components/spec-stepper.tsx`             | `docs/specs/211-app-chat-composer/spec.md [FR-17]`                                         |
+| `Refine`, `Author`, `Verify`, `Approve`  | `doc-actions` panel action row            | `ChatDocActionsPanelBody`                            | `apps/chat/src/components/chat-doc-actions-panel.tsx`                                                          | `docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]`                                 |
+| `Clear all` queue action                 | `ComposerPanelStack` -> `queue`           | `QueuePanel`, `QueueClearAllAction`, `ComposerPanel` | `apps/chat/src/components/chat/composer-panels.tsx`; `apps/chat/src/components/chat/composer-panel.tsx`        | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-QUEUE]`                          |
+| Blocked command warning                  | `ComposerPanelStack` -> `blocked-command` | `BlockedCommandPanelBody`, `ComposerPanel`           | `apps/chat/src/components/chat/composer-panels.tsx`; `apps/chat/src/components/chat/composer-panel.tsx`        | `docs/specs/211-app-chat-composer/spec.md [FR-13]`                                         |
+| Textarea and `/` / `@` popovers          | `ComposerInput`                           | `ComposerInput`, `SlashPopup`, `MentionPopup`        | `apps/chat/src/components/chat/composer-input.tsx`; `apps/chat/src/components/{slash-popup,mention-popup}.tsx` | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-KEYS] [DES-COMPOSER-HELPERS]`    |
+| `@`, model, mode, active-file controls   | `ComposerToolbar`                         | `ComposerToolbar`, `ModelCombobox`                   | `apps/chat/src/components/chat/composer-toolbar.tsx`; `apps/chat/src/components/model-combobox.tsx`            | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME] [DES-COMPOSER-CONTEXT]` |
+| Memory dropdown and send / stop button   | `ComposerActions`                         | `ComposerActions`, `ChatMemoryMenuButton`            | `apps/chat/src/components/chat/composer-actions.tsx`; `apps/chat/src/components/chat-memory-menu-button.tsx`   | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]`                           |
+| `PI`, token usage, mode hint footer      | `ComposerFooter`                          | `ComposerFooter`                                     | `apps/chat/src/components/chat/composer-footer.tsx`                                                            | `docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FOOTER]`                         |
+| Toasts and debug overlay                 | Global overlays outside region flow       | `ToastStack`, `DebugPanel`                           | `apps/chat/src/components/debug-panel.tsx` and app-level toast host                                            | `docs/specs/210-app-chat/design.md`                                                        |
 
 ### Canonical Component Table
 
@@ -504,20 +504,32 @@ Use `component`, not `render`, so React keys, memoization, error boundaries, and
 
 #### Panel Registry Implementation Status
 
-`ComposerPanelStack` consumes `config?: ComposerPanelStackConfig` and owns ordering, collapse state, dismiss state, and per-panel error isolation. All six former helper surfaces now mount through `ComposerPanelDefinition` entries built by `chat-controller.tsx`: modified files, queue, blocked command, document actions, mode suggestion, and AFX-command suggestion. Each entry renders body-only content; `ComposerPanel` supplies title, count, tone, collapse, dismiss, header actions, and error boundary chrome.
+| Layer                        | Owns                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `ComposerPanelStack`         | `config?: ComposerPanelStackConfig`, ordering, collapse state, dismiss state, and per-panel isolation.  |
+| `chat-controller.tsx`        | `ComposerPanelDefinition` entries for modified files, queue, blocked command, doc actions, and notices. |
+| Panel body components        | Body-only content such as file pills, queue rows, blocked-command details, or notice copy.              |
+| `ComposerPanel` chrome       | Title, count, tone, collapse, dismiss, header actions, and error boundary.                              |
+| Feature-owned notice entries | Domain-specific ids such as `afx-command-suggest`; generic body comes from the composer spec.           |
 
 #### Composer Panel Affordances
 
-| Panel ID              | Collapse | Dismiss | Header Action    | Contract                                                                 |
-| --------------------- | -------- | ------- | ---------------- | ------------------------------------------------------------------------ |
-| `modified-files`      | Yes      | Yes     | None             | User can collapse or dismiss modified-file context for the active turn.  |
-| `queue`               | Yes      | No      | `Clear all`      | Row-level dismiss removes individual queued items; no panel-level close. |
-| `blocked-command`     | No       | Yes     | `Switch to Code` | Security warning remains expanded until dismissed or restored to draft.  |
-| `doc-actions`         | Yes      | Yes     | None             | Non-blocking document workflow actions can be collapsed or dismissed.    |
-| `mode-suggest`        | No       | Yes     | `Switch to Spec` | Onboarding prompt is accepted or dismissed, not minimized.               |
-| `afx-command-suggest` | No       | Yes     | `Switch to Spec` | Completion prompt follows the same one-shot affordance as mode suggest.  |
+| Panel ID              | Collapse | Dismiss | Header Action    | Contract                                                                  |
+| --------------------- | -------- | ------- | ---------------- | ------------------------------------------------------------------------- |
+| `modified-files`      | Yes      | Yes     | None             | User can collapse or dismiss modified-file context for the active turn.   |
+| `queue`               | Yes      | No      | `Clear all`      | Row-level dismiss removes individual queued items; no panel-level close.  |
+| `blocked-command`     | No       | Yes     | `Switch to Code` | Security warning remains expanded until dismissed or restored to draft.   |
+| `doc-actions`         | Yes      | Yes     | None             | Non-blocking document workflow actions can be collapsed or dismissed.     |
+| `notice:*`            | Varies   | Varies  | Varies           | Reusable shell for tips, information, alerts, news, and success messages. |
+| `afx-command-suggest` | No       | Yes     | `Switch to Spec` | Completion prompt uses the generic notice shell.                          |
 
 ### Attachment Boundary
+
+| Boundary                 | Current contract                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| `ComposerAttachmentTray` | Reserved chip/previews region for selected file/image attachments.                        |
+| Toolbar callback         | Optional extension point only; `ChatWindow` omits it until picker/upload behavior exists. |
+| Production UI            | No paperclip is rendered while the callback is absent.                                    |
 
 ```typescript
 interface ComposerAttachmentItem {

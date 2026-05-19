@@ -283,7 +283,7 @@ describe("outputChannelSink — defensive serialization", () => {
       sinks: [outputChannelSink({ appendLine: (l) => lines.push(l) })],
     });
     const circular: Record<string, unknown> = {};
-    circular.self = circular;
+    circular["self"] = circular;
 
     log.info("circular", { circular });
 

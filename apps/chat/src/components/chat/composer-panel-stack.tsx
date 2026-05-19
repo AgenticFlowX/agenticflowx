@@ -31,22 +31,31 @@ export const ComposerPanelStack = memo(function ComposerPanelStack({
   const [seenDefaults, setSeenDefaults] = useState<ReadonlySet<string>>(() => new Set());
   const panels = useMemo(() => orderPanels(config), [config]);
 
-  // Apply per-panel `defaultCollapsed` exactly once per panel id (so user
-  // toggles don't get clobbered on subsequent renders).
+  // Apply per-panel collapse defaults once per id/key pair. The key allows
+  // late-arriving settings snapshots to compact or expand panels without
+  // clobbering every user toggle on subsequent renders.
   useEffect(() => {
     if (!config) return;
-    const newSeenIds = panels.filter(
-      (panel) => panel.defaultCollapsed && !seenDefaults.has(panel.id),
-    );
-    if (newSeenIds.length === 0) return;
+    const newDefaults = panels
+      .filter((panel) => panel.defaultCollapsed || panel.defaultCollapsedKey !== undefined)
+      .map((panel) => ({
+        id: panel.id,
+        key: defaultCollapseKey(panel),
+        collapsed: panel.defaultCollapsed === true,
+      }))
+      .filter((entry) => !seenDefaults.has(entry.key));
+    if (newDefaults.length === 0) return;
     setSeenDefaults((current) => {
       const next = new Set(current);
-      newSeenIds.forEach((panel) => next.add(panel.id));
+      newDefaults.forEach((entry) => next.add(entry.key));
       return next;
     });
     setCollapsed((current) => {
       const next = new Set(current);
-      newSeenIds.forEach((panel) => next.add(panel.id));
+      newDefaults.forEach((entry) => {
+        if (entry.collapsed) next.add(entry.id);
+        else next.delete(entry.id);
+      });
       return next;
     });
   }, [config, panels, seenDefaults]);
@@ -80,20 +89,22 @@ export const ComposerPanelStack = memo(function ComposerPanelStack({
       {visiblePanels.map((panel) => {
         const PanelComponent = panel.component as ComponentType<Record<string, unknown>>;
         const panelProps = (panel.props ?? {}) as Record<string, unknown>;
-        const isCollapsed = collapsed.has(panel.id);
+        const isCollapsed = panel.forcedCollapsed === true || collapsed.has(panel.id);
         return (
           <ComposerPanel
             key={panel.id}
+            titleId={`composer-panel-${panel.id}`}
             title={panel.title}
             actions={panel.actions}
             headerExtras={panel.headerExtras}
             count={panel.count}
             tone={panel.tone}
             monoHeader={panel.monoHeader}
-            collapsible={panel.collapsible}
+            collapsible={panel.forcedCollapsed === true ? false : panel.collapsible}
             collapsed={isCollapsed}
             onCollapsedChange={(nextCollapsed) => {
               setCollapsed((current) => toggleId(current, panel.id, nextCollapsed));
+              panel.onCollapsedChange?.(nextCollapsed);
             }}
             dismissible={panel.dismissible}
             onDismiss={() => {
@@ -155,4 +166,8 @@ function toggleId(current: ReadonlySet<string>, id: string, enabled: boolean): R
   if (enabled) next.add(id);
   else next.delete(id);
   return next;
+}
+
+function defaultCollapseKey(panel: ComposerPanelDefinition): string {
+  return `${panel.id}\u0000${panel.defaultCollapsedKey ?? "initial"}`;
 }

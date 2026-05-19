@@ -109,33 +109,66 @@ describe("sidebar-panel host bridge", () => {
     return setupWithView().inbound;
   }
 
-  function mockAfxConfiguration(initialValues: Record<string, unknown> = {}) {
-    const values = new Map<string, unknown>(
-      Object.entries({
-        agentBinaryPath: "",
-        agentEphemeralSession: false,
-        logLevel: "info",
-        "rpc.enabled": false,
-        "sdk.defaultModel": "anthropic:claude-opus-4-5",
-        "sdk.enabled": true,
-        "sdk.ollamaBaseUrl": "",
-        sessionDir: "",
-        "context.includeActiveFileContext": true,
-        "mode.active": "code",
-        style: "lyra",
-        "telemetry.enabled": true,
-        theme: "meridian",
-        ...initialValues,
-      }),
+  function mockAfxConfiguration(
+    initialValues: Record<string, unknown> = {},
+    workspaceKeys: ReadonlySet<string> = new Set(),
+  ) {
+    const defaults: Record<string, unknown> = {
+      agentBinaryPath: "",
+      agentEphemeralSession: false,
+      logLevel: "info",
+      "rpc.enabled": false,
+      "sdk.defaultModel": "anthropic:claude-opus-4-5",
+      "sdk.enabled": true,
+      "sdk.ollamaBaseUrl": "",
+      sessionDir: "",
+      "context.includeActiveFileContext": true,
+      "mode.active": "code",
+      "composer.intent.slot": 1,
+      "composer.intent.minimized": false,
+      style: "lyra",
+      "telemetry.enabled": true,
+      theme: "meridian",
+    };
+    const workspaceOverrides = new Set(workspaceKeys);
+    const globalValues = new Map<string, unknown>(
+      Object.entries({ ...defaults, ...initialValues }),
     );
-    const update = vi.fn(async (key: string, value: unknown) => {
-      values.set(key, value);
-    });
+    const values = new Map<string, unknown>(Object.entries({ ...defaults, ...initialValues }));
+    for (const key of workspaceOverrides) {
+      globalValues.set(key, defaults[key]);
+    }
+    const update = vi.fn(
+      async (key: string, value: unknown, target?: vscode.ConfigurationTarget) => {
+        if (target === vscode.ConfigurationTarget.Workspace) {
+          if (value === undefined) {
+            workspaceOverrides.delete(key);
+            values.set(key, globalValues.get(key));
+          } else {
+            workspaceOverrides.add(key);
+            values.set(key, value);
+          }
+          return;
+        }
+
+        globalValues.set(key, value);
+        if (!workspaceOverrides.has(key)) {
+          values.set(key, value);
+        }
+      },
+    );
+    function inspect<T>(key: string) {
+      return {
+        key,
+        globalValue: globalValues.get(key) as T,
+        workspaceValue: workspaceOverrides.has(key) ? (values.get(key) as T) : undefined,
+      };
+    }
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
       get: <T>(key: string, defaultValue?: T) =>
         (values.has(key) ? values.get(key) : defaultValue) as T,
       has: (key: string) => values.has(key),
-      inspect: () => undefined,
+      inspect,
       update,
     });
     return { update, values };
@@ -206,8 +239,12 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
-  it("includes the active workspace mode in the settings snapshot", async () => {
-    mockAfxConfiguration({ "mode.active": "explore" });
+  it("includes the active workspace mode and Composer Intent in the settings snapshot", async () => {
+    mockAfxConfiguration({
+      "mode.active": "explore",
+      "composer.intent.slot": 4,
+      "composer.intent.minimized": true,
+    });
     const { inbound, postMessage } = setupWithView();
 
     inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "settings-mode" });
@@ -219,6 +256,11 @@ describe("sidebar-panel host bridge", () => {
         requestId: "settings-mode",
         snapshot: expect.objectContaining({
           mode: { active: "explore" },
+          intent: {
+            effective: { slot: 4, minimized: true },
+            global: { slot: 4, minimized: true },
+            hasWorkspaceOverride: false,
+          },
         }),
       }),
     );
@@ -341,6 +383,172 @@ describe("sidebar-panel host bridge", () => {
         requestId: "telemetry-off",
         snapshot: expect.objectContaining({
           telemetry: expect.objectContaining({ enabled: false, effectiveEnabled: false }),
+        }),
+      }),
+    );
+  });
+
+  it("chat/setIntentSlot and chat/setIntentMinimized persist Composer Intent settings", async () => {
+    const { update, values } = mockAfxConfiguration();
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/setIntentSlot", requestId: "intent-slot", slot: 4 });
+    inbound.fire({ type: "chat/setIntentMinimized", requestId: "intent-min", minimized: true });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      4,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.minimized",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(values.get("composer.intent.slot")).toBe(4);
+    expect(values.get("composer.intent.minimized")).toBe(true);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "intent-min",
+        snapshot: expect.objectContaining({
+          intent: {
+            effective: { slot: 4, minimized: true },
+            global: { slot: 4, minimized: true },
+            hasWorkspaceOverride: false,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("updates Composer Intent at workspace scope when a workspace value already exists", async () => {
+    const { update } = mockAfxConfiguration(
+      { "composer.intent.slot": 2 },
+      new Set(["composer.intent.slot"]),
+    );
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/setIntentSlot", requestId: "intent-workspace-slot", slot: 3 });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      3,
+      vscode.ConfigurationTarget.Workspace,
+    );
+  });
+
+  it("reports Composer Intent workspace overrides in settings snapshots", async () => {
+    mockAfxConfiguration(
+      {
+        "composer.intent.slot": 4,
+        "composer.intent.minimized": true,
+      },
+      new Set(["composer.intent.slot", "composer.intent.minimized"]),
+    );
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "settings-intent-workspace" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "settings-intent-workspace",
+        snapshot: expect.objectContaining({
+          intent: {
+            effective: { slot: 4, minimized: true },
+            global: { slot: 1, minimized: false },
+            workspace: { slot: 4, minimized: true },
+            hasWorkspaceOverride: true,
+          },
+        }),
+      }),
+    );
+  });
+
+  it("chat/setIntentScope switches between global defaults and workspace overrides", async () => {
+    const { update, values } = mockAfxConfiguration(
+      { "composer.intent.slot": 4, "composer.intent.minimized": true },
+      new Set(["composer.intent.slot", "composer.intent.minimized"]),
+    );
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({
+      type: "chat/setIntentScope",
+      requestId: "intent-global",
+      scope: "global",
+      slot: 2,
+      minimized: false,
+    });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      2,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.minimized",
+      false,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      undefined,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.minimized",
+      undefined,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(values.get("composer.intent.slot")).toBe(2);
+    expect(values.get("composer.intent.minimized")).toBe(false);
+
+    inbound.fire({
+      type: "chat/setIntentScope",
+      requestId: "intent-workspace",
+      scope: "workspace",
+      slot: 3,
+      minimized: false,
+    });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      3,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.minimized",
+      false,
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(values.get("composer.intent.slot")).toBe(3);
+    expect(values.get("composer.intent.minimized")).toBe(false);
+
+    inbound.fire({
+      type: "chat/setIntentScope",
+      requestId: "intent-global-again",
+      scope: "global",
+      slot: 2,
+      minimized: false,
+    });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "intent-global-again",
+        snapshot: expect.objectContaining({
+          intent: {
+            effective: { slot: 2, minimized: false },
+            global: { slot: 2, minimized: false },
+            hasWorkspaceOverride: false,
+          },
         }),
       }),
     );
@@ -1116,6 +1324,71 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
   });
 
+  it("adds non-default Composer Intent prompts after the parent mode guardrail", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound } = setupWithView();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-explore-prd",
+      content: "shape this idea",
+      intentSlot: 4,
+    });
+    await flushAsyncWork(2);
+
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(prompt.indexOf("[AFX EXPLORE MODE: READ ONLY]")).toBeLessThan(
+      prompt.indexOf("Mode: PRD"),
+    );
+    expect(prompt).toContain(
+      "Mode: PRD. Convert the discussion into a PRD draft in chat using the AFX spec template",
+    );
+    expect(prompt).toContain("Do not call tools");
+    expect(prompt).toContain("shape this idea");
+  });
+
+  it("uses the persisted Composer Intent slot when the send omits a slot override", async () => {
+    mockAfxConfiguration({ "mode.active": "code", "composer.intent.slot": 2 });
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/send", requestId: "req-code-ask", content: "hello" });
+    await flushAsyncWork(2);
+
+    const prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(prompt).toContain("Mode: Ask");
+    expect(prompt).toContain("hello");
+    expect(prompt).not.toContain("[AFX EXPLORE MODE: READ ONLY]");
+  });
+
+  it("uses Default as zero Intent injection and suppresses Intent in Spec mode", async () => {
+    const { inbound } = setupWithView();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-code-default",
+      content: "hello",
+      intentSlot: 1,
+    });
+    await flushAsyncWork(2);
+    let prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(prompt).toBe("hello");
+
+    mockAfxConfiguration({ "mode.active": "spec" });
+    const { inbound: specInbound } = setupWithView();
+    specInbound.fire({
+      type: "chat/send",
+      requestId: "req-spec-intent",
+      content: "draft a plan",
+      intentSlot: 4,
+    });
+    await flushAsyncWork(2);
+    prompt = (vi.mocked(agent.send).mock.calls.at(-1) as [string] | undefined)?.[0] ?? "";
+    expect(prompt).toContain("AFX SPEC MODE");
+    expect(prompt).toContain("draft a plan");
+    expect(prompt).not.toContain("Mode: Code");
+    expect(prompt).not.toContain("Mode: PRD");
+  });
+
   it("keeps the no-response timeout active when the runtime only reports startup", async () => {
     vi.useFakeTimers();
     const { inbound, postMessage } = setupWithView();
@@ -1193,6 +1466,36 @@ describe("sidebar-panel host bridge", () => {
       expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
     );
     expect(agent.followUp).toHaveBeenCalledWith(expect.stringContaining("next question"));
+  });
+
+  it("applies Composer Intent prompts to chat/steer and chat/followUp once per queued turn", async () => {
+    const { inbound } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    listener?.({ type: "agent_start" });
+
+    inbound.fire({
+      type: "chat/steer",
+      requestId: "req-code-steer-intent",
+      content: "redirect",
+      intentSlot: 2,
+    });
+    await flushAsyncWork(2);
+    const steerPrompt = (vi.mocked(agent.steer).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(steerPrompt.match(/Mode: Ask/g) ?? []).toHaveLength(1);
+    expect(steerPrompt).toContain("redirect");
+
+    inbound.fire({
+      type: "chat/followUp",
+      requestId: "req-code-follow-intent",
+      content: "next question",
+      intentSlot: 3,
+    });
+    await flushAsyncWork(2);
+    const followUpPrompt =
+      (vi.mocked(agent.followUp).mock.calls[0] as [string] | undefined)?.[0] ?? "";
+    expect(followUpPrompt.match(/Mode: Architect/g) ?? []).toHaveLength(1);
+    expect(followUpPrompt).toContain("next question");
   });
 
   it("chat/setMode delegates to the shared afx.setMode command", async () => {

@@ -59,6 +59,28 @@ describe("ComposerToolbar", () => {
     expect(screen.getByRole("button", { name: "Workspace mode: Code" })).toBeInTheDocument();
   });
 
+  it("omits the attachment trigger until a working picker is supplied", () => {
+    render(
+      <ComposerToolbar
+        isSystemCommand={false}
+        disabled={false}
+        models={[model]}
+        selectedModel={model}
+        workspaceMode="code"
+        includeActiveFileContext={false}
+        activeFileDisplayName="No active file"
+        activeFileDisplayPath=""
+        onOpenMentionPicker={vi.fn()}
+        onSelectModel={vi.fn()}
+        onSelectThinkingLevel={vi.fn()}
+        onWorkspaceModeChange={vi.fn()}
+        onToggleActiveFileContext={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Attach file or image" })).not.toBeInTheDocument();
+  });
+
   it("shows shell status instead of mention trigger for system commands", () => {
     render(
       <ComposerToolbar

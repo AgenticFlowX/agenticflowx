@@ -35,7 +35,7 @@ describe("ComposerPanelStack", () => {
   });
 
   it("renders each panel chrome with the `@container` class so child width-based queries work", () => {
-    // Regression guard: the doc-actions primary action row, mode-suggest pill
+    // Regression guard: the doc-actions primary action row, compact header
     // list, and any future panel that uses `@[<width>px]:` Tailwind queries
     // depend on `ComposerPanel` itself being a query container. Without this
     // class, child queries fall through to the next-nearest container (the
@@ -51,6 +51,28 @@ describe("ComposerPanelStack", () => {
     );
     const region = screen.getByRole("region", { name: "Context" });
     expect(region.className).toMatch(/(?:^|\s)@container(?:\s|$)/);
+  });
+
+  it("assigns unique region labels for rich React titles", () => {
+    render(
+      <ComposerPanelStack
+        config={{
+          panels: [
+            {
+              ...panel("intent", "workflow", "Intent"),
+              title: <span>Intent</span>,
+            },
+            {
+              ...panel("doc-actions", "workflow", "Document actions"),
+              title: <span>Document actions</span>,
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole("region", { name: "Intent" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Document actions" })).toBeInTheDocument();
   });
 
   it("renders the panel-stack wrapper with `mb-1.5` so the rhythm above the textarea is preserved", () => {
@@ -159,6 +181,60 @@ describe("ComposerPanelStack", () => {
     fireEvent.click(screen.getByRole("button", { name: "Context" }));
     expect(
       screen.getByRole("button", { name: "Count 0", hidden: true }).closest('[aria-hidden="true"]'),
+    ).toHaveClass("hidden");
+  });
+
+  it("honors keyed collapse defaults in both directions as settings snapshots change", () => {
+    const makePanel = (
+      defaultCollapsed: boolean,
+      defaultCollapsedKey: string,
+    ): ComposerPanelDefinition => ({
+      ...panel("intent", "workflow", "Intent"),
+      collapsible: true,
+      defaultCollapsed,
+      defaultCollapsedKey,
+    });
+
+    const { rerender } = render(
+      <ComposerPanelStack config={{ panels: [makePanel(false, "settings-expanded-initial")] }} />,
+    );
+
+    expect(screen.getByText("Intent body").closest('[aria-hidden="false"]')).not.toHaveClass(
+      "hidden",
+    );
+
+    rerender(<ComposerPanelStack config={{ panels: [makePanel(true, "settings-minimized")] }} />);
+    expect(screen.getByText("Intent body").closest('[aria-hidden="true"]')).toHaveClass("hidden");
+
+    rerender(<ComposerPanelStack config={{ panels: [makePanel(false, "settings-expanded")] }} />);
+    expect(screen.getByText("Intent body").closest('[aria-hidden="false"]')).not.toHaveClass(
+      "hidden",
+    );
+  });
+
+  it("forces a panel compact when another workflow panel owns the surface", () => {
+    const headerExtras = vi.fn(({ collapsed }: { collapsed: boolean }) => (
+      <span>{collapsed ? "compact" : "expanded"}</span>
+    ));
+    const panels: ComposerPanelDefinition[] = [
+      {
+        ...panel("intent", "workflow", "Intent"),
+        collapsible: true,
+        forcedCollapsed: true,
+        headerExtras,
+      },
+      panel("doc-actions", "workflow", "Document actions"),
+    ];
+
+    render(<ComposerPanelStack config={{ panels }} />);
+
+    const intentRegion = screen.getByRole("region", { name: "Intent" });
+    expect(within(intentRegion).getByText("compact")).toBeInTheDocument();
+    expect(
+      within(intentRegion).queryByRole("button", { name: /Expand Intent|Minimize Intent/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(intentRegion).getByText("Intent body").closest('[aria-hidden="true"]'),
     ).toHaveClass("hidden");
   });
 

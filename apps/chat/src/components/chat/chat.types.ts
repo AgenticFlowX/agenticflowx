@@ -47,6 +47,15 @@ export interface ComposerPanelDefinition<P = unknown> {
   collapsible?: boolean;
   /** Initial collapsed state when `collapsible`. Default false (expanded). */
   defaultCollapsed?: boolean;
+  /**
+   * Re-apply default collapse when the source of that default changes, e.g. a
+   * late settings snapshot confirms persisted minimized state.
+   */
+  defaultCollapsedKey?: string;
+  /** Visually compact this panel because another workflow panel owns the row. */
+  forcedCollapsed?: boolean;
+  /** Optional side effect when the panel collapse state changes. */
+  onCollapsedChange?: (collapsed: boolean) => void;
   dismissible?: boolean;
   /** Optional numeric badge rendered next to the title (e.g. queue count). */
   count?: number;
@@ -59,7 +68,7 @@ export interface ComposerPanelDefinition<P = unknown> {
    */
   actions?: ReactNode;
   /** Inline header content placed between the title and the actions slot. */
-  headerExtras?: ReactNode;
+  headerExtras?: ReactNode | ((state: { collapsed: boolean }) => ReactNode);
   /** Use the panel-default mono-uppercase title styling. Default true. */
   monoHeader?: boolean;
   component: ComponentType<P>;

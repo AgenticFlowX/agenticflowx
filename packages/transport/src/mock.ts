@@ -168,6 +168,11 @@ const MOCK_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   mode: {
     active: "code",
   },
+  intent: {
+    effective: { slot: 1, minimized: false },
+    global: { slot: 1, minimized: false },
+    hasWorkspaceOverride: false,
+  },
   diagnostics: { logLevel: "info" },
   telemetry: {
     enabled: true,

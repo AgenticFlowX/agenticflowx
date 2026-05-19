@@ -8,7 +8,6 @@
   "markdownlint.run": "onSave",
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
-  "afx.mode.active": "code",
   "workbench.colorCustomizations": {
     "activityBar.background": "#4C0A64",
     "titleBar.activeBackground": "#DE9DF5",

@@ -42,7 +42,7 @@ export interface ComposerToolbarProps {
   activeFileDisplayPath: string;
   customProviderLabels?: Readonly<Record<string, string>>;
   onOpenMentionPicker: () => void;
-  /** Reserved attach trigger for future file/image attachments; no upload behavior here. */
+  /** Optional attachment trigger; callers omit it until a working picker is available. */
   onOpenAttachmentPicker?: () => void;
   onSelectModel: (model: AgentModel) => void;
   onSelectThinkingLevel: (level: ThinkingLevel) => void;
@@ -110,8 +110,7 @@ export const ComposerToolbar = memo(function ComposerToolbar({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
-              Attach files or images to this message. This refactor reserves the trigger; upload
-              behavior is implemented by future attachment work.
+              Attach files or images to this message.
             </TooltipContent>
           </Tooltip>
         ) : null}

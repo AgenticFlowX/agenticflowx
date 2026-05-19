@@ -128,7 +128,12 @@ describe("agent runtime status derivation", () => {
       phase: "busy",
       running: true,
       isStreaming: true,
-      model: "provider:model",
+      model: {
+        provider: "provider",
+        id: "model",
+        name: "Provider Model",
+        source: "api-provider",
+      },
       rpcEnabled: true,
       runtimeConfigured: true,
       checkedAt: 1_000,
@@ -144,7 +149,12 @@ describe("agent runtime status derivation", () => {
     });
 
     expect(status.phase).toBe("checking");
-    expect(status.model).toBe("provider:model");
+    expect(status.model).toEqual({
+      provider: "provider",
+      id: "model",
+      name: "Provider Model",
+      source: "api-provider",
+    });
     expect(status.rpcEnabled).toBe(true);
     expect(status.runtimeConfigured).toBe(true);
     expect(status.lastReadyAt).toBe(1_000);

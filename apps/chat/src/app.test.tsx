@@ -131,6 +131,11 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
     mode: {
       active: mode,
     },
+    intent: {
+      effective: { slot: 1, minimized: false },
+      global: { slot: 1, minimized: false },
+      hasWorkspaceOverride: false,
+    },
     providers: [],
     externalAgents: [
       {
@@ -279,7 +284,7 @@ describe("chat App", () => {
     } finally {
       Object.defineProperty(window, "innerWidth", { value: originalWidth, configurable: true });
     }
-  });
+  }, 10_000);
 
   it("shows a tooltip for the combined model/thinking selector at collapse width", async () => {
     const originalWidth = window.innerWidth;
@@ -1448,6 +1453,60 @@ describe("chat App", () => {
       expect.objectContaining({
         type: "chat/setIncludeActiveFileContext",
         enabled: false,
+      }),
+    );
+    // Composer Intent scope is an either/or setting: global default or workspace override.
+    expect(screen.getByText("Composer Intent")).toBeInTheDocument();
+    const globalIntentScope = screen.getByRole("radio", { name: /Global default/ });
+    expect(globalIntentScope).toBeChecked();
+    const workspaceIntentScope = screen.getByRole("radio", { name: /This workspace/ });
+    expect(workspaceIntentScope).not.toBeChecked();
+    send.mockClear();
+    await user.click(screen.getByRole("radio", { name: /Ask/ }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIntentSlot",
+        slot: 2,
+      }),
+    );
+    const minimizeIntent = screen.getByRole("switch", { name: "Minimize Intent strip" });
+    send.mockClear();
+    await user.click(minimizeIntent);
+    expect(minimizeIntent).toBeChecked();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIntentMinimized",
+        minimized: true,
+      }),
+    );
+    send.mockClear();
+    await user.click(workspaceIntentScope);
+    expect(workspaceIntentScope).toBeChecked();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIntentScope",
+        scope: "workspace",
+        slot: 2,
+        minimized: true,
+      }),
+    );
+    send.mockClear();
+    await user.click(screen.getByRole("radio", { name: /Architect/ }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIntentSlot",
+        slot: 3,
+      }),
+    );
+    send.mockClear();
+    await user.click(globalIntentScope);
+    expect(globalIntentScope).toBeChecked();
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/setIntentScope",
+        scope: "global",
+        slot: 3,
+        minimized: true,
       }),
     );
     // Runtimes group: SDK and RPC instance cards

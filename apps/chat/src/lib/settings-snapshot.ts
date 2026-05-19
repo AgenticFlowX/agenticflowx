@@ -28,6 +28,8 @@ export interface SettingsSnapshotInput {
   sessionDir?: string;
   bundledPiNpmVersion?: string;
   includeActiveFileContext?: boolean;
+  intentSlot?: 1 | 2 | 3 | 4;
+  intentMinimized?: boolean;
   telemetryEnabled?: boolean;
   vscodeTelemetryEnabled?: boolean;
 }
@@ -73,6 +75,17 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
     },
     mode: {
       active: input.mode ?? "code",
+    },
+    intent: {
+      effective: {
+        slot: input.intentSlot ?? 1,
+        minimized: input.intentMinimized ?? false,
+      },
+      global: {
+        slot: input.intentSlot ?? 1,
+        minimized: input.intentMinimized ?? false,
+      },
+      hasWorkspaceOverride: false,
     },
     providers: groupProviders(availableModels, input.sdkDefaultModel),
     externalAgents: groupExternalAgents(availableModels, input),

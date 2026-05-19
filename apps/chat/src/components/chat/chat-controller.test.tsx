@@ -313,6 +313,38 @@ After.`,
     });
   });
 
+  it("forces Intent compact when doc-actions is visible in Code or Explore mode", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    const { result } = renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({
+        type: "chat/activeDocContext",
+        format: "sprint",
+        section: "SPEC",
+        docKind: "spec",
+        feature: "postgresql-marketplace-backend-rewrite",
+        filePath: "/repo/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+        approvalStatus: "Draft",
+      });
+    });
+
+    const intentPanel = result.current.composerPanelStackConfig.panels.find(
+      (panel) => panel.id === "intent",
+    );
+    const docActionsPanel = result.current.composerPanelStackConfig.panels.find(
+      (panel) => panel.id === "doc-actions",
+    );
+
+    expect(intentPanel?.forcedCollapsed).toBe(true);
+    expect(docActionsPanel).toBeTruthy();
+    expect(docActionsPanel?.actions).toBeTruthy();
+    expect(
+      result.current.composerPanelStackConfig.panels.some((panel) => panel.id === "mode-suggest"),
+    ).toBe(false);
+  });
+
   it("clears stale active-doc add-ons when a non-AFX file becomes active", () => {
     const transport = createControllableTransport();
     initTransport(transport);
@@ -459,6 +491,131 @@ After.`,
     });
     expect(acceptedFreshHostMode).toBe(true);
     expect(result.current.state.workspaceMode).toBe("explore");
+  });
+
+  it("wires Composer Intent panels, footer labels, and bridge dispatch", () => {
+    const transport = createStatefulTransport();
+    initTransport(transport);
+
+    const { result } = renderHook(() => useChatController());
+
+    expect(result.current.composerPanelStackConfig.panels.some((p) => p.id === "intent")).toBe(
+      true,
+    );
+    expect(result.current.slices.footer.intentLabel).toBeNull();
+
+    act(() => {
+      result.current.actions.setIntentSlot(2);
+    });
+
+    expect(result.current.slices.footer.intentLabel).toBe("Ask");
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/setIntentSlot", slot: 2 }),
+    );
+
+    act(() => {
+      result.current.actions.submit({ draft: "Explain this" });
+    });
+
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/send", content: "Explain this", intentSlot: 2 }),
+    );
+
+    act(() => {
+      result.current.actions.setMode("explore");
+    });
+    expect(result.current.composerPanelStackConfig.panels.some((p) => p.id === "intent")).toBe(
+      true,
+    );
+
+    act(() => {
+      result.current.actions.setMode("spec");
+    });
+    expect(result.current.composerPanelStackConfig.panels.some((p) => p.id === "intent")).toBe(
+      false,
+    );
+  });
+
+  it("keeps fresh local Intent changes over stale host snapshots until confirmed", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+
+    const { result } = renderHook(() => useChatController());
+
+    act(() => {
+      result.current.actions.setIntentSlot(3);
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "stale-intent",
+        snapshot: {
+          appearance: { theme: "meridian", style: "lyra", themes: [], styles: [] },
+          engine: {
+            rpcEnabled: false,
+            agentBinary: "pi",
+            bundledSkillsPath: "resources/skills/agenticflowx",
+            bundledSkillCount: 0,
+            ephemeral: false,
+          },
+          sdk: {
+            enabled: true,
+            defaultModel: "anthropic:claude-opus-4-5",
+            ollamaBaseUrl: "",
+            sessionDir: "",
+          },
+          context: { includeActiveFileContext: true },
+          mode: { active: "code" },
+          intent: {
+            effective: { slot: 1, minimized: false },
+            global: { slot: 1, minimized: false },
+            hasWorkspaceOverride: false,
+          },
+          providers: [],
+          externalAgents: [],
+          diagnostics: { logLevel: "info" },
+          telemetry: { enabled: true, vscodeTelemetryEnabled: true, effectiveEnabled: true },
+          about: { extensionVersion: "2.0.0", bundledPiNpmVersion: "?" },
+        },
+      });
+    });
+
+    expect(result.current.slices.footer.intentLabel).toBe("Architect");
+
+    act(() => {
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "confirmed-intent",
+        snapshot: {
+          appearance: { theme: "meridian", style: "lyra", themes: [], styles: [] },
+          engine: {
+            rpcEnabled: false,
+            agentBinary: "pi",
+            bundledSkillsPath: "resources/skills/agenticflowx",
+            bundledSkillCount: 0,
+            ephemeral: false,
+          },
+          sdk: {
+            enabled: true,
+            defaultModel: "anthropic:claude-opus-4-5",
+            ollamaBaseUrl: "",
+            sessionDir: "",
+          },
+          context: { includeActiveFileContext: true },
+          mode: { active: "code" },
+          intent: {
+            effective: { slot: 3, minimized: false },
+            global: { slot: 3, minimized: false },
+            hasWorkspaceOverride: false,
+          },
+          providers: [],
+          externalAgents: [],
+          diagnostics: { logLevel: "info" },
+          telemetry: { enabled: true, vscodeTelemetryEnabled: true, effectiveEnabled: true },
+          about: { extensionVersion: "2.0.0", bundledPiNpmVersion: "?" },
+        },
+      });
+    });
+
+    expect(result.current.slices.footer.intentLabel).toBe("Architect");
   });
 
   it("setThinkingLevel updates runtime locally and dispatches the bridge message", () => {

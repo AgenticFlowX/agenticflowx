@@ -30,11 +30,19 @@ import type {
   ChatMessageView,
   ChatTimelineItem,
   ChatToolView,
+  ComposerIntentState,
+  IntentSlot,
   MessageOf,
+  SettingsIntentSnapshot,
   ThinkingLevel,
   WorkspaceMode,
 } from "@afx/shared";
-import { createCheckingAgentRuntimeStatus } from "@afx/shared";
+import {
+  createCheckingAgentRuntimeStatus,
+  getIntentPrompt,
+  isIntentParentMode,
+  normalizeIntentSlot,
+} from "@afx/shared";
 
 import { bridgeGetState, bridgeOn, bridgeSend, bridgeSetState } from "../../lib/bridge";
 import { deriveModifiedFiles } from "../../lib/derive-modified-files";
@@ -54,15 +62,14 @@ import type {
 } from "./chat.types";
 import { DEFAULT_CHAT_WINDOW_FLAGS } from "./chat.types";
 import {
-  AfxCommandSuggestPanelBody,
   type BlockedActionView,
   BlockedCommandPanelBody,
-  ModeSuggestPanelBody,
-  ModeSuggestPanelTitle,
+  ComposerNoticePanelBody,
   QueueClearAllAction,
   QueuePanel,
   type QueuedMessage,
 } from "./composer-panels";
+import { IntentStrip, IntentStripHeaderExtras, IntentStripTitle } from "./intent-strip";
 
 type ActiveDocContextMessage = MessageOf<AgentToChat, "chat/activeDocContext">;
 
@@ -139,6 +146,7 @@ export interface PersistedChatViewState {
   noteEvents: ChatNoteEventView[];
   /** @see docs/specs/212-app-chat-messages/spec.md [FR-8] */
   workspaceMode?: WorkspaceMode;
+  intentSlot?: IntentSlot;
 }
 
 /** Webview state persisted by VS Code so remounts can hydrate instantly. */
@@ -157,6 +165,8 @@ export interface ChatControllerState {
   usage: ChatUsageStats | null;
   queued: QueuedMessage[];
   workspaceMode: WorkspaceMode;
+  intentSlot: IntentSlot;
+  intentMinimized: boolean;
   hasReceivedStateSnapshot: boolean;
   hasReceivedSettingsSnapshot: boolean;
   internalAgentStatus: AgentRuntimeStatus;
@@ -237,6 +247,8 @@ export interface ChatControllerActions {
   abort: () => void;
   setMode: (mode: WorkspaceMode) => void;
   acceptHostWorkspaceMode: (mode: WorkspaceMode) => boolean;
+  setIntentSlot: (slot: IntentSlot) => void;
+  setIntentMinimized: (minimized: boolean) => void;
   setThinkingLevel: (level: ThinkingLevel) => void;
   dispatchHostAction: (action: "tasks.signOff", uri: string) => void;
 
@@ -343,6 +355,7 @@ export interface FooterSlice {
   rpcEnabled: boolean;
   agentPhase: AgentRuntimePhase;
   workspaceMode: WorkspaceMode;
+  intentLabel: string | null;
   onPiWarningClick?: () => void;
 }
 
@@ -487,6 +500,10 @@ export function useChatController({
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(
     () => initialPersistedChatView?.workspaceMode ?? "code",
   );
+  const [intentSlot, setIntentSlotState] = useState<IntentSlot>(
+    () => initialPersistedChatView?.intentSlot ?? 1,
+  );
+  const [intentMinimized, setIntentMinimizedState] = useState(false);
   const [hasReceivedStateSnapshot, setHasReceivedStateSnapshot] = useState(
     () => initialPersistedChatView !== null,
   );
@@ -520,7 +537,10 @@ export function useChatController({
   // Refs keep long-lived bridge handlers aligned with the latest mode,
   // command, and dangerous-command confirmation state.
   const pendingWorkspaceModeRef = useRef<WorkspaceMode | null>(null);
+  const pendingIntentSlotRef = useRef<IntentSlot | null>(null);
+  const pendingIntentMinimizedRef = useRef<boolean | null>(null);
   const latestWorkspaceModeRef = useRef<WorkspaceMode>(workspaceMode);
+  const latestIntentSlotRef = useRef<IntentSlot>(intentSlot);
   const afxCommandSuggestDismissedRef = useRef(false);
   const pendingAfxCommandSuggestRef = useRef(false);
   const activeCommandRef = useRef<{ requestId: string; command: string } | null>(null);
@@ -529,6 +549,9 @@ export function useChatController({
   useEffect(() => {
     latestWorkspaceModeRef.current = workspaceMode;
   }, [workspaceMode]);
+  useEffect(() => {
+    latestIntentSlotRef.current = intentSlot;
+  }, [intentSlot]);
   useEffect(() => {
     afxCommandSuggestDismissedRef.current = afxCommandSuggestDismissed;
   }, [afxCommandSuggestDismissed]);
@@ -544,6 +567,9 @@ export function useChatController({
   const runtimeUnconfigured = agentStatus.runtimeConfigured === false;
   const rpcEnabled = runtime.rpcEnabled === true || agentStatus.rpcEnabled === true;
   const isExploreMode = workspaceMode === "explore";
+  const activeIntentLabel = isIntentParentMode(workspaceMode)
+    ? getIntentPrompt(workspaceMode, intentSlot).label
+    : null;
   const activeFileDisplayName = activeFileContext?.name ?? "No active file";
   const activeFileDisplayPath = activeFileContext?.path ?? "No active editor file";
 
@@ -584,6 +610,33 @@ export function useChatController({
       pendingAfxCommandSuggestRef.current = false;
     }
     bridgeSend({ type: "chat/setMode", requestId: createChatUid(), mode });
+  });
+
+  const acceptHostIntentState = useStableCallback((slot: IntentSlot, minimized: boolean): void => {
+    if (pendingIntentSlotRef.current === slot) pendingIntentSlotRef.current = null;
+    if (pendingIntentMinimizedRef.current === minimized) pendingIntentMinimizedRef.current = null;
+
+    if (pendingIntentSlotRef.current == null) {
+      latestIntentSlotRef.current = slot;
+      setIntentSlotState(slot);
+    }
+    if (pendingIntentMinimizedRef.current == null) {
+      setIntentMinimizedState(minimized);
+    }
+  });
+
+  const setIntentSlot = useStableCallback((slot: IntentSlot) => {
+    const normalized = normalizeIntentSlot(slot);
+    pendingIntentSlotRef.current = normalized;
+    latestIntentSlotRef.current = normalized;
+    setIntentSlotState(normalized);
+    bridgeSend({ type: "chat/setIntentSlot", requestId: createChatUid(), slot: normalized });
+  });
+
+  const setIntentMinimized = useStableCallback((minimized: boolean) => {
+    pendingIntentMinimizedRef.current = minimized;
+    setIntentMinimizedState(minimized);
+    bridgeSend({ type: "chat/setIntentMinimized", requestId: createChatUid(), minimized });
   });
 
   const markAfxCommandIfCodeMode = useCallback((content: string): void => {
@@ -824,6 +877,8 @@ export function useChatController({
 
         bridge.on("agent/settingsSnapshot", (msg) => {
           setIncludeActiveFileContext(msg.snapshot.context?.includeActiveFileContext ?? true);
+          const hostIntent = resolveSettingsIntentState(msg.snapshot.intent);
+          acceptHostIntentState(hostIntent.slot, hostIntent.minimized);
           acceptHostWorkspaceMode(msg.snapshot.mode?.active ?? "code");
           if (msg.snapshot.onboarding) {
             setOnboardingFlags(msg.snapshot.onboarding);
@@ -958,7 +1013,7 @@ export function useChatController({
 
       return offs;
     },
-    [acceptHostWorkspaceMode, completeCompaction],
+    [acceptHostIntentState, acceptHostWorkspaceMode, completeCompaction],
   );
 
   // Webview-state persistence — VS Code retains an opaque blob across webview
@@ -986,15 +1041,17 @@ export function useChatController({
             commandOutputs: [...commandOutputs],
             noteEvents: [...noteEvents],
             workspaceMode,
+            intentSlot,
           }
         : shouldPersistMode
-          ? { messages: [], commandOutputs: [], noteEvents: [], workspaceMode }
+          ? { messages: [], commandOutputs: [], noteEvents: [], workspaceMode, intentSlot }
           : null,
     );
   }, [
     commandOutputs,
     hasReceivedSettingsSnapshot,
     hasReceivedStateSnapshot,
+    intentSlot,
     messages,
     noteEvents,
     persistAction,
@@ -1118,10 +1175,6 @@ export function useChatController({
       setDismissedDocActionsStrip(true);
       return;
     }
-    if (id === "mode-suggest") {
-      setOnboardingFlag("specModeOfferDismissed", true);
-      return;
-    }
     if (id === "afx-command-suggest") {
       setAfxCommandSuggestDismissed(true);
       return;
@@ -1220,6 +1273,7 @@ export function useChatController({
         requestId: createChatUid(),
         content: trimmed,
         mentions: mentionsArg,
+        intentSlot: latestIntentSlotRef.current,
       });
     } else {
       const mode: QueuedMessage["mode"] = input.followUp ? "followUp" : "steer";
@@ -1228,6 +1282,7 @@ export function useChatController({
         requestId: createChatUid(),
         content: trimmed,
         mentions: mentionsArg,
+        intentSlot: latestIntentSlotRef.current,
       });
       setQueued((q) => [...q, { id: createChatUid(), mode, content: trimmed, sentAt: Date.now() }]);
     }
@@ -1247,14 +1302,24 @@ export function useChatController({
     markAfxCommandIfCodeMode(trimmed);
     const requestId = createChatUid();
     if (isStreaming) {
-      bridgeSend({ type: "chat/followUp", requestId, content: trimmed });
+      bridgeSend({
+        type: "chat/followUp",
+        requestId,
+        content: trimmed,
+        intentSlot: latestIntentSlotRef.current,
+      });
       setQueued((q) => [
         ...q,
         { id: createChatUid(), mode: "followUp", content: trimmed, sentAt: Date.now() },
       ]);
       return;
     }
-    bridgeSend({ type: "chat/send", requestId, content: trimmed });
+    bridgeSend({
+      type: "chat/send",
+      requestId,
+      content: trimmed,
+      intentSlot: latestIntentSlotRef.current,
+    });
   });
 
   const handleMemorySelect = useStableCallback(
@@ -1435,9 +1500,11 @@ export function useChatController({
       rpcEnabled,
       agentPhase: agentStatus.phase,
       workspaceMode,
+      intentLabel: activeIntentLabel !== "Default" ? activeIntentLabel : null,
       onPiWarningClick: recoveryActions?.onOpenSettings,
     }),
     [
+      activeIntentLabel,
       agentStatus.phase,
       isCheckingAgent,
       isStreaming,
@@ -1479,6 +1546,7 @@ export function useChatController({
   // Builds panel bodies in their visible order; ComposerPanel supplies chrome.
   const composerPanelStackConfig = useMemo<ComposerPanelStackConfig>(() => {
     const panels: ComposerPanelDefinition[] = [];
+    const docActionsVisible = !dismissedDocActionsStrip && activeDocContext.docKind != null;
 
     // Queue dismisses rows; blocked-command warnings stay expanded.
     // @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-10] [FR-13] [FR-15]
@@ -1538,10 +1606,41 @@ export function useChatController({
       });
     }
 
-    // 4. Doc-actions (when not dismissed and an AFX doc is active with actions)
+    // 4. Intent: Code/Explore only; Spec keeps doc-actions/spec-stepper framing.
+    if (isIntentParentMode(workspaceMode)) {
+      panels.push({
+        id: "intent",
+        zone: "workflow",
+        title: <IntentStripTitle />,
+        tone: workspaceMode === "explore" ? "warning" : "brand",
+        visible: true,
+        collapsible: true,
+        defaultCollapsed: intentMinimized,
+        defaultCollapsedKey: intentMinimized ? "settings-minimized" : "settings-expanded",
+        forcedCollapsed: docActionsVisible,
+        dismissible: false,
+        headerExtras: ({ collapsed }) => (
+          <IntentStripHeaderExtras
+            parentMode={workspaceMode}
+            slot={intentSlot}
+            onSlotChange={setIntentSlot}
+            collapsed={collapsed}
+          />
+        ),
+        onCollapsedChange: setIntentMinimized,
+        component: IntentStrip as ComponentType<unknown>,
+        props: {
+          parentMode: workspaceMode,
+          slot: intentSlot,
+          onSlotChange: setIntentSlot,
+        },
+      });
+    }
+
+    // 5. Doc-actions (when not dismissed and an AFX doc is active with actions)
     //
     // Memory is not duplicated in this panel header.
-    if (!dismissedDocActionsStrip && activeDocContext.docKind != null) {
+    if (docActionsVisible) {
       panels.push({
         id: "doc-actions",
         zone: "workflow",
@@ -1550,6 +1649,19 @@ export function useChatController({
         visible: true,
         collapsible: true,
         dismissible: true,
+        actions:
+          workspaceMode === "spec" ? null : (
+            <button
+              type="button"
+              onClick={() => {
+                setMode("spec");
+                setOnboardingFlag("specModeOfferDismissed", true);
+              }}
+              className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
+            >
+              Switch to Spec
+            </button>
+          ),
         component: ChatDocActionsPanelBody as ComponentType<unknown>,
         props: {
           workspaceMode,
@@ -1562,37 +1674,7 @@ export function useChatController({
       });
     }
 
-    // 5. Mode suggest
-    if (
-      workspaceMode !== "spec" &&
-      !onboardingFlags.specModeOfferDismissed &&
-      activeDocContext.docKind != null
-    ) {
-      panels.push({
-        id: "mode-suggest",
-        zone: "feedback",
-        title: <ModeSuggestPanelTitle docContext={activeDocContext} />,
-        tone: "brand",
-        visible: true,
-        dismissible: true,
-        actions: (
-          <button
-            type="button"
-            onClick={() => {
-              setMode("spec");
-              setOnboardingFlag("specModeOfferDismissed", true);
-            }}
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-          >
-            Switch to Spec
-          </button>
-        ),
-        component: ModeSuggestPanelBody as ComponentType<unknown>,
-        props: { docContext: activeDocContext },
-      });
-    }
-
-    // 6. AFX command suggest
+    // 6. AFX command notice
     if (afxCommandSuggestVisible && !afxCommandSuggestDismissed && workspaceMode === "code") {
       panels.push({
         id: "afx-command-suggest",
@@ -1613,7 +1695,12 @@ export function useChatController({
             Switch to Spec
           </button>
         ),
-        component: AfxCommandSuggestPanelBody as ComponentType<unknown>,
+        component: ComposerNoticePanelBody as ComponentType<unknown>,
+        props: {
+          kind: "tip",
+          children:
+            "That command worked here. Switch to Spec mode for the action rail, stage tracker, and approval workflow.",
+        },
       });
     }
 
@@ -1631,12 +1718,15 @@ export function useChatController({
     dispatchHostAction,
     filesPanelVisible,
     handleOpenModifiedFile,
+    intentMinimized,
+    intentSlot,
     modifiedFiles,
-    onboardingFlags.specModeOfferDismissed,
     queued,
     restoreBlockedCommand,
     sendNow,
     setAfxCommandSuggestVisible,
+    setIntentMinimized,
+    setIntentSlot,
     setMode,
     setOnboardingFlag,
     workspaceMode,
@@ -1674,6 +1764,8 @@ export function useChatController({
       usage,
       queued,
       workspaceMode,
+      intentSlot,
+      intentMinimized,
       hasReceivedStateSnapshot,
       hasReceivedSettingsSnapshot,
       internalAgentStatus,
@@ -1707,6 +1799,8 @@ export function useChatController({
       hasReceivedSettingsSnapshot,
       hasReceivedStateSnapshot,
       includeActiveFileContext,
+      intentMinimized,
+      intentSlot,
       internalAgentStatus,
       messages,
       models,
@@ -1727,6 +1821,8 @@ export function useChatController({
       abort,
       setMode,
       acceptHostWorkspaceMode,
+      setIntentSlot,
+      setIntentMinimized,
       setThinkingLevel,
       dispatchHostAction,
       submit,
@@ -1772,6 +1868,8 @@ export function useChatController({
       sendNow,
       setAfxCommandSuggestDismissed,
       setAfxCommandSuggestVisible,
+      setIntentMinimized,
+      setIntentSlot,
       setMode,
       setOnboardingFlag,
       setThinkingLevel,
@@ -1831,12 +1929,30 @@ export function readPersistedChatViewState(): PersistedChatViewState | null {
     messages.length === 0 &&
     commandOutputs.length === 0 &&
     noteEvents.length === 0 &&
-    persisted.workspaceMode == null
+    persisted.workspaceMode == null &&
+    persisted.intentSlot == null
   ) {
     return null;
   }
 
-  return { messages, commandOutputs, noteEvents, workspaceMode: persisted.workspaceMode };
+  return {
+    messages,
+    commandOutputs,
+    noteEvents,
+    workspaceMode: persisted.workspaceMode,
+    intentSlot: normalizeIntentSlot(persisted.intentSlot),
+  };
+}
+
+function resolveSettingsIntentState(
+  snapshot: SettingsIntentSnapshot | undefined,
+): ComposerIntentState {
+  if (snapshot?.effective) return snapshot.effective;
+  const legacy = snapshot as unknown as Partial<ComposerIntentState> | undefined;
+  return {
+    slot: normalizeIntentSlot(legacy?.slot),
+    minimized: legacy?.minimized === true,
+  };
 }
 
 function sanitizeTimelineMessages(messages: readonly ChatTimelineItem[]): ChatTimelineItem[] {

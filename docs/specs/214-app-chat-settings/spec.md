@@ -3,11 +3,11 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-19T13:55:39.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
-tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
+tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models", "intent"]
 depends_on:
   [
     "100-package-shared",
@@ -29,7 +29,7 @@ depends_on:
 
 ## Problem Statement
 
-Provider selection, API key UX, runtime readiness, settings snapshots, workspace mode selection, and theme preview behavior need a targeted home separate from composer and message rendering.
+Provider selection, API key UX, runtime readiness, settings snapshots, workspace mode selection, Composer Intent defaults, and theme preview behavior need a targeted home separate from composer and message rendering.
 
 ---
 
@@ -62,11 +62,12 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-3  | Own theme preview UX inside settings while shared theme contracts remain in `131-package-ui-design-system`                                                                                                                                                                                                                                                                                                                                                                                            | Should Have |
 | FR-4  | Keep runtime selection contracts aligned with `350-agent-manager`                                                                                                                                                                                                                                                                                                                                                                                                                                     | Must Have   |
 | FR-5  | Own the persistent active-file context preference and mirror it into the composer default                                                                                                                                                                                                                                                                                                                                                                                                             | Must Have   |
-| FR-6  | Own the workspace mode card and its shared snapshot copy, including Code default full access and Explore read-only/experimental posture for inspection, tracing, and planning                                                                                                                                                                                                                                                                                                                         | Must Have   |
+| FR-6  | Own the workspace mode card and its shared snapshot copy, including Code default full access, Explore read-only/experimental posture for inspection/tracing/planning, Spec planning-only posture, and a global-default persistence model that preserves explicit workspace overrides                                                                                                                                                                                                                  | Must Have   |
 | FR-7  | Extend the workspace mode card with a third Spec entry (planning-only posture with violet accent), and surface a one-time onboarding flag store (`afx.specModeOfferDismissed`, `afx.specModeTooltipSeen`, `afx.docActionsTooltipSeen`) in the settings snapshot so the chat composer can drive its onboarding strips and tooltips                                                                                                                                                                     | Must Have   |
 | FR-8  | Surface a Custom Models sub-tab inside Models with a `Track: [Pi SDK] [Pi RPC]` selector. The Pi SDK track lists AFX-managed providers from VSCode SecretStorage; the Pi RPC track lists hand-edited entries from `~/.pi/agent/models.json` (read-only, with an "Open in editor" button per row that re-uses the existing `chat/openModelsJson` deep-link).                                                                                                                                           | Should Have |
 | FR-9  | Provide structured Add/Edit forms inside the Pi SDK track for custom providers (id, displayName, baseUrl, api kind, apiKeySource, authHeader, per-api compat flags from `COMPAT_FLAGS_BY_API`) and per-model entries (id, name, api override, capabilities, contextWindow, maxTokens, cost). Forms use only `@afx/ui/components/*` shadcn primitives and Lucide React icons — no custom widgets or one-off styles. Provider Remove uses an inline two-click confirm (Webviews block `window.confirm`) | Should Have |
 | FR-10 | Store all custom-provider data — apiKey value, baseUrl, models, headers, opaque compat — in VSCode SecretStorage. The host→webview bridge carries only `CustomProviderSummary` and `CustomProviderModelSummary`: id, displayName, baseUrl, api kind, modelCount, redacted models[] (id/name/contextWindow/maxTokens/capabilities), apiKeySource, apiKeyLabel, hasApiKey, authHeader, UI-known compatFlags (booleans only). AFX never writes to `~/.pi/agent/models.json` from either track            | Must Have   |
+| FR-11 | Own the Composer Intent settings surface in the Workspace group: expose the current four-slot default, remap slot 4 by active parent mode (`Code` or `PRD`), persist `afx.composer.intent.slot`, persist the `afx.composer.intent.minimized` default, and expose global-default vs workspace-override scope as an either/or radio choice without changing Spec mode behavior                                                                                                                          | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -87,6 +88,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Theme preview UI uses `131-package-ui-design-system` for shared appearance contract
 - [ ] Active-file context preference is surfaced in Settings and mirrored into the composer default
 - [ ] Workspace mode card is surfaced in Settings and mirrors the host snapshot
+- [ ] Composer Intent controls are surfaced in the Workspace group and mirror `SettingsSnapshot.intent`
 - [ ] Each registered `AgentInstance` (Pi RPC, Pi SDK) renders its own card under the Runtimes group; Behaviour controls show an explicit "Active: …" scope label per `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`
 - [ ] Models tab is sub-tabbed (`Built-in` / `Custom Models`); Custom Models carries a `Track: [Pi SDK] [Pi RPC]` selector per `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`
 - [ ] Pi SDK track surfaces AFX-managed providers from VSCode SecretStorage with full Add/Edit/Delete CRUD via structured forms (preset picker, custom-provider-form, custom-model-form, api-key-source-input) using only `@afx/ui/components/*` and Lucide React icons
@@ -123,7 +125,12 @@ Users configuring chat providers and developers maintaining settings UX.
 |              tracing, and planning. Host blocks shell       |
 |              commands before they spawn.                    |
 |                                                              |
-|  The model stays shared across both modes.                  |
+|  Composer Intent                                             |
+|  (*) Default  ( ) Ask  ( ) Architect  ( ) Code/PRD           |
+|  [ ] Minimize Intent strip                                   |
+|  Scope: (*) Global default  ( ) This workspace               |
+|                                                              |
+|  The model stays shared across all modes.                    |
 +--------------------------------------------------------------+
 ```
 
@@ -154,7 +161,7 @@ None.
 | Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts` |
 | Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                           |
 | Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                            |
-| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`                                                                                                |
+| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`, `afx.composer.intent.slot`, `afx.composer.intent.minimized`                                   |
 | Commands        | Settings panel actions inside the chat webview                                                                                                                                                                       |
 | Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                      |
 | Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                  |

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.9"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-19T14:32:26.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -32,6 +32,9 @@ packages/shared/
     ├── agent.ts        ← AgentManager, AgentEvent, AgentStatus, Disposable
     ├── logger.ts       ← Logger contract + sinks (DES-LOG, ADR-0003)
     ├── messages.ts     ← ChatToAgent, AgentToChat, WorkbenchToHost, HostToWorkbench
+    ├── intent.ts       ← Composer Intent modes, slots, state
+    ├── intent-prompts.ts ← parent-aware Composer Intent prompt registry
+    ├── intent-copy.ts  ← human-facing Composer Intent labels/tooltips
     ├── types.ts        ← domain types: Task, Spec, Phase, Feature, Discussion …
     └── constants.ts    ← shared string constants
 ```
@@ -114,47 +117,33 @@ type AgentToChat =
     };
 ```
 
-`chat/activeDocContext` carries the active AFX document identity used by the chat composer. The
-required stable fields are `format`, `section`, `docKind`, `feature`, and `approvalStatus`. Optional
-fields are additive for old host/webview compatibility:
+`chat/activeDocContext` carries the active AFX document identity used by the chat composer.
 
-- `parsedFocuses?: FocusOption[]` for doc-action focus menus (FR-15)
-- `taskPhases?: PhaseRow[]` and `signOff?: SignOffSummary` for the FR-19 brass Sign Off button on
-  standard `tasks.md` — sprint files keep `signOff` undefined since their Work Sessions table lives
-  in the SESSIONS slice
-- `specStatus?: string | null`, `designStatus?: string | null`, `tasksStatus?: string | null`,
-  `tasksCompleted?: number`, `tasksTotal?: number` drive the FR-16/FR-17 spec stepper pills
-  (`[1 Spec ✓] [2 Design …] [3 Tasks 3/8]`). Standard 4-file features read sibling
-  spec/design/tasks frontmatter on activation and cache the result; sprint files derive the same
-  shape from the in-file `approval` block. `onDidSaveTextDocument` invalidates the cache so the
-  stepper stays fresh when a sibling is approved/refined in another tab. The terminal `Code`
-  pseudo-pill was dropped — the action row covers the implementation phase. Glyphs are plain
-  text (`✓ … ! ·`) so they match the `font-mono text-[10px]` pill metric (the previous emoji
-  `⏳ ⚠` rendered too tall and broke the pill's vertical bounds)
-- `workSessionsTotal?: number`, `workSessionsSigned?: number` — row counts for the
-  `## Work Sessions` table in standard `tasks.md` (or the SESSIONS slice of a sprint file).
-  `total` = data rows, `signed` = rows with a ticked Human cell. Drives the stepper's tier-2
-  `Work Sessions n/m` chip label so the number reflects actual session-log progress, NOT the
-  unrelated body-checkbox `tasksCompleted/Total` fraction. Computed host-side via
-  `summarizeWorkSessions()` in `services/tasks-signoff.ts`
-- `siblingPaths?: { spec?, design?, tasks?, journal?: string }` — absolute paths to sibling SDD
-  files for the current feature, populated by `collectSiblingPaths(featureDir)` only when each
-  file exists on disk. Powers the spec stepper's per-pill click-to-open in standard mode. When
-  the host misses populating an entry but the corresponding sibling status proves the file
-  exists, the webview falls back to deriving `<dirname>/<key>.md` from the active doc's path so
-  the pill stays clickable
-- `sectionOffsets?: { spec?, design?, tasks?, sessions?: number }` — 1-indexed line numbers for
-  in-file section headings. Sprint files populate all four (via `extractSprintSectionOffsets()`);
-  standard `tasks.md` populates only `sessions` (via `extractStandardWorkSessionsOffset()`). The
-  spec stepper dispatches `chat/openFile { path, line }` so clicking a pill scrolls the editor to
-  the matching `## SPEC` / `## DESIGN` / `## TASKS` / `## Work Sessions` heading. Sprint cursor
-  in the SESSIONS slice rolls up to `section: "TASKS"` so the strip + stepper stay visible
-  while the user edits the work-log table
+| Stable field     | Purpose                                         |
+| ---------------- | ----------------------------------------------- |
+| `format`         | Distinguishes sprint, 4-file SDD, journal, etc. |
+| `section`        | Current in-document workflow section.           |
+| `docKind`        | Action catalog key for the active document.     |
+| `feature`        | Feature identity used for sibling lookup.       |
+| `approvalStatus` | Current lifecycle state for the active doc.     |
 
-`FocusOption` uses stable `id`, display `label`, markdown `slug`, optional `commandSuffix`, optional
-body `excerpt`, and 1-indexed `line`. `SignOffSummary` reports whether all tasks are checked, all
-Agent cells are checked, how many Human sign-off rows are pending, and whether the frontmatter is
-already `Living`.
+Optional fields are additive so older hosts/webviews can safely omit them:
+
+| Optional field(s)                                             | Producer                                         | Consumer / UI                                | Notes                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `parsedFocuses?: FocusOption[]`                               | Focus parser                                     | Doc-action focus menus                       | Drives FR-15 scoped refine/discuss menus.                                                  |
+| `taskPhases?: PhaseRow[]`, `signOff?: SignOffSummary`         | Standard `tasks.md` parser                       | FR-19 brass `Sign Off` button                | Sprint files leave `signOff` undefined because Work Sessions live in the SESSIONS slice.   |
+| `specStatus`, `designStatus`, `tasksStatus`                   | Sibling frontmatter or sprint `approval` block   | Stepper pills 1-3                            | Cache invalidates on `onDidSaveTextDocument`; no terminal `Code` pill.                     |
+| `tasksCompleted?: number`, `tasksTotal?: number`              | Task checkbox summary                            | Tasks pill fraction                          | Represents task body checkboxes only.                                                      |
+| `workSessionsTotal?: number`, `workSessionsSigned?: number`   | `summarizeWorkSessions()` in `tasks-signoff.ts`  | Fourth `Work n/m` pill                       | Counts Work Sessions rows and ticked Human cells; never reuses `tasksCompleted/Total`.     |
+| `siblingPaths?: { spec?, design?, tasks?, journal?: string }` | `collectSiblingPaths(featureDir)`                | Standard-mode stepper click-to-open          | Webview may derive `<dirname>/<key>.md` when status proves a sibling exists.               |
+| `sectionOffsets?: { spec?, design?, tasks?, sessions? }`      | Sprint/standard Work Sessions heading extractors | Sprint and Work Sessions click-to-line jumps | Values are 1-indexed lines for `chat/openFile { path, line }`; SESSIONS remains `section`. |
+
+| Supporting type   | Shape                                                                                                                       |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `FocusOption`     | Stable `id`, display `label`, markdown `slug`, 1-indexed `line`, optional `commandSuffix`, optional body `excerpt`.         |
+| `SignOffSummary`  | All-task checkbox state, all-Agent-cell state, pending Human sign-off count, and whether frontmatter is already `Living`.   |
+| Stepper glyph set | Plain text only (`✓ … ! ·`) to preserve the `font-mono text-[10px]` pill metric; emoji rendered too tall in prior attempts. |
 
 #### Host-Action Envelope (FR-14)
 
@@ -452,15 +441,18 @@ A faulty sink throws are caught and isolated; logging to other sinks continues.
 
 ## [DES-FILES] File Structure
 
-| File                                 | Purpose                                                |
-| ------------------------------------ | ------------------------------------------------------ |
-| `packages/shared/src/index.ts`       | Barrel — all public exports                            |
-| `packages/shared/src/agent.ts`       | Agent contract — AgentManager, AgentEvent, Disposable  |
-| `packages/shared/src/logger.ts`      | Structured Logger contract + sinks (DES-LOG, ADR-0003) |
-| `packages/shared/src/logger.test.ts` | Logger unit tests                                      |
-| `packages/shared/src/messages.ts`    | Chat + Workbench message protocol types                |
-| `packages/shared/src/types.ts`       | Domain types (Task, Spec, etc.)                        |
-| `packages/shared/src/constants.ts`   | Shared string constants                                |
+| File                                    | Purpose                                                |
+| --------------------------------------- | ------------------------------------------------------ |
+| `packages/shared/src/index.ts`          | Barrel — all public exports                            |
+| `packages/shared/src/agent.ts`          | Agent contract — AgentManager, AgentEvent, Disposable  |
+| `packages/shared/src/logger.ts`         | Structured Logger contract + sinks (DES-LOG, ADR-0003) |
+| `packages/shared/src/logger.test.ts`    | Logger unit tests                                      |
+| `packages/shared/src/messages.ts`       | Chat + Workbench message protocol types                |
+| `packages/shared/src/intent.ts`         | Composer Intent slots, parent modes, persisted state   |
+| `packages/shared/src/intent-prompts.ts` | Parent-aware Composer Intent prompt registry           |
+| `packages/shared/src/intent-copy.ts`    | Human-facing Composer Intent copy helpers              |
+| `packages/shared/src/types.ts`          | Domain types (Task, Spec, etc.)                        |
+| `packages/shared/src/constants.ts`      | Shared string constants                                |
 
 ---
 
@@ -514,32 +506,34 @@ Revert `messages.ts` and `types.ts` to previous version; all consumers recompile
 
 <!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] -->
 
-| Shared contract           | Source anchor                                                      | Design node                       | Downstream consumers                     |
-| ------------------------- | ------------------------------------------------------------------ | --------------------------------- | ---------------------------------------- |
-| Barrel exports            | `packages/shared/src/index.ts`                                     | `[DES-API]`                       | all apps/packages                        |
-| Chat protocol             | `packages/shared/src/messages.ts`                                  | `[DES-SHARED-CHAT-PROTOCOL]`      | chat bridge, sidebar panel, transport    |
-| Chat timeline view models | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`  | `[DES-SHARED-CHAT-VIEW-TYPES]`    | chat timeline, history, mock transport   |
-| Workbench protocol        | `packages/shared/src/workbench-protocol.ts`                        | `[DES-SHARED-WORKBENCH-PROTOCOL]` | workbench bridge, workbench panel        |
-| Workbench row models      | `packages/shared/src/workbench-types.ts`                           | `[DES-SHARED-WORKBENCH-TYPES]`    | workbench views, specs-data service      |
-| Agent contract            | `packages/shared/src/agent.ts`                                     | `[DES-SHARED-AGENT-CONTRACT]`     | agent managers, extension host           |
-| Domain constants/types    | `packages/shared/src/constants.ts`, `packages/shared/src/types.ts` | `[DES-SHARED-DOMAIN-TYPES]`       | commands, parser/feature surfaces        |
-| Provider catalog          | `packages/shared/src/provider-catalog.ts`                          | `[DES-SHARED-PROVIDER-CATALOG]`   | settings/provider cards, agent factory   |
-| Structured logger         | `packages/shared/src/logger.ts`                                    | `[DES-LOG]`                       | extension host, webviews, agent packages |
+| Shared contract           | Source anchor                                                                                                  | Design node                       | Downstream consumers                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------- |
+| Barrel exports            | `packages/shared/src/index.ts`                                                                                 | `[DES-API]`                       | all apps/packages                        |
+| Chat protocol             | `packages/shared/src/messages.ts`                                                                              | `[DES-SHARED-CHAT-PROTOCOL]`      | chat bridge, sidebar panel, transport    |
+| Chat timeline view models | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`                                              | `[DES-SHARED-CHAT-VIEW-TYPES]`    | chat timeline, history, mock transport   |
+| Workbench protocol        | `packages/shared/src/workbench-protocol.ts`                                                                    | `[DES-SHARED-WORKBENCH-PROTOCOL]` | workbench bridge, workbench panel        |
+| Workbench row models      | `packages/shared/src/workbench-types.ts`                                                                       | `[DES-SHARED-WORKBENCH-TYPES]`    | workbench views, specs-data service      |
+| Agent contract            | `packages/shared/src/agent.ts`                                                                                 | `[DES-SHARED-AGENT-CONTRACT]`     | agent managers, extension host           |
+| Domain constants/types    | `packages/shared/src/constants.ts`, `packages/shared/src/types.ts`                                             | `[DES-SHARED-DOMAIN-TYPES]`       | commands, parser/feature surfaces        |
+| Composer Intent contracts | `packages/shared/src/intent.ts`, `packages/shared/src/intent-prompts.ts`, `packages/shared/src/intent-copy.ts` | `[DES-SHARED-CHAT-PROTOCOL]`      | chat composer, settings, extension host  |
+| Provider catalog          | `packages/shared/src/provider-catalog.ts`                                                                      | `[DES-SHARED-PROVIDER-CATALOG]`   | settings/provider cards, agent factory   |
+| Structured logger         | `packages/shared/src/logger.ts`                                                                                | `[DES-LOG]`                       | extension host, webviews, agent packages |
 
 ---
 
 ## [DES-SHARED-TRACE] 1:1 Code/Spec Matrix
 
-| Requirement | Design node                                                       | Source anchor                                                                         |
-| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `[FR-1]`    | `[DES-SHARED-CHAT-PROTOCOL]`                                      | `packages/shared/src/messages.ts`                                                     |
-| `[FR-2]`    | `[DES-SHARED-CHAT-VIEW-TYPES]`                                    | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`                     |
-| `[FR-3]`    | `[DES-SHARED-DOMAIN-TYPES]`                                       | `packages/shared/src/types.ts`, `packages/shared/src/constants.ts`                    |
-| `[FR-4]`    | `[DES-SHARED-WORKBENCH-PROTOCOL]`, `[DES-SHARED-WORKBENCH-TYPES]` | `packages/shared/src/workbench-protocol.ts`, `packages/shared/src/workbench-types.ts` |
-| `[FR-5]`    | `[DES-SHARED-AGENT-CONTRACT]`                                     | `packages/shared/src/agent.ts`                                                        |
-| `[FR-6]`    | `[DES-LOG]`                                                       | `packages/shared/src/logger.ts`                                                       |
-| `[NFR-1]`   | `[DES-DEPS]`                                                      | `packages/shared/src/no-react.test.ts`                                                |
-| `[NFR-2]`   | `[DES-DEPS]`                                                      | `packages/shared/package.json`                                                        |
+| Requirement | Design node                                                       | Source anchor                                                                                                                                     |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `[FR-1]`    | `[DES-SHARED-CHAT-PROTOCOL]`                                      | `packages/shared/src/messages.ts`                                                                                                                 |
+| `[FR-2]`    | `[DES-SHARED-CHAT-VIEW-TYPES]`                                    | `packages/shared/src/messages.ts`, `packages/shared/src/agent.ts`                                                                                 |
+| `[FR-3]`    | `[DES-SHARED-DOMAIN-TYPES]`                                       | `packages/shared/src/types.ts`, `packages/shared/src/constants.ts`                                                                                |
+| `[FR-4]`    | `[DES-SHARED-WORKBENCH-PROTOCOL]`, `[DES-SHARED-WORKBENCH-TYPES]` | `packages/shared/src/workbench-protocol.ts`, `packages/shared/src/workbench-types.ts`                                                             |
+| `[FR-5]`    | `[DES-SHARED-AGENT-CONTRACT]`                                     | `packages/shared/src/agent.ts`                                                                                                                    |
+| `[FR-6]`    | `[DES-LOG]`                                                       | `packages/shared/src/logger.ts`                                                                                                                   |
+| `[FR-15]`   | `[DES-SHARED-CHAT-PROTOCOL]`                                      | `packages/shared/src/intent.ts`, `packages/shared/src/intent-prompts.ts`, `packages/shared/src/intent-copy.ts`, `packages/shared/src/messages.ts` |
+| `[NFR-1]`   | `[DES-DEPS]`                                                      | `packages/shared/src/no-react.test.ts`                                                                                                            |
+| `[NFR-2]`   | `[DES-DEPS]`                                                      | `packages/shared/package.json`                                                                                                                    |
 
 ---
 
@@ -551,6 +545,9 @@ Revert `messages.ts` and `types.ts` to previous version; all consumers recompile
 | —    | `packages/shared/src/agent.ts`              | `spec.md [FR-5]` + `design.md [DES-SHARED-AGENT-CONTRACT]`       |
 | —    | `packages/shared/src/logger.ts`             | `spec.md [FR-6]` + `design.md [DES-LOG]`                         |
 | —    | `packages/shared/src/messages.ts`           | `spec.md [FR-1] [FR-2]` + `design.md [DES-SHARED-CHAT-PROTOCOL]` |
+| —    | `packages/shared/src/intent.ts`             | `spec.md [FR-15]` + `design.md [DES-SHARED-CHAT-PROTOCOL]`       |
+| —    | `packages/shared/src/intent-prompts.ts`     | `spec.md [FR-15]` + `design.md [DES-SHARED-CHAT-PROTOCOL]`       |
+| —    | `packages/shared/src/intent-copy.ts`        | `spec.md [FR-15]` + `design.md [DES-SHARED-CHAT-PROTOCOL]`       |
 | —    | `packages/shared/src/workbench-protocol.ts` | `spec.md [FR-4]` + `design.md [DES-SHARED-WORKBENCH-PROTOCOL]`   |
 | —    | `packages/shared/src/workbench-types.ts`    | `spec.md [FR-4]` + `design.md [DES-SHARED-WORKBENCH-TYPES]`      |
 | —    | `packages/shared/src/provider-catalog.ts`   | `design.md [DES-SHARED-PROVIDER-CATALOG]`                        |

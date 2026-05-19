@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-19T13:55:39.000Z"
 approved_at: "2026-05-05T11:53:21.000Z"
 tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode]
 spec: spec.md
@@ -17,7 +17,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator. It also owns the durable active-file context preference and the workspace mode preference (`afx.mode.active`) that the chat composer and settings surfaces mirror when sending prompts and switching between Code and Explore. The `afx.setMode` command is the shared workspace-mode entry point for the command palette, settings card, and composer toggle.
+`apps/vscode` is the extension host entry point. It registers commands, creates sidebar and workbench webview providers, builds configured coding-agent instances, and serves compiled webview builds via a HTML generator. It also owns the durable active-file context preference and the mode preference (`afx.mode.active`) that the chat composer and settings surfaces mirror when sending prompts and switching between Code and Explore. The `afx.setMode` command is the shared mode entry point for the command palette, settings card, and composer toggle.
 
 ---
 
@@ -207,17 +207,18 @@ Adding a command:
 
 ## [DES-COMMAND-SET-MODE] `afx.setMode` Command
 
-`afx.setMode` is the workspace-posture mutation path shared by the command palette, the settings
-card, and the composer toggle. The command writes `afx.mode.active` at workspace scope, then the
-sidebar/settings snapshots rehydrate from that persisted value.
+`afx.setMode` is the posture mutation path shared by the command palette, the settings card, and
+the composer toggle. The command writes `afx.mode.active` globally by default, preserves an existing
+workspace override when one is already configured, then the sidebar/settings snapshots rehydrate from
+that persisted value.
 
-| Aspect     | Value                                                                                                                                                     |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Registered | `apps/vscode/src/extension.ts`                                                                                                                            |
-| Title      | `Set Mode`                                                                                                                                                |
-| Keybinding | None in v1; use the command palette or in-app mode controls                                                                                               |
-| Behavior   | Reads the current `afx.mode.active` workspace setting, optionally shows a quick-pick, and persists the chosen posture back to the workspace configuration |
-| Surfaces   | command palette, Settings `Mode` card, composer `Mode` toggle                                                                                             |
+| Aspect     | Value                                                                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Registered | `apps/vscode/src/extension.ts`                                                                                                                                       |
+| Title      | `Set Mode`                                                                                                                                                           |
+| Keybinding | None in v1; use the command palette or in-app mode controls                                                                                                          |
+| Behavior   | Reads the effective `afx.mode.active` setting, optionally shows a quick-pick, and persists the chosen posture globally unless this workspace already has an override |
+| Surfaces   | command palette, Settings `Mode` card, composer `Mode` toggle                                                                                                        |
 
 Quick-pick copy:
 

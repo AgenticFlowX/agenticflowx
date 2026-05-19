@@ -23,7 +23,7 @@ export const WORKSPACE = {
   codeName: "Code",
   codeDescription: "Full access. Runtimes can read, write, run shells, and edit.",
   codeTooltip:
-    "Default. The agent has the same permissions as you. Source: AFX-host workspace setting afx.mode.active.",
+    "Default. The agent has the same permissions as you. Source: afx.mode.active, saved globally unless this workspace already has an override.",
 
   exploreName: "Explore",
   exploreDescription:
@@ -42,6 +42,16 @@ export const WORKSPACE = {
     "Include the file you're editing in the prompt context. Default: on. Mirrored in the chat composer toolbar.",
   fileCtxTooltip:
     "Workspace default. The composer toolbar lets you flip per-message without changing this default. Setting key: afx.context.includeActiveFileContext.",
+
+  intentLabel: "Composer Intent",
+  intentDescription:
+    "Default thinking style for the next turn. Slots 1–3 are shared; slot 4 is Code in Code mode and PRD in Explore mode.",
+  intentTooltip:
+    "Intent is a lightweight prompt-control layer shown above the composer in Code and Explore modes. Default adds zero Intent tokens; non-default Intents add a static one-turn control block.",
+  intentMinimizedLabel: "Minimize Intent strip",
+  intentMinimizedDescription: "Collapse the Intent strip to a compact one-line chip by default.",
+  intentMinimizedTooltip:
+    "Only affects the Intent strip. It does not collapse doc-actions or the Spec stepper.",
 } as const;
 
 // ─── Runtimes group ──────────────────────────────────────────────────────────

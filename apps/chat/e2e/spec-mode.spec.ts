@@ -131,23 +131,25 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
   // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
-  test("spec stepper renders quiet nav pills and non-wrapping related chips", async ({ page }) => {
+  test("spec stepper renders quiet nav pills and SDD intent label", async ({ page }) => {
     await openSpecDocActionsScenario(page);
 
     // Stepper appears inside the doc-actions strip.
     const stepper = page.getByTestId("spec-stepper");
     await expect(stepper).toBeVisible();
 
-    // Three numbered segments — Spec is the active one (docKind=spec).
+    // Four numbered segments — Spec is the active one (docKind=spec).
     await expect(page.getByTestId("spec-stepper-segment-spec")).toHaveAttribute(
       "data-active",
       "true",
     );
     await expect(page.getByTestId("spec-stepper-segment-design")).toBeVisible();
     await expect(page.getByTestId("spec-stepper-segment-tasks")).toBeVisible();
+    await expect(page.getByTestId("spec-stepper-segment-work")).toBeVisible();
     await expect(page.getByTestId("spec-stepper-segment-spec")).toContainText(/1\s*Spec/);
     await expect(page.getByTestId("spec-stepper-segment-design")).toContainText(/2\s*Design/);
     await expect(page.getByTestId("spec-stepper-segment-tasks")).toContainText(/3\s*Tasks/);
+    await expect(page.getByTestId("spec-stepper-segment-work")).toContainText(/4\s*Work/);
     await expect(page.getByTestId("spec-stepper-segment-spec")).not.toContainText(
       /Draft|Approved|\.\.\./,
     );
@@ -161,12 +163,11 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(page.getByTestId("spec-stepper-segment-code")).toHaveCount(0);
     await expect(page.getByTestId("spec-stepper-resume")).toHaveCount(0);
 
-    const related = page.getByTestId("spec-stepper-related-row");
-    await expect(related).toBeVisible();
-    await expect(related).toHaveCSS("flex-wrap", "nowrap");
-    await expect(related).not.toContainText("Related");
-    await expect(related.getByRole("button", { name: "Journal" })).toBeVisible();
-    await expect(page.getByTestId("spec-stepper-sessions")).toContainText("Work Sessions");
+    const intentLabel = page.getByTestId("spec-stepper-intent-label");
+    await expect(intentLabel).toBeVisible();
+    await expect(intentLabel).toContainText("Spec — clarify requirements, acceptance, and scope.");
+    await expect(page.getByRole("button", { name: "Journal" })).toHaveCount(0);
+    await expect(page.getByTestId("spec-stepper-sessions")).toHaveCount(0);
   });
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
@@ -198,24 +199,18 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
       const moreButton = document.querySelector<HTMLElement>(
         'button[aria-label="More document actions"]',
       );
-      const related = document.querySelector<HTMLElement>(
-        '[data-testid="spec-stepper-related-row"]',
+      const intentLabel = document.querySelector<HTMLElement>(
+        '[data-testid="spec-stepper-intent-label"]',
       );
-      if (!row || !primary || !moreButton || !related) {
+      if (!row || !primary || !moreButton || !intentLabel) {
         throw new Error("Expected doc-actions regression elements to be mounted");
       }
 
       const rowBox = row.getBoundingClientRect();
       const primaryBox = primary.getBoundingClientRect();
       const moreBox = moreButton.getBoundingClientRect();
-      const relatedBox = related.getBoundingClientRect();
-      const relatedStyle = window.getComputedStyle(related);
-      const visibleRelatedChildren = Array.from(related.children).filter((child) => {
-        const element = child as HTMLElement;
-        const style = window.getComputedStyle(element);
-        const box = element.getBoundingClientRect();
-        return style.display !== "none" && box.width > 0 && box.height > 0;
-      });
+      const labelBox = intentLabel.getBoundingClientRect();
+      const labelStyle = window.getComputedStyle(intentLabel);
 
       return {
         rowRight: rowBox.right,
@@ -224,13 +219,8 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
         moreLeft: moreBox.left,
         moreRight: moreBox.right,
         moreWidth: moreBox.width,
-        relatedDisplay: relatedStyle.display,
-        relatedHeight: relatedBox.height,
-        relatedChildLines: [
-          ...new Set(
-            visibleRelatedChildren.map((child) => Math.round(child.getBoundingClientRect().top)),
-          ),
-        ].length,
+        labelDisplay: labelStyle.display,
+        labelHeight: labelBox.height,
         viewportWidth: window.innerWidth,
       };
     });
@@ -240,9 +230,8 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     expect(metrics.moreLeft).toBeGreaterThanOrEqual(metrics.primaryRight - 1);
     expect(metrics.moreRight).toBeLessThanOrEqual(metrics.viewportWidth);
     expect(metrics.rowRight - metrics.moreRight).toBeLessThanOrEqual(6);
-    if (metrics.relatedDisplay !== "none") {
-      expect(metrics.relatedHeight).toBeLessThanOrEqual(32);
-      expect(metrics.relatedChildLines).toBeLessThanOrEqual(1);
+    if (metrics.labelDisplay !== "none") {
+      expect(metrics.labelHeight).toBeLessThanOrEqual(32);
     }
   });
 
@@ -319,7 +308,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
 
     const more = page.getByRole("button", { name: "More document actions" });
     await expect(more).toBeVisible();
-    await expect(page.getByTestId("spec-stepper-related-row")).not.toContainText("Related");
+    await expect(page.getByTestId("spec-stepper-intent-label")).not.toContainText("Related");
 
     const wideMetrics = await page.evaluate(() => {
       const row = document.querySelector<HTMLElement>('[data-testid="doc-actions-row"]');
@@ -329,39 +318,27 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
       const moreButton = document.querySelector<HTMLElement>(
         'button[aria-label="More document actions"]',
       );
-      const related = document.querySelector<HTMLElement>(
-        '[data-testid="spec-stepper-related-row"]',
+      const intentLabel = document.querySelector<HTMLElement>(
+        '[data-testid="spec-stepper-intent-label"]',
       );
-      if (!row || !primary || !moreButton || !related) {
+      if (!row || !primary || !moreButton || !intentLabel) {
         throw new Error("Expected journal doc-actions regression elements to be mounted");
       }
 
       const rowBox = row.getBoundingClientRect();
       const moreBox = moreButton.getBoundingClientRect();
-      const relatedBox = related.getBoundingClientRect();
-      const visibleRelatedChildren = Array.from(related.children).filter((child) => {
-        const element = child as HTMLElement;
-        const style = window.getComputedStyle(element);
-        const box = element.getBoundingClientRect();
-        return style.display !== "none" && box.width > 0 && box.height > 0;
-      });
+      const labelBox = intentLabel.getBoundingClientRect();
 
       return {
         moreRightGap: rowBox.right - moreBox.right,
         primaryText: primary.textContent ?? "",
-        relatedChildLines: [
-          ...new Set(
-            visibleRelatedChildren.map((child) => Math.round(child.getBoundingClientRect().top)),
-          ),
-        ].length,
-        relatedHeight: relatedBox.height,
+        labelHeight: labelBox.height,
       };
     });
 
     expect(wideMetrics.primaryText).toMatch(/Note.*Log.*Promote.*Capture.*Recap/);
     expect(wideMetrics.moreRightGap).toBeLessThanOrEqual(6);
-    expect(wideMetrics.relatedHeight).toBeLessThanOrEqual(32);
-    expect(wideMetrics.relatedChildLines).toBeLessThanOrEqual(1);
+    expect(wideMetrics.labelHeight).toBeLessThanOrEqual(32);
 
     await page.setViewportSize({ width: 360, height: 720 });
     await expect(primaryRow).toContainText("Note");
@@ -370,20 +347,14 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
       const primary = document.querySelector<HTMLElement>(
         '[data-testid="doc-actions-primary-row"]',
       );
-      const related = document.querySelector<HTMLElement>(
-        '[data-testid="spec-stepper-related-row"]',
+      const intentLabel = document.querySelector<HTMLElement>(
+        '[data-testid="spec-stepper-intent-label"]',
       );
-      if (!primary || !related) {
+      if (!primary || !intentLabel) {
         throw new Error("Expected journal doc-actions regression elements to be mounted");
       }
 
-      const relatedBox = related.getBoundingClientRect();
-      const visibleRelatedChildren = Array.from(related.children).filter((child) => {
-        const element = child as HTMLElement;
-        const style = window.getComputedStyle(element);
-        const box = element.getBoundingClientRect();
-        return style.display !== "none" && box.width > 0 && box.height > 0;
-      });
+      const labelBox = intentLabel.getBoundingClientRect();
 
       return {
         primaryText: primary.textContent ?? "",
@@ -391,19 +362,13 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
           (button) =>
             button.getBoundingClientRect().right > primary.getBoundingClientRect().right + 1,
         ).length,
-        relatedHeight: relatedBox.height,
-        relatedChildLines: [
-          ...new Set(
-            visibleRelatedChildren.map((child) => Math.round(child.getBoundingClientRect().top)),
-          ),
-        ].length,
+        labelHeight: labelBox.height,
       };
     });
 
     expect(tightMetrics.primaryText.trim()).not.toBe("...");
     expect(tightMetrics.clippedPrimaryButtons).toBe(0);
-    expect(tightMetrics.relatedHeight).toBeLessThanOrEqual(32);
-    expect(tightMetrics.relatedChildLines).toBeLessThanOrEqual(1);
+    expect(tightMetrics.labelHeight).toBeLessThanOrEqual(32);
   });
 
   test("global journal doc-actions stay session-only when no feature is selected", async ({

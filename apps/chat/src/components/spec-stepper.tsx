@@ -1,22 +1,19 @@
 /**
  * SpecStepper — pill-stepper navigator for the AFX SDD workflow.
  *
- * Renders a single row of three numbered pills (Spec · Design · Tasks)
+ * Renders a single row of four numbered pills (Spec · Design · Tasks · Work)
  * connected by a brass progress line. Each pill is clickable: in standard
- * 4-file mode it opens the sibling SDD file, in sprint single-file mode it
- * scrolls to the matching `## SPEC` / `## DESIGN` / `## TASKS` heading.
+ * 4-file mode it opens the sibling SDD file or Work Sessions table; in sprint
+ * single-file mode it scrolls to SPEC / DESIGN / TASKS / SESSIONS headings.
  *
- * A muted tier-2 row directly below carries compact Journal and Work Sessions
- * chips for sibling artifacts of the same feature. It stays single-line and
- * hides low-priority chips at tight widths. The Memory anchor lives in the
- * chat top bar and composer actions, not in the stepper.
+ * A muted second row directly below carries the active SDD intent label.
+ * It stays single-line and hides at tight widths. The Memory anchor lives in
+ * the chat top bar and composer actions, not in the stepper.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { Fragment, type ReactNode } from "react";
-
-import { BookOpen, ListChecks } from "lucide-react";
+import { Fragment } from "react";
 
 import {
   Tooltip,
@@ -26,20 +23,20 @@ import {
 } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
-export type SpecStepperSegmentKey = "spec" | "design" | "tasks";
+export type SpecStepperSegmentKey = "spec" | "design" | "tasks" | "work";
 
 export type SpecStepperSegmentStatus = "approved" | "draft" | "blocked" | "progress" | "pending";
 
 export interface SpecStepperSegment {
   key: SpecStepperSegmentKey;
-  label: "Spec" | "Design" | "Tasks";
+  label: "Spec" | "Design" | "Tasks" | "Work";
   glyph: string;
   status: SpecStepperSegmentStatus;
   hint: string;
 }
 
 export interface SpecStepperProps {
-  /** Three ordered segment descriptors derived from `buildBreadcrumbSegments`. */
+  /** Four ordered segment descriptors derived from `buildBreadcrumbSegments`. */
   segments: readonly SpecStepperSegment[];
   /** Which segment is currently active (matches the open editor file/section). */
   active: SpecStepperSegmentKey | null;
@@ -61,21 +58,17 @@ export interface SpecStepperProps {
     tasks?: number;
     sessions?: number;
   };
-  /** True when the open editor is journal.md so the tier-2 chip lights up. */
+  /** True when the open editor is journal.md so the label can name the journal context. */
   journalActive?: boolean;
   /** Tasks completion fraction — feeds the progress-line gradient out of Tasks. */
   tasksCompleted?: number;
   tasksTotal?: number;
-  /** Work Sessions row counts — drives the tier-2 chip's `n/m` label. */
+  /** Work Sessions row counts — kept for compatibility; Work segment owns display. */
   workSessionsTotal?: number;
   workSessionsSigned?: number;
   /** Host bridge — opens a workspace file at an optional 1-indexed line. */
   onOpenFile: (path: string, line?: number) => void;
-  /**
-   * Insert a slash command into the composer draft (no auto-send). Used by
-   * the Journal chip — clicking it drops `/afx-session note ` into the
-   * textarea so the user can append content and send when ready.
-   */
+  /** Legacy callback retained for the surrounding doc-actions API. */
   onInsertDraft?: (text: string) => void;
 }
 
@@ -83,6 +76,7 @@ const SEGMENT_INDEX: Record<SpecStepperSegmentKey, number> = {
   spec: 1,
   design: 2,
   tasks: 3,
+  work: 4,
 };
 
 export function SpecStepper({
@@ -95,10 +89,7 @@ export function SpecStepper({
   journalActive = false,
   tasksCompleted,
   tasksTotal,
-  workSessionsTotal,
-  workSessionsSigned,
   onOpenFile,
-  onInsertDraft,
 }: SpecStepperProps) {
   if (segments.length === 0) return null;
 
@@ -112,6 +103,16 @@ export function SpecStepper({
     // The active pill always re-focuses the editor on the same file — no
     // sibling-path resolution needed and it works even when the workspace
     // doesn't have all four files yet.
+    if (key === "work") {
+      if (format === "sprint") {
+        if (!filePath) return null;
+        return { path: filePath, line: sectionOffsets?.sessions };
+      }
+      const tasksPath =
+        siblingPaths?.tasks ?? (filePath ? deriveSiblingPath(filePath, "tasks.md") : null);
+      if (!tasksPath) return null;
+      return { path: tasksPath, line: sectionOffsets?.sessions };
+    }
     if (active === key && filePath) {
       if (format === "sprint" && sectionOffsets?.[key]) {
         return { path: filePath, line: sectionOffsets[key] };
@@ -137,23 +138,7 @@ export function SpecStepper({
     return null;
   }
 
-  // Journal chip is a draft-insert action — clicking it drops
-  // `/afx-session note ` into the composer so the user can append content
-  // and send when ready. Always interactive when `onInsertDraft` is wired,
-  // regardless of whether journal.md exists yet (the slash command auto-
-  // creates it).
-  const journalDraft = onInsertDraft ? "/afx-session note " : null;
-
-  const sessionsTarget =
-    format === "sprint"
-      ? filePath && sectionOffsets?.sessions
-        ? { path: filePath, line: sectionOffsets.sessions }
-        : null
-      : siblingPaths?.tasks && sectionOffsets?.sessions
-        ? { path: siblingPaths.tasks, line: sectionOffsets.sessions }
-        : null;
-
-  const showJournal = true;
+  const sddIntent = sddIntentLabel(active, journalActive);
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -190,61 +175,16 @@ export function SpecStepper({
             );
           })}
         </div>
-        {/* Tier-2 — sibling artifacts of the same feature. Hide the whole row
-            until a real target can fit; otherwise it reads like stray chrome.
-            Memory is workspace-wide and lives in the chat top bar/composer. */}
-        <div
-          className={cn(
-            "hidden min-h-5 max-h-6 min-w-0 flex-nowrap items-center justify-center gap-x-2 overflow-hidden whitespace-nowrap border-t border-dashed border-border/40 pt-1 text-[10px] leading-none text-muted-foreground @[430px]:gap-x-3",
-            showJournal ? "@[220px]:flex" : "@[360px]:flex",
-          )}
-          data-testid="spec-stepper-related-row"
+        {/* Active SDD intent label — analogous to the Code/Explore Intent tagline,
+            but owned by the Spec/SDD workflow stepper instead of the Intent strip. */}
+        <p
+          className="hidden min-h-5 max-h-6 min-w-0 truncate border-t border-dashed border-border/40 pt-1 text-center text-[10px] leading-none text-muted-foreground @[220px]:block"
+          data-testid="spec-stepper-intent-label"
+          title={`${sddIntent.label} — ${sddIntent.description}`}
         >
-          {showJournal ? (
-            <SecondaryChip
-              icon={<BookOpen size={10} aria-hidden />}
-              label="Journal"
-              active={journalActive}
-              action={
-                journalDraft
-                  ? {
-                      kind: "draft",
-                      text: journalDraft,
-                      hint: "Insert /afx-session note into draft",
-                    }
-                  : null
-              }
-              disabledHint="Wire onInsertDraft to capture a journal note"
-              onOpenFile={onOpenFile}
-              onInsertDraft={onInsertDraft}
-              testId="spec-stepper-journal"
-              className="inline-flex whitespace-nowrap"
-            />
-          ) : null}
-          <SecondaryChip
-            icon={<ListChecks size={10} aria-hidden />}
-            label={
-              typeof workSessionsTotal === "number" && workSessionsTotal > 0
-                ? `Work Sessions ${workSessionsSigned ?? 0}/${workSessionsTotal}`
-                : "Work Sessions"
-            }
-            active={false}
-            action={
-              sessionsTarget
-                ? { kind: "open", target: sessionsTarget, hint: "Open Work Sessions table" }
-                : null
-            }
-            disabledHint="No Work Sessions section yet"
-            onOpenFile={onOpenFile}
-            onInsertDraft={onInsertDraft}
-            testId="spec-stepper-sessions"
-            className={
-              showJournal
-                ? "hidden whitespace-nowrap @[430px]:inline-flex"
-                : "inline-flex whitespace-nowrap"
-            }
-          />
-        </div>
+          <span className="font-medium text-foreground/80">{sddIntent.label}</span> —{" "}
+          {sddIntent.description}
+        </p>
       </div>
     </TooltipProvider>
   );
@@ -270,7 +210,7 @@ function SegmentPill({
   const inner = (
     <span
       className={cn(
-        "inline-flex min-w-0 items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] leading-none transition-colors",
+        "inline-flex h-6 min-w-0 items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-medium leading-none transition-colors",
         tone,
         interactive && "cursor-pointer hover:brightness-110",
         disabled && "cursor-not-allowed opacity-60",
@@ -283,7 +223,7 @@ function SegmentPill({
       data-status={segment.status}
       data-active={active ? "true" : "false"}
     >
-      <span aria-hidden className="font-semibold">
+      <span aria-hidden className="font-semibold tabular-nums">
         {number}
       </span>
       <span className="hidden truncate @[300px]:inline">{segment.label}</span>
@@ -336,98 +276,30 @@ function SegmentPill({
           </span>
         )}
       </TooltipTrigger>
-      <TooltipContent side="bottom" align="center" className="max-w-[220px] text-left">
+      <TooltipContent side="bottom" align="center" className="max-w-[220px] items-start text-left">
         {tooltipBody}
       </TooltipContent>
     </Tooltip>
   );
 }
 
-function SecondaryChip({
-  icon,
-  label,
-  active,
-  action,
-  disabledHint,
-  onOpenFile,
-  onInsertDraft,
-  testId,
-  className,
-}: {
-  icon: ReactNode;
-  label: string;
-  active: boolean;
-  /**
-   * Either an `open` action that fires `onOpenFile(path, line?)` or a `draft`
-   * action that drops a slash command into the composer via `onInsertDraft`.
-   * `null` renders the chip disabled.
-   */
-  action:
-    | { kind: "open"; target: { path: string; line?: number }; hint: string }
-    | { kind: "draft"; text: string; hint: string }
-    | null;
-  disabledHint?: string;
-  onOpenFile: (path: string, line?: number) => void;
-  onInsertDraft?: (text: string) => void;
-  testId: string;
-  className?: string;
-}) {
-  const interactive = action !== null;
-  const chipClassName = cn(
-    "inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 transition-colors",
-    interactive && "cursor-pointer hover:bg-muted hover:text-foreground",
-    !interactive && "cursor-not-allowed opacity-70",
-    active && "text-foreground",
-  );
-
-  const content = (
-    <span className={chipClassName} data-testid={testId} data-active={active ? "true" : "false"}>
-      {active ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-afx-brand" /> : null}
-      {icon}
-      <span>{label}</span>
-    </span>
-  );
-
-  if (action) {
-    function handleClick() {
-      if (action!.kind === "open") {
-        onOpenFile(action!.target.path, action!.target.line);
-      } else if (onInsertDraft) {
-        onInsertDraft(action!.text);
-      }
-    }
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={handleClick}
-            aria-label={label}
-            data-action-kind={action.kind}
-            className={cn("inline-flex shrink-0", className)}
-          >
-            {content}
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-[220px] text-left">
-          <span className="text-[11px] leading-snug">{action.hint}</span>
-        </TooltipContent>
-      </Tooltip>
-    );
+function sddIntentLabel(
+  active: SpecStepperSegmentKey | null,
+  journalActive: boolean,
+): { label: string; description: string } {
+  if (journalActive) return { label: "Journal", description: "capture notes and decisions." };
+  if (active === null)
+    return { label: "Spec", description: "clarify requirements, acceptance, and scope." };
+  switch (active) {
+    case "design":
+      return { label: "Design", description: "shape architecture and tradeoffs." };
+    case "tasks":
+      return { label: "Tasks", description: "slice implementation into verifiable work." };
+    case "work":
+      return { label: "Work", description: "track execution sessions and sign-off." };
+    case "spec":
+      return { label: "Spec", description: "clarify requirements, acceptance, and scope." };
   }
-
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span className={cn("inline-flex shrink-0", className)} aria-label={label}>
-          {content}
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-[220px] text-left">
-        <span className="text-[11px] leading-snug">{disabledHint ?? `${label} not available`}</span>
-      </TooltipContent>
-    </Tooltip>
-  );
 }
 
 function ConnectorLine({
@@ -514,7 +386,7 @@ function pillTone(segment: SpecStepperSegment, active: boolean): string {
 }
 
 function displayInlineProgress(segment: SpecStepperSegment): string {
-  if (segment.key === "tasks" && segment.status === "progress") {
+  if ((segment.key === "tasks" || segment.key === "work") && segment.status === "progress") {
     return segment.glyph;
   }
   return "";

@@ -6,6 +6,9 @@
  */
 import { defineConfig, devices } from "@playwright/test";
 
+const port = Number(process.env["AFX_WORKBENCH_E2E_PORT"] ?? 5175);
+const baseURL = `http://127.0.0.1:${port}`;
+
 export default defineConfig({
   testDir: "./e2e",
   testMatch: "**/*.spec.ts",
@@ -15,7 +18,7 @@ export default defineConfig({
   workers: process.env["CI"] ? 1 : undefined,
   reporter: process.env["CI"] ? "github" : "list",
   use: {
-    baseURL: "http://localhost:5174",
+    baseURL,
     trace: "on-first-retry",
     viewport: { width: 1400, height: 600 },
   },
@@ -26,8 +29,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "vite --port 5174 --strictPort",
-    url: "http://localhost:5174",
+    command: `vite --host 127.0.0.1 --port ${port} --strictPort`,
+    url: baseURL,
     reuseExistingServer: !process.env["CI"],
     timeout: 30_000,
   },

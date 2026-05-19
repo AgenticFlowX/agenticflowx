@@ -76,8 +76,10 @@ test("long AI coding chat remains responsive and memory-bounded", async ({
     "Add tests for keyboard, attachments, and top-bar focus recovery.",
   ].join(" ");
   const typingStart = Date.now();
-  await composer.fill("");
-  await composer.pressSequentially(prompt, { delay: 0 });
+  // Use a single browser-side fill so this budget measures the app's controlled
+  // composer update instead of Playwright key-dispatch scheduling under parallel
+  // e2e load.
+  await composer.fill(prompt);
   const composerTypingMs = Date.now() - typingStart;
   await expect(composer).toHaveValue(prompt);
 

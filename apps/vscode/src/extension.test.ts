@@ -137,6 +137,7 @@ describe("extension.activate", () => {
         "afx.agentSmokeTest",
         "afx.agentRestart",
         "afx.setMode",
+        "afx.setIntent",
         "afx.setProviderApiKey",
         "afx.clearProviderApiKey",
         "afx.detectPiBinary",
@@ -144,7 +145,7 @@ describe("extension.activate", () => {
     );
   });
 
-  it("persists workspace mode through afx.setMode", async () => {
+  it("persists mode globally through afx.setMode when no workspace override exists", async () => {
     const update = vi.fn(async () => {});
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
       get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
@@ -152,7 +153,10 @@ describe("extension.activate", () => {
         return defaultValue;
       }),
       has: () => false,
-      inspect: () => undefined,
+      inspect: <T>(section: string) => ({
+        key: section,
+        workspaceValue: undefined as T | undefined,
+      }),
       update,
     });
 
@@ -164,6 +168,35 @@ describe("extension.activate", () => {
       ([command]) => command === "afx.setMode",
     )?.[1] as ((mode?: string) => Promise<void>) | undefined;
     expect(handler).toBeTypeOf("function");
+
+    await handler?.("explore");
+
+    expect(update).toHaveBeenCalledWith(
+      "mode.active",
+      "explore",
+      vscode.ConfigurationTarget.Global,
+    );
+  });
+
+  it("preserves an existing workspace mode override through afx.setMode", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: <T>(section: string) => ({ key: section, workspaceValue: "code" as T }),
+      update,
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setMode",
+    )?.[1] as ((mode?: string) => Promise<void>) | undefined;
 
     await handler?.("explore");
 
@@ -186,7 +219,10 @@ describe("extension.activate", () => {
         return defaultValue;
       }),
       has: () => false,
-      inspect: () => undefined,
+      inspect: <T>(section: string) => ({
+        key: section,
+        workspaceValue: undefined as T | undefined,
+      }),
       update,
     });
 
@@ -199,11 +235,7 @@ describe("extension.activate", () => {
     )?.[1] as ((mode?: string) => Promise<void>) | undefined;
     await handler?.("spec");
 
-    expect(update).toHaveBeenCalledWith(
-      "mode.active",
-      "spec",
-      vscode.ConfigurationTarget.Workspace,
-    );
+    expect(update).toHaveBeenCalledWith("mode.active", "spec", vscode.ConfigurationTarget.Global);
   });
 
   /**
@@ -218,7 +250,10 @@ describe("extension.activate", () => {
         return defaultValue;
       }),
       has: () => false,
-      inspect: () => undefined,
+      inspect: <T>(section: string) => ({
+        key: section,
+        workspaceValue: undefined as T | undefined,
+      }),
       update,
     });
     const showQuickPick = vi
@@ -236,10 +271,105 @@ describe("extension.activate", () => {
 
     const offered = showQuickPick.mock.calls[0]?.[0] as Array<{ value: string }> | undefined;
     expect(offered?.map((o) => o.value)).toEqual(["code", "explore", "spec"]);
+    expect(update).toHaveBeenCalledWith("mode.active", "spec", vscode.ConfigurationTarget.Global);
+  });
+
+  it("persists Composer Intent through afx.setIntent", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "code" as T;
+        if (key === "composer.intent.slot") return 1 as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setIntent",
+    )?.[1] as ((slot?: 1 | 2 | 3 | 4) => Promise<void>) | undefined;
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.(4);
+
     expect(update).toHaveBeenCalledWith(
-      "mode.active",
-      "spec",
-      vscode.ConfigurationTarget.Workspace,
+      "composer.intent.slot",
+      4,
+      vscode.ConfigurationTarget.Global,
+    );
+  });
+
+  it("offers parent-aware Composer Intent choices when afx.setIntent is invoked without args", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "explore" as T;
+        if (key === "composer.intent.slot") return 1 as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+    const showQuickPick = vi
+      .spyOn(vscode.window, "showQuickPick")
+      .mockResolvedValue({ value: 4 } as never);
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setIntent",
+    )?.[1] as ((slot?: 1 | 2 | 3 | 4) => Promise<void>) | undefined;
+    await handler?.();
+
+    const offered = showQuickPick.mock.calls[0]?.[0] as Array<{ label: string }> | undefined;
+    expect(offered?.map((o) => o.label)).toEqual([
+      "$(circle-filled) Default",
+      "$(circle-outline) Ask",
+      "$(circle-outline) Architect",
+      "$(circle-outline) PRD",
+    ]);
+    expect(update).toHaveBeenCalledWith(
+      "composer.intent.slot",
+      4,
+      vscode.ConfigurationTarget.Global,
+    );
+  });
+
+  it("does not offer Composer Intent in Spec mode", async () => {
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "mode.active") return "spec" as T;
+        if (key === "composer.intent.slot") return 1 as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+    const showInformationMessage = vi.spyOn(vscode.window, "showInformationMessage");
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.setIntent",
+    )?.[1] as ((slot?: 1 | 2 | 3 | 4) => Promise<void>) | undefined;
+    await handler?.(2);
+
+    expect(update).not.toHaveBeenCalled();
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: Intent is available in Code and Explore modes.",
     );
   });
 

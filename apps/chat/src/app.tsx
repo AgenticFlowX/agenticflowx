@@ -161,13 +161,9 @@ export default function App({ transport }: AppProps) {
             <TabsTrigger
               key={t.value}
               value={t.value}
-              className="group/tab h-9 min-w-0 flex-1 rounded-none px-1.5 text-[11px] after:hidden"
+              className="h-9 min-w-0 flex-1 rounded-none px-1.5 text-[11px] after:bottom-0 after:block after:opacity-0 data-[state=active]:after:opacity-100 data-[state=inactive]:after:opacity-0"
             >
               <span className="truncate">{t.label}</span>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-foreground opacity-0 transition-opacity group-data-[state=active]/tab:opacity-100"
-              />
             </TabsTrigger>
           ))}
         </TabsList>
