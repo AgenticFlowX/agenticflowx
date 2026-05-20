@@ -887,7 +887,7 @@ This is a long-running response on purpose so the queue stays visible while you 
    * @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
    */
-  function runSpecDocActions(): void {
+  function emitSpecDocContext(): void {
     emit({
       type: "chat/activeDocContext",
       format: "standard",
@@ -913,6 +913,22 @@ This is a long-running response on purpose so the queue stays visible while you 
         { id: "performance", label: "Performance", slug: "performance", line: 42 },
       ],
     });
+  }
+
+  function clearDocContext(): void {
+    emit({
+      type: "chat/activeDocContext",
+      format: null,
+      section: null,
+      docKind: null,
+      feature: null,
+      filePath: null,
+      approvalStatus: null,
+    });
+  }
+
+  function runSpecDocActions(): void {
+    emitSpecDocContext();
 
     const id = uid();
     emit({
@@ -2059,6 +2075,8 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
     "spec-doc-actions": () => runSpecDocActions(),
+    "spec-doc-clear": () => clearDocContext(),
+    "spec-doc-preview": () => emitSpecDocContext(),
     "long-next-actions": () => runLongNextActions(),
     "sprint-doc-actions": () => runSprintDocActions(),
     "journal-doc-actions": () => runJournalDocActions(),

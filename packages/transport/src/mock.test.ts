@@ -115,6 +115,8 @@ describe("createMockTransport", () => {
       "tool-read-file",
       "tool-edit-file",
       "spec-doc-actions",
+      "spec-doc-clear",
+      "spec-doc-preview",
       "sprint-doc-actions",
       "journal-doc-actions",
       "global-journal-doc-actions",
@@ -197,6 +199,31 @@ describe("createMockTransport", () => {
         tasks: 140,
         sessions: 220,
       },
+    });
+    t.dispose();
+  });
+
+  it("doc context clear and preview scenarios drive the stepper state", () => {
+    const t = createMockTransport();
+    const payloads: unknown[] = [];
+    t.on("chat/activeDocContext", (msg) => {
+      payloads.push(msg);
+    });
+
+    t.scenarios["spec-doc-preview"]?.();
+    t.scenarios["spec-doc-clear"]?.();
+
+    expect(payloads[0]).toMatchObject({
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      filePath: "/workspace/docs/specs/auth/spec.md",
+    });
+    expect(payloads[1]).toMatchObject({
+      format: null,
+      section: null,
+      docKind: null,
+      filePath: null,
     });
     t.dispose();
   });

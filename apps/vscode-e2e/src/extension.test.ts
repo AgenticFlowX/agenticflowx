@@ -7,6 +7,8 @@
  * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
  */
 import * as assert from "node:assert";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 import * as vscode from "vscode";
 
@@ -147,8 +149,67 @@ suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
   });
 });
 
+suite("AFX Extension — markdown preview active document context", () => {
+  suiteSetup(async () => {
+    const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
+    assert.ok(ext);
+    await ext.activate();
+  });
+
+  test("markdown preview for an AFX spec opens cleanly and focus can move away", async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    assert.ok(root, "Expected an open workspace folder");
+    const fixtureRoot = path.join(root, "apps/vscode-e2e/.vscode-test/preview-fixture");
+    const specPath = path.join(fixtureRoot, "docs/specs/preview/spec.md");
+    const plainPath = path.join(fixtureRoot, "src/plain.ts");
+    fs.mkdirSync(path.dirname(specPath), { recursive: true });
+    fs.mkdirSync(path.dirname(plainPath), { recursive: true });
+    fs.writeFileSync(
+      specPath,
+      ["---", "afx: true", "type: SPEC", "status: Draft", "---", "", "# Preview Spec", ""].join(
+        "\n",
+      ),
+    );
+    fs.writeFileSync(plainPath, "export const previewFocusAway = true;\n");
+
+    const specUri = vscode.Uri.file(specPath);
+    const specDoc = await vscode.workspace.openTextDocument(specUri);
+    await vscode.window.showTextDocument(specDoc, { preview: false });
+    await vscode.commands.executeCommand("markdown.showPreviewToSide", specUri);
+
+    await waitFor(
+      () => activeTabLooksLikeMarkdownPreview(),
+      "Expected markdown preview to become the active tab",
+    );
+
+    const plainDoc = await vscode.workspace.openTextDocument(vscode.Uri.file(plainPath));
+    const plainEditor = await vscode.window.showTextDocument(plainDoc, { preview: false });
+    assert.strictEqual(plainEditor.document.uri.fsPath, plainPath);
+  });
+});
+
 async function resetModeToGlobalCode(): Promise<void> {
   const config = vscode.workspace.getConfiguration("afx");
   await config.update("mode.active", undefined, vscode.ConfigurationTarget.Workspace);
   await config.update("mode.active", "code", vscode.ConfigurationTarget.Global);
+}
+
+function activeTabLooksLikeMarkdownPreview(): boolean {
+  const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
+  const input = activeTab?.input as { viewType?: string } | undefined;
+  const viewType = input?.viewType ?? "";
+  return viewType === "vscode.markdown.preview.editor" || viewType.includes("markdown.preview");
+}
+
+async function waitFor(
+  condition: () => boolean,
+  message: string,
+  timeoutMs = 5_000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (condition()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  assert.fail(message);
 }

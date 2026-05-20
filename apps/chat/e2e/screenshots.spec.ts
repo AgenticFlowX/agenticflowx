@@ -113,6 +113,19 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   await expect(page.getByText("Debug Panel")).toHaveCount(0);
   await expect(page.getByTestId("spec-stepper")).toBeVisible();
   await capture(page, testInfo, "spec-doc-actions-stepper");
+  await capture(page, testInfo, "spec-stepper-active-doc");
+
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Clear doc" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await expect(page.getByTestId("spec-stepper")).toHaveCount(0);
+  await capture(page, testInfo, "spec-stepper-cleared-context");
+
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Preview doc" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await expect(page.getByTestId("spec-stepper")).toBeVisible();
+  await capture(page, testInfo, "spec-stepper-preview-preserved");
 
   expect(consoleErrors).toEqual([]);
 });

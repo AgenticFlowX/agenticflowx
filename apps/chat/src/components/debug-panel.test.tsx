@@ -70,16 +70,23 @@ describe("DebugPanel", () => {
       "Quick",
       "Streaming",
       "Large",
+      "Coding bench",
       "Thinking",
       "Steer",
       "Follow-up",
+      "Queue many",
       "bash",
       "read",
       "edit",
       "Spec actions",
+      "Clear doc",
+      "Preview doc",
+      "Long next",
       "Sprint actions",
       "Journal actions",
       "Global journal",
+      "Sign Off ready",
+      "Sign Off relaxed",
       "Multi-tool",
       "Tool error",
       "Provider error",
@@ -100,9 +107,17 @@ describe("DebugPanel", () => {
       "stderr",
       "Settings",
       "Appearance",
+      "Empty",
+      "Anthropic",
+      "Multi",
+      "Local only",
+      "Both",
     ];
+    const buttonLabels = new Set(
+      screen.getAllByRole("button").map((button) => button.textContent?.trim()),
+    );
     for (const label of labels) {
-      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+      expect(buttonLabels).toContain(label);
     }
   });
 

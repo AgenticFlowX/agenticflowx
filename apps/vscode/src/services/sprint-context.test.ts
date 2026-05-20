@@ -115,6 +115,20 @@ function fakeEditor(
   };
 }
 
+function setActiveTabInput(input: unknown): void {
+  Object.defineProperty(vscode.window.tabGroups, "activeTabGroup", {
+    configurable: true,
+    value: { activeTab: { input } },
+  });
+}
+
+function setActiveMarkdownPreview(fsPath: string): void {
+  setActiveTabInput({
+    uri: vscode.Uri.file(fsPath),
+    viewType: "vscode.markdown.preview.editor",
+  });
+}
+
 describe("createSprintContextSync", () => {
   let setContextCalls: Array<{ key: string; value: unknown }>;
   let activeEditorListeners: Array<(editor: FakeEditor | undefined) => void>;
@@ -149,6 +163,10 @@ describe("createSprintContextSync", () => {
       configurable: true,
       value: undefined,
     });
+    Object.defineProperty(vscode.window.tabGroups, "activeTabGroup", {
+      configurable: true,
+      value: undefined,
+    });
   });
 
   afterEach(() => {
@@ -156,6 +174,10 @@ describe("createSprintContextSync", () => {
     Object.defineProperty(vscode.window, "activeTextEditor", {
       configurable: true,
       value: null,
+    });
+    Object.defineProperty(vscode.window.tabGroups, "activeTabGroup", {
+      configurable: true,
+      value: undefined,
     });
   });
 
@@ -197,6 +219,24 @@ describe("createSprintContextSync", () => {
     createSprintContextSync(createMockLogger().logger);
 
     activeEditorListeners[0]?.(fakeEditor("/repo/src/file.ts", "code", 0, "typescript"));
+
+    expect(setContextCalls).toEqual([
+      { key: "afx.isSprint", value: true },
+      { key: "afx.sprintSection", value: "SPEC" },
+      { key: "afx.isSprint", value: false },
+      { key: "afx.sprintSection", value: "" },
+    ]);
+  });
+
+  it("clears sprint editor keys while a matching markdown preview keeps doc context active", () => {
+    Object.defineProperty(vscode.window, "activeTextEditor", {
+      configurable: true,
+      value: fakeEditor("/repo/docs/specs/foo/foo.md", SPRINT_BODY, 10),
+    });
+    createSprintContextSync(createMockLogger().logger);
+
+    setActiveMarkdownPreview("/repo/docs/specs/foo/foo.md");
+    activeEditorListeners[0]?.(undefined);
 
     expect(setContextCalls).toEqual([
       { key: "afx.isSprint", value: true },
@@ -325,10 +365,18 @@ describe("createSprintContextSync — onDocContextChange", () => {
       configurable: true,
       value: undefined,
     });
+    Object.defineProperty(vscode.window.tabGroups, "activeTabGroup", {
+      configurable: true,
+      value: undefined,
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    Object.defineProperty(vscode.window.tabGroups, "activeTabGroup", {
+      configurable: true,
+      value: undefined,
+    });
   });
 
   function setupWith(editor: FakeEditor | undefined) {
@@ -350,6 +398,49 @@ describe("createSprintContextSync — onDocContextChange", () => {
       feature: "foo",
       filePath: "/repo/docs/specs/foo/foo.md",
       approvalStatus: null,
+    });
+  });
+
+  it("keeps an AFX doc context when the matching markdown preview becomes active", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/spec.md", SPEC_BODY));
+
+    setActiveMarkdownPreview("/repo/docs/specs/foo/spec.md");
+    activeEditorListeners[0]?.(undefined);
+
+    expect(docContexts).toHaveLength(1);
+    expect(docContexts[0]).toMatchObject({
+      format: "standard",
+      section: "SPEC",
+      docKind: "spec",
+      filePath: "/repo/docs/specs/foo/spec.md",
+    });
+  });
+
+  it("clears an AFX doc context when focus leaves to a non-preview surface", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/spec.md", SPEC_BODY));
+
+    setActiveTabInput({ viewType: "workbench.panel.output" });
+    activeEditorListeners[0]?.(undefined);
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: null,
+      section: null,
+      docKind: null,
+      filePath: null,
+    });
+  });
+
+  it("clears stale context when markdown preview is for a different file", () => {
+    setupWith(fakeEditor("/repo/docs/specs/foo/spec.md", SPEC_BODY));
+
+    setActiveMarkdownPreview("/repo/docs/specs/bar/spec.md");
+    activeEditorListeners[0]?.(undefined);
+
+    expect(docContexts.at(-1)).toMatchObject({
+      format: null,
+      section: null,
+      docKind: null,
+      filePath: null,
     });
   });
 

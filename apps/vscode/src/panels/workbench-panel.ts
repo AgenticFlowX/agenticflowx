@@ -21,6 +21,7 @@ import { getAppDistPath, getAppearanceClass, loadWebviewHtml } from "./webview-h
 export const WORKBENCH_VIEW_TYPE = "afx-workbench";
 const MARKDOWN_PREVIEW_EDITOR_ID = "vscode.markdown.preview.editor";
 const WORKBENCH_REFRESH_DEBOUNCE_MS = 75;
+const WORKBENCH_WATCH_PATTERNS = ["docs/**/*.md", ".afx/notes.md", ".afx/kanban/*.md"] as const;
 
 export interface WorkbenchPanelDeps {
   extensionUri: vscode.Uri;
@@ -76,13 +77,8 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         void pushUpdate();
       }, 250);
 
-      const watchers = [
-        vscode.workspace.createFileSystemWatcher("docs/**/*.md"),
-        vscode.workspace.createFileSystemWatcher("*/docs/**/*.md"),
-        vscode.workspace.createFileSystemWatcher("**/.afx/notes.md"),
-        vscode.workspace.createFileSystemWatcher("**/.afx/kanban/*.md"),
-      ];
       let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+      let watchers: vscode.FileSystemWatcher[] = [];
       const refresh = (): void => {
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(() => {
@@ -91,10 +87,23 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           void pushUpdate();
         }, WORKBENCH_REFRESH_DEBOUNCE_MS);
       };
-      for (const watcher of watchers) {
-        watcher.onDidChange(refresh);
-        watcher.onDidCreate(refresh);
-        watcher.onDidDelete(refresh);
+
+      const startWatchers = (): void => {
+        if (!specsData || watchers.length > 0) return;
+        watchers = WORKBENCH_WATCH_PATTERNS.map((pattern) => {
+          const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+          watcher.onDidChange(refresh);
+          watcher.onDidCreate(refresh);
+          watcher.onDidDelete(refresh);
+          return watcher;
+        });
+      };
+      const stopWatchers = (): void => {
+        for (const watcher of watchers) watcher.dispose();
+        watchers = [];
+      };
+      if (view.visible) {
+        startWatchers();
       }
 
       const configSubscription = vscode.workspace.onDidChangeConfiguration((event) => {
@@ -118,13 +127,17 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
 
       view.onDidDispose(() => {
         if (refreshTimer) clearTimeout(refreshTimer);
-        for (const watcher of watchers) watcher.dispose();
+        stopWatchers();
         configSubscription.dispose();
         telemetrySubscription.dispose();
       });
 
       view.onDidChangeVisibility(() => {
-        if (!view.visible) return;
+        if (!view.visible) {
+          stopWatchers();
+          return;
+        }
+        startWatchers();
         specsData?.refresh();
         void pushUpdate();
       });

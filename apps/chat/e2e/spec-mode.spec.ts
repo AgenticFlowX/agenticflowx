@@ -170,6 +170,27 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(page.getByTestId("spec-stepper-sessions")).toHaveCount(0);
   });
 
+  test("spec stepper hides on cleared context and returns for preview-preserved context", async ({
+    page,
+  }) => {
+    await openSpecDocActionsScenario(page);
+    await expect(page.getByTestId("spec-stepper")).toBeVisible();
+
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+    await page.getByRole("button", { name: "Clear doc" }).click();
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+    await expect(page.getByTestId("spec-stepper")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+    await page.getByRole("button", { name: "Preview doc" }).click();
+    await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+    await expect(page.getByTestId("spec-stepper")).toBeVisible();
+    await expect(page.getByTestId("spec-stepper-segment-spec")).toHaveAttribute(
+      "data-active",
+      "true",
+    );
+  });
+
   // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]
   // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
   test("doc-action row keeps compact mono buttons and visible More at narrow widths", async ({

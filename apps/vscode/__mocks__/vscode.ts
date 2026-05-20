@@ -153,6 +153,9 @@ export const window = {
   activeTextEditor: null,
   tabGroups: {
     all: [] as Array<{ tabs: Array<{ input?: { uri?: { fsPath: string; scheme: string } } }> }>,
+    activeTabGroup: undefined as
+      | { activeTab?: { input?: { uri?: { fsPath: string; scheme: string }; viewType?: string } } }
+      | undefined,
   },
   onDidChangeActiveTextEditor: () => mockDisposable,
   onDidChangeTextEditorSelection: () => mockDisposable,

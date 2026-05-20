@@ -24,6 +24,7 @@ import { summarizeTasksSignOff, summarizeWorkSessions } from "./tasks-signoff";
 
 const SPRINT_KEY = "afx.isSprint";
 const SECTION_KEY = "afx.sprintSection";
+const MARKDOWN_PREVIEW_EDITOR_ID = "vscode.markdown.preview.editor";
 
 /**
  * Active AFX document context payload — same shape posted to the chat webview.
@@ -190,8 +191,27 @@ export function createSprintContextSync(
     );
   }
 
+  function activeTabInput(): unknown {
+    return vscode.window.tabGroups.activeTabGroup?.activeTab?.input;
+  }
+
+  function activeMarkdownPreviewMatchesCurrentDoc(): boolean {
+    if (!currentDocContext.filePath) return false;
+    const input = activeTabInput() as { uri?: vscode.Uri; viewType?: string } | undefined;
+    if (input?.viewType !== MARKDOWN_PREVIEW_EDITOR_ID) return false;
+    if (!input.uri || input.uri.scheme !== "file") return false;
+    return normalizeDocPath(input.uri.fsPath) === normalizeDocPath(currentDocContext.filePath);
+  }
+
   function evaluate(editor: vscode.TextEditor | undefined): void {
-    if (!editor || editor.document.languageId !== "markdown") {
+    if (!editor) {
+      setSprint(false);
+      setSection(undefined);
+      if (activeMarkdownPreviewMatchesCurrentDoc()) return;
+      setDocContext(EMPTY_DOC_CONTEXT);
+      return;
+    }
+    if (editor.document.languageId !== "markdown") {
       setSprint(false);
       setSection(undefined);
       setDocContext(EMPTY_DOC_CONTEXT);
