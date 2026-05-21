@@ -29,6 +29,40 @@ describe("ProviderCard", () => {
     expect(onSaveKey).toHaveBeenCalledWith("secret-key");
   });
 
+  it("focuses the key field when opened from onboarding", () => {
+    render(
+      <ProviderCard
+        provider="anthropic"
+        displayName="Anthropic"
+        modelHint="Claude models"
+        state="empty"
+        focusKeyInput
+        onSaveKey={vi.fn()}
+        onClearKey={vi.fn()}
+        onChangeDefault={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText(/api key/i)).toHaveFocus();
+  });
+
+  it("labels compact empty providers as paste-key actions", () => {
+    render(
+      <ProviderCard
+        provider="anthropic"
+        displayName="Anthropic"
+        modelHint="Claude models"
+        state="empty"
+        compact
+        onSaveKey={vi.fn()}
+        onClearKey={vi.fn()}
+        onChangeDefault={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Anthropic — Paste key" })).toBeInTheDocument();
+  });
+
   it("shows configured state and clears a saved key", () => {
     const onClearKey = vi.fn(async () => {});
     render(

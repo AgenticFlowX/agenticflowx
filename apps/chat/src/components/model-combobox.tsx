@@ -23,6 +23,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
+import type { SettingsOpenTarget } from "../lib/settings-navigation";
+
 /**
  * Props for the combined composer model/thinking control.
  *
@@ -36,7 +38,7 @@ export interface ModelComboboxProps {
   disabled?: boolean;
   onSelect: (model: AgentModel) => void;
   onSelectThinkingLevel: (level: ThinkingLevel) => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (target?: SettingsOpenTarget) => void;
   /**
    * Map of provider id → user-set display name from the AFX-managed custom-providers
    * snapshot. When a provider id matches a key in this map, the dropdown group label
@@ -87,7 +89,7 @@ export function ModelCombobox({
   function openSettingsAndClose(): void {
     setOpen(false);
     if (!onOpenSettings) return;
-    window.setTimeout(onOpenSettings, 150);
+    window.setTimeout(() => onOpenSettings("connect"), 150);
   }
 
   function selectModel(nextValue: string): void {

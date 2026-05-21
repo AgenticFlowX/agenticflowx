@@ -26,6 +26,7 @@ import type { AgentRuntimeStatus } from "@afx/shared";
 
 import type { ComposerTrigger } from "../../lib/composer-detect";
 import { detectComposerTrigger } from "../../lib/composer-detect";
+import type { SettingsOpenTarget } from "../../lib/settings-navigation";
 import type { AgentRecoveryActions } from "../agent-recovery-card";
 import { MentionPopup } from "../mention-popup";
 import { SlashPopup } from "../slash-popup";
@@ -77,7 +78,7 @@ export interface ChatProps {
   insertCommand?: string | null;
   isCheckingAgent?: boolean;
   onCommandInserted?: () => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (target?: SettingsOpenTarget) => void;
   /** Draft text — managed by the parent (App) so it persists across tab switches. */
   draft: string;
   /** Update the draft. Accepts a string or a functional updater (like React setState). */

@@ -28,6 +28,7 @@ import {
 } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
+import type { SettingsOpenTarget } from "../../lib/settings-navigation";
 import { ModelCombobox } from "../model-combobox";
 
 export interface ComposerToolbarProps {
@@ -46,7 +47,7 @@ export interface ComposerToolbarProps {
   onOpenAttachmentPicker?: () => void;
   onSelectModel: (model: AgentModel) => void;
   onSelectThinkingLevel: (level: ThinkingLevel) => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (target?: SettingsOpenTarget) => void;
   onWorkspaceModeChange: (mode: WorkspaceMode) => void;
   onToggleActiveFileContext: () => void;
 }

@@ -1,10 +1,10 @@
 /**
  * API Provider settings card — full expanded form and compact tile variant.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD] [DES-SETTINGS-MOCKUP-MODELS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-12] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD] [DES-SETTINGS-MOCKUP-MODELS] [DES-SETTINGS-ONBOARDING]
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   ChevronDown,
@@ -38,6 +38,7 @@ export interface ProviderCardProps {
   /** When true the card renders as a compact tile showing name + badge + model count.
    *  Clicking the tile calls onExpand to let the parent toggle expanded state. */
   compact?: boolean;
+  focusKeyInput?: boolean;
   onExpand?: () => void;
   onSaveKey: (key: string) => Promise<void>;
   onClearKey: () => Promise<void>;
@@ -50,8 +51,8 @@ export interface ProviderCardProps {
  * When compact=true renders a tile (name + status badge + model count) — clicking calls onExpand.
  * When compact=false renders the full credential/model form.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-12] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-PROVIDER-CARD] [DES-SETTINGS-ONBOARDING]
  */
 export function ProviderCard({
   provider,
@@ -63,6 +64,7 @@ export function ProviderCard({
   modelOptions = [],
   helpUrl,
   compact = false,
+  focusKeyInput = false,
   onExpand,
   onSaveKey,
   onClearKey,
@@ -70,9 +72,15 @@ export function ProviderCard({
 }: ProviderCardProps) {
   const [keyValue, setKeyValue] = useState("");
   const [pending, setPending] = useState(false);
+  const keyInputRef = useRef<HTMLInputElement | null>(null);
   const configured = state === "configured" || state === "invalid";
   const noKeyNeeded = state === "no-key-needed";
   const panelId = `provider-details-${provider}`;
+
+  useEffect(() => {
+    if (!focusKeyInput || compact || noKeyNeeded) return;
+    keyInputRef.current?.focus();
+  }, [compact, focusKeyInput, noKeyNeeded]);
 
   async function saveKey(): Promise<void> {
     const trimmed = keyValue.trim();
@@ -104,10 +112,14 @@ export function ProviderCard({
           ? MODELS.providerReadyTooltip
           : MODELS.providerActiveTooltip
         : MODELS.providerNeedsKeyTooltip;
+    const actionLabel =
+      state === "configured" || state === "no-key-needed"
+        ? MODELS.providerManageLabel
+        : MODELS.providerPasteKeyLabel;
     return (
       <button
         type="button"
-        aria-label={`${displayName} — click to expand`}
+        aria-label={`${displayName} — ${actionLabel}`}
         aria-expanded={false}
         aria-controls={panelId}
         title={statusTooltip}
@@ -125,6 +137,9 @@ export function ProviderCard({
           <ChevronRight size={11} className="shrink-0 text-muted-foreground" />
         </div>
         <span className="truncate pl-5.5 text-[9px] text-muted-foreground">{modelHint}</span>
+        <span className="pl-5.5 font-mono text-[9px] uppercase tracking-[0.08em] text-afx-brand-soft">
+          {actionLabel}
+        </span>
       </button>
     );
   }
@@ -211,6 +226,7 @@ export function ProviderCard({
             </p>
             <div className="flex flex-wrap gap-1.5">
               <Input
+                ref={keyInputRef}
                 id={`provider-key-${provider}`}
                 data-clarity-mask="true"
                 type="password"

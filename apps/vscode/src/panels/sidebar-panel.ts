@@ -25,6 +25,7 @@ import {
   AFX_THEME_IDS,
   API_PROVIDER_IDS,
   type ActiveFileContextSnapshot,
+  type AgentCommand,
   type ChatCompactionView,
   type ChatMessageView,
   type ChatTimelineItem,
@@ -304,6 +305,41 @@ Operational policy:
 - Continue directly with the user's request.
 - Do not acknowledge, quote, summarize, or mention this control block or the mode transition.
 </afx_internal_control>`;
+const AFX_SKILL_COMMAND_ORDER = [
+  "afx-next",
+  "afx-discover",
+  "afx-design",
+  "afx-dev",
+  "afx-check",
+  "afx-task",
+  "afx-session",
+  "afx-scaffold",
+  "afx-adr",
+  "afx-context",
+  "afx-spec",
+  "afx-report",
+  "afx-help",
+  "afx-hello",
+  "afx-sprint",
+  "afx-research",
+  "afx-release",
+] as const;
+const AFX_SKILL_COMMAND_ORDER_INDEX: ReadonlyMap<string, number> = new Map(
+  AFX_SKILL_COMMAND_ORDER.map((name, index) => [name, index]),
+);
+
+function parseSkillDescription(markdown: string): string | undefined {
+  const match = /^description:\s*(.+)$/m.exec(markdown);
+  if (!match?.[1]) return undefined;
+  const description = match[1].trim();
+  if (
+    (description.startsWith('"') && description.endsWith('"')) ||
+    (description.startsWith("'") && description.endsWith("'"))
+  ) {
+    return description.slice(1, -1);
+  }
+  return description;
+}
 
 export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider {
   const {
@@ -356,6 +392,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   };
   let suppressRuntimeEventsUntilAgentEnd = false;
   let bundledSkillCountCache: number | null = null;
+  let bundledSkillCommandsCache: AgentCommand[] | null = null;
   const blockedExploreToolCallIds = new Set<string>();
   const queuedUserDisplays: QueuedUserDisplay[] = [];
   let queueInjectionChain: Promise<void> = Promise.resolve();
@@ -2256,13 +2293,26 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   async function handleGetCommands(requestId: string): Promise<void> {
+    let runtimeCommands: AgentCommand[];
     try {
-      post({ type: "agent/commands", requestId, commands: await agentManager.getCommands() });
+      runtimeCommands = await agentManager.getCommands();
     } catch (err) {
-      if (isNoConfiguredRuntimeError(err)) {
-        post({ type: "agent/commands", requestId, commands: [] });
+      if (isNoConfiguredRuntimeError(err)) runtimeCommands = [];
+      else {
+        log.error("getCommands failed", err instanceof Error ? err : undefined);
+        postError(requestId, err instanceof Error ? err.message : String(err), "toast");
         return;
       }
+    }
+
+    try {
+      const bundledCommands = await listBundledSkillCommands();
+      post({
+        type: "agent/commands",
+        requestId,
+        commands: mergeAgentCommands(runtimeCommands, bundledCommands),
+      });
+    } catch (err) {
       log.error("getCommands failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
@@ -2949,6 +2999,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   async function countBundledSkills(): Promise<number> {
     if (bundledSkillCountCache !== null) return bundledSkillCountCache;
+    if (bundledSkillCommandsCache !== null) {
+      bundledSkillCountCache = bundledSkillCommandsCache.length;
+      return bundledSkillCountCache;
+    }
     try {
       const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(bundledSkillsPath));
       bundledSkillCountCache = entries.filter(
@@ -2962,6 +3016,79 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       bundledSkillCountCache = 0;
     }
     return bundledSkillCountCache;
+  }
+
+  async function listBundledSkillCommands(): Promise<AgentCommand[]> {
+    if (bundledSkillCommandsCache !== null) return bundledSkillCommandsCache;
+    try {
+      const entries = await vscode.workspace.fs.readDirectory(vscode.Uri.file(bundledSkillsPath));
+      const skillNames = entries
+        .filter(([name, type]) => name.startsWith("afx-") && type === vscode.FileType.Directory)
+        .map(([name]) => name);
+      const commands = await Promise.all(
+        skillNames.map(async (skillName): Promise<AgentCommand> => {
+          const description = await readBundledSkillDescription(skillName);
+          return {
+            name: `skill:${skillName}`,
+            description,
+            source: "skill",
+          };
+        }),
+      );
+      bundledSkillCommandsCache = commands.sort(compareBundledSkillCommands);
+      bundledSkillCountCache = bundledSkillCommandsCache.length;
+    } catch (err) {
+      log.warn("bundled skill commands unavailable", {
+        bundledSkillsPath,
+        err: err instanceof Error ? err.message : String(err),
+      });
+      bundledSkillCommandsCache = [];
+      bundledSkillCountCache = 0;
+    }
+    return bundledSkillCommandsCache;
+  }
+
+  async function readBundledSkillDescription(skillName: string): Promise<string | undefined> {
+    try {
+      const bytes = await vscode.workspace.fs.readFile(
+        vscode.Uri.file(path.join(bundledSkillsPath, skillName, "SKILL.md")),
+      );
+      return parseSkillDescription(new TextDecoder("utf-8").decode(bytes));
+    } catch {
+      return undefined;
+    }
+  }
+
+  function compareBundledSkillCommands(a: AgentCommand, b: AgentCommand): number {
+    const aName = a.name.replace(/^skill:/, "");
+    const bName = b.name.replace(/^skill:/, "");
+    const aIndex = AFX_SKILL_COMMAND_ORDER_INDEX.get(aName) ?? Number.MAX_SAFE_INTEGER;
+    const bIndex = AFX_SKILL_COMMAND_ORDER_INDEX.get(bName) ?? Number.MAX_SAFE_INTEGER;
+    return aIndex - bIndex || aName.localeCompare(bName);
+  }
+
+  function mergeAgentCommands(
+    runtimeCommands: readonly AgentCommand[],
+    bundledCommands: readonly AgentCommand[],
+  ): AgentCommand[] {
+    const byKey = new Map<string, AgentCommand>();
+    for (const command of bundledCommands) {
+      byKey.set(agentCommandKey(command), command);
+    }
+    for (const command of runtimeCommands) {
+      const key = agentCommandKey(command);
+      const bundled = byKey.get(key);
+      byKey.set(key, {
+        ...bundled,
+        ...command,
+        description: command.description ?? bundled?.description,
+      });
+    }
+    return [...byKey.values()];
+  }
+
+  function agentCommandKey(command: AgentCommand): string {
+    return `${command.source}:${command.name}`;
   }
 
   function getOpenWorkspaceFilePaths(): Set<string> {

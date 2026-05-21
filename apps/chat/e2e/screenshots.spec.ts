@@ -78,6 +78,27 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   );
   await expect(page.getByText("Thinking level")).toBeVisible();
   await capture(page, testInfo, "settings-desktop");
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Empty" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await expect(page.getByText("Debug Panel")).toHaveCount(0);
+  await expect(page.getByTestId("settings-connect-panel")).toBeVisible();
+  await expect(page.getByText("Welcome to AFX")).toBeVisible();
+  await capture(page, testInfo, "settings-connect-empty");
+  await page.getByRole("button", { name: "Paste hosted key" }).click();
+  await expect(page.getByLabel("API key", { exact: true }).first()).toBeFocused();
+  await capture(page, testInfo, "settings-hosted-key-focus");
+  await page.getByRole("button", { name: "Add custom endpoint" }).first().click();
+  await expect(page.getByText("Endpoint", { exact: true })).toBeVisible();
+  await page.getByLabel("Provider id *").scrollIntoViewIfNeeded();
+  await capture(page, testInfo, "settings-custom-provider-start");
+  await page.getByRole("button", { name: "Support", exact: true }).click();
+  const skills = page.getByTestId("settings-skills-disclosure");
+  await expect(skills.getByText("Skills & commands")).toBeVisible();
+  await expect(skills).not.toHaveAttribute("open", "");
+  await expect(skills.getByRole("button", { name: "/afx-task" })).toHaveCount(0);
+  await skills.scrollIntoViewIfNeeded();
+  await capture(page, testInfo, "settings-skills-collapsed");
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Chat" }).click();

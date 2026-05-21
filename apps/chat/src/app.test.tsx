@@ -163,6 +163,48 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
   };
 }
 
+function createProviderSnapshot(
+  id: string,
+  state: SettingsSnapshot["providers"][number]["state"] = "empty",
+  modelCount = 0,
+): SettingsSnapshot["providers"][number] {
+  const displayName =
+    id === "openai"
+      ? "OpenAI"
+      : id === "anthropic"
+        ? "Anthropic"
+        : id.replace(
+            /(^|[-_\s])([a-z])/g,
+            (_match, prefix: string, char: string) =>
+              `${prefix === "-" || prefix === "_" ? " " : prefix}${char.toUpperCase()}`,
+          );
+  const snapshot: SettingsSnapshot["providers"][number] = {
+    id,
+    name: id,
+    displayName,
+    modelCount,
+    state,
+    modelHint: `${displayName} models`,
+    models:
+      state === "configured"
+        ? [
+            {
+              provider: id,
+              id: "default-model",
+              name: `${displayName} Default`,
+              source: "api-provider",
+              instanceId: "pi-sdk",
+              reasoning: true,
+              contextWindow: 128_000,
+              maxTokens: 16_000,
+            },
+          ]
+        : [],
+  };
+  if (state === "configured") snapshot.defaultModel = "default-model";
+  return snapshot;
+}
+
 describe("chat App", () => {
   it("renders all three tab triggers", () => {
     renderApp();
@@ -1094,8 +1136,9 @@ describe("chat App", () => {
     // Chat keeps its quick-commands empty state — no takeover card.
     // Runtime issues surface via the Pi pill in FooterStrip (when rpc.enabled=true)
     // and via the AgentRecoveryCard in History/Settings.
-    expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
-    expect(screen.queryByText("Welcome to AFX")).not.toBeInTheDocument();
+    const conversation = screen.getByRole("region", { name: "Conversation" });
+    expect(within(conversation).getByText(/Chat-first by default/i)).toBeInTheDocument();
+    expect(within(conversation).queryByText("Welcome to AFX")).not.toBeInTheDocument();
 
     // Recovery affordance still reachable via History/Settings (forceMount-ed tabs).
     const retryButtons = screen.getAllByRole("button", { name: /retry connection/i });
@@ -1143,6 +1186,112 @@ describe("chat App", () => {
     await user.click(screen.getByRole("button", { name: "Open Settings" }));
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("No active runtime configured")).toBeInTheDocument();
+  });
+
+  it("guides first-time users to a focused hosted API key form without mutating settings", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "disconnected",
+          running: false,
+          isStreaming: false,
+          info: "No agent runtime configured",
+          rpcEnabled: false,
+          runtimeConfigured: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, undefined, null, "code", {
+        providers: [
+          createProviderSnapshot("anthropic"),
+          createProviderSnapshot("openai"),
+          createProviderSnapshot("google"),
+        ],
+      });
+    });
+
+    await user.click(screen.getByRole("button", { name: "Open Settings" }));
+    expect(screen.getByText("Welcome to AFX")).toBeInTheDocument();
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await user.click(screen.getByRole("button", { name: /Paste hosted key/i }));
+    const apiKeyInput = await screen.findByLabelText("API key");
+    await waitFor(() => expect(apiKeyInput).toHaveFocus());
+    expect(screen.getByRole("button", { name: "Save key" })).toBeDisabled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("opens the custom endpoint form directly while preserving existing custom providers", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "anthropic",
+            id: "default-model",
+            name: "Anthropic Default",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport, undefined, null, "code", {
+        providers: [createProviderSnapshot("anthropic", "configured", 1)],
+        customModels: {
+          activeHarness: "pi-sdk",
+          piSdk: {
+            providers: [
+              {
+                id: "openrouter",
+                displayName: "OpenRouter",
+                baseUrl: "https://openrouter.ai/api/v1",
+                api: "openai-completions",
+                modelCount: 1,
+                models: [{ id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4" }],
+                apiKeySource: "vscode-secret",
+                apiKeyLabel: "AFX_OPENROUTER_KEY",
+                hasApiKey: true,
+                origin: "afx-managed",
+              },
+            ],
+          },
+        },
+      });
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+    expect(screen.getByText("Connected")).toBeInTheDocument();
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await user.click(screen.getByRole("button", { name: "Models" }));
+    await user.click(screen.getByRole("tab", { name: "Custom Models" }));
+    expect(screen.getByText("OpenRouter")).toBeInTheDocument();
+
+    await user.click(screen.getAllByRole("button", { name: "Add custom endpoint" })[0]);
+    expect(screen.getByText("Endpoint")).toBeInTheDocument();
+    expect(screen.getByLabelText(/Provider id/i)).toHaveValue("custom");
+    expect(screen.getByLabelText(/Base URL/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/API key/i)).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("uses the empty chat landing as editable onboarding, not auto-send", async () => {

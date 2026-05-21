@@ -16,6 +16,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
 import {
+  type AgentCommand,
   type AgentEvent,
   type AgentModel,
   type Logger,
@@ -1221,6 +1222,48 @@ describe("sidebar-panel host bridge", () => {
     inbound.fire({ type: "chat/getCommands", requestId: "req-3" });
     await new Promise((r) => setImmediate(r));
     expect(agent.getCommands).toHaveBeenCalledOnce();
+  });
+
+  it("chat/getCommands includes bundled AFX skills alongside runtime commands", async () => {
+    const runtimeCommands: AgentCommand[] = [
+      { name: "skill:afx-task", description: "Runtime task helper", source: "skill" },
+      { name: "summarize", description: "Summarize current context", source: "prompt" },
+    ];
+    agent.getCommands.mockResolvedValueOnce(runtimeCommands);
+    vi.spyOn(vscode.workspace.fs, "readDirectory").mockResolvedValue([
+      ["afx-next", vscode.FileType.Directory],
+      ["afx-task", vscode.FileType.Directory],
+      ["afx-release", vscode.FileType.Directory],
+      ["not-a-skill.txt", vscode.FileType.File],
+    ]);
+    vi.spyOn(vscode.workspace.fs, "readFile").mockImplementation(async (uri) => {
+      const fsPath = uri.fsPath;
+      const skillName = fsPath.split("/").at(-2) ?? "unknown";
+      return new TextEncoder().encode(`---\ndescription: Description for ${skillName}\n---\n`);
+    });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/getCommands", requestId: "req-bundled" });
+    await flushAsyncWork(2);
+
+    const posted = postMessage.mock.calls
+      .map(
+        ([msg]) =>
+          msg as { type?: string; commands?: Array<{ name: string; description?: string }> },
+      )
+      .find((msg) => msg.type === "agent/commands");
+    expect(posted?.commands?.map((command) => command.name)).toEqual([
+      "skill:afx-next",
+      "skill:afx-task",
+      "skill:afx-release",
+      "summarize",
+    ]);
+    expect(
+      posted?.commands?.find((command) => command.name === "skill:afx-task")?.description,
+    ).toBe("Runtime task helper");
+    expect(
+      posted?.commands?.find((command) => command.name === "skill:afx-release")?.description,
+    ).toBe("Description for afx-release");
   });
 
   it("chat/getCommands returns empty commands without an error when no runtime is configured", async () => {

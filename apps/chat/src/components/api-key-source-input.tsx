@@ -74,8 +74,8 @@ export function ApiKeySourceInput({
   const inputControlId = `custom-${providerId}-key-input`;
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-2">
+      <div data-testid="api-key-source-field" className="flex max-w-64 flex-col gap-1.5">
         <Label htmlFor={labelControlId} className="text-[10px] font-medium">
           {MODELS.customSdkApiKeySourceLabel}
         </Label>
@@ -83,7 +83,7 @@ export function ApiKeySourceInput({
           id={labelControlId}
           value={value.source}
           onChange={(e) => setSource(e.currentTarget.value as CustomProviderApiKeySource)}
-          className="h-7 text-[11px]"
+          className="h-8 w-full text-[11px]"
           aria-label={MODELS.customSdkApiKeySourceLabel}
         >
           {sourceOptions.map((opt) => (
@@ -95,8 +95,8 @@ export function ApiKeySourceInput({
       </div>
 
       {value.source === "vscode-secret" ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1">
+        <div className="flex flex-col gap-1.5 border-t border-border/50 pt-2">
+          <div className="flex items-center gap-1.5">
             <Input
               id={inputControlId}
               type={effectiveReveal ? "text" : "password"}

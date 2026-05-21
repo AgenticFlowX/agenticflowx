@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.7"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T08:53:29.000Z"
+updated_at: "2026-05-21T12:36:36.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
@@ -51,6 +51,41 @@ Settings view
 | Diagnostics        | `openOutputLogs`, recovery buttons                                                                       | `chat/showLogs`, recovery callbacks                                                                                                          | VS Code AgenticFlowX Output channel and runtime recovery actions                          | Output panel, runtime status events                                               |
 | Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
 | Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack |
+
+---
+
+## [DES-SETTINGS-ONBOARDING] Connect A Model
+
+Settings starts with a compact connection panel. If no runtime is usable it reads as first-run onboarding; otherwise it reads as a connected summary with the same actions.
+
+- Hosted key opens Models → Built-in, filters to providers that need a key, expands one provider card, and focuses the masked API key input.
+- Custom endpoint opens Models → Custom Models → Pi SDK and seeds the blank custom-provider form.
+- Pi local runtime opens Runtimes so the user can enable Pi RPC or use recovery controls.
+- These actions only change webview navigation state. They must not send `provider/setApiKey`, `customModels/upsertProvider`, or runtime mutations.
+- Existing SecretStorage keys and custom provider records remain the source of truth and continue to hydrate their current cards.
+- Support keeps Diagnostics, Privacy, and About visible. Skills & commands are default-collapsed.
+
+```text
++----------------------------------------------------------------+
+| Welcome to AFX                                                  |
+| Choose how AFX should run. You can change this later.           |
+|                                                                |
+| [ Hosted API key ]  [ Custom endpoint ]  [ Pi local runtime ]  |
+|   Anthropic/OpenAI     Ollama/OpenRouter     Local Pi CLI       |
+|                                                                |
+| Hosted keys: 0   Custom: 0   Pi RPC: off                       |
+| Start with one: [Anthropic] [OpenAI] [Gemini] [DeepSeek]       |
++----------------------------------------------------------------+
+
+Hosted key:
+  Models / Built-in / Needs key
+  > Anthropic
+    API key [ focused masked input ] [ Save key ]
+
+Custom endpoint:
+  Models / Custom Models / Pi SDK
+  Endpoint → Credential → Models → Advanced
+```
 
 ---
 
@@ -297,7 +332,9 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 |                 ( ○ anthropic-messages  )                      |
 |                 ( ○ google-generative-ai)                      |
 |                                                                |
-| API key         Source: [ VSCode Secret ▾ ]                    |
+| API key                                                        |
+| Source          [ VSCode Secret ▾ ]                            |
+|                                                                |
 |                 [ ●●●●●●●●●●●●●●●●●●●●●●● ]   👁                |
 |                 Stored in OS keychain · injected as            |
 |                 AFX_OPENROUTER_KEY at runtime                  |
@@ -584,11 +621,16 @@ Track selection persists per webview via localStorage.
 
 ### [DES-SETTINGS-SURFACE-SKILLS] Chat Skills And Commands
 
-| Code anchor     | UI/functionality                                                                        |
-| --------------- | --------------------------------------------------------------------------------------- |
-| `groupCommands` | Splits commands into AFX skills, other skills, extension commands, and prompt templates |
-| `CommandGroup`  | Inserts slash command text into composer via `onInsertCommand`                          |
-| `ACTIONS`       | Direct `/new` and `/abort` extension actions                                            |
+| Code anchor       | UI/functionality                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| `groupCommands`   | Splits commands into AFX skills, other skills, extension commands, and prompt templates |
+| Skills disclosure | Collapsed by default so first-run Settings focuses on connection and diagnostics        |
+| `CommandGroup`    | Inserts slash command text into composer via `onInsertCommand` after disclosure opens   |
+| `ACTIONS`         | Direct `/new` and `/abort` extension actions                                            |
+
+`SidebarPanel.handleGetCommands` merges runtime commands with the bundled skill folders under
+`resources/skills/agenticflowx`. Runtime metadata wins for duplicate names, but missing bundled
+`afx-*` skills are still shown so Support does not look empty when a runtime reports a small set.
 
 ### [DES-SETTINGS-SURFACE-DIAGNOSTICS] Diagnostics, Recovery, And Telemetry
 

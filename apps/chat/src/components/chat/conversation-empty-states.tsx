@@ -40,6 +40,7 @@ import {
 } from "../../lib/afx-onboarding-intents";
 import { bridgeSend } from "../../lib/bridge";
 import { type ActiveDocCtx, describeDoc, resolveDocActions } from "../../lib/doc-actions";
+import type { SettingsOpenTarget } from "../../lib/settings-navigation";
 import { AfxLogoIcon, AfxLogoMark } from "../afx-logo";
 import { docKindVisual } from "../chat-doc-kind-visual";
 import { CommandReceipt } from "../command-receipt";
@@ -251,7 +252,7 @@ export interface EmptyStateProps {
   workspaceMode: WorkspaceMode;
   runtimeUnconfigured?: boolean;
   rpcEnabled?: boolean;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (target?: SettingsOpenTarget) => void;
 }
 
 /**
@@ -317,7 +318,7 @@ export const EmptyState = memo(function EmptyState({
                 size="xs"
                 variant="outline"
                 className="mt-2"
-                onClick={onOpenSettings}
+                onClick={() => onOpenSettings?.("connect")}
                 disabled={!onOpenSettings}
               >
                 Open Settings

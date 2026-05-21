@@ -3,6 +3,8 @@
  *
  * @see docs/specs/210-app-chat/spec.md [FR-6] [FR-7]
  * @see docs/specs/210-app-chat/design.md [DES-ARCH]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-12]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-ONBOARDING]
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -16,6 +18,7 @@ import { DebugPanel } from "./components/debug-panel";
 import { Toaster, toast } from "./components/toast";
 import { bridgeOn, bridgeSend } from "./lib/bridge";
 import { setClarityEnabled } from "./lib/clarity";
+import type { SettingsOpenTarget } from "./lib/settings-navigation";
 import Chat from "./views/chat";
 import History from "./views/history";
 import Settings from "./views/settings";
@@ -50,6 +53,7 @@ function formatIncomingDraftInsertion(content: string): string {
 export default function App({ transport }: AppProps) {
   const showDebugPanel = import.meta.env.DEV && isMockTransport(transport);
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>("chat");
+  const [settingsOpenTarget, setSettingsOpenTarget] = useState<SettingsOpenTarget | null>(null);
   const [insertCommand, setInsertCommand] = useState<string | null>(null);
   /** Draft message text — lifted here so it persists across tab switches and view remounts. */
   const [draft, setDraft] = useState(() => readPersistedDraft(transport));
@@ -73,6 +77,13 @@ export default function App({ transport }: AppProps) {
     setPromptHistory((prev) =>
       prev[prev.length - 1] === trimmed ? prev : [...prev.slice(-49), trimmed],
     );
+  }, []);
+  const openSettings = useCallback((target: SettingsOpenTarget = "connect") => {
+    setSettingsOpenTarget(target);
+    setActiveTab("settings");
+  }, []);
+  const handleSettingsOpenTargetConsumed = useCallback(() => {
+    setSettingsOpenTarget(null);
   }, []);
   const [agentStatus, setAgentStatus] = useState<AgentRuntimeStatus>(() =>
     createCheckingAgentRuntimeStatus(),
@@ -143,10 +154,10 @@ export default function App({ transport }: AppProps) {
     () => ({
       onRetryConnection: () => bridgeSend({ type: "agent/checkStatus", requestId: uid() }),
       onRestartAgent: () => bridgeSend({ type: "agent/restart", requestId: uid() }),
-      onOpenSettings: () => setActiveTab("settings"),
+      onOpenSettings: () => openSettings("connect"),
       onReloadHost: () => bridgeSend({ type: "agent/reload", requestId: uid() }),
     }),
-    [],
+    [openSettings],
   );
 
   useEffect(() => {
@@ -189,7 +200,7 @@ export default function App({ transport }: AppProps) {
             isCheckingAgent={isCheckingAgent}
             insertCommand={insertCommand}
             onCommandInserted={() => setInsertCommand(null)}
-            onOpenSettings={() => setActiveTab("settings")}
+            onOpenSettings={openSettings}
             draft={draft}
             onDraftChange={handleDraftChange}
             promptHistory={promptHistory}
@@ -218,6 +229,8 @@ export default function App({ transport }: AppProps) {
             recoveryActions={recoveryActions}
             isCheckingAgent={isCheckingAgent}
             onInsertCommand={handleInsertCommand}
+            openTarget={settingsOpenTarget}
+            onOpenTargetConsumed={handleSettingsOpenTargetConsumed}
           />
         </TabsContent>
       </Tabs>

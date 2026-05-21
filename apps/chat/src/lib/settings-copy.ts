@@ -6,8 +6,8 @@
  * verified against pi-mono/packages/coding-agent/src/core/settings-manager.ts
  * and pi-mono/packages/ai/src/types.ts. Do not modify without re-verifying.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COPY]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-12] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
  */
 
 // ─── Workspace group ─────────────────────────────────────────────────────────
@@ -204,6 +204,8 @@ export const MODELS = {
     "API key configured and currently active for new chats (the composer's selected model lives in this provider).",
   providerReadyTooltip: "API key configured. Available to switch to from the composer.",
   providerNeedsKeyTooltip: "API key not set. Click to configure.",
+  providerPasteKeyLabel: "Paste key",
+  providerManageLabel: "Manage",
 
   apiKeyLabel: "API key",
   apiKeyDescription: "Stored in VS Code SecretStore. Never logged or echoed.",
@@ -230,8 +232,9 @@ export const MODELS = {
   customSdkDescription:
     "Stored in VSCode SecretStorage. Injected into the Pi SDK runtime in-process — your ~/.pi/agent/models.json is never modified.",
   customSdkAddLabel: "Add Provider",
+  customSdkUsePresetLabel: "Use preset",
   customSdkEmpty:
-    "No AFX-managed custom providers yet. Click Add Provider to start with a preset (Ollama, OpenRouter, Moonshot…).",
+    "No AFX-managed custom providers yet. Add a custom endpoint directly, or start with a preset.",
   customSdkBadge: "AFX-managed",
   customSdkEditLabel: "Edit",
   customSdkRemoveLabel: "Remove",
@@ -267,6 +270,32 @@ export const MODELS = {
     "Opens ~/.pi/agent/models.json in VSCode for direct editing. Pi reads/reloads this file natively; no AFX restart needed (Pi reloads on /model). Path can be overridden via the PI_CODING_AGENT_DIR env var.",
   customRpcRpcOff:
     "Pi RPC is currently disabled. Enable it in the Runtimes tab to use Pi-native custom models.",
+} as const;
+
+// ─── Settings onboarding / connect strip ─────────────────────────────────────
+
+export const CONNECT = {
+  welcomeTitle: "Welcome to AFX",
+  welcomeDescription: "Choose how AFX should run. You can change this later.",
+  readyTitle: "Connected",
+  readyDescription: "AFX has at least one runtime path. Add another anytime.",
+  noRuntimeLabel: "No active runtime configured",
+  hostedTitle: "Hosted API key",
+  hostedDescription: "Anthropic, OpenAI, Gemini, DeepSeek, OpenRouter, and other hosted models.",
+  hostedAction: "Paste hosted key",
+  customTitle: "Custom endpoint",
+  customDescription: "OpenAI-compatible endpoints, Ollama, LM Studio, vLLM, or proxies.",
+  customAction: "Add custom endpoint",
+  localTitle: "Pi local runtime",
+  localDescription: "Use your local Pi CLI and its model catalog from chat.",
+  localAction: "Enable Pi RPC",
+  manageHostedAction: "Manage hosted keys",
+  secretNote:
+    "Keys are saved in VS Code SecretStorage. Opening these paths does not change settings until you save.",
+  statsHosted: "Hosted keys",
+  statsCustom: "Custom",
+  statsPi: "Pi RPC",
+  quickProviderLabel: "Start with one",
 } as const;
 
 // ─── Look group ───────────────────────────────────────────────────────────────

@@ -79,9 +79,27 @@ const MOCK_MODELS: AgentModel[] = [
 const DEFAULT_MOCK_MODELS = MOCK_MODELS.filter((model) => model.source !== "external-agent");
 
 const MOCK_COMMANDS: AgentCommand[] = [
-  { name: "skill:afx-task", description: "Pick, verify, code, complete tasks", source: "skill" },
   { name: "skill:afx-next", description: "Context-aware next action", source: "skill" },
+  { name: "skill:afx-discover", description: "Find relevant specs and context", source: "skill" },
+  { name: "skill:afx-design", description: "Refine design docs", source: "skill" },
+  { name: "skill:afx-dev", description: "Implement picked tasks", source: "skill" },
+  {
+    name: "skill:afx-check",
+    description: "Validate AFX documents and traceability",
+    source: "skill",
+  },
+  { name: "skill:afx-task", description: "Pick, verify, code, complete tasks", source: "skill" },
+  { name: "skill:afx-session", description: "Capture sessions and decisions", source: "skill" },
+  { name: "skill:afx-scaffold", description: "Create AFX spec scaffolds", source: "skill" },
+  { name: "skill:afx-adr", description: "Create and refine ADRs", source: "skill" },
+  { name: "skill:afx-context", description: "Load project context", source: "skill" },
   { name: "skill:afx-spec", description: "Manage spec lifecycle", source: "skill" },
+  { name: "skill:afx-report", description: "Summarize project/spec health", source: "skill" },
+  { name: "skill:afx-help", description: "AFX command reference", source: "skill" },
+  { name: "skill:afx-hello", description: "Smoke-test AFX wiring", source: "skill" },
+  { name: "skill:afx-sprint", description: "Run sprint-format spec workflow", source: "skill" },
+  { name: "skill:afx-research", description: "Create and refine research notes", source: "skill" },
+  { name: "skill:afx-release", description: "Prepare release notes and checks", source: "skill" },
   { name: "summarize", description: "Summarize current context", source: "prompt" },
 ];
 

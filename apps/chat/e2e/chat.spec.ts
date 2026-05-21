@@ -144,6 +144,40 @@ test("Settings exposes Composer Intent defaults and scope controls", async ({ pa
   await expect(page.getByRole("radio", { name: /This workspace/ })).toBeVisible();
 });
 
+test("Settings guides hosted-key and custom-endpoint setup", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+
+  await expect(page.getByTestId("settings-connect-panel")).toBeVisible();
+  await page.getByRole("button", { name: /Hosted API key/ }).click();
+  const apiKey = page.getByLabel("API key").first();
+  await expect(apiKey).toBeVisible();
+  await expect(apiKey).toBeFocused();
+  await expect(page.getByRole("button", { name: "Save key" })).toBeDisabled();
+
+  await page.getByRole("button", { name: "Add custom endpoint" }).first().click();
+  await expect(page.getByText("Endpoint", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Provider id *")).toHaveValue("custom");
+  await expect(page.getByLabel("Base URL *")).toBeVisible();
+  await expect(page.getByLabel("API key").last()).toBeVisible();
+});
+
+test("Settings keeps skills collapsed until requested", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Support", exact: true }).click();
+
+  const skills = page.getByTestId("settings-skills-disclosure");
+  await expect(skills.getByText("Skills & commands")).toBeVisible();
+  await expect(skills).not.toHaveAttribute("open", "");
+  await expect(skills.getByRole("button", { name: "/afx-task" })).toHaveCount(0);
+
+  await skills.getByText("Skills & commands").click();
+  await expect(skills).toHaveAttribute("open", "");
+  await expect(skills.getByRole("button", { name: "/afx-task" })).toBeVisible();
+  await expect(skills.getByRole("button", { name: "/afx-release" })).toBeVisible();
+});
+
 test("active tab has visible ::after strip indicator", async ({ page }) => {
   await page.goto("/");
 

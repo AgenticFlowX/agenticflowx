@@ -1,8 +1,8 @@
 /**
  * Settings view — 5-group layout: Workspace, Runtimes, Models, Look, Support.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [FR-12] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 import {
@@ -53,6 +53,7 @@ import type {
 } from "@afx/shared";
 import type { CustomProviderPreset, CustomProviderSummary } from "@afx/shared";
 import {
+  PRESET_CUSTOM_BLANK,
   createCheckingAgentRuntimeStatus,
   getIntentPrompt,
   normalizeIntentSlot,
@@ -86,7 +87,8 @@ import { displayCommandName } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
 import { formatIntentPromptBadge, formatIntentPromptTitle } from "../lib/intent-copy";
-import { HEADER, LOOK, MODELS, RUNTIMES, SUPPORT, WORKSPACE } from "../lib/settings-copy";
+import { CONNECT, HEADER, LOOK, MODELS, RUNTIMES, SUPPORT, WORKSPACE } from "../lib/settings-copy";
+import type { SettingsOpenTarget } from "../lib/settings-navigation";
 import { applyRuntimeAppearance } from "../lib/theme-preview";
 
 type RuntimeSettings = Pick<
@@ -139,6 +141,8 @@ const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> 
   { value: "needs-key", label: "Needs key" },
 ];
 
+const QUICK_HOSTED_PROVIDER_IDS = ["anthropic", "openai", "google", "deepseek", "openrouter"];
+
 const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
   enabled: true,
   effectiveEnabled: true,
@@ -165,17 +169,21 @@ export interface SettingsProps {
   recoveryActions?: AgentRecoveryActions;
   isCheckingAgent?: boolean;
   onInsertCommand?: (commandText: string) => void;
+  openTarget?: SettingsOpenTarget | null;
+  onOpenTargetConsumed?: () => void;
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-12] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-ONBOARDING]
  */
 export default function Settings({
   agentStatus = createCheckingAgentRuntimeStatus(),
   recoveryActions,
   isCheckingAgent = false,
   onInsertCommand,
+  openTarget,
+  onOpenTargetConsumed,
 }: SettingsProps) {
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
   const [commands, setCommands] = useState<AgentCommand[]>([]);
@@ -186,6 +194,7 @@ export default function Settings({
   const [providerFilter, setProviderFilter] = useState<ProviderFilter>("all");
   const [providerSearch, setProviderSearch] = useState("");
   const [expandedProvider, setExpandedProvider] = useState<string | null>(null);
+  const [focusProviderKey, setFocusProviderKey] = useState<string | null>(null);
   // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
   type CustomSdkMode =
     | { kind: "list" }
@@ -306,6 +315,7 @@ export default function Settings({
     ? "Workspace override active"
     : "Using global default";
   const providers = useMemo(() => snapshotProviders ?? [], [snapshotProviders]);
+  const customProviderCount = snapshot?.customModels?.piSdk.providers.length ?? 0;
   const providerStats = useMemo(() => {
     return providers.reduce(
       (stats, provider) => {
@@ -355,6 +365,12 @@ export default function Settings({
   const rpcEnabled = snapshot?.engine.rpcEnabled ?? agentStatus.rpcEnabled === true;
   const piAgent = snapshot?.externalAgents?.find((agent) => agent.id === "pi");
   const rpcStatus = piAgent?.status ?? (rpcEnabled ? "unavailable" : "disabled");
+  const configuredHostedCount = providers.filter(
+    (provider) => provider.state === "configured" && provider.modelCount > 0,
+  ).length;
+  const hasUsableRuntime =
+    !runtimeUnconfigured &&
+    (configuredHostedCount > 0 || customProviderCount > 0 || rpcStatus === "connected");
 
   function trackRuntimeMutation(label: string): string {
     const requestId = uid();
@@ -553,12 +569,85 @@ export default function Settings({
       minimized: intentMinimized,
     });
   }
-  function jumpToSection(id: SectionId) {
+  const jumpToSection = useCallback((id: SectionId) => {
     setActiveSection(id);
     document
       .getElementById(`settings-${id}`)
       ?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }
+  }, []);
+
+  const openConnectSetup = useCallback(() => {
+    setActiveSection("workspace");
+    document.getElementById("settings-connect")?.scrollIntoView({ block: "start" });
+  }, []);
+
+  const openHostedKeySetup = useCallback(
+    (providerId?: string) => {
+      const target =
+        (providerId ? providers.find((provider) => provider.id === providerId) : undefined) ??
+        QUICK_HOSTED_PROVIDER_IDS.map((id) =>
+          providers.find((provider) => provider.id === id),
+        ).find(
+          (provider) =>
+            provider && provider.state !== "configured" && provider.state !== "no-key-needed",
+        ) ??
+        providers.find(
+          (provider) => provider.state !== "configured" && provider.state !== "no-key-needed",
+        ) ??
+        providers.find((provider) => provider.state === "configured");
+      setModelsSubTab("builtin");
+      setProviderFilter(target?.state === "configured" ? "all" : "needs-key");
+      setProviderSearch("");
+      if (target) {
+        setExpandedProvider(target.id);
+        setFocusProviderKey(target.id);
+      }
+      jumpToSection("models");
+    },
+    [jumpToSection, providers],
+  );
+
+  const openCustomEndpointSetup = useCallback(() => {
+    setModelsSubTab("custom");
+    setCustomModelsTrack("sdk");
+    setCustomSdkMode({ kind: "create", preset: PRESET_CUSTOM_BLANK });
+    jumpToSection("models");
+  }, [jumpToSection]);
+
+  const openRuntimesSetup = useCallback(() => {
+    jumpToSection("runtimes");
+  }, [jumpToSection]);
+
+  useEffect(() => {
+    if (!openTarget) return;
+
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      if (openTarget === "connect") {
+        openConnectSetup();
+      } else if (openTarget === "hosted-key") {
+        openHostedKeySetup();
+      } else if (openTarget === "custom-provider") {
+        openCustomEndpointSetup();
+      } else {
+        openRuntimesSetup();
+      }
+      onOpenTargetConsumed?.();
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    onOpenTargetConsumed,
+    openConnectSetup,
+    openCustomEndpointSetup,
+    openHostedKeySetup,
+    openRuntimesSetup,
+    openTarget,
+  ]);
+
   function applyTheme(theme: AfxThemeId) {
     const appearance = snapshot?.appearance;
     if (!appearance) return;
@@ -694,7 +783,17 @@ export default function Settings({
       snapshot?.customModels?.piSdk.providers ?? [];
     return (
       <div className="flex flex-col gap-2">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-1.5">
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={() => setCustomSdkMode({ kind: "create", preset: PRESET_CUSTOM_BLANK })}
+            disabled={customSdkBusy}
+          >
+            <Plus size={11} />
+            {CONNECT.customAction}
+          </Button>
           <Button
             type="button"
             size="xs"
@@ -703,7 +802,7 @@ export default function Settings({
             disabled={customSdkBusy}
           >
             <Plus size={11} />
-            {MODELS.customSdkAddLabel}
+            {MODELS.customSdkUsePresetLabel}
           </Button>
         </div>
         {providers.length === 0 ? (
@@ -929,16 +1028,20 @@ export default function Settings({
 
           {/* Surface: [ChatSettings.Readiness] */}
           {isCheckingAgent ? <SettingsSetupCard /> : null}
-          {runtimeUnconfigured ? (
-            <RuntimeConfigurationNotice
-              apiProvidersEnabled={sdkEnabled}
+          {!isCheckingAgent ? (
+            <SettingsConnectPanel
+              runtimeUnconfigured={runtimeUnconfigured}
+              hasUsableRuntime={hasUsableRuntime}
+              hostedKeyCount={configuredHostedCount}
+              customProviderCount={customProviderCount}
+              rpcConnected={rpcConnected}
               rpcEnabled={rpcEnabled}
               recoveryActions={recoveryActions}
-              onOpenApiProviders={() => {
-                setModelsSubTab("builtin");
-                jumpToSection("models");
-              }}
-              onOpenExternalAgents={() => jumpToSection("runtimes")}
+              providers={providers}
+              onHostedKey={() => openHostedKeySetup()}
+              onHostedProvider={openHostedKeySetup}
+              onCustomEndpoint={openCustomEndpointSetup}
+              onRuntimes={openRuntimesSetup}
             />
           ) : null}
           {runtimeUnavailable ? (
@@ -1487,6 +1590,31 @@ export default function Settings({
 
               {/* Surface: [ChatSettings.Models.Builtin] */}
               <TabsContent value="builtin" className="flex flex-col gap-2">
+                <div className="rounded-md border border-afx-brand-soft/20 bg-afx-brand-soft/5 px-2.5 py-2">
+                  <p className="text-[11px] font-semibold text-foreground">{CONNECT.hostedTitle}</p>
+                  <p className="mt-0.5 text-[10px] leading-relaxed text-muted-foreground">
+                    {CONNECT.hostedDescription}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                      {CONNECT.quickProviderLabel}
+                    </span>
+                    {QUICK_HOSTED_PROVIDER_IDS.map((id) => {
+                      const provider = providers.find((entry) => entry.id === id);
+                      if (!provider) return null;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="rounded-sm border border-border/70 bg-card/35 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:border-afx-brand/40 hover:bg-afx-brand/10"
+                          onClick={() => openHostedKeySetup(id)}
+                        >
+                          {provider.displayName ?? providerLabel(provider.id)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
                 <div className="rounded-md border bg-muted/20 p-2">
                   <div className="grid grid-cols-3 gap-1">
                     <ProviderStat label="Providers" value={providerStats.total} />
@@ -1532,6 +1660,7 @@ export default function Settings({
                       modelOptions={provider.models}
                       helpUrl={provider.helpUrl}
                       compact={expandedProvider !== provider.id}
+                      focusKeyInput={focusProviderKey === provider.id}
                       onExpand={() =>
                         setExpandedProvider(expandedProvider === provider.id ? null : provider.id)
                       }
@@ -1720,65 +1849,8 @@ export default function Settings({
             description={SUPPORT.groupDescription}
             badge={`${skillCount}`}
           >
-            {/* Skills & commands */}
-            <div className="flex flex-col gap-1">
-              <p className="text-[11px] font-semibold text-foreground">{SUPPORT.skillsTitle}</p>
-              <p className="text-[10px] text-muted-foreground">{SUPPORT.skillsDescription}</p>
-            </div>
-            <CommandGroup
-              title={SUPPORT.afxSkillsLabel}
-              titleTooltip={SUPPORT.afxSkillsTooltip}
-              commands={groups.afx}
-              disabled={runtimeControlsDisabled}
-              onInsertCommand={onInsertCommand}
-            />
-            <CommandGroup
-              title="Pi skills"
-              titleTooltip={SUPPORT.piSkillsTooltip}
-              commands={groups.otherSkills}
-              disabled={runtimeControlsDisabled}
-              onInsertCommand={onInsertCommand}
-            />
-            <CommandGroup
-              title={SUPPORT.extensionCommandsLabel}
-              titleTooltip={SUPPORT.extensionCommandsTooltip}
-              commands={groups.extension}
-              disabled={runtimeControlsDisabled}
-              onInsertCommand={onInsertCommand}
-            />
-            <CommandGroup
-              title={SUPPORT.promptTemplatesLabel}
-              titleTooltip={SUPPORT.promptTemplatesTooltip}
-              commands={groups.prompt}
-              disabled={runtimeControlsDisabled}
-              onInsertCommand={onInsertCommand}
-            />
-            <div className="flex flex-col gap-1">
-              <GroupTitle label="Actions" count={ACTIONS.length} />
-              {ACTIONS.map((action) => (
-                <button
-                  key={action.name}
-                  type="button"
-                  onClick={() => bridgeSend({ type: action.message })}
-                  disabled={runtimeControlsDisabled}
-                  title={action.name === "/new" ? SUPPORT.newSessionTooltip : SUPPORT.abortTooltip}
-                  className="flex items-center justify-between gap-2 border-b border-border/50 px-0.5 py-1.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50 last:border-b-0"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-mono text-[11px]">{action.name}</span>
-                    <span className="block text-[10px] text-muted-foreground">
-                      {action.description}
-                    </span>
-                  </span>
-                  <Badge variant="outline" className="shrink-0 text-[9px]">
-                    action
-                  </Badge>
-                </button>
-              ))}
-            </div>
-
             {/* Diagnostics */}
-            <div className="mt-2 flex flex-col gap-2 border-t pt-2">
+            <div className="flex flex-col gap-2">
               <p className="text-[11px] font-semibold text-foreground">
                 {SUPPORT.diagnosticsTitle}
               </p>
@@ -1856,6 +1928,13 @@ export default function Settings({
                 {SUPPORT.reportIssueLabel}
               </a>
             </div>
+
+            <SkillsDisclosure
+              groups={groups}
+              disabled={runtimeControlsDisabled}
+              onInsertCommand={onInsertCommand}
+              skillCount={skillCount}
+            />
           </SettingsCard>
         </div>
       </div>
@@ -2003,44 +2082,117 @@ function SettingsSetupCard() {
   );
 }
 
-function RuntimeConfigurationNotice({
-  apiProvidersEnabled,
+function SettingsConnectPanel({
+  runtimeUnconfigured,
+  hasUsableRuntime,
+  hostedKeyCount,
+  customProviderCount,
+  rpcConnected,
   rpcEnabled,
   recoveryActions,
-  onOpenApiProviders,
-  onOpenExternalAgents,
+  providers,
+  onHostedKey,
+  onHostedProvider,
+  onCustomEndpoint,
+  onRuntimes,
 }: {
-  apiProvidersEnabled: boolean;
+  runtimeUnconfigured: boolean;
+  hasUsableRuntime: boolean;
+  hostedKeyCount: number;
+  customProviderCount: number;
+  rpcConnected: boolean;
   rpcEnabled: boolean;
   recoveryActions?: AgentRecoveryActions;
-  onOpenApiProviders: () => void;
-  onOpenExternalAgents: () => void;
+  providers: SettingsSnapshot["providers"];
+  onHostedKey: () => void;
+  onHostedProvider: (providerId: string) => void;
+  onCustomEndpoint: () => void;
+  onRuntimes: () => void;
 }) {
-  const detail =
-    !apiProvidersEnabled && !rpcEnabled
-      ? "API Provider SDK and Pi RPC are both off."
-      : rpcEnabled
-        ? "Pi RPC is enabled, but the local Pi process has not reported usable models yet."
-        : "API Provider SDK is enabled, but no provider key or Ollama endpoint is configured yet.";
+  const quickProviders = QUICK_HOSTED_PROVIDER_IDS.map((id) =>
+    providers.find((provider) => provider.id === id),
+  ).filter((provider): provider is SettingsSnapshot["providers"][number] => Boolean(provider));
+  const title = hasUsableRuntime ? CONNECT.readyTitle : CONNECT.welcomeTitle;
+  const description = hasUsableRuntime ? CONNECT.readyDescription : CONNECT.welcomeDescription;
+  const hostedAction = hasUsableRuntime ? CONNECT.manageHostedAction : CONNECT.hostedAction;
 
   return (
-    <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-3">
+    <div
+      id="settings-connect"
+      data-testid="settings-connect-panel"
+      className={cn(
+        "rounded-md border px-3 py-3",
+        hasUsableRuntime
+          ? "border-afx-success/25 bg-afx-success/5"
+          : "border-amber-500/30 bg-amber-500/5",
+      )}
+    >
       <div className="flex items-start gap-2">
-        <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+        {hasUsableRuntime ? (
+          <KeyRound size={14} className="mt-0.5 shrink-0 text-afx-success" />
+        ) : (
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-amber-500" />
+        )}
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-foreground">No active runtime configured</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{detail}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button type="button" size="xs" variant="outline" onClick={onOpenApiProviders}>
-              <KeyRound size={12} />
-              API Providers
-            </Button>
-            <Button type="button" size="xs" variant="outline" onClick={onOpenExternalAgents}>
-              <PlugZap size={12} />
-              Runtimes
-            </Button>
+          <p className="text-[13px] font-semibold text-foreground">{title}</p>
+          {runtimeUnconfigured ? (
+            <p className="mt-0.5 text-[11px] font-medium text-amber-600">
+              {CONNECT.noRuntimeLabel}
+            </p>
+          ) : null}
+          <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">{description}</p>
+          <div className="mt-2 grid gap-1.5 @[420px]:grid-cols-3">
+            <ConnectChoice
+              icon={KeyRound}
+              title={CONNECT.hostedTitle}
+              description={CONNECT.hostedDescription}
+              action={hostedAction}
+              onClick={onHostedKey}
+            />
+            <ConnectChoice
+              icon={Server}
+              title={CONNECT.customTitle}
+              description={CONNECT.customDescription}
+              action={CONNECT.customAction}
+              onClick={onCustomEndpoint}
+            />
+            <ConnectChoice
+              icon={PlugZap}
+              title={CONNECT.localTitle}
+              description={CONNECT.localDescription}
+              action={CONNECT.localAction}
+              onClick={onRuntimes}
+            />
           </div>
-          {rpcEnabled ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            <ConnectionStat label={CONNECT.statsHosted} value={hostedKeyCount} />
+            <ConnectionStat label={CONNECT.statsCustom} value={customProviderCount} />
+            <ConnectionStat
+              label={CONNECT.statsPi}
+              value={rpcConnected ? "ready" : rpcEnabled ? "on" : "off"}
+            />
+          </div>
+          {quickProviders.length > 0 ? (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                {CONNECT.quickProviderLabel}
+              </span>
+              {quickProviders.map((provider) => (
+                <button
+                  key={provider.id}
+                  type="button"
+                  className="rounded-sm border border-border/70 bg-card/35 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:border-afx-brand/40 hover:bg-afx-brand/10"
+                  onClick={() => onHostedProvider(provider.id)}
+                >
+                  {provider.displayName ?? providerLabel(provider.id)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+            {CONNECT.secretNote}
+          </p>
+          {runtimeUnconfigured && rpcEnabled ? (
             <div className="mt-3 rounded-md border border-afx-brand-soft/25 bg-background/50 px-2.5 py-2">
               <div className="flex items-start gap-2">
                 <PlugZap size={13} className="mt-0.5 shrink-0 text-afx-brand-soft" />
@@ -2059,6 +2211,45 @@ function RuntimeConfigurationNotice({
         </div>
       </div>
     </div>
+  );
+}
+
+function ConnectChoice({
+  icon: Icon,
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  action: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="flex min-w-0 flex-col gap-1 rounded-md border bg-card/35 px-2 py-2 text-left transition-colors hover:border-afx-brand/40 hover:bg-card/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+      onClick={onClick}
+    >
+      <span className="flex min-w-0 items-center gap-1.5">
+        <Icon size={12} className="shrink-0 text-afx-brand-soft" />
+        <span className="truncate text-[11px] font-semibold text-foreground">{title}</span>
+      </span>
+      <span className="text-[10px] leading-snug text-muted-foreground">{description}</span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-afx-brand-soft">
+        {action}
+      </span>
+    </button>
+  );
+}
+
+function ConnectionStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <span className="rounded-sm border border-border/70 bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">
+      {label}: <span className="font-mono text-foreground">{value}</span>
+    </span>
   );
 }
 
@@ -2365,6 +2556,93 @@ function SelectRow({
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
  */
+function SkillsDisclosure({
+  groups,
+  disabled,
+  onInsertCommand,
+  skillCount,
+}: {
+  groups: ReturnType<typeof groupCommands>;
+  disabled?: boolean;
+  onInsertCommand?: (commandText: string) => void;
+  skillCount: number;
+}) {
+  return (
+    <details
+      data-testid="settings-skills-disclosure"
+      className="group mt-2 rounded-md border bg-muted/10"
+    >
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-2 px-2.5 py-2 marker:hidden">
+        <span className="min-w-0">
+          <span className="block text-[11px] font-semibold text-foreground">
+            {SUPPORT.skillsTitle}
+          </span>
+          <span className="mt-0.5 block text-[10px] leading-relaxed text-muted-foreground">
+            {SUPPORT.skillsDescription}
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+          {skillCount} items
+          <ChevronDown size={12} className="transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <div className="flex flex-col gap-2 border-t px-2.5 py-2">
+        <CommandGroup
+          title={SUPPORT.afxSkillsLabel}
+          titleTooltip={SUPPORT.afxSkillsTooltip}
+          commands={groups.afx}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title="Pi skills"
+          titleTooltip={SUPPORT.piSkillsTooltip}
+          commands={groups.otherSkills}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title={SUPPORT.extensionCommandsLabel}
+          titleTooltip={SUPPORT.extensionCommandsTooltip}
+          commands={groups.extension}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title={SUPPORT.promptTemplatesLabel}
+          titleTooltip={SUPPORT.promptTemplatesTooltip}
+          commands={groups.prompt}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <div className="flex flex-col gap-1">
+          <GroupTitle label="Actions" count={ACTIONS.length} />
+          {ACTIONS.map((action) => (
+            <button
+              key={action.name}
+              type="button"
+              onClick={() => bridgeSend({ type: action.message })}
+              disabled={disabled}
+              title={action.name === "/new" ? SUPPORT.newSessionTooltip : SUPPORT.abortTooltip}
+              className="flex items-center justify-between gap-2 border-b border-border/50 px-0.5 py-1.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50 last:border-b-0"
+            >
+              <span className="min-w-0">
+                <span className="block font-mono text-[11px]">{action.name}</span>
+                <span className="block text-[10px] text-muted-foreground">
+                  {action.description}
+                </span>
+              </span>
+              <Badge variant="outline" className="shrink-0 text-[9px]">
+                action
+              </Badge>
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function CommandGroup({
   title,
   titleTooltip,

@@ -5,7 +5,7 @@
  */
 import { vi } from "vitest";
 
-import type { AgentStatus } from "@afx/shared";
+import type { AgentCommand, AgentStatus } from "@afx/shared";
 
 export function createMockAgentManager() {
   return {
@@ -49,9 +49,11 @@ export function createMockAgentManager() {
       maxTokens: 128_000,
     })),
     switchSession: vi.fn(async () => ({ cancelled: false })),
-    getCommands: vi.fn(async () => [
-      { name: "skill:afx-task", description: "Manage tasks", source: "skill" as const },
-    ]),
+    getCommands: vi.fn(
+      async (): Promise<AgentCommand[]> => [
+        { name: "skill:afx-task", description: "Manage tasks", source: "skill" as const },
+      ],
+    ),
     getStderr: vi.fn(() => ""),
     compact: vi.fn(async () => ({
       summary: "compacted",

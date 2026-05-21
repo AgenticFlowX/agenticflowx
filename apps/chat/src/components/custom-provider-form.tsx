@@ -199,7 +199,15 @@ export function CustomProviderForm({
 
   return (
     <div className="flex flex-col gap-2 rounded-md border bg-card/40 p-3">
-      <div className="grid grid-cols-2 gap-2">
+      <div>
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft">
+          Endpoint
+        </p>
+        <p className="mt-0.5 text-[10px] text-muted-foreground">
+          Name the provider and point AFX at its API base URL.
+        </p>
+      </div>
+      <div className="grid gap-2 @[420px]:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="custom-provider-id" className="text-[10px]">
             {MODELS.customSdkProviderIdLabel} *
@@ -259,7 +267,10 @@ export function CustomProviderForm({
         </NativeSelect>
       </div>
 
-      <div className="flex flex-col gap-1 rounded-md border bg-muted/20 p-2">
+      <div className="flex flex-col gap-2 rounded-md border bg-muted/20 p-2.5">
+        <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft">
+          Credential
+        </p>
         <p className="text-[10px] font-medium text-foreground">{MODELS.customSdkApiKeyLabel}</p>
         <ApiKeySourceInput
           providerId={id || "provider"}
@@ -271,7 +282,7 @@ export function CustomProviderForm({
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <p className="text-[10px] font-medium text-foreground">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft">
             {MODELS.customSdkModelsLabel} ({models.length})
           </p>
           <Button

@@ -28,6 +28,23 @@ describe("ApiKeySourceInput", () => {
     expect(screen.getByText(/AFX_OPENROUTER_KEY at runtime/)).toBeInTheDocument();
   });
 
+  it("keeps the source selector visually separated from the secret field", () => {
+    render(
+      <ApiKeySourceInput
+        providerId="moonshot"
+        value={{ source: "vscode-secret", label: "AFX_MOONSHOT_KEY", apiKeyValue: "" }}
+        onChange={vi.fn()}
+        suggestedEnvVar="AFX_MOONSHOT_KEY"
+      />,
+    );
+
+    expect(screen.getByTestId("api-key-source-field")).toHaveClass("flex-col", "gap-1.5");
+    expect(screen.getByLabelText(/API key/i).parentElement?.parentElement).toHaveClass(
+      "border-t",
+      "pt-2",
+    );
+  });
+
   it("calls onChange with the typed apiKeyValue", () => {
     const onChange = vi.fn();
     render(
