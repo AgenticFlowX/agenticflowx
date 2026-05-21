@@ -211,15 +211,61 @@ const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
 const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
 
-Strict read-only policy:
-- Use only information already present in this chat/context.
-- Do not call tools, browse files, open files, list directories, run shell/git/test/build/install commands, edit files, write patches, or change host state.
-- Do not say "I'll explore/inspect/open/read/list/show files" unless that content is already in context.
+Read-only investigation policy:
+- Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
+- Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
 - Do not output commands or patches.
-- If the request needs any tool or host action, stop and say: "This requires Code mode."
+- If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
 
 Allowed:
-- Explain, summarize, compare, and identify risks from provided context only.`;
+- Explain, summarize, compare, trace behavior, cite files/symbols, identify risks, and propose safe next steps.`;
+const EXPLORE_BLOCKED_TOOL_PATTERNS = [
+  /(^|_)(apply_)?patch($|_)/,
+  /(^|_)(write|edit|replace|insert|append|save|create|delete|remove|rename|move|mkdir|touch|chmod|chown|upload|download|submit|click|type|fill)($|_)/,
+  /(^|_)(run|command|shell|bash|zsh|sh|powershell|pwsh|exec|execute|terminal|spawn|process)($|_)/,
+  /(^|_)(git|npm|pnpm|yarn|bun|install|build|test|lint|format|docker|deploy|migrate|sql|database|db)($|_)/,
+] as const;
+const EXPLORE_SHELL_TOOL_PATTERN = /(^|_)(bash|zsh|sh|shell|powershell|pwsh|terminal)($|_)/;
+const EXPLORE_SHELL_COMMAND_ARG_KEYS = ["command", "cmd", "script", "input", "code"] as const;
+const EXPLORE_READ_ONLY_SHELL_COMMANDS = new Set([
+  "awk",
+  "cat",
+  "cut",
+  "du",
+  "fd",
+  "file",
+  "find",
+  "grep",
+  "head",
+  "jq",
+  "ls",
+  "pwd",
+  "rg",
+  "ripgrep",
+  "sed",
+  "sort",
+  "stat",
+  "tail",
+  "tree",
+  "tr",
+  "uniq",
+  "wc",
+  "yq",
+]);
+const EXPLORE_READ_ONLY_WEB_SHELL_COMMANDS = new Set(["curl", "wget"]);
+const EXPLORE_SHELL_COMMAND_SEPARATORS = /\s*(?:&&|\|\|?|\n|;)\s*/;
+const EXPLORE_READ_ONLY_TOOL_PATTERNS = [
+  /(^|_)(read|view)($|_)/,
+  /(^|_)open_(file|document|text|url|page|web)($|_)/,
+  /(^|_)(list|ls|directory|dir|glob)($|_)/,
+  /(^|_)find_(files?|folders?|symbols?|references?)($|_)/,
+  /(^|_)(search|grep|rg|ripgrep)($|_)/,
+  /(^|_)(code|source|workspace)_search($|_)/,
+  /(^|_)web_(search|fetch|read|page|open)($|_)/,
+  /(^|_)fetch_(url|page|web)($|_)/,
+  /(^|_)read_(url|page|web|website)($|_)/,
+  /(^|_)url_(read|fetch|open)($|_)/,
+] as const;
 const CODE_MODE_RESUME_PROMPT = `<afx_internal_control mode_transition="explore_to_code">
 Purpose: clear a prior AFX Explore-mode guardrail from conversation history.
 
@@ -418,6 +464,89 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   function isExploreMode(): boolean {
     return workspaceMode() === "explore";
+  }
+
+  function normalizeRuntimeToolName(toolName: string): string {
+    return toolName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  }
+
+  function isExploreReadOnlyTool(toolName: string, args?: Record<string, unknown>): boolean {
+    const normalized = normalizeRuntimeToolName(toolName);
+    if (!normalized) return false;
+    if (EXPLORE_SHELL_TOOL_PATTERN.test(normalized)) {
+      return isExploreReadOnlyShellCommand(extractExploreShellCommand(args));
+    }
+    if (EXPLORE_BLOCKED_TOOL_PATTERNS.some((pattern) => pattern.test(normalized))) return false;
+    return EXPLORE_READ_ONLY_TOOL_PATTERNS.some((pattern) => pattern.test(normalized));
+  }
+
+  function extractExploreShellCommand(args?: Record<string, unknown>): string | null {
+    if (!args) return null;
+    for (const key of EXPLORE_SHELL_COMMAND_ARG_KEYS) {
+      const value = args[key];
+      if (typeof value === "string") return value;
+      if (Array.isArray(value) && value.every((item) => typeof item === "string")) {
+        return value.join(" ");
+      }
+    }
+    return null;
+  }
+
+  function isExploreReadOnlyShellCommand(command: string | null): boolean {
+    if (!command) return false;
+    const trimmed = command.trim();
+    if (!trimmed || trimmed.length > 2_000) return false;
+    if (/[<>`$(){}]/.test(trimmed)) return false;
+    if (/(^|[^&])&($|[^&])/.test(trimmed)) return false;
+    if (/\b(?:sudo|su|xargs)\b/i.test(trimmed)) return false;
+    if (/\b(?:-delete|-exec|-ok)\b/i.test(trimmed)) return false;
+
+    const segments = trimmed.split(EXPLORE_SHELL_COMMAND_SEPARATORS).filter(Boolean);
+    if (segments.length === 0 || segments.length > 8) return false;
+    return segments.every(isExploreReadOnlyShellSegment);
+  }
+
+  function isExploreReadOnlyShellSegment(segment: string): boolean {
+    const commandName = shellCommandName(segment);
+    if (!commandName) return false;
+    if (EXPLORE_READ_ONLY_WEB_SHELL_COMMANDS.has(commandName)) {
+      return isExploreReadOnlyWebShellSegment(commandName, segment);
+    }
+    if (!EXPLORE_READ_ONLY_SHELL_COMMANDS.has(commandName)) return false;
+    if (commandName === "sed" && /(^|\s)(?:-i|--in-place)(\s|=|$)/i.test(segment)) return false;
+    if (commandName === "awk" && /\bsystem\s*\(/i.test(segment)) return false;
+    return true;
+  }
+
+  function shellCommandName(segment: string): string | null {
+    const match = segment.trim().match(/^([A-Za-z0-9_./-]+)/);
+    if (!match) return null;
+    const raw = match[1]?.split("/").pop()?.toLowerCase() ?? "";
+    return raw.length > 0 ? raw : null;
+  }
+
+  function isExploreReadOnlyWebShellSegment(commandName: string, segment: string): boolean {
+    const lower = segment.toLowerCase();
+    if (/(^|\s)(?:-x|--request)(?:\s+|=)(?:post|put|patch|delete)\b/i.test(segment)) {
+      return false;
+    }
+    if (/\s-x(?:post|put|patch|delete)\b/i.test(segment)) return false;
+    if (commandName === "wget") {
+      if (/(^|\s)(?:--post-data|--post-file)(\s|=|$)/i.test(segment)) return false;
+      return /\s(?:-q?o-|-o\s+-|--output-document=-)(\s|$)/i.test(lower);
+    }
+    if (
+      /(^|\s)(?:-d|--data|--data-raw|--data-binary|-f|--form|-t|--upload-file|--output|--remote-name|-o|-o[^-])(\s|=|$)/i.test(
+        segment,
+      )
+    ) {
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -1000,7 +1129,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     suppressRuntimeEventsUntilAgentEnd = true;
     const requestId = state.currentRequestId ?? undefined;
     const safeToolName = toolName.trim() || "runtime tool";
-    const message = `Explore mode is read-only. Blocked runtime tool "${safeToolName}". Switch to Code to let the agent inspect files, run commands, or make changes.`;
+    const message = `Explore mode allows read-only inspection, but blocked runtime tool "${safeToolName}". Switch to Code to write files, run commands, or change workspace state.`;
 
     void (async () => {
       try {
@@ -1232,7 +1361,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       case "tool_start": {
         const { toolCallId, toolName, args } = evt;
         if (!toolCallId) return;
-        if (isExploreMode()) {
+        if (isExploreMode() && !isExploreReadOnlyTool(toolName, args)) {
           blockedExploreToolCallIds.add(toolCallId);
           void blockExploreRuntimeTool(toolName);
           return;
@@ -1822,14 +1951,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    * @see docs/specs/211-app-chat-composer/spec.md [FR-13]
    */
   function handleRunCommand(requestId: string, command: string): void {
-    if (isExploreMode()) {
+    if (isExploreMode() && !isExploreReadOnlyShellCommand(command)) {
       post({
         type: "agent/actionBlocked",
         requestId,
         mode: "explore",
         action: "runCommand",
         title: "Shell command blocked in Explore mode",
-        message: "Explore mode is read-only. Switch to Code to run shell commands.",
+        message:
+          "Explore mode allows read-only shell commands only. Switch to Code to run mutating commands.",
         command,
       });
       return;

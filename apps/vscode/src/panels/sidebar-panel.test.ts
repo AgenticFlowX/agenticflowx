@@ -1365,7 +1365,10 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.send).toHaveBeenCalledWith(
       expect.stringContaining("[AFX EXPLORE MODE: READ ONLY]"),
     );
-    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("Do not call tools"));
+    expect(agent.send).toHaveBeenCalledWith(
+      expect.stringContaining("read files, list folders, search source"),
+    );
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("read pages or websites"));
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("This requires Code mode"));
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
   });
@@ -1387,10 +1390,48 @@ describe("sidebar-panel host bridge", () => {
       prompt.indexOf("Mode: PRD"),
     );
     expect(prompt).toContain(
-      "Mode: PRD. Convert the discussion into a PRD draft in chat using the AFX spec template",
+      "Mode: PRD. Draft a PRD in chat from the discussion and read-only repo/web context",
     );
-    expect(prompt).toContain("Do not call tools");
+    expect(prompt).toContain("Runtime tools are allowed only for read-only inspection");
     expect(prompt).toContain("shape this idea");
+  });
+
+  it("applies the Explore guardrail to all four Composer Intent slots", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound } = setupWithView();
+    const listener = firstAgentEventListener();
+    const expectedIntentLabels = new Map([
+      [1, null],
+      [2, "Mode: Ask"],
+      [3, "Mode: Architect"],
+      [4, "Mode: PRD"],
+    ]);
+
+    for (const slot of [1, 2, 3, 4] as const) {
+      inbound.fire({
+        type: "chat/send",
+        requestId: `req-explore-slot-${slot}`,
+        content: `slot ${slot} request`,
+        intentSlot: slot,
+      });
+      await flushAsyncWork(2);
+
+      const prompt = (vi.mocked(agent.send).mock.calls.at(-1) as [string] | undefined)?.[0] ?? "";
+      expect(prompt).toContain("[AFX EXPLORE MODE: READ ONLY]");
+      expect(prompt).toContain("read files, list folders, search source");
+      expect(prompt).toContain(`slot ${slot} request`);
+      const intentLabel = expectedIntentLabels.get(slot);
+      if (intentLabel) {
+        expect(prompt.indexOf("[AFX EXPLORE MODE: READ ONLY]")).toBeLessThan(
+          prompt.indexOf(intentLabel),
+        );
+      } else {
+        expect(prompt).not.toContain("Mode: ");
+      }
+
+      listener?.({ type: "agent_end" });
+      await flushAsyncWork(1);
+    }
   });
 
   it("uses the persisted Composer Intent slot when the send omits a slot override", async () => {
@@ -2160,6 +2201,15 @@ describe("sidebar-panel host bridge", () => {
         args: { url: "https://example.com" },
         result: "Example Domain",
       },
+      {
+        toolCallId: "tool-bash",
+        toolName: "bash",
+        args: {
+          command:
+            'pwd && ls -la apps && rg "createSidebarPanel" apps/vscode/src/panels/sidebar-panel.ts',
+        },
+        result: "apps/vscode/src/panels/sidebar-panel.ts",
+      },
     ];
     for (const tool of tools) {
       listener?.({
@@ -2249,6 +2299,49 @@ describe("sidebar-panel host bridge", () => {
     ).toBe(false);
   });
 
+  it("blocks mutating bash runtime commands in Explore mode", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-explore-bash",
+      content: "Run the test suite.",
+    });
+    await flushAsyncWork(2);
+
+    listener?.({
+      type: "tool_start",
+      toolCallId: "tool-bash-mutate",
+      toolName: "bash",
+      args: { command: "pnpm test" },
+    });
+    listener?.({
+      type: "tool_end",
+      toolCallId: "tool-bash-mutate",
+      ok: true,
+      result: { content: [{ type: "text", text: "leaked command output" }] },
+    });
+    listener?.({ type: "agent_end" });
+    await flushAsyncWork(2);
+
+    expect(agent.abort).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "req-explore-bash",
+        message: expect.stringContaining('blocked runtime tool "bash"'),
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => {
+        const posted = msg as { type?: string; summary?: string };
+        return posted.type === "chat/toolStart" || posted.summary === "leaked command output";
+      }),
+    ).toBe(false);
+  });
+
   it("registers onEvent and onStderr listeners on resolveWebviewView", () => {
     setup();
     expect(agent.onEvent).toHaveBeenCalledOnce();
@@ -2256,7 +2349,93 @@ describe("sidebar-panel host bridge", () => {
   });
 
   describe("runCommand", () => {
-    it("blocks shell execution in Explore mode before spawning", async () => {
+    it("allows read-only shell execution in Explore mode", () => {
+      mockAfxConfiguration({ "mode.active": "explore" });
+      const { inbound, postMessage } = setupWithView();
+      vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+        { uri: { fsPath: "/workspace" } } as vscode.WorkspaceFolder,
+      ]);
+
+      const proc = new EventEmitter();
+      const stdout = new EventEmitter();
+      const stderr = new EventEmitter();
+      mockSpawn.mockReturnValue(Object.assign(proc, { stdout, stderr }));
+
+      inbound.fire({ type: "chat/runCommand", requestId: "cmd-explore-ls", command: "ls -alth" });
+
+      expect(mockSpawn).toHaveBeenCalledWith(
+        process.platform === "win32" ? "cmd" : "/bin/bash",
+        process.platform === "win32" ? ["/c", "ls -alth"] : ["-c", "ls -alth"],
+        {
+          cwd: "/workspace",
+          timeout: 30_000,
+        },
+      );
+
+      stdout.emit("data", Buffer.from("total 8\n"));
+      proc.emit("close", 0, null);
+
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-explore-ls",
+          delta: "total 8\n",
+          kind: "stdout",
+        }),
+      );
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/commandOutput",
+          requestId: "cmd-explore-ls",
+          done: true,
+          exitCode: 0,
+        }),
+      );
+    });
+
+    it("blocks shell metacharacters in Explore mode before spawning", async () => {
+      mockAfxConfiguration({ "mode.active": "explore" });
+      const { inbound, postMessage } = setupWithView();
+
+      inbound.fire({
+        type: "chat/runCommand",
+        requestId: "cmd-explore-meta",
+        command: "ls -alth & pnpm test",
+      });
+      await flushAsyncWork(1);
+
+      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/actionBlocked",
+          requestId: "cmd-explore-meta",
+          command: "ls -alth & pnpm test",
+        }),
+      );
+    });
+
+    it("blocks mutating web shell flags in Explore mode before spawning", async () => {
+      mockAfxConfiguration({ "mode.active": "explore" });
+      const { inbound, postMessage } = setupWithView();
+
+      inbound.fire({
+        type: "chat/runCommand",
+        requestId: "cmd-explore-curl",
+        command: "curl --request=POST https://example.com",
+      });
+      await flushAsyncWork(1);
+
+      expect(mockSpawn).not.toHaveBeenCalled();
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "agent/actionBlocked",
+          requestId: "cmd-explore-curl",
+          command: "curl --request=POST https://example.com",
+        }),
+      );
+    });
+
+    it("blocks mutating shell execution in Explore mode before spawning", async () => {
       mockAfxConfiguration({ "mode.active": "explore" });
       const { inbound, postMessage } = setupWithView();
 
@@ -2271,7 +2450,8 @@ describe("sidebar-panel host bridge", () => {
           mode: "explore",
           action: "runCommand",
           title: "Shell command blocked in Explore mode",
-          message: "Explore mode is read-only. Switch to Code to run shell commands.",
+          message:
+            "Explore mode allows read-only shell commands only. Switch to Code to run mutating commands.",
           command: "pnpm test",
         }),
       );

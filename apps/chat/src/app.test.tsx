@@ -623,7 +623,8 @@ describe("chat App", () => {
         mode: "explore",
         action: "runCommand",
         title: "Shell command blocked in Explore mode",
-        message: "Explore mode is read-only. Switch to Code to run shell commands.",
+        message:
+          "Explore mode allows read-only shell commands only. Switch to Code to run mutating commands.",
         command: "pnpm test",
       });
     });
@@ -1267,7 +1268,7 @@ describe("chat App", () => {
 
     expect(screen.getByText(/Read-only\. Use it to inspect code/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Experimental/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/try not to delete files or folders/i)).toBeInTheDocument();
+    expect(screen.getByText(/Explore can read files, list folders/i)).toBeInTheDocument();
     expect(screen.getByText("Inspect")).toBeInTheDocument();
     expect(screen.getByText("Trace")).toBeInTheDocument();
     expect(screen.getByText("Plan")).toBeInTheDocument();
@@ -1457,9 +1458,7 @@ describe("chat App", () => {
       screen.getByText(/Full access\. Runtimes can read, write, run shells, and edit\./),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /Read-only\. Tool calls that would modify files or run shell commands are blocked/i,
-      ),
+      screen.getByText(/Read-only\. The agent can inspect files, folders, source, and web pages/i),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Experimental").length).toBeGreaterThan(0);
     const send = transport.send as ReturnType<typeof vi.fn>;

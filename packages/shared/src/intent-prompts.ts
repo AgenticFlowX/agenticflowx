@@ -72,10 +72,10 @@ const REGISTRY: Record<IntentParentMode, Record<IntentSlot, IntentPromptEntry>> 
       slot: 2,
       label: "Ask",
       description:
-        "read-only answers. Explain findings, examples, and trade-offs; no host actions.",
+        "read-only answers. May read files, list folders, search source, and browse pages.",
       prefix:
-        "Mode: Ask. Answer from read-only analysis. Explain findings, examples, and tradeoffs. Do not request tools, file reads, file writes, commands, or patches.",
-      estimatedTokens: 33,
+        "Mode: Ask. Answer from read-only investigation. You may request read-only file, folder, source-search, web-page, or simple read-only shell reads when needed. Do not edit files, run mutating shell commands, write patches, or change state.",
+      estimatedTokens: 48,
       parents: ["code", "explore"],
       icon: "?",
     },
@@ -83,10 +83,11 @@ const REGISTRY: Record<IntentParentMode, Record<IntentSlot, IntentPromptEntry>> 
       id: "architect",
       slot: 3,
       label: "Architect",
-      description: "read-only architecture. Propose designs and risks; no host actions.",
+      description:
+        "read-only architecture. May read, list, search, and browse; no writes or mutating shell.",
       prefix:
-        "Mode: Architect. Analyze architecture and tradeoffs from provided context only. Propose designs and risks. Do not request tools, file reads, file writes, commands, or patches.",
-      estimatedTokens: 38,
+        "Mode: Architect. Analyze architecture and tradeoffs using read-only context, file, folder, source-search, web-page, or simple read-only shell reads when useful. Propose designs and risks. Do not edit files, run mutating shell commands, write patches, or change state.",
+      estimatedTokens: 50,
       parents: ["code", "explore"],
       icon: "⌂",
     },
@@ -94,10 +95,10 @@ const REGISTRY: Record<IntentParentMode, Record<IntentSlot, IntentPromptEntry>> 
       id: "prd",
       slot: 4,
       label: "PRD",
-      description: "turn the discussion into a PRD draft using the AFX template.",
+      description: "draft a PRD from discussion plus read-only repo/web context.",
       prefix:
-        "Mode: PRD. Convert the discussion into a PRD draft in chat using the AFX spec template: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies.",
-      estimatedTokens: 40,
+        "Mode: PRD. Draft a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not write files.",
+      estimatedTokens: 48,
       parents: ["explore"],
       icon: "§",
     },

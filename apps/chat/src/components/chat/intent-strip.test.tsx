@@ -87,7 +87,7 @@ describe("IntentStripHeaderExtras", () => {
 
     expect(screen.getByText("Intent guide")).toHaveAttribute(
       "title",
-      "Adds short intent guidance before your message. About 40 tokens.",
+      "Adds short intent guidance before your message. About 48 tokens.",
     );
     expect(screen.queryByText("PRD")).not.toBeInTheDocument();
     expect(

@@ -152,7 +152,7 @@ const EXPLORE_STARTERS: ReadonlyArray<{ label: string; prompt: string }> = [
   {
     label: "Orient me",
     prompt:
-      "Explore mode: orient me from the context already available. Summarize what this workspace appears to contain, what is uncertain, and what would require switching to Code mode.",
+      "Explore mode: inspect this workspace read-only. Read files, list folders, and summarize what this project contains, what is uncertain, and what would require switching to Code mode.",
   },
   {
     label: "Find risks",
@@ -273,7 +273,7 @@ export const EmptyState = memo(function EmptyState({
     ? "Read-only. Use it to inspect code, trace behavior, and plan changes."
     : "Chat-first by default. Repo-backed notes, tasks, and docs you can actually see.";
   const detail = isExplore
-    ? "Experimental. Explore mode will try not to delete files or folders, run shell commands, or edit source. Switch to Code mode when the next step needs action."
+    ? "Experimental. Explore can read files, list folders, search source, and read web pages. It blocks writes, mutating shell commands, and workspace changes."
     : "Most coding stays in chat. Use the workflow when work needs traceability between intent, design, tasks, and code.";
 
   function openWorkbench() {

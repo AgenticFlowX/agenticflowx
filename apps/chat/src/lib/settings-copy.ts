@@ -18,7 +18,7 @@ export const WORKSPACE = {
 
   modeLabel: "Mode",
   modeDescription:
-    "Permission gate applied before tool calls reach any runtime. Code is full-access; Explore is read-only; Spec is for Spec-Driven Development (docs only).",
+    "Permission gate applied before tool calls reach any runtime. Code is full-access; Explore allows read-only inspection; Spec is for Spec-Driven Development (docs only).",
 
   codeName: "Code",
   codeDescription: "Full access. Runtimes can read, write, run shells, and edit.",
@@ -27,9 +27,9 @@ export const WORKSPACE = {
 
   exploreName: "Explore",
   exploreDescription:
-    "Read-only. Tool calls that would modify files or run shell commands are blocked by AFX before they execute.",
+    "Read-only. The agent can inspect files, folders, source, and web pages; writes and mutating shell commands are blocked by AFX before they execute.",
   exploreTooltip:
-    "AFX-host-side guardrail (not a runtime setting). AFX intercepts tool calls and rejects file-write / shell-execute before they reach any runtime. Useful for reviewing unfamiliar codebases or planning.",
+    "AFX-host-side guardrail (not a runtime setting). AFX allows read-only file/folder/source/web inspection, including simple read-only shell commands, and rejects file-write / mutating shell execution before it reaches any runtime. Useful for reviewing unfamiliar codebases or planning.",
 
   specName: "Spec",
   specDescription:

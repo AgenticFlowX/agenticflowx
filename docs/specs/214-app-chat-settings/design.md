@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-19T13:55:39.000Z"
+updated_at: "2026-05-21T08:53:29.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
@@ -137,8 +137,8 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 |     Full access. Runtimes can read, write, run shells, edit.   |
 |                                                                |
 | ( ) Explore  [?]                                               |
-|     Read-only. Tool calls that would modify files or run       |
-|     shell commands are blocked by AFX before they execute.    |
+|     Read-only. Can inspect files/folders/source/web pages;     |
+|     writes and mutating shell commands are blocked.            |
 |                                                                |
 | ( ) Spec     [?]                                               |
 |     Planning-only. Docs/specs guardrails are injected.         |

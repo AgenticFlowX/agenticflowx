@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-19T13:55:39.000Z"
+updated_at: "2026-05-21T09:58:54.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -20,8 +20,8 @@ spec: spec.md
 `apps/vscode/src/panels/` owns webview registration, the HTML shell, and inbound message
 dispatch for both the sidebar (chat) and bottom (workbench) panels. The sidebar panel is the
 busiest: its `dispatchInbound` is the host-side seam every chat-webview message flows through.
-It also owns the effective posture bridge (`afx.mode.active`), the strict Explore prompt prefix,
-and the host guardrail that blocks shell commands before they can spawn.
+It also owns the effective posture bridge (`afx.mode.active`), the Explore prompt prefix, and the
+host guardrails for runtime tools and composer shell commands.
 
 ---
 
@@ -77,21 +77,23 @@ chat/send | chat/steer | chat/followUp
 
 chat/runCommand in Explore
   -> isExploreMode()
-  -> post agent/actionBlocked
-  -> return without spawn()
+  -> if command is allowlisted read-only inspection, spawn shell in workspace root
+  -> otherwise post agent/actionBlocked and return without spawn()
 ```
 
-Code is the default full-access Pi-backed posture and should not create extra transcript noise when
-it is already active. Explore is experimental and read-only; use it for inspection, tracing, and
-planning. The guardrail prompt below is injected host-side before the agent sees any Explore turn.
-If the runtime still attempts a tool call, the host aborts the turn, suppresses late tool/text
-events until `agent_end`, and writes a transcript error instead of rendering the tool output.
+Code is full access. Explore is read-only inspection. All four Explore intent slots inherit the
+same guardrail: Default adds no extra intent block, and Ask/Architect/PRD append their intent after
+the guardrail. File/folder/source/web inspection is allowed.
+Simple shell reads are allowed only through an allowlist (`pwd`, `ls`, `cat`, `rg`, `grep`,
+`sed -n`, `head`, `tail`, `find`, `stat`, stdout-only `curl`/`wget`). Writes, edits, installs,
+tests, builds, git mutations, uploads, form submits, and mutating shell commands are blocked. For a
+blocked runtime tool, the host aborts the turn and suppresses late output until `agent_end`.
 When the user switches back from Explore to Code, the next outbound prompt receives a hidden,
 one-shot Code reset prefix so the agent session does not continue obeying the prior Explore
 instruction from conversation history. The visible chat history should only show a compact timeline
 info row, for example `Switched to Code mode. Normal workspace actions are available.`
 
-## [DES-PANELS-EXPLORE-PROMPT] Strict Explore Prompt
+## [DES-PANELS-EXPLORE-PROMPT] Read-Only Explore Prompt
 
 The host prepends this exact prefix before every `chat/send`, `chat/steer`, and `chat/followUp`
 turn while `afx.mode.active === "explore"`:
@@ -99,15 +101,14 @@ turn while `afx.mode.active === "explore"`:
 ```text
 [AFX EXPLORE MODE: READ ONLY]
 
-Strict read-only policy:
-- Use only information already present in this chat/context.
-- Do not call tools, browse files, open files, list directories, run shell/git/test/build/install commands, edit files, write patches, or change host state.
-- Do not say "I'll explore/inspect/open/read/list/show files" unless that content is already in context.
+Read-only investigation policy:
+- Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
+- Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
 - Do not output commands or patches.
-- If the request needs any tool or host action, stop and say: "This requires Code mode."
+- If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
 
 Allowed:
-- Explain, summarize, compare, and identify risks from provided context only.
+- Explain, summarize, compare, trace behavior, cite files/symbols, identify risks, and propose safe next steps.
 ```
 
 When the user selects Code mode after Explore, the host prepends this internal reset prefix to the
@@ -305,10 +306,9 @@ itself; this design lists only the routing rule:
 > case must point at the same anchor. If they disagree, the message-side anchor wins; update the
 > dispatcher comment to match.
 
-Mode-aware routing shares the same rule: `chat/setMode` routes to the shared `afx.setMode`
-command, `chat/send` / `chat/steer` / `chat/followUp` are prefixed in Explore before they reach the
-agent runtime, and `chat/runCommand` in Explore emits `agent/actionBlocked` instead of spawning a
-shell process.
+Mode-aware routing rule: `chat/setMode` delegates to `afx.setMode`; Explore prefixes normal turns;
+Explore `chat/runCommand` spawns only allowlisted read-only commands; mutating commands emit
+`agent/actionBlocked`.
 
 ---
 

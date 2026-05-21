@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.20"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-20T12:42:47.000Z"
+updated_at: "2026-05-21T09:58:54.000Z"
 tags:
   ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard", "intent"]
 spec: spec.md
@@ -76,8 +76,11 @@ Chat-window componentization routes composer placement and shallow file boundari
 | Context picker       | `applyIncludeActiveFileContext()`                                    | `chat/setIncludeActiveFileContext`              | Durable active-file context preference changes                            | `agent/settingsSnapshot`                                                    |
 | Intent picker        | `setIntentSlot()` / `setIntentMinimized()`                           | `chat/setIntentSlot`, `chat/setIntentMinimized` | Durable Composer Intent slot/header state changes                         | `agent/settingsSnapshot.intent`                                             |
 | Draft command insert | `chat/draftAppend`, doc actions, empty states, parsed result actions | host- or UI-inserted `/afx-*` command text      | Replaces the current draft, appends one trailing space, focuses composer  | Caret at end so the user can add context                                    |
-| System command       | `submit()` when draft starts with `!`                                | `chat/runCommand`                               | Spawns shell in workspace root                                            | `agent/commandOutput` (delta / done / error)                                |
+| System command       | `submit()` when draft starts with `!`                                | `chat/runCommand`                               | Host shell; Explore filters to read-only commands                         | `agent/commandOutput` (delta / done / error)                                |
 | Open modified file   | `modified-files` panel pill click                                    | `chat/openFile`                                 | `vscode.window.showTextDocument(uri, { selection })` when `line` provided | Editor opens (and reveals first changed line if known)                      |
+
+Explore intent slots all keep the same read-only capability surface. Default adds only the parent
+guardrail; Ask, Architect, and PRD append their intent block after it.
 
 ---
 
@@ -288,7 +291,8 @@ and the switch/copy/dismiss affordances.
 | [Blocked command]                                                  |
 | ⚠ Shell command blocked in Explore mode                            |
 | ! pnpm test                                                        |
-| Explore mode is read-only. Switch to Code to run shell commands.   |
+| Explore mode allows read-only shell commands only.                 |
+| Switch to Code to run mutating commands.                           |
 | [Switch to Code] [Copy command] [Dismiss]                          |
 +--------------------------------------------------------------------+
 ```
@@ -417,15 +421,15 @@ This section details the end-to-end system command flow: client-side prefix dete
 
 ### Step-by-step responsibilities
 
-| Step             | Who                                             | What                                                                                            |
-| ---------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Draft input      | User                                            | Types `!ls -la src/` in composer                                                                |
-| Prefix detection | `ComposerInput` / `ComposerActions` submit path | `draft.trim().startsWith("!")` — client-side, before any bridge call                            |
-| Bridge dispatch  | `chat-controller.tsx` action via `bridgeSend()` | Sends `{ type: "chat/runCommand", requestId, command }`; **`!` is stripped**; never sent to LLM |
-| Bridge reception | `sidebar-panel.ts` `dispatchInbound`            | Switches on `"chat/runCommand"` case                                                            |
-| Shell execution  | `sidebar-panel.ts` `handleRunCommand()`         | `child_process.spawn()` with platform shell, workspace CWD, 30s timeout                         |
-| Output streaming | `sidebar-panel.ts` → `transport.emit()`         | Streams `agent/commandOutput { delta, done, exitCode, error }` back to webview                  |
-| Timeline render  | `chat-controller.tsx` + `ConversationTimeline`  | `<OutputCard>` shows monospace stdout (muted), stderr (red), exit badge (amber)                 |
+| Step             | Who                                             | What                                                                                                   |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Draft input      | User                                            | Types `!ls -la src/` in composer                                                                       |
+| Prefix detection | `ComposerInput` / `ComposerActions` submit path | `draft.trim().startsWith("!")` — client-side, before any bridge call                                   |
+| Bridge dispatch  | `chat-controller.tsx` action via `bridgeSend()` | Sends `{ type: "chat/runCommand", requestId, command }`; **`!` is stripped**; never sent to LLM        |
+| Bridge reception | `sidebar-panel.ts` `dispatchInbound`            | Switches on `"chat/runCommand"` case                                                                   |
+| Shell execution  | `sidebar-panel.ts` `handleRunCommand()`         | Filters Explore commands, then `spawn(shell, ["-c", command], { cwd: workspaceRoot, timeout: 30000 })` |
+| Output streaming | `sidebar-panel.ts` → `transport.emit()`         | Streams `agent/commandOutput { delta, done, exitCode, error }` back to webview                         |
+| Timeline render  | `chat-controller.tsx` + `ConversationTimeline`  | `<OutputCard>` shows monospace stdout (muted), stderr (red), exit badge (amber)                        |
 
 ### Client-side prefix detection (snippet)
 
@@ -683,7 +687,7 @@ toolbar and the settings card. The toolbar trigger displays only the active valu
         │      - reads workspace files
         │      - builds the final prompt preamble / file context block
         ├─ 10. prefixExplorePrompt(content)
-        │      - prepends the strict read-only guardrail only when mode is Explore
+        │      - prepends the read-only inspection guardrail only when mode is Explore
         ├─ 11. agentManager.send(...) / steer(...) / followUp(...)
         ├─ 12. Pi Rpc Manager serializes the request
         ├─ 13. Pi subprocess receives the final text prompt
@@ -1402,8 +1406,7 @@ Composer actions use the chat webview transport. Message payloads are defined in
 - **CWD bounded to workspace**: All shell commands run in the VSCode workspace root directory (`vscode.workspace.workspaceFolders?.[0].uri.fsPath`). Commands cannot escape the workspace unless the user has symlinks or bind mounts outside it.
 - **Timeout enforcement**: Commands exceeding 30 seconds are terminated; the user receives an error with exit code `-1`.
 - **No LLM injection**: System commands are never sent to the LLM. The `!` prefix is detected client-side and routed to `chat/runCommand` before any model call.
-- **Explore guardrail**: The host prepends the strict read-only prompt before any Explore `send` / `steer` / `followUp` turn and blocks `chat/runCommand` before shell spawn, so no shell/edit/git operation can slip through the Explore path.
-- **Explore guardrail**: When the workspace mode is Explore, the host prepends the strict read-only prompt before send/steer/follow-up turns and blocks `chat/runCommand` before any shell spawn occurs.
+- **Explore guardrail**: Explore prefixes normal turns, allows read-only inspection, and filters `chat/runCommand` to allowlisted read-only shell commands. Mutations are blocked before spawn or before tool output renders.
 
 ---
 

@@ -90,31 +90,31 @@ describe("Composer Intent prompt registry", () => {
       {
         label: "Ask",
         prefix:
-          "Mode: Ask. Answer from read-only analysis. Explain findings, examples, and tradeoffs. Do not request tools, file reads, file writes, commands, or patches.",
-        estimatedTokens: 33,
+          "Mode: Ask. Answer from read-only investigation. You may request read-only file, folder, source-search, web-page, or simple read-only shell reads when needed. Do not edit files, run mutating shell commands, write patches, or change state.",
+        estimatedTokens: 48,
       },
       {
         label: "Architect",
         prefix:
-          "Mode: Architect. Analyze architecture and tradeoffs from provided context only. Propose designs and risks. Do not request tools, file reads, file writes, commands, or patches.",
-        estimatedTokens: 38,
+          "Mode: Architect. Analyze architecture and tradeoffs using read-only context, file, folder, source-search, web-page, or simple read-only shell reads when useful. Propose designs and risks. Do not edit files, run mutating shell commands, write patches, or change state.",
+        estimatedTokens: 50,
       },
       {
         label: "PRD",
         prefix:
-          "Mode: PRD. Convert the discussion into a PRD draft in chat using the AFX spec template: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies.",
-        estimatedTokens: 40,
+          "Mode: PRD. Draft a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not write files.",
+        estimatedTokens: 48,
       },
     ]);
   });
 
   it("keeps Explore non-default prompts within read-only parent-mode boundaries", () => {
     for (const entry of getIntentPrompts("explore").slice(1)) {
-      expect(entry.prefix).not.toMatch(/edit files|write files|run commands/i);
+      expect(entry.prefix).toMatch(/read-only/i);
     }
-    expect(getIntentPrompt("explore", 2).prefix).toContain("read-only analysis");
-    expect(getIntentPrompt("explore", 3).prefix).toContain("provided context only");
-    expect(getIntentPrompt("explore", 4).prefix).toContain("PRD draft in chat");
+    expect(getIntentPrompt("explore", 2).prefix).toContain("read-only file");
+    expect(getIntentPrompt("explore", 3).prefix).toContain("web-page");
+    expect(getIntentPrompt("explore", 4).prefix).toContain("Do not write files");
   });
 
   it("formats prompt overhead with human-facing copy instead of token shorthand", () => {
