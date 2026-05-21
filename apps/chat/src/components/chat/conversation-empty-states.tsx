@@ -2,6 +2,7 @@
  * Conversation empty/loading/onboarding states.
  *
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-FILES] [DES-UI]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-10] [FR-11]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
  */
 import { memo, useState } from "react";
@@ -37,6 +38,7 @@ import {
   detectAfxIntent,
   sanitizeSpecIdea,
 } from "../../lib/afx-onboarding-intents";
+import { bridgeSend } from "../../lib/bridge";
 import { type ActiveDocCtx, describeDoc, resolveDocActions } from "../../lib/doc-actions";
 import { AfxLogoIcon, AfxLogoMark } from "../afx-logo";
 import { docKindVisual } from "../chat-doc-kind-visual";
@@ -78,20 +80,34 @@ const QUICK_COMMANDS: ReadonlyArray<{ label: string; commands: string[] }> = [
   { label: "Session", commands: ["/afx-next", "/afx-session", "/afx-context"] },
 ];
 
-const LANDING_CARDS: ReadonlyArray<{ title: string; body: string; icon: LucideIcon }> = [
+type LandingCardAction = "chat" | "workflow" | "spec";
+
+const LANDING_CARDS: ReadonlyArray<{
+  title: string;
+  body: string;
+  actionLabel: string;
+  action: LandingCardAction;
+  icon: LucideIcon;
+}> = [
   {
     title: "Chat",
-    body: "Ask questions, mention files, switch models.",
+    body: "Ask about the repo or steer a turn.",
+    actionLabel: "Ask",
+    action: "chat",
     icon: MessageSquarePlus,
   },
   {
     title: "Workflow",
-    body: "Repo-native notes, tasks, docs, journal.",
+    body: "Open repo-backed docs, boards, notes.",
+    actionLabel: "Open",
+    action: "workflow",
     icon: BookOpen,
   },
   {
     title: "Spec",
-    body: "Opt-in traceable planning.",
+    body: "Start traceable planning.",
+    actionLabel: "Plan",
+    action: "spec",
     icon: GitBranch,
   },
 ];
@@ -223,6 +239,10 @@ function suggestedDocPrompt(docContext: ActiveDocCtx): string {
   }
 }
 
+function createLocalRequestId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `workbench-${Date.now()}`;
+}
+
 /** Props for EmptyState — receives the insert callback to populate the composer. */
 export interface EmptyStateProps {
   /** Called with command text when a quick-command button is clicked. */
@@ -248,7 +268,6 @@ export const EmptyState = memo(function EmptyState({
   onOpenSettings,
 }: EmptyStateProps) {
   const isExplore = workspaceMode === "explore";
-  const cards = isExplore ? EXPLORE_CARDS : LANDING_CARDS;
   const starters = isExplore ? EXPLORE_STARTERS : LANDING_STARTERS;
   const intro = isExplore
     ? "Read-only. Use it to inspect code, trace behavior, and plan changes."
@@ -256,6 +275,23 @@ export const EmptyState = memo(function EmptyState({
   const detail = isExplore
     ? "Experimental. Explore mode will try not to delete files or folders, run shell commands, or edit source. Switch to Code mode when the next step needs action."
     : "Most coding stays in chat. Use the workflow when work needs traceability between intent, design, tasks, and code.";
+
+  function openWorkbench() {
+    bridgeSend({ type: "chat/openWorkbench", requestId: createLocalRequestId() });
+  }
+
+  function runLandingCard(action: LandingCardAction): void {
+    if (action === "chat") {
+      onInsert(LANDING_STARTERS[1]?.prompt ?? "");
+      return;
+    }
+    if (action === "workflow") {
+      openWorkbench();
+      return;
+    }
+    onSwitchToSpec?.();
+    onInsert("/afx-spec new ");
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
@@ -291,43 +327,43 @@ export const EmptyState = memo(function EmptyState({
         </div>
       ) : null}
 
-      {!isExplore && !runtimeUnconfigured ? (
-        <button
-          type="button"
-          onClick={() => {
-            onSwitchToSpec?.();
-            onInsert("/afx-spec new ");
-          }}
-          className="flex items-center justify-between gap-3 rounded-md border border-afx-brand-soft/35 bg-afx-brand-soft/[0.05] px-3 py-2 text-left transition-colors hover:bg-afx-brand-soft/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
-          aria-label="Plan in Spec mode"
-        >
-          <span className="min-w-0">
-            <span className="block text-[12px] font-medium text-foreground">
-              Planning a new feature?
-            </span>
-            <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-              Shape it in Spec mode first — spec, design, tasks, then code.
-            </span>
-          </span>
-          <span className="shrink-0 font-mono text-[10px] text-afx-brand-soft">Plan in Spec</span>
-        </button>
-      ) : null}
-
       <div className="grid grid-cols-3 gap-1.5">
-        {cards.map(({ title, body, icon: Icon }) => (
-          <div
-            key={title}
-            className="afx-field-surface min-w-0 rounded-md border px-2 py-2 text-left"
-          >
-            <div className="flex items-center gap-1.5">
-              <Icon size={12} className="shrink-0 text-afx-brand-soft" aria-hidden />
-              <p className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground">
-                {title}
-              </p>
-            </div>
-            <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
-          </div>
-        ))}
+        {isExplore
+          ? EXPLORE_CARDS.map(({ title, body, icon: Icon }) => (
+              <div
+                key={title}
+                className="afx-field-surface min-w-0 rounded-md border px-2 py-2 text-left"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Icon size={12} className="shrink-0 text-afx-brand-soft" aria-hidden />
+                  <p className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground">
+                    {title}
+                  </p>
+                </div>
+                <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
+              </div>
+            ))
+          : LANDING_CARDS.map(({ title, body, icon: Icon, action, actionLabel }) => (
+              <button
+                key={title}
+                type="button"
+                onClick={() => runLandingCard(action)}
+                aria-label={`${title}: ${actionLabel}`}
+                className="afx-field-surface min-w-0 rounded-md border px-2 py-2 text-left transition-colors hover:border-afx-brand-soft/40 hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Icon size={12} className="shrink-0 text-afx-brand-soft" aria-hidden />
+                  <p className="truncate font-mono text-[10px] font-semibold uppercase tracking-[0.1em] text-foreground">
+                    {title}
+                  </p>
+                </div>
+                <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{body}</p>
+                <span className="mt-1.5 inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.12em] text-afx-brand-soft">
+                  {actionLabel}
+                  <ChevronRight size={10} aria-hidden />
+                </span>
+              </button>
+            ))}
       </div>
 
       {!runtimeUnconfigured ? (
@@ -502,6 +538,10 @@ export const SpecModeWelcome = memo(function SpecModeWelcome({
       if (command) onAutoSend(command);
     }
 
+    function openWorkbench() {
+      bridgeSend({ type: "chat/openWorkbench", requestId: createLocalRequestId() });
+    }
+
     return (
       <div className="mx-auto flex h-full w-full max-w-md flex-col gap-3 px-1 py-6">
         <div className="flex shrink-0 flex-col items-center gap-2 border-b border-border/70 pb-4 pt-1 text-center">
@@ -605,6 +645,22 @@ export const SpecModeWelcome = memo(function SpecModeWelcome({
             ))}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={openWorkbench}
+          className="flex items-center gap-2 rounded-md border border-afx-brand-soft/25 bg-afx-brand-soft/[0.05] px-3 py-2 text-left transition-colors hover:border-afx-brand-soft/50 hover:bg-afx-brand-soft/[0.08] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+        >
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-afx-brand-soft/10 text-afx-brand-soft">
+            <Boxes size={15} aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[12px] font-medium text-foreground">Open Workbench</span>
+            <span className="block text-[10px] leading-snug text-muted-foreground">
+              See specs, tasks, documents, notes, and boards in the bottom panel.
+            </span>
+          </span>
+        </button>
 
         {scopeChooserOpen ? (
           <div className="rounded-md border border-border/70 bg-muted/20 p-2">

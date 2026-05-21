@@ -6,6 +6,8 @@
  * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH]
  * @see docs/specs/220-app-workbench/spec.md [FR-3]
  * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-HOST-PANEL] [DES-WORKBENCH-PROTOCOL]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-9] [FR-10]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-LAUNCHPAD] [DES-API]
  */
 import * as path from "node:path";
 
@@ -28,10 +30,11 @@ export interface WorkbenchPanelDeps {
   extensionMode: vscode.ExtensionMode;
   specsData?: SpecsDataProvider;
   logger?: Logger;
+  openChatCommand?: (command: string, mode: "insert" | "send") => Promise<void>;
 }
 
 export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewViewProvider {
-  const { extensionUri, extensionMode, specsData, logger } = deps;
+  const { extensionUri, extensionMode, specsData, logger, openChatCommand } = deps;
   const log = logger?.child("workbench-panel");
 
   return {
@@ -69,7 +72,7 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
       view.webview.onDidReceiveMessage((raw: unknown) => {
         if (!raw || typeof raw !== "object" || !("type" in raw)) return;
         const msg = raw as WorkbenchOutbound;
-        void handleMessage(msg, post, specsData, log, computeTelemetryEnabled);
+        void handleMessage(msg, post, specsData, log, computeTelemetryEnabled, openChatCommand);
       });
 
       // Push initial data after a short tick for webview startup races.
@@ -151,10 +154,16 @@ async function handleMessage(
   specsData: SpecsDataProvider | undefined,
   log: Logger | undefined,
   computeTelemetryEnabled: () => boolean,
+  openChatCommand?: (command: string, mode: "insert" | "send") => Promise<void>,
 ): Promise<void> {
   const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
   const primaryFolder = workspaceFolders[0];
-  if (!primaryFolder) return;
+  if (!primaryFolder) {
+    if (msg.type === "afxOpenChatCommand" && openChatCommand) {
+      await openChatCommand(msg.command, msg.mode);
+    }
+    return;
+  }
   const rootUri: vscode.Uri = primaryFolder.uri;
 
   function stripWorkspaceNamePrefix(normalizedPath: string, workspaceUri: vscode.Uri): string {
@@ -314,6 +323,11 @@ async function handleMessage(
         await vscode.window.showTextDocument(uri, opts);
         return;
       }
+      case "afxOpenChatCommand": {
+        if (!openChatCommand) return;
+        await openChatCommand(msg.command, msg.mode);
+        return;
+      }
       case "afxFetchDocContent": {
         const { path: realPath, section } = parseSprintPath(msg.filePath);
         const uri = await resolvePath(realPath, true);
@@ -356,6 +370,11 @@ async function handleMessage(
         }
         const uri = await resolvePath(realPath);
         await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.content, "utf8"));
+        await refreshAndPost();
+        return;
+      }
+      case "afxCreateSampleDocs": {
+        await createSampleDocs(rootUri, msg.kind);
         await refreshAndPost();
         return;
       }
@@ -464,6 +483,184 @@ async function handleMessage(
   } catch (err) {
     log?.error("handleMessage threw", err instanceof Error ? err : undefined);
   }
+}
+
+async function createSampleDocs(rootUri: vscode.Uri, kind: "full-spec" | "sprint"): Promise<void> {
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, ".000Z");
+  if (kind === "sprint") {
+    const dir = vscode.Uri.joinPath(rootUri, "docs", "specs", "sample-sprint-tour");
+    await vscode.workspace.fs.createDirectory(dir);
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.joinPath(dir, "sample-sprint-tour.md"),
+      Buffer.from(sampleSprintDoc(now), "utf8"),
+    );
+    return;
+  }
+
+  const dir = vscode.Uri.joinPath(rootUri, "docs", "specs", "sample-workbench-tour");
+  await vscode.workspace.fs.createDirectory(dir);
+  const files: Array<[string, string]> = [
+    ["spec.md", sampleSpecDoc(now)],
+    ["design.md", sampleDesignDoc(now)],
+    ["tasks.md", sampleTasksDoc(now)],
+    ["journal.md", sampleJournalDoc(now)],
+  ];
+  for (const [name, content] of files) {
+    await vscode.workspace.fs.writeFile(
+      vscode.Uri.joinPath(dir, name),
+      Buffer.from(content, "utf8"),
+    );
+  }
+}
+
+function sampleFrontmatter(type: string, now: string, extra = ""): string {
+  return [
+    "---",
+    "afx: true",
+    `type: ${type}`,
+    "status: Draft",
+    'owner: "@you"',
+    'version: "0.1"',
+    `created_at: "${now}"`,
+    `updated_at: "${now}"`,
+    'tags: ["sample", "workbench"]',
+    extra.trim(),
+    "---",
+    "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function sampleSpecDoc(now: string): string {
+  return `${sampleFrontmatter("SPEC", now)}# Sample Workbench Tour
+
+## Overview
+
+Create a first-run Workbench experience that helps new users start with AFX without memorizing commands.
+
+## Goals
+
+- Make the bottom panel useful before any real project documents exist.
+- Let users create sample docs or draft generation commands from one place.
+- Show how specs, tasks, documents, boards, notes, and analytics connect.
+
+## Success Metrics
+
+- A new user can create sample AFX docs in under one minute.
+- The Workbench first screen has no dead empty states.
+- The document reader makes the sample spec readable without opening the editor.
+
+## Scope
+
+Include launchpad actions, a polished reader, and a starter board. Defer cloud integrations and external template catalogs.
+
+## User Stories
+
+- As a new user, I want a clear first action so I know where to begin.
+- As a returning user, I want generated docs to appear in the Workbench immediately.
+- As a maintainer, I want the sample to live in normal markdown files.
+`;
+}
+
+function sampleDesignDoc(now: string): string {
+  return `${sampleFrontmatter("DESIGN", now, "spec: spec.md")}# Sample Workbench Tour Design
+
+## Design Direction
+
+Use the Workbench as the visual control plane for AFX markdown. Empty states should be active launch surfaces, not explanatory dead ends.
+
+## Architecture
+
+- Workbench webview sends typed launchpad messages.
+- VS Code host creates sample markdown files inside the workspace.
+- The existing scanner refreshes state and repopulates tabs.
+
+## UI
+
+- Launchpad: action grid plus a first-10-minutes progress preview.
+- Documents: studio reader with quality pulse and outline.
+- Board: visible movement controls with markdown persistence.
+
+## Risks
+
+- Users may mistake sample docs for production docs; keep the sample slug explicit.
+- File creation must stay workspace-local and typed through the host bridge.
+`;
+}
+
+function sampleTasksDoc(now: string): string {
+  return `${sampleFrontmatter("TASKS", now, "spec: spec.md\ndesign: design.md")}# Sample Workbench Tour Tasks
+
+## Phase 1: Launchpad
+
+- [x] Create a first-run Workbench launchpad
+- [ ] Connect sample document creation
+- [ ] Verify empty Workbench and Documents states
+
+## Phase 2: Reader
+
+- [ ] Render the sample spec in the document studio
+- [ ] Show outline and quality pulse
+
+## Phase 3: Board
+
+- [ ] Create starter board cards
+- [ ] Verify column movement
+
+## Work Sessions
+
+| Date | Task | Action | Files | Agent | Human |
+| --- | --- | --- | --- | --- | --- |
+| ${now} | Launchpad | Created sample plan | docs/specs/sample-workbench-tour/* | [x] | [ ] |
+`;
+}
+
+function sampleJournalDoc(now: string): string {
+  return `${sampleFrontmatter("JOURNAL", now, "spec: spec.md")}# Sample Workbench Tour Journal
+
+## ${now.slice(0, 10)}
+
+The Workbench should be useful the first time it opens. The sample project exists to make every tab feel alive while still teaching the real AFX file shape.
+`;
+}
+
+function sampleSprintDoc(now: string): string {
+  return `${sampleFrontmatter("SPRINT", now)}# Sample Sprint Tour
+
+<!-- SPRINT-SECTION-START: SPEC -->
+## 1. Spec
+
+Create a compact Workbench onboarding path that starts from one sprint document.
+
+### Success Metrics
+
+- User can see Spec, Design, Tasks, and Work slices from one file.
+- The chat stepper can preserve context while previewing this markdown.
+<!-- SPRINT-SECTION-END: SPEC -->
+
+<!-- SPRINT-SECTION-START: DESIGN -->
+## 2. Design
+
+Keep the sprint small: a launchpad action, a document preview, and a verification checklist.
+<!-- SPRINT-SECTION-END: DESIGN -->
+
+<!-- SPRINT-SECTION-START: TASKS -->
+## 3. Tasks
+
+- [ ] Draft launchpad copy
+- [ ] Wire sample creation
+- [ ] Capture Playwright screenshots
+<!-- SPRINT-SECTION-END: TASKS -->
+
+<!-- SPRINT-SECTION-START: SESSIONS -->
+## 4. Work Sessions
+
+| Date | Task | Action | Files | Agent | Human |
+| --- | --- | --- | --- | --- | --- |
+| ${now} | Sprint sample | Created sample sprint | docs/specs/sample-sprint-tour/sample-sprint-tour.md | [x] | [ ] |
+<!-- SPRINT-SECTION-END: SESSIONS -->
+`;
 }
 
 /**

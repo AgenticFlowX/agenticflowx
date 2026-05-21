@@ -1249,6 +1249,13 @@ describe("sidebar-panel host bridge", () => {
     expect(executeCommand).toHaveBeenCalledWith("afx.showLogs");
   });
 
+  it("chat/openWorkbench opens the Workbench command", () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const inbound = setup();
+    inbound.fire({ type: "chat/openWorkbench", requestId: "workbench-1" });
+    expect(executeCommand).toHaveBeenCalledWith("afx.openWorkbench");
+  });
+
   it("appearance/update persists validated theme and style settings", async () => {
     const update = vi.fn(async () => {});
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
@@ -2122,7 +2129,78 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
-  it("blocks runtime tool execution events in Explore mode", async () => {
+  it("allows read-only runtime tool events in Explore mode", async () => {
+    mockAfxConfiguration({ "mode.active": "explore" });
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-explore-read",
+      content: "Read the package and list docs.",
+    });
+    await flushAsyncWork(2);
+
+    const tools = [
+      {
+        toolCallId: "tool-read",
+        toolName: "read_file",
+        args: { path: "package.json" },
+        result: "package.json (24 lines)",
+      },
+      {
+        toolCallId: "tool-list",
+        toolName: "mcp__filesystem__list_directory",
+        args: { path: "docs" },
+        result: "docs/specs",
+      },
+      {
+        toolCallId: "tool-web",
+        toolName: "web_fetch",
+        args: { url: "https://example.com" },
+        result: "Example Domain",
+      },
+    ];
+    for (const tool of tools) {
+      listener?.({
+        type: "tool_start",
+        toolCallId: tool.toolCallId,
+        toolName: tool.toolName,
+        args: tool.args,
+      });
+      listener?.({
+        type: "tool_end",
+        toolCallId: tool.toolCallId,
+        ok: true,
+        result: { content: [{ type: "text", text: tool.result }] },
+      });
+    }
+    listener?.({ type: "text_delta", id: "assistant-read", delta: "Read-only inspection done." });
+    listener?.({ type: "message_end", role: "assistant", stopReason: "end_turn" });
+    listener?.({ type: "agent_end" });
+    await flushAsyncWork(2);
+
+    expect(agent.abort).not.toHaveBeenCalled();
+    for (const tool of tools) {
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "chat/toolStart",
+          toolCallId: tool.toolCallId,
+          toolName: tool.toolName,
+        }),
+      );
+      expect(postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "chat/toolEnd",
+          toolCallId: tool.toolCallId,
+          ok: true,
+          summary: tool.result,
+        }),
+      );
+    }
+  });
+
+  it("blocks mutating runtime tool execution events in Explore mode", async () => {
     mockAfxConfiguration({ "mode.active": "explore" });
     const { inbound, postMessage } = setupWithView();
     const listener = firstAgentEventListener();
@@ -2137,7 +2215,7 @@ describe("sidebar-panel host bridge", () => {
     listener?.({
       type: "tool_start",
       toolCallId: "tool-explore",
-      toolName: "read_file",
+      toolName: "edit_file",
       args: { path: "package.json" },
     });
     listener?.({
@@ -2155,7 +2233,7 @@ describe("sidebar-panel host bridge", () => {
       expect.objectContaining({
         type: "chat/error",
         requestId: "req-explore-tool",
-        message: expect.stringContaining('Blocked runtime tool "read_file"'),
+        message: expect.stringContaining('blocked runtime tool "edit_file"'),
       }),
     );
     expect(

@@ -20,6 +20,7 @@ vi.mock("./webview-html", () => ({
 interface MockWorkbenchView {
   view: vscode.WebviewView;
   fireDispose(): void;
+  fireMessage(message: unknown): void;
   fireVisibility(visible: boolean): void;
 }
 
@@ -34,13 +35,17 @@ interface MockWatcher {
 function makeView(visible = true): MockWorkbenchView {
   let visibilityHandler: (() => void) | undefined;
   let disposeHandler: (() => void) | undefined;
+  let messageHandler: ((message: unknown) => void) | undefined;
   const view = {
     webview: {
       options: {} as vscode.WebviewOptions,
       html: "",
       cspSource: "vscode-webview://mock",
       asWebviewUri: (uri: vscode.Uri) => uri,
-      onDidReceiveMessage: vi.fn(() => ({ dispose: vi.fn() })),
+      onDidReceiveMessage: vi.fn((handler: (message: unknown) => void) => {
+        messageHandler = handler;
+        return { dispose: vi.fn() };
+      }),
       postMessage: vi.fn(async () => true),
     },
     visible,
@@ -59,6 +64,9 @@ function makeView(visible = true): MockWorkbenchView {
     view,
     fireDispose() {
       disposeHandler?.();
+    },
+    fireMessage(message: unknown) {
+      messageHandler?.(message);
     },
     fireVisibility(nextVisible: boolean) {
       (view as unknown as { visible: boolean }).visible = nextVisible;
@@ -191,5 +199,52 @@ describe("createWorkbenchPanel", () => {
     for (const watcher of secondWatchers) {
       expect(watcher.dispose).toHaveBeenCalledOnce();
     }
+  });
+
+  it("opens chat commands from launchpad messages even without a workspace", async () => {
+    const openChatCommand = vi.fn(async () => {});
+    const { view, fireMessage } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData: makeSpecsData(),
+      openChatCommand,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxOpenChatCommand", command: "/afx-spec new sample", mode: "insert" });
+    await Promise.resolve();
+
+    expect(openChatCommand).toHaveBeenCalledWith("/afx-spec new sample", "insert");
+  });
+
+  it("creates sample docs through the host bridge and refreshes data", async () => {
+    const specsData = makeSpecsData();
+    const writes: string[] = [];
+    const { view, fireMessage } = makeView(true);
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "createDirectory").mockResolvedValue(undefined);
+    vi.spyOn(vscode.workspace.fs, "writeFile").mockImplementation(async (uri) => {
+      writes.push(uri.fsPath);
+    });
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxCreateSampleDocs", kind: "full-spec" });
+    await vi.waitFor(() => {
+      expect(writes).toEqual([
+        "/repo/docs/specs/sample-workbench-tour/spec.md",
+        "/repo/docs/specs/sample-workbench-tour/design.md",
+        "/repo/docs/specs/sample-workbench-tour/tasks.md",
+        "/repo/docs/specs/sample-workbench-tour/journal.md",
+      ]);
+    });
+    expect(specsData.refresh).toHaveBeenCalledOnce();
   });
 });

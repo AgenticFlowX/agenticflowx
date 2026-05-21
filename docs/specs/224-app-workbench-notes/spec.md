@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T12:26:43.000Z"
 tags: ["app", "workbench", "notes", "capture", "markdown"]
 depends_on:
   ["100-package-shared", "130-package-ui", "220-app-workbench", "222-app-workbench-documents"]
@@ -52,15 +52,17 @@ Developers and agents recording lightweight context during spec-driven work.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                      | Priority  |
-| ---- | ---------------------------------------------------------------- | --------- |
-| FR-1 | Render a persistent capture pane with markdown-enabled textarea  | Must Have |
-| FR-2 | Save notes with Enter and allow newline with Shift+Enter         | Must Have |
-| FR-3 | Search and date-filter existing notes                            | Must Have |
-| FR-4 | Group notes by date and sort newest-first                        | Must Have |
-| FR-5 | Render note bodies as markdown                                   | Must Have |
-| FR-6 | Edit and delete existing notes through host messages             | Must Have |
-| FR-7 | Render deterministic timestamps with seconds and relative labels | Must Have |
+| ID   | Requirement                                                      | Priority    |
+| ---- | ---------------------------------------------------------------- | ----------- |
+| FR-1 | Render a persistent capture pane with markdown-enabled textarea  | Must Have   |
+| FR-2 | Save notes with Enter and allow newline with Shift+Enter         | Must Have   |
+| FR-3 | Search and date-filter existing notes                            | Must Have   |
+| FR-4 | Group notes by date and sort newest-first                        | Must Have   |
+| FR-5 | Render note bodies as markdown                                   | Must Have   |
+| FR-6 | Edit and delete existing notes through host messages             | Must Have   |
+| FR-7 | Render deterministic timestamps with seconds and relative labels | Must Have   |
+| FR-8 | Explain fleeting-note sources and empty/new-project workflows    | Must Have   |
+| FR-9 | Render saved notes with subtle paper-like edges for reading      | Should Have |
 
 ### Non-Functional Requirements
 
@@ -88,6 +90,13 @@ Developers and agents recording lightweight context during spec-driven work.
 - [ ] Date headers are sticky and newest-first.
 - [ ] Edit supports Cmd/Ctrl+Enter save and Escape cancel.
 - [ ] Delete sends the note timestamp.
+
+### Empty / New Project
+
+- [ ] Empty Notes explains that notes are fleeting, local, and stored in `.afx/notes.md`.
+- [ ] Empty Notes explains that users can capture from this pane, Chat save-note flows, or IDE right-click Save to Notes.
+- [ ] Empty Notes shows a mock note stream so users know what saved notes will look like.
+- [ ] Saved note cards use readable markdown rendering with a subtle paper edge/accent.
 
 ---
 
@@ -121,14 +130,14 @@ Developers and agents recording lightweight context during spec-driven work.
 
 ### Agent Entry Map
 
-| Field           | Value                                                                                                                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Workbench Notes tab                                                                                                     |
-| Owned files     | `apps/workbench/src/views/notes.tsx`, `apps/workbench/src/views/notes.test.tsx`                                         |
-| Local anchors   | `Notes`, `DateSection`, `NoteItem`, `groupByDate`, `humanizeTimestamp`, `relativeTimestamp`, `formatClock`, `parseDate` |
-| Bridge messages | `afxAppendNote`, `afxEditNote`, `afxDeleteNote`, `afxOpenFile`                                                          |
-| Settings keys   | None                                                                                                                    |
-| Tests           | `apps/workbench/src/views/notes.test.tsx`                                                                               |
-| Dependencies    | `220-app-workbench`, `222-app-workbench-documents`, `100-package-shared`, `130-package-ui`                              |
-| Out of scope    | Chat composer notes shortcut, documents reader tree                                                                     |
-| Example prompt  | "Change the Notes keyboard save policy; start at 224-app-workbench-notes."                                              |
+| Field           | Value                                                                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Owned surface   | Workbench Notes tab                                                                                                                        |
+| Owned files     | `apps/workbench/src/views/notes.tsx`, `apps/workbench/src/views/notes.test.tsx`                                                            |
+| Local anchors   | `Notes`, `NotesEmptyGuide`, `DateSection`, `NoteItem`, `groupByDate`, `humanizeTimestamp`, `relativeTimestamp`, `formatClock`, `parseDate` |
+| Bridge messages | `afxAppendNote`, `afxEditNote`, `afxDeleteNote`, `afxOpenFile`                                                                             |
+| Settings keys   | None                                                                                                                                       |
+| Tests           | `apps/workbench/src/views/notes.test.tsx`                                                                                                  |
+| Dependencies    | `220-app-workbench`, `222-app-workbench-documents`, `100-package-shared`, `130-package-ui`                                                 |
+| Out of scope    | Chat composer notes shortcut, documents reader tree                                                                                        |
+| Example prompt  | "Change the Notes keyboard save policy; start at 224-app-workbench-notes."                                                                 |

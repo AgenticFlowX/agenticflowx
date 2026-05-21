@@ -9,7 +9,7 @@
  *
  * @see docs/specs/100-package-shared/spec.md [FR-11]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-14] [FR-15] [FR-17] [FR-18]
- * @see docs/specs/212-app-chat-messages/spec.md [FR-8]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-8] [FR-11]
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
  */
 import { type Page, expect, test } from "@playwright/test";
@@ -63,6 +63,16 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(page.getByRole("button", { name: /\/afx-context load/i })).toBeVisible();
   });
 
+  test("Spec welcome introduces the Workbench", async ({ page }) => {
+    await page.goto("/");
+    await selectMode(page, "Spec");
+
+    const workbench = page.getByRole("button", { name: /Open Workbench/i });
+    await expect(workbench).toBeVisible();
+    await expect(page.getByText(/See specs, tasks, documents, notes, and boards/i)).toBeVisible();
+    await workbench.click();
+  });
+
   test("Spec mode applies data-workspace-mode='spec' to the InputGroup wrapper", async ({
     page,
   }) => {
@@ -111,6 +121,16 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(composer).toHaveAttribute("data-workspace-mode", "code");
   });
 
+  test("Code welcome action tiles open Workflow and start Spec planning", async ({ page }) => {
+    await page.goto("/");
+
+    await expect(page.getByRole("button", { name: "Workflow: Open" })).toBeVisible();
+    await page.getByRole("button", { name: "Workflow: Open" }).click();
+
+    await page.getByRole("button", { name: "Spec: Plan" }).click();
+    await expect(page.locator("#afx-chat-composer")).toHaveValue(/\/afx-spec new/);
+  });
+
   test("doc-action More/focus menu drafts refinements while draft-first result actions insert", async ({
     page,
   }) => {
@@ -126,7 +146,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
 
     await expect(page.getByTestId("result-action-button")).toContainText("/afx-task code 2.3");
     await page.getByTestId("result-action-button").click();
-    await expect(composer).toHaveValue("/afx-task code 2.3");
+    await expect(composer).toHaveValue("/afx-task code 2.3 ");
   });
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-17] [FR-18]
@@ -400,7 +420,7 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await expect(page.getByTestId("spec-stepper")).toHaveCount(0);
     await expect(page.getByTestId("doc-actions-primary-row")).toContainText("Note");
     await page.getByRole("button", { name: "Note: Draft first" }).click();
-    await expect(page.locator("#afx-chat-composer")).toHaveValue(/^\/afx-session note$/);
+    await expect(page.locator("#afx-chat-composer")).toHaveValue(/^\/afx-session note $/);
   });
 
   // @see docs/specs/211-app-chat-composer/spec.md [FR-15] [FR-16]

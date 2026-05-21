@@ -1,31 +1,26 @@
 /**
  * Documents view — browse & preview spec/design/tasks/journal markdown files.
  *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-6]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-HOME] [DES-DOCS-READER]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-6] [FR-7] [FR-8] [FR-9]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-HOME] [DES-DOCS-READER] [DES-DOCS-STUDIO] [DES-DOCS-LAUNCHPAD]
  */
 import { useEffect, useMemo, useState } from "react";
 
 import {
   ArrowLeft,
+  CalendarDays,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
   FileText,
-  Files,
   Folder,
   Library,
+  UserRound,
 } from "lucide-react";
 
 import type { DocumentRow, WorkbenchInbound } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
 import { Input } from "@afx/ui/components/input";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@afx/ui/components/resizable";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
@@ -39,12 +34,22 @@ import {
 import { Separator } from "@afx/ui/components/separator";
 import { cn } from "@afx/ui/lib/utils";
 
+import { WorkbenchLaunchpad } from "../components/workbench-launchpad";
 import { useWorkbench } from "../context/workbench-context";
 import { workbenchOn } from "../lib/bridge";
 import { extractOutline } from "../lib/document-outline";
+import {
+  DocumentStudio,
+  docDisplayName,
+  documentTitle,
+  featureFromPath,
+  formatShortDate,
+  refineCommandFor,
+  stringMeta,
+  summarizeDocumentQuality,
+} from "../lib/document-studio";
 import { isRenderable } from "../lib/documents";
 import { extractMetaChips, parseSimpleFrontmatter } from "../lib/frontmatter";
-import { MinimalMarkdown } from "../lib/markdown-render";
 import { OpenActions } from "../lib/open-actions";
 
 const TYPE_OPTIONS = ["all", "SPEC", "DESIGN", "TASKS", "JOURNAL", "ADR", "RES"];
@@ -116,8 +121,8 @@ function buildDocumentTree(docs: DocumentRow[]): TreeNode {
 /**
  * Workbench Documents tab: filters, tree, selected content cache, and reader/home panes.
  *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-5]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-READER]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-1] [FR-5] [FR-8]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-TREE] [DES-DOCS-READER] [DES-DOCS-LAUNCHPAD]
  */
 export default function Documents() {
   const { documents, send } = useWorkbench();
@@ -155,19 +160,7 @@ export default function Documents() {
   const tree = useMemo(() => buildDocumentTree(filtered), [filtered]);
 
   if (documents.length === 0) {
-    return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <Files />
-          </EmptyMedia>
-          <EmptyTitle>No documents found</EmptyTitle>
-          <EmptyDescription>
-            AFX documents live in docs/specs/. Create one with /afx-scaffold spec my-feature.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
-    );
+    return <WorkbenchLaunchpad context="documents" />;
   }
 
   return (
@@ -468,45 +461,6 @@ function recentDocs(docs: DocumentRow[], n: number): DocumentRow[] {
 }
 
 /**
- * Extract feature folder slug from a docs/specs path.
- *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-2] [FR-6]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME] [DES-DOCS-HELPERS]
- */
-function featureFromPath(filePath: string): string | null {
-  const m = filePath.match(/^docs\/specs\/([^/]+)\//);
-  return m?.[1] ?? null;
-}
-
-/**
- * Human-friendly label for recent document rows.
- *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
- */
-function docDisplayName(doc: DocumentRow): string {
-  const parts = doc.name.split("/");
-  if (parts.length <= 1) return doc.name;
-  if (parts[0] === "docs" && parts[1] === "specs" && parts.length >= 4) {
-    return `${parts[2]} / ${parts[parts.length - 1]}`;
-  }
-  return `${parts[parts.length - 2]} / ${parts[parts.length - 1]}`;
-}
-
-/**
- * Compact absolute date label for document rows.
- *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-HOME]
- */
-function formatShortDate(iso: string | undefined): string | undefined {
-  if (!iso) return undefined;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-}
-
-/**
  * Relative last-activity label for the Documents home summary.
  *
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-2]
@@ -603,8 +557,8 @@ function DocumentTree({
 /**
  * Reader pane for selected renderable documents.
  *
- * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-4]
- * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER]
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-4] [FR-7]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-STUDIO]
  */
 function DocReader({
   doc,
@@ -615,14 +569,30 @@ function DocReader({
   content: string | undefined;
   onBack?: () => void;
 }) {
+  const { send } = useWorkbench();
   const frontmatter = useMemo(() => (content ? parseSimpleFrontmatter(content) : {}), [content]);
   const chips = extractMetaChips(frontmatter);
   const outline = useMemo(() => (content ? extractOutline(content) : []), [content]);
+  const quality = useMemo(
+    () => summarizeDocumentQuality(doc, content, frontmatter, outline),
+    [content, doc, frontmatter, outline],
+  );
+  const title = documentTitle(doc, content);
+  const studioActions = useMemo(
+    () => [
+      {
+        label: "Refine",
+        command: refineCommandFor(doc),
+        description: "Send a focused document refinement command to chat.",
+      },
+    ],
+    [doc],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="afx-surface-toolbar flex flex-col gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
+      <div className="afx-surface-toolbar flex flex-col gap-3 border-b border-border px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {onBack && (
             <Button
               variant="ghost"
@@ -635,33 +605,74 @@ function DocReader({
               Library
             </Button>
           )}
-          <h2 className="text-sm font-medium text-foreground">{doc.name}</h2>
+          <Badge variant="outline" className="font-mono text-[10px]">
+            {doc.type}
+          </Badge>
+          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{title}</h2>
           <span className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {doc.filePath}
           </span>
-          <OpenActions filePath={doc.filePath} className="ml-auto" />
+          <OpenActions filePath={doc.filePath} />
         </div>
-        {chips.length > 0 ? (
-          <div className="flex flex-wrap gap-1">
-            {chips.map((c, i) => (
-              <Badge key={`${c.kind}-${i}`} variant="outline" className="text-[10px]">
-                {c.label}: {c.value}
-              </Badge>
-            ))}
-          </div>
-        ) : null}
+        <div className="flex flex-wrap gap-1.5">
+          <InfoChip
+            icon={UserRound}
+            label="Owner"
+            value={stringMeta(frontmatter, "owner") ?? "unset"}
+          />
+          <InfoChip
+            icon={CheckCircle2}
+            label="Status"
+            value={doc.status || stringMeta(frontmatter, "status") || "Draft"}
+          />
+          <InfoChip
+            icon={CalendarDays}
+            label="Updated"
+            value={formatShortDate(doc.updatedAt) ?? "unknown"}
+          />
+          {chips.slice(0, 4).map((c, i) => (
+            <Badge key={`${c.kind}-${i}`} variant="outline" className="text-[10px]">
+              {c.label}: {c.value}
+            </Badge>
+          ))}
+        </div>
       </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[1fr_180px] overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_220px] overflow-hidden">
         <ScrollArea className="h-full min-h-0">
-          <article className="mx-auto w-full max-w-4xl px-5 py-6">
-            {content ? (
-              <MinimalMarkdown content={content} />
-            ) : (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            )}
-          </article>
+          <DocumentStudio
+            doc={doc}
+            content={content}
+            actions={studioActions}
+            onCommand={(command) =>
+              send({
+                type: "afxOpenChatCommand",
+                command,
+                mode: "insert",
+              })
+            }
+          />
         </ScrollArea>
         <div className="afx-surface-subtle flex min-h-0 flex-col gap-2 border-l border-border p-3">
+          <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Quality pulse
+          </h3>
+          <div className="flex flex-col gap-1.5">
+            {quality.issues.length === 0 ? (
+              <span className="rounded-md border border-afx-success/30 bg-afx-success/10 px-2 py-1.5 text-xs text-afx-success">
+                Looks ready to read
+              </span>
+            ) : (
+              quality.issues.map((issue) => (
+                <span
+                  key={issue}
+                  className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-300"
+                >
+                  {issue}
+                </span>
+              ))
+            )}
+          </div>
+          <Separator />
           <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             Outline
           </h3>
@@ -671,7 +682,7 @@ function DocReader({
               {outline.map((o) => (
                 <li
                   key={`${o.line}-${o.slug}`}
-                  className={`text-xs ${OUTLINE_INDENT_CLASS[o.level] ?? "pl-10"}`}
+                  className={`rounded-sm px-1 py-0.5 text-xs leading-5 text-foreground/80 ${OUTLINE_INDENT_CLASS[o.level] ?? "pl-10"}`}
                 >
                   {o.text}
                 </li>
@@ -681,6 +692,24 @@ function DocReader({
         </div>
       </div>
     </div>
+  );
+}
+
+function InfoChip({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof UserRound;
+  label: string;
+  value: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted/20 px-2 py-1 text-[10px]">
+      <Icon size={11} className="text-muted-foreground" aria-hidden />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
+    </span>
   );
 }
 

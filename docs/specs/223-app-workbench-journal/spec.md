@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T12:26:43.000Z"
 tags: ["app", "workbench", "journal", "sessions", "markdown"]
 depends_on:
   ["100-package-shared", "130-package-ui", "220-app-workbench", "222-app-workbench-documents"]
@@ -52,15 +52,18 @@ Developers reviewing captured AFX sessions, notes, decisions, and status history
 
 ### Functional Requirements
 
-| ID   | Requirement                                                        | Priority  |
-| ---- | ------------------------------------------------------------------ | --------- |
-| FR-1 | Filter journal entries by time range, status, and search text      | Must Have |
-| FR-2 | Group filtered entries by date newest-first                        | Must Have |
-| FR-3 | Render compact timeline cards with status, feature, title, context | Must Have |
-| FR-4 | Auto-select the latest visible entry when none is selected         | Must Have |
-| FR-5 | Fetch and render selected journal markdown content                 | Must Have |
-| FR-6 | Trim redundant captured headers before preview rendering           | Must Have |
-| FR-7 | Provide empty and no-match states                                  | Must Have |
+| ID    | Requirement                                                         | Priority  |
+| ----- | ------------------------------------------------------------------- | --------- |
+| FR-1  | Filter journal entries by time range, status, and search text       | Must Have |
+| FR-2  | Group filtered entries by date newest-first                         | Must Have |
+| FR-3  | Render compact timeline cards with status, feature, title, context  | Must Have |
+| FR-4  | Auto-select the latest visible entry when none is selected          | Must Have |
+| FR-5  | Fetch and render selected journal markdown content                  | Must Have |
+| FR-6  | Trim redundant captured headers before preview rendering            | Must Have |
+| FR-7  | Provide empty and no-match states                                   | Must Have |
+| FR-8  | Teach empty/new projects with session commands and mock timeline    | Must Have |
+| FR-9  | Present selected entries as decision-first session summaries        | Must Have |
+| FR-10 | Let users resize the timeline and preview panes in the bottom panel | Must Have |
 
 ### Non-Functional Requirements
 
@@ -85,7 +88,16 @@ Developers reviewing captured AFX sessions, notes, decisions, and status history
 
 - [ ] Selecting an entry fetches content through `afxFetchDocContent`.
 - [ ] Preview shows status, feature, date, decisions, open actions, summary, and markdown body.
+- [ ] Preview surfaces "what mattered", key decisions, and context before the raw captured session body.
+- [ ] Timeline cards show decision count and first decision when one exists.
 - [ ] Empty preview explains how to select a discussion.
+- [ ] Timeline and preview are separated by a draggable splitter with usable minimum widths.
+
+### Empty / New Project
+
+- [ ] Empty Journal explains when to use session logs vs session notes.
+- [ ] Empty Journal shows a mock timeline/preview so users understand the destination.
+- [ ] Empty Journal can draft `/afx-session log` and `/afx-session note` in Chat.
 
 ---
 
@@ -124,7 +136,7 @@ Developers reviewing captured AFX sessions, notes, decisions, and status history
 | Owned surface   | Workbench Journal tab                                                                           |
 | Owned files     | `apps/workbench/src/views/journal.tsx`                                                          |
 | Local anchors   | `Journal`, `JournalCard`, `PreviewPanel`, `isInTimeRange`, `groupByDate`, `trimRedundantHeader` |
-| Bridge messages | `afxFetchDocContent`, `afxDocContent`, `afxOpenFile`                                            |
+| Bridge messages | `afxFetchDocContent`, `afxDocContent`, `afxOpenFile`, `afxOpenChatCommand`                      |
 | Settings keys   | None                                                                                            |
 | Tests           | Future journal view/helper tests                                                                |
 | Dependencies    | `220-app-workbench`, `222-app-workbench-documents`, `100-package-shared`, `130-package-ui`      |

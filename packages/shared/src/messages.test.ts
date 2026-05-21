@@ -268,6 +268,11 @@ describe("chat-foundation shared protocol", () => {
     ]);
   });
 
+  it("supports chat/openWorkbench from onboarding surfaces", () => {
+    const msg: ChatToAgent = { type: "chat/openWorkbench", requestId: "workbench" };
+    expect(msg.type).toBe("chat/openWorkbench");
+  });
+
   it("supports scoped Composer Intent settings mutations", () => {
     const messages: ChatToAgent[] = [
       { type: "chat/setIntentScope", requestId: "intent-global", scope: "global", slot: 2 },

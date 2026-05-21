@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.16"
+version: "1.17"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-19T13:30:51.000Z"
+updated_at: "2026-05-20T12:42:47.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
   [
@@ -203,6 +203,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] At compact sidebar widths, primary doc-action buttons stay on one line; measured overflow moves lower-priority buttons into one ellipsis-backed Document actions menu instead of wrapping into narrow vertical stacks
 - [ ] Long doc-action dropdown labels may truncate visually, but every parsed focus/task/command target exposes full title, line/command metadata, and available body context through shadcn tooltip content
 - [ ] Completed assistant messages parse explicit `Next:` / `Next (ranked):` sections, including ranked lists and unlisted bare `/afx-*` command lines, scrub obsolete machine-action marker blocks from stale assistant prose without supporting them as actions, hide parsed `Next` prose when actions render, and surface one `RUN NEXT` rail with at most three buttons; auto-send entries run immediately, draft-first entries insert into the composer, and long commands retain their full value in tooltip/accessible text
+- [ ] Host- and UI-inserted draft-first `/afx-*` commands replace the existing composer draft, append one trailing space, focus the composer, and place the cursor at the end for extra user context.
 - [ ] Icons come from `lucide-react` and match the command intent; no bespoke icon set is introduced for these controls
 - [ ] Unit tests cover command catalog, doc actions, memory dropdown, context presets, result-action parsing/rendering, and host active-doc context parsing
 - [ ] E2E coverage is required before broad rollout for: switching into/out of Spec without lock-in, using doc-action More/focus controls, and selecting result-action follow-ups from a completed assistant turn

@@ -1,7 +1,7 @@
 /**
  * Workbench root shell — tab layout for all workbench views.
  *
- * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-5] [FR-8]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-5] [FR-8] [FR-11]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-MOCKUP] [DES-SHELL-TABS]
  */
 import {
@@ -53,7 +53,7 @@ export default function App() {
 /**
  * Renders the [Workbench.Shell] tab router and loading card.
  *
- * @see docs/specs/227-app-workbench-shell/spec.md [FR-2] [FR-5] [FR-8]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-2] [FR-5] [FR-8] [FR-11]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-MOCKUP] [DES-SHELL-TABS]
  */
 function WorkbenchShell() {
@@ -82,7 +82,10 @@ function WorkbenchShell() {
           Surface: Workbench.Shell.Tabs
           @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS]
         */}
-        <TabsList variant="line" className="h-9 w-full shrink-0 justify-start gap-0 border-b px-1">
+        <TabsList
+          variant="line"
+          className="h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden border-b px-1"
+        >
           <WorkbenchTabTrigger value="workbench" icon={Layers} label="Workbench" />
           <WorkbenchTabTrigger value="pipeline" icon={GitBranch} label="Pipeline" />
           <WorkbenchTabTrigger value="documents" icon={Files} label="Documents" />
@@ -127,7 +130,7 @@ function WorkbenchShell() {
 /**
  * Renders one top-level Workbench tab trigger in [Workbench.Tabs].
  *
- * @see docs/specs/227-app-workbench-shell/spec.md [FR-2]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-2] [FR-11]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS]
  */
 function WorkbenchTabTrigger({

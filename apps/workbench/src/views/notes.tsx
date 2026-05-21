@@ -1,15 +1,17 @@
 /**
  * Notes view — quick note capture with deterministic timestamp display.
  *
- * @see docs/specs/224-app-workbench-notes/spec.md [FR-1] [FR-7]
- * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-CAPTURE] [DES-NOTES-TIMELINE] [DES-NOTES-ITEM] [DES-NOTES-TIME]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-1] [FR-7] [FR-8]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-CAPTURE] [DES-NOTES-TIMELINE] [DES-NOTES-ITEM] [DES-NOTES-TIME] [DES-NOTES-EMPTY]
  */
 import { type KeyboardEvent, useMemo, useState } from "react";
 
 import {
   CheckCircle,
   FileText,
+  Lightbulb,
   MessageSquare,
+  MousePointer2,
   NotepadText,
   Pencil,
   Search,
@@ -19,13 +21,6 @@ import {
 
 import type { QuickNote } from "@afx/shared";
 import { Button } from "@afx/ui/components/button";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
 import { Input } from "@afx/ui/components/input";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@afx/ui/components/resizable";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
@@ -120,7 +115,7 @@ export default function Notes() {
               onKeyDown={onKeyDown}
               placeholder="Quick note… (Enter to save, Shift+Enter for newline)
 Markdown supported — # heading, **bold**, - list, `code`."
-              className={`afx-field-surface afx-notes-capture-input min-h-[9rem] flex-1 resize-none text-sm transition-all ${
+              className={`afx-field-surface afx-notes-capture-input min-h-[4.5rem] flex-1 resize-none text-sm transition-all ${
                 textareaFocused ? "border-l-4 border-l-afx-brand pl-3" : ""
               }`}
             />
@@ -134,10 +129,12 @@ Markdown supported — # heading, **bold**, - list, `code`."
               Save
             </Button>
           </div>
-          <div className="shrink-0 border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-            <span className="font-mono">{notes.length}</span> notes ·{" "}
-            <span className="font-mono">{uniqueDays}</span> day{uniqueDays === 1 ? "" : "s"}
-            <span className="block">Enter to save · Shift+Enter for newline</span>
+          <div className="flex shrink-0 items-center gap-2 border-t border-border px-3 py-1 text-[10px] text-muted-foreground">
+            <span>
+              <span className="font-mono">{notes.length}</span> notes ·{" "}
+              <span className="font-mono">{uniqueDays}</span> day{uniqueDays === 1 ? "" : "s"}
+            </span>
+            <span className="ml-auto truncate">Enter saves · Shift+Enter newline</span>
           </div>
         </aside>
       </ResizablePanel>
@@ -194,18 +191,7 @@ Markdown supported — # heading, **bold**, - list, `code`."
               <p className="text-sm text-muted-foreground">Loading notes…</p>
             </div>
           ) : notes.length === 0 ? (
-            <Empty className="flex-1">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <NotepadText />
-                </EmptyMedia>
-                <EmptyTitle>No notes yet</EmptyTitle>
-                <EmptyDescription>
-                  Type a thought on the left and press Enter — it&apos;s saved to{" "}
-                  <code className="font-mono">.afx/notes.md</code>.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <NotesEmptyGuide />
           ) : grouped.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-muted-foreground">No notes match “{search}”.</p>
@@ -227,6 +213,92 @@ Markdown supported — # heading, **bold**, - list, `code`."
         </section>
       </ResizablePanel>
     </ResizablePanelGroup>
+  );
+}
+
+/**
+ * Empty Notes onboarding that explains fleeting-note sources and the timeline
+ * users get after notes arrive.
+ *
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-8]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-EMPTY]
+ */
+function NotesEmptyGuide() {
+  const sources = [
+    {
+      icon: NotepadText,
+      label: "Workbench capture",
+      body: "Type on the left and press Enter for quick repo-backed notes.",
+    },
+    {
+      icon: MessageSquare,
+      label: "From chat",
+      body: "Send a useful thought, snippet, or decision into the same notes file.",
+    },
+    {
+      icon: MousePointer2,
+      label: "IDE right click",
+      body: "Capture selected code or markdown without breaking your editor flow.",
+    },
+  ];
+  const preview = [
+    "Check release wording after screenshots pass.",
+    "PRD reader needs a quality pulse, not just pretty markdown.",
+    "Follow up: board columns need explicit move controls.",
+  ];
+
+  return (
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-background">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-h-full flex-col gap-2 p-3">
+          <header className="flex min-w-0 items-center gap-2.5 border-b border-border pb-2">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-afx-brand/25 bg-afx-brand/10 text-afx-brand">
+              <Lightbulb size={17} aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-afx-brand-soft">
+                Fleeting notes
+              </p>
+              <h2 className="truncate text-base font-semibold leading-tight">
+                Catch the thought before it becomes a task
+              </h2>
+            </div>
+          </header>
+
+          <section className="grid grid-cols-[repeat(auto-fit,minmax(110px,1fr))] gap-2">
+            {sources.map(({ icon: Icon, label, body }) => (
+              <div key={label} className="rounded-md border border-border bg-muted/20 px-2.5 py-2">
+                <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+                  <Icon size={11} className="text-afx-brand-soft" aria-hidden />
+                  {label}
+                </div>
+                <p className="mt-1 line-clamp-1 text-[11px] leading-4 text-foreground/85">{body}</p>
+              </div>
+            ))}
+          </section>
+
+          <section className="min-w-0 rounded-md border border-border bg-muted/15 p-2.5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium">Timeline after capture</span>
+              <span className="font-mono text-[10px] text-muted-foreground">mock</span>
+            </div>
+            <div className="grid gap-2 md:grid-cols-3">
+              {preview.map((text, index) => (
+                <article
+                  key={text}
+                  className="rounded-md border border-border/90 bg-background px-3 py-2 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_22px_rgba(0,0,0,0.04)]"
+                >
+                  <header className="font-mono text-[10px] uppercase tracking-[0.12em] text-afx-brand-soft">
+                    {index === 0 ? "just now" : index === 1 ? "today" : "yesterday"}
+                  </header>
+                  <p className="mt-1 line-clamp-2 text-xs leading-4 text-foreground/90">{text}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        </div>
+      </ScrollArea>
+    </div>
   );
 }
 
@@ -329,7 +401,7 @@ function NoteItem({
         <span className="size-1.5 rounded-full bg-afx-brand" />
       </span>
       <article
-        className={`afx-surface-card relative rounded-md border px-4 py-3 shadow-sm transition-all ${
+        className={`afx-surface-card relative rounded-md border bg-background px-4 py-3 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.05)] transition-all before:absolute before:bottom-3 before:left-0 before:top-3 before:w-0.5 before:rounded-r before:bg-afx-brand/35 ${
           editing
             ? "border-afx-brand/60 ring-1 ring-afx-brand/20"
             : "border-border hover:-translate-y-px hover:border-afx-brand/40"

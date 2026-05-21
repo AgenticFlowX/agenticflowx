@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T10:59:38.000Z"
 tags: ["app", "workbench", "analytics", "metrics", "heatmap"]
 spec: spec.md
 ---
@@ -32,6 +32,7 @@ WorkbenchProvider
 Analytics
   ├─ useLocalStorage("afx-analytics-range")
   ├─ buildSnapshot(...)
+  ├─ AnalyticsEmptyGuide when no signals exist
   ├─ HeadlineCard
   │   └─ Sparkline
   ├─ StageBar + StageDot
@@ -97,6 +98,13 @@ shows in-flight and ghost-reference badges.
 week-column heatmap. Pad cells are transparent, zero-activity days are muted,
 and active days scale through four brand-color intensities.
 
+### [DES-ANALYTICS-EMPTY] Analytics Empty Guide
+
+`AnalyticsEmptyGuide` replaces the generic empty state when no pipeline/task data
+exists. It uses a compact bottom-panel layout: one header/action row, short
+signal chips, and a mock dashboard strip. It can send
+`afxCreateSampleDocs { kind: "full-spec" }` so new workspaces can see live data.
+
 ---
 
 ## [DES-DEC] Key Decisions
@@ -118,9 +126,9 @@ and active days scale through four brand-color intensities.
 
 ## [DES-API] API Contracts
 
-Analytics consumes Workbench state only and sends no bridge messages directly.
-Its input contract is `pipeline`, `featureTasks`, `journal`, `ghostTasks`, and
-the persisted `Range`.
+Analytics consumes Workbench state and sends `afxCreateSampleDocs` only from the
+empty guide. Its input contract is `pipeline`, `featureTasks`, `journal`,
+`ghostTasks`, and the persisted `Range`.
 
 ---
 
@@ -137,7 +145,7 @@ the persisted `Range`.
 ## [DES-DEPS] Dependencies
 
 - `@afx/shared` for input types.
-- `@afx/ui` for badges, empty state, progress, scroll area, separator.
+- `@afx/ui` for badges, buttons, progress, scroll area, separator.
 - `225-app-workbench-pipeline` for compatible feature-stage language.
 
 ---
@@ -151,7 +159,7 @@ send source excerpts or read files directly.
 
 ## [DES-ERR] Error Handling
 
-- No pipeline and no feature tasks renders empty state.
+- No pipeline and no feature tasks renders the empty guide.
 - Zero totals render zero percentages.
 - Empty heatmap returns no heatmap body.
 - Invalid date-like values are ignored by snapshot filters.
@@ -162,7 +170,8 @@ send source excerpts or read files directly.
 
 - Existing unit tests cover streaks, empty KPIs, session aggregation, top
   feature, range filtering, heatmap length/counts, up-next, and stage breakdown.
-- Future React tests should cover range button state and heatmap rendering.
+- React tests cover the empty guide; future React tests should cover range button
+  state and heatmap rendering.
 
 ---
 
@@ -176,11 +185,12 @@ send source excerpts or read files directly.
 
 ## [DES-ANALYTICS-LOC] Code Locator Map
 
-| Map ID                 | Code anchor                                           | Messages/data                         | Tests                                      |
-| ---------------------- | ----------------------------------------------------- | ------------------------------------- | ------------------------------------------ |
-| `[Analytics.View]`     | `apps/workbench/src/views/analytics.tsx` `Analytics`  | `pipeline[]`, `journals[]`, `notes[]` | `apps/workbench/src/lib/analytics.test.ts` |
-| `[Analytics.Snapshot]` | `apps/workbench/src/lib/analytics.ts` `buildSnapshot` | `AnalyticsSnapshot` shape             | analytics.test.ts                          |
-| `[Analytics.Heatmap]`  | `Heatmap` block in analytics.tsx                      | `HeatmapCell[]`                       | analytics.test.ts                          |
+| Map ID                 | Code anchor                                                    | Messages/data                         | Tests                                      |
+| ---------------------- | -------------------------------------------------------------- | ------------------------------------- | ------------------------------------------ |
+| `[Analytics.View]`     | `apps/workbench/src/views/analytics.tsx` `Analytics`           | `pipeline[]`, `journals[]`, `notes[]` | `apps/workbench/src/lib/analytics.test.ts` |
+| `[Analytics.Empty]`    | `apps/workbench/src/views/analytics.tsx` `AnalyticsEmptyGuide` | `afxCreateSampleDocs`                 | analytics view test                        |
+| `[Analytics.Snapshot]` | `apps/workbench/src/lib/analytics.ts` `buildSnapshot`          | `AnalyticsSnapshot` shape             | analytics.test.ts                          |
+| `[Analytics.Heatmap]`  | `Heatmap` block in analytics.tsx                               | `HeatmapCell[]`                       | analytics.test.ts                          |
 
 ## [DES-ANALYTICS-TRACE] Functional Trace Matrix
 
@@ -189,16 +199,17 @@ send source excerpts or read files directly.
 | FR-1        | `[DES-ANALYTICS-MOCKUP]`, `[DES-ANALYTICS-RANGE]`, `[DES-ANALYTICS-HEADLINE]`      | `Analytics`, range header, headline cards | analytics.test.ts |
 | FR-7        | `[DES-ANALYTICS-SNAPSHOT]`, `[DES-ANALYTICS-SPARKLINE]`, `[DES-ANALYTICS-HEATMAP]` | `buildSnapshot`, sparkline, heatmap       | analytics.test.ts |
 | FR-8        | `[DES-ANALYTICS-STAGE]`, `[DES-ANALYTICS-TOP-FEATURE]`                             | stage breakdown + top-feature attention   | analytics.test.ts |
+| FR-9        | `[DES-ANALYTICS-EMPTY]`                                                            | `AnalyticsEmptyGuide`                     | view + e2e        |
 
 ---
 
 ## [DES-REFS] File Reference Map
 
-| File                                       | Required @see                                                                                                |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `apps/workbench/src/views/analytics.tsx`   | `spec.md [FR-1] [FR-8]` + `design.md [DES-ANALYTICS-RANGE] [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-HEATMAP]` |
-| `apps/workbench/src/lib/analytics.ts`      | `spec.md [FR-7]` + `design.md [DES-ANALYTICS-SNAPSHOT]`                                                      |
-| `apps/workbench/src/lib/analytics.test.ts` | `spec.md [FR-7]` + `design.md [DES-TEST] [DES-ANALYTICS-SNAPSHOT]`                                           |
+| File                                       | Required @see                                                                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/workbench/src/views/analytics.tsx`   | `spec.md [FR-1] [FR-8] [FR-9]` + `design.md [DES-ANALYTICS-RANGE] [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-HEATMAP] [DES-ANALYTICS-EMPTY]` |
+| `apps/workbench/src/lib/analytics.ts`      | `spec.md [FR-7]` + `design.md [DES-ANALYTICS-SNAPSHOT]`                                                                                   |
+| `apps/workbench/src/lib/analytics.test.ts` | `spec.md [FR-7]` + `design.md [DES-TEST] [DES-ANALYTICS-SNAPSHOT]`                                                                        |
 
 ### [DES-ANALYTICS-SNAPSHOT] Analytics Snapshot Helpers
 

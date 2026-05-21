@@ -7,6 +7,9 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { createMockTransport } from "@afx/transport";
+
+import { initTransport } from "../../lib/bridge";
 import { EMPTY_DOC_CTX } from "../../lib/doc-actions";
 import {
   AgentSetupState,
@@ -24,7 +27,7 @@ describe("conversation empty states", () => {
     expect(screen.getByText("Loading workspace…")).toBeInTheDocument();
   });
 
-  it("renders Code welcome actions and inserts starter prompts", () => {
+  it("renders Code welcome action tiles and opens Spec planning", () => {
     const onInsert = vi.fn();
     const onSwitchToSpec = vi.fn();
 
@@ -37,9 +40,20 @@ describe("conversation empty states", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Plan in Spec mode" }));
+    fireEvent.click(screen.getByRole("button", { name: "Spec: Plan" }));
     expect(onSwitchToSpec).toHaveBeenCalled();
     expect(onInsert).toHaveBeenCalledWith("/afx-spec new ");
+  });
+
+  it("opens Workbench from the Code welcome workflow tile", () => {
+    const transport = createMockTransport();
+    initTransport(transport);
+
+    render(<EmptyState workspaceMode="code" onInsert={vi.fn()} rpcEnabled={false} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Workflow: Open" }));
+
+    expect(transport.getLog().some((entry) => entry.type === "chat/openWorkbench")).toBe(true);
   });
 
   it("renders Explore copy without Code-only planning CTA", () => {
@@ -59,5 +73,15 @@ describe("conversation empty states", () => {
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
     expect(onAutoSend).toHaveBeenCalledWith("/afx-next");
+  });
+
+  it("opens Workbench from Spec onboarding", () => {
+    const transport = createMockTransport();
+    initTransport(transport);
+
+    render(<SpecModeWelcome docContext={EMPTY_DOC_CTX} onInsert={vi.fn()} onAutoSend={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: /Open Workbench/i }));
+
+    expect(transport.getLog().some((entry) => entry.type === "chat/openWorkbench")).toBe(true);
   });
 });

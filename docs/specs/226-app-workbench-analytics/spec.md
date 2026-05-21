@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T09:57:03.000Z"
 tags: ["app", "workbench", "analytics", "metrics", "heatmap"]
 depends_on:
   ["100-package-shared", "130-package-ui", "220-app-workbench", "225-app-workbench-pipeline"]
@@ -62,6 +62,7 @@ Developers tracking project velocity, task completion, feature stage, and trace-
 | FR-6 | Render Monday-first activity heatmap with intensity buckets            | Must Have |
 | FR-7 | Build snapshot metrics from pipeline, feature tasks, journal, ghosts   | Must Have |
 | FR-8 | Render empty state when no analytics input data exists                 | Must Have |
+| FR-9 | Teach empty/new projects with preview metrics and starter actions      | Must Have |
 
 ### Non-Functional Requirements
 
@@ -88,6 +89,12 @@ Developers tracking project velocity, task completion, feature stage, and trace-
 - [ ] Streak helpers handle empty, isolated, and consecutive days.
 - [ ] `buildSnapshot` aggregates sessions, active days, top feature, heatmap, up-next, recent journal, ghost count, and stage breakdown.
 
+### Empty / New Project
+
+- [ ] Empty Analytics explains which markdown signals power the dashboard.
+- [ ] Empty Analytics shows a mock dashboard preview so users know what will appear.
+- [ ] Empty Analytics can offer a sample SDD creation action through the Workbench bridge.
+
 ---
 
 ## Non-Goals (Out of Scope)
@@ -111,7 +118,7 @@ Developers tracking project velocity, task completion, feature stage, and trace-
 - `220-app-workbench` for shell and state feed.
 - `225-app-workbench-pipeline` for compatible pipeline stage semantics.
 - `100-package-shared` for pipeline, feature-task, journal, and ghost-task types.
-- `130-package-ui` for badges, empty state, progress, scroll area, separator.
+- `130-package-ui` for badges, buttons, progress, scroll area, separator.
 
 ---
 
@@ -119,14 +126,14 @@ Developers tracking project velocity, task completion, feature stage, and trace-
 
 ### Agent Entry Map
 
-| Field           | Value                                                                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Owned surface   | Workbench Analytics tab and analytics snapshot helpers                                                                                                             |
-| Owned files     | `apps/workbench/src/views/analytics.tsx`, `apps/workbench/src/lib/analytics.ts`, `apps/workbench/src/lib/analytics.test.ts`                                        |
-| Local anchors   | `Analytics`, `HeadlineCard`, `Sparkline`, `StageBar`, `StageDot`, `Heatmap`, `cellClass`, `bucketIntoWeeks`, `pipelineRowToStage`, `buildSnapshot`, streak helpers |
-| Bridge messages | None directly; consumes Workbench state                                                                                                                            |
-| Settings keys   | `afx-analytics-range` local storage key                                                                                                                            |
-| Tests           | `apps/workbench/src/lib/analytics.test.ts`                                                                                                                         |
-| Dependencies    | `220-app-workbench`, `225-app-workbench-pipeline`, `100-package-shared`, `130-package-ui`                                                                          |
-| Out of scope    | Impact Lens reverse index, Documents reader, Pipeline cards                                                                                                        |
-| Example prompt  | "Change heatmap intensity buckets; start at 226-app-workbench-analytics."                                                                                          |
+| Field           | Value                                                                                                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Workbench Analytics tab and analytics snapshot helpers                                                                                                                                    |
+| Owned files     | `apps/workbench/src/views/analytics.tsx`, `apps/workbench/src/lib/analytics.ts`, `apps/workbench/src/lib/analytics.test.ts`                                                               |
+| Local anchors   | `Analytics`, `AnalyticsEmptyGuide`, `HeadlineCard`, `Sparkline`, `StageBar`, `StageDot`, `Heatmap`, `cellClass`, `bucketIntoWeeks`, `pipelineRowToStage`, `buildSnapshot`, streak helpers |
+| Bridge messages | `afxCreateSampleDocs` from empty onboarding; otherwise consumes Workbench state                                                                                                           |
+| Settings keys   | `afx-analytics-range` local storage key                                                                                                                                                   |
+| Tests           | `apps/workbench/src/lib/analytics.test.ts`                                                                                                                                                |
+| Dependencies    | `220-app-workbench`, `225-app-workbench-pipeline`, `100-package-shared`, `130-package-ui`                                                                                                 |
+| Out of scope    | Impact Lens reverse index, Documents reader, Pipeline cards                                                                                                                               |
+| Example prompt  | "Change heatmap intensity buckets; start at 226-app-workbench-analytics."                                                                                                                 |

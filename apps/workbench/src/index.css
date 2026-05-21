@@ -48,6 +48,24 @@ input:disabled {
   background: color-mix(in srgb, var(--card) 76%, var(--muted) 24%);
 }
 
+.afx-workbench-column-card {
+  contain: layout paint;
+}
+
+.afx-workbench-pane-scroll {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.afx-workbench-pane-scroll [data-radix-scroll-area-viewport] > div {
+  display: block !important;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0 !important;
+  max-width: 100%;
+  padding-right: 0.625rem;
+}
+
 .afx-field-surface {
   background: color-mix(in srgb, var(--card) 78%, var(--muted) 22%);
   border-color: color-mix(in srgb, var(--foreground) 16%, var(--border));

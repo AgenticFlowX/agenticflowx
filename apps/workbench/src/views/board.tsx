@@ -2,8 +2,8 @@
  * Board view — kanban board with markdown serialization.
  * Editable in workbench; saves markdown via host.
  *
- * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7]
- * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-CARD] [DES-BOARD-COLUMN] [DES-BOARD-SAVE]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7] [FR-8] [FR-9] [FR-10]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-CARD] [DES-BOARD-COLUMN] [DES-BOARD-SAVE] [DES-BOARD-STABILITY] [DES-BOARD-EMPTY]
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -32,6 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@afx/ui/components/alert-dialog";
+import { Badge } from "@afx/ui/components/badge";
 import { Button, buttonVariants } from "@afx/ui/components/button";
 import {
   Dialog,
@@ -41,13 +42,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@afx/ui/components/dialog";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
 import { Input } from "@afx/ui/components/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@afx/ui/components/popover";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
@@ -136,6 +130,11 @@ function replaceBoard(boards: KanbanBoard[], next: KanbanBoard): KanbanBoard[] {
   const updated = [...boards];
   updated[idx] = next;
   return updated;
+}
+
+function stableColumnKey(board: KanbanBoard, colIdx: number): string {
+  const column = board.columns[colIdx];
+  return `${board.filePath}:column:${colIdx}:${column?.title ?? ""}`;
 }
 
 /**
@@ -228,9 +227,11 @@ function KanbanColumn({
   canMoveLeft,
   canMoveRight,
   colIdx,
+  cardKeyPrefix,
 }: {
   title: string;
   colIdx: number;
+  cardKeyPrefix: string;
   cards: { text: string }[];
   newCardText: string;
   onNewCardText: (text: string) => void;
@@ -302,7 +303,7 @@ function KanbanColumn({
             disabled={!canMoveLeft}
             aria-label={`Move ${title} column left`}
             title="Move column left"
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-70 transition-opacity hover:opacity-100 group-hover:opacity-100"
           >
             <ChevronLeft size={11} />
           </Button>
@@ -316,7 +317,7 @@ function KanbanColumn({
             disabled={!canMoveRight}
             aria-label={`Move ${title} column right`}
             title="Move column right"
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-70 transition-opacity hover:opacity-100 group-hover:opacity-100"
           >
             <ChevronRight size={11} />
           </Button>
@@ -328,7 +329,7 @@ function KanbanColumn({
               onEditColumn();
             }}
             aria-label="Edit column"
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-70 transition-opacity hover:opacity-100 group-hover:opacity-100"
           >
             <Pencil size={11} />
           </Button>
@@ -342,7 +343,7 @@ function KanbanColumn({
             disabled={cards.length > 0}
             aria-label="Delete column"
             title={cards.length > 0 ? "Move or delete cards before deleting the column" : undefined}
-            className="opacity-0 transition-opacity group-hover:opacity-100"
+            className="opacity-70 transition-opacity hover:opacity-100 group-hover:opacity-100"
           >
             <Trash2 size={11} />
           </Button>
@@ -353,7 +354,7 @@ function KanbanColumn({
           {cards.length > 0 ? (
             cards.map((card, idx) => (
               <KanbanCard
-                key={card.text}
+                key={`${cardKeyPrefix}:card:${idx}:${card.text}`}
                 text={card.text}
                 isDragging={draggingCard?.colIdx === colIdx && draggingCard?.cardIdx === idx}
                 onEdit={() => onEditCard(idx)}
@@ -394,8 +395,8 @@ function KanbanColumn({
 /**
  * Workbench Board tab: board lifecycle, optimistic edits, dialogs, and saves.
  *
- * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7]
- * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-SAVE]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-1] [FR-7] [FR-8] [FR-9] [FR-10]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-TOOLBAR] [DES-BOARD-SAVE] [DES-BOARD-STABILITY] [DES-BOARD-EMPTY]
  */
 export default function Board() {
   const { kanban, send } = useWorkbench();
@@ -449,8 +450,8 @@ export default function Board() {
   const totalColumns = selected?.columns.length ?? 0;
   const totalCards = selected?.columns.reduce((sum, col) => sum + col.cards.length, 0) ?? 0;
 
-  function createBoard() {
-    const name = newBoardName.trim();
+  function createBoardNamed(nameInput: string) {
+    const name = nameInput.trim();
     if (!name) return;
     const slug = name
       .toLowerCase()
@@ -460,6 +461,10 @@ export default function Board() {
     send({ type: "afxCreateKanbanBoard", name });
     setNewBoardName("");
     setBoardDialogOpen(false);
+  }
+
+  function createBoard() {
+    createBoardNamed(newBoardName);
   }
 
   function openRenameDialog() {
@@ -613,33 +618,12 @@ export default function Board() {
 
   if (!kanban || boards.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <LayoutDashboard size={32} />
-          </EmptyMedia>
-          <EmptyTitle>No boards found</EmptyTitle>
-          <EmptyDescription>
-            Boards live as markdown files in <code>.afx/kanban/</code>. Create one to get started.
-          </EmptyDescription>
-          <div className="mt-3 flex w-full max-w-xs items-center gap-2">
-            <Input
-              value={newBoardName}
-              onChange={(event) => setNewBoardName(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") createBoard();
-              }}
-              placeholder="Board name"
-              className="afx-field-surface h-8 text-xs"
-              aria-label="Board name"
-            />
-            <Button size="sm" onClick={createBoard} disabled={!newBoardName.trim()}>
-              <Plus size={14} className="mr-1" />
-              Create
-            </Button>
-          </div>
-        </EmptyHeader>
-      </Empty>
+      <BoardEmptyGuide
+        boardName={newBoardName}
+        onBoardNameChange={setNewBoardName}
+        onCreateBoard={createBoard}
+        onCreateBoardNamed={createBoardNamed}
+      />
     );
   }
 
@@ -805,10 +789,11 @@ export default function Board() {
       >
         <div className="flex h-full w-max gap-3 p-3">
           {selected?.columns.map((col, colIdx) => {
-            const draftKey = col.title;
+            if (!selected) return null;
+            const draftKey = stableColumnKey(selected, colIdx);
             return (
               <KanbanColumn
-                key={col.title}
+                key={stableColumnKey(selected, colIdx)}
                 title={col.title}
                 cards={col.cards}
                 newCardText={newCards[draftKey] ?? ""}
@@ -828,6 +813,7 @@ export default function Board() {
                 }
                 onDeleteCard={(cardIdx) => deleteCard(colIdx, cardIdx)}
                 colIdx={colIdx}
+                cardKeyPrefix={draftKey}
                 draggingCard={draggingCard}
                 onCardDragStart={(cardIdx) => setDraggingCard({ colIdx, cardIdx })}
                 onCardDragEnd={() => {
@@ -1033,6 +1019,134 @@ export default function Board() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Empty Board onboarding that explains the markdown-backed board model and
+ * lets users create a useful first board without leaving the tab.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-10]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-EMPTY]
+ */
+function BoardEmptyGuide({
+  boardName,
+  onBoardNameChange,
+  onCreateBoard,
+  onCreateBoardNamed,
+}: {
+  boardName: string;
+  onBoardNameChange: (name: string) => void;
+  onCreateBoard: () => void;
+  onCreateBoardNamed: (name: string) => void;
+}) {
+  const previewColumns = [
+    { title: "Backlog", cards: ["Define acceptance", "Pick smallest v1"] },
+    { title: "In Progress", cards: ["Wire Workbench action"] },
+    { title: "Review", cards: ["Run screenshots"] },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-h-full flex-col gap-2 p-3">
+          <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-afx-brand/25 bg-afx-brand/10 text-afx-brand">
+                <LayoutDashboard size={17} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-afx-brand-soft">
+                  Board
+                </p>
+                <h2 className="truncate text-base font-semibold leading-tight">
+                  Make as many markdown boards as the work needs
+                </h2>
+              </div>
+            </div>
+            <Badge variant="outline" className="font-mono text-[10px]">
+              .afx/kanban/*.md
+            </Badge>
+          </header>
+
+          <section className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-2">
+            {["Roadmap", "Sprint", "Bugs", "Experiments"].map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => onCreateBoardNamed(name)}
+                className="rounded-md border border-border bg-muted/20 px-3 py-2 text-left transition-colors hover:border-afx-brand/40 hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+              >
+                <span className="block text-sm font-medium text-foreground">{name}</span>
+                <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
+                  {name.toLowerCase()}.md
+                </span>
+              </button>
+            ))}
+          </section>
+
+          <section className="grid gap-2 sm:grid-cols-[minmax(0,0.75fr)_minmax(280px,1.25fr)]">
+            <div className="rounded-md border border-border bg-muted/15 p-2.5">
+              <label
+                htmlFor="empty-board-name"
+                className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground"
+              >
+                Custom board
+              </label>
+              <div className="mt-2 flex max-w-sm items-center gap-2">
+                <Input
+                  id="empty-board-name"
+                  value={boardName}
+                  onChange={(event) => onBoardNameChange(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") onCreateBoard();
+                  }}
+                  placeholder="Board name"
+                  className="afx-field-surface h-8 text-xs"
+                  aria-label="Board name"
+                />
+                <Button size="sm" onClick={onCreateBoard} disabled={!boardName.trim()}>
+                  <Plus size={14} className="mr-1" />
+                  Create
+                </Button>
+              </div>
+            </div>
+
+            <div className="min-w-0 rounded-md border border-border bg-muted/15 p-2.5">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-medium">Preview board style</span>
+                <span className="font-mono text-[10px] text-muted-foreground">mock</span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {previewColumns.map((column) => (
+                  <div
+                    key={column.title}
+                    className="flex min-w-0 flex-col rounded-md border border-border bg-background/70"
+                  >
+                    <header className="border-b border-border px-2 py-1.5">
+                      <h3 className="truncate text-xs font-semibold">{column.title}</h3>
+                      <p className="font-mono text-[10px] text-muted-foreground">
+                        {column.cards.length} cards
+                      </p>
+                    </header>
+                    <div className="flex flex-1 flex-col gap-1.5 p-2">
+                      {column.cards.map((card) => (
+                        <div
+                          key={card}
+                          className="truncate rounded-md border border-border bg-muted/25 px-2 py-1 text-[11px] leading-4 text-foreground/90"
+                        >
+                          {card}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      </ScrollArea>
     </div>
   );
 }

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T10:59:38.000Z"
 tags: ["app", "workbench", "board", "kanban", "markdown"]
 spec: spec.md
 ---
@@ -19,6 +19,8 @@ spec: spec.md
 The Board tab is a Workbench child surface for markdown-backed Kanban boards.
 It owns board selection, lifecycle dialogs, column/card rendering, optimistic
 local edits, and markdown serialization back through the host bridge.
+Rendering uses stable derived keys so duplicate column titles or card text do
+not confuse React state during reorder.
 
 ---
 
@@ -73,15 +75,31 @@ and create-board dialog.
 ### [DES-BOARD-CARD] Kanban Card
 
 `KanbanCard` splits text into title/body, renders a compact card, exposes
-edit/delete controls on hover/focus, supports double-click edit, and delegates
-drag/drop events to `Board`.
+edit/delete controls on hover/focus, uses a stable derived key, supports
+double-click edit, and delegates drag/drop events to `Board`.
 
 ### [DES-BOARD-COLUMN] Kanban Column
 
-`KanbanColumn` renders the draggable header, card count, move-left/right
-buttons, delete gating, empty drop target, card list, and add-card input.
+`KanbanColumn` renders the draggable header, card count, always-discoverable
+move-left/right buttons, delete gating, empty drop target, card list, and
+add-card input.
 Drop-target state is visualized by `isDropTarget`, `isColumnDragSource`, and
 `isColumnDropTarget`.
+
+### [DES-BOARD-EMPTY] Board Empty Guide
+
+`BoardEmptyGuide` replaces the generic empty state when no `.afx/kanban/*.md`
+boards exist. It keeps board creation visible in the bottom-panel viewport:
+quick board templates, a compact custom-board form, and a slim mock board
+preview show the destination before the first board file exists.
+
+### [DES-BOARD-STABILITY] Stable Reorder Model
+
+The board markdown schema does not require permanent IDs, so the UI derives
+render keys from board path, column/card index, and text. Draft card inputs are
+keyed by the derived column key rather than the mutable column title. This keeps
+optimistic movement stable when users have duplicate column names, duplicate
+card text, or rename a column while typing a new card.
 
 ---
 
@@ -166,7 +184,7 @@ or process APIs.
 
 ## [DES-ERR] Error Handling
 
-- Empty board list renders creation-focused empty state.
+- Empty board list renders creation-focused guide with multi-board copy and mock preview.
 - Delete requires confirmation.
 - Empty edit text is rejected locally.
 - Saving indicator is optimistic and transient; host errors are handled by the
@@ -176,7 +194,8 @@ or process APIs.
 
 ## [DES-TEST] Testing Strategy
 
-- Unit: board column movement, optimistic card add, open actions.
+- Unit: board column movement, duplicate title stability, optimistic card add,
+  open actions, and board empty guide.
 - Future: serializeBoard round-trip tests for frontmatter, heading, one-line card,
   and multiline card cases.
 - Trace: `@see` links on `Board`, `KanbanColumn`, `KanbanCard`, and helpers.
@@ -193,11 +212,13 @@ or process APIs.
 
 ## [DES-BOARD-LOC] Code Locator Map
 
-| Map ID            | Code anchor                                             | Messages/data                                                          | Tests                                     |
-| ----------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
-| `[Board.View]`    | `apps/workbench/src/views/board.tsx` `Board`            | `KanbanData`, `afxToggleTask`                                          | `apps/workbench/src/views/board.test.tsx` |
-| `[Board.Card]`    | `apps/workbench/src/views/board.tsx` `KanbanCard` row   | `KanbanCard` shape                                                     | (covered by Board view test)              |
-| `[Board.Toolbar]` | `apps/workbench/src/views/board.tsx` selector + dialogs | `afxCreateKanbanBoard`, `afxRenameKanbanBoard`, `afxDeleteKanbanBoard` | manual                                    |
+| Map ID              | Code anchor                                             | Messages/data                                                          | Tests                                     |
+| ------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------- |
+| `[Board.View]`      | `apps/workbench/src/views/board.tsx` `Board`            | `KanbanData`, `afxToggleTask`                                          | `apps/workbench/src/views/board.test.tsx` |
+| `[Board.Empty]`     | `apps/workbench/src/views/board.tsx` `BoardEmptyGuide`  | `afxCreateKanbanBoard`                                                 | board.test.tsx                            |
+| `[Board.Card]`      | `apps/workbench/src/views/board.tsx` `KanbanCard` row   | `KanbanCard` shape                                                     | (covered by Board view test)              |
+| `[Board.Toolbar]`   | `apps/workbench/src/views/board.tsx` selector + dialogs | `afxCreateKanbanBoard`, `afxRenameKanbanBoard`, `afxDeleteKanbanBoard` | manual                                    |
+| `[Board.Stability]` | `stableColumnKey`, `stableCardKey`, draft key usage     | optimistic local board state                                           | board.test.tsx                            |
 
 ## [DES-BOARD-TRACE] Functional Trace Matrix
 
@@ -205,15 +226,18 @@ or process APIs.
 | ----------- | -------------------------------------------------------------- | ----------------------------------------------- | ----------------------- |
 | FR-1        | `[DES-BOARD-MOCKUP]`, `[DES-BOARD-CARD]`, `[DES-BOARD-COLUMN]` | `Board`, column/card render                     | board.test.tsx          |
 | FR-7        | `[DES-BOARD-SAVE]`, `[DES-BOARD-SERIALIZATION]`                | `afxToggleTask` dispatch + serialization helper | board.test.tsx + manual |
+| FR-8        | `[DES-BOARD-STABILITY]`                                        | stable keys + draft state                       | board.test.tsx          |
+| FR-9        | `[DES-BOARD-COLUMN]`, `[DES-BOARD-STABILITY]`                  | visible move controls                           | board.test.tsx + e2e    |
+| FR-10       | `[DES-BOARD-EMPTY]`                                            | `BoardEmptyGuide`                               | board.test.tsx + e2e    |
 
 ---
 
 ## [DES-REFS] File Reference Map
 
-| File                                      | Required @see                                                                              |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `apps/workbench/src/views/board.tsx`      | `spec.md [FR-1] [FR-5]` + `design.md [DES-BOARD-CARD] [DES-BOARD-COLUMN] [DES-BOARD-SAVE]` |
-| `apps/workbench/src/views/board.test.tsx` | `spec.md [FR-3] [FR-4] [FR-7]` + `design.md [DES-TEST]`                                    |
+| File                                      | Required @see                                                                                                        |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `apps/workbench/src/views/board.tsx`      | `spec.md [FR-1] [FR-5] [FR-10]` + `design.md [DES-BOARD-CARD] [DES-BOARD-COLUMN] [DES-BOARD-SAVE] [DES-BOARD-EMPTY]` |
+| `apps/workbench/src/views/board.test.tsx` | `spec.md [FR-3] [FR-4] [FR-7] [FR-10]` + `design.md [DES-TEST] [DES-BOARD-EMPTY]`                                    |
 
 ### [DES-BOARD-SERIALIZATION] Markdown Serialization
 

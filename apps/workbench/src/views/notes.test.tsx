@@ -1,6 +1,6 @@
 /**
- * @see docs/specs/224-app-workbench-notes/spec.md [FR-3] [FR-7]
- * @see docs/specs/224-app-workbench-notes/design.md [DES-TEST] [DES-NOTES-FILTERS] [DES-NOTES-TIME]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-3] [FR-7] [FR-8]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-TEST] [DES-NOTES-FILTERS] [DES-NOTES-TIME] [DES-NOTES-EMPTY]
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -68,6 +68,20 @@ describe("Notes", () => {
         }),
       ),
     ).toBeInTheDocument();
+  });
+
+  it("explains fleeting-note sources when the timeline is empty", () => {
+    render(
+      <WorkbenchProvider initialState={{ isLoading: false, notes: [] }}>
+        <Notes />
+      </WorkbenchProvider>,
+    );
+
+    expect(screen.getByText("Catch the thought before it becomes a task")).toBeInTheDocument();
+    expect(screen.getByText("Workbench capture")).toBeInTheDocument();
+    expect(screen.getByText("From chat")).toBeInTheDocument();
+    expect(screen.getByText("IDE right click")).toBeInTheDocument();
+    expect(screen.getAllByText(".afx/notes.md").length).toBeGreaterThan(0);
   });
 
   it("filters the timeline by recent notes", async () => {

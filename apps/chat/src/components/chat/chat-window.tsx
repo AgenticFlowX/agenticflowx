@@ -57,6 +57,15 @@ import { ConversationTimeline } from "./conversation-timeline";
 
 const COMPOSER_FOOTER_HINT_ID = "afx-chat-composer-hint";
 
+function shouldReplaceDraftWithCommand(command: string): boolean {
+  return /^\/afx-[\w-]+(?:\s|$)/.test(command.trim());
+}
+
+function formatDraftCommandForComposer(value: string): string {
+  const trimmed = value.trim();
+  return shouldReplaceDraftWithCommand(trimmed) ? `${trimmed} ` : value;
+}
+
 /**
  * Props for the Chat root component.
  *
@@ -118,7 +127,15 @@ export function ChatWindow({
   // composer-local focus, draft, popover, and scroll behavior.
   const getTextarea = useCallback(() => composerRef.current?.querySelector("textarea") ?? null, []);
   const focusComposer = useCallback(() => {
-    window.requestAnimationFrame(() => getTextarea()?.focus());
+    const focusAtEnd = () => {
+      const input = getTextarea();
+      if (!input) return;
+      input.focus();
+      const end = input.value.length;
+      input.setSelectionRange(end, end);
+    };
+    window.requestAnimationFrame(focusAtEnd);
+    window.setTimeout(focusAtEnd, 0);
   }, [getTextarea]);
   const closePopovers = useCallback(() => {
     setSlashOpen(false);
@@ -126,7 +143,13 @@ export function ChatWindow({
     setActiveTrigger(null);
   }, []);
   const clearDraft = useCallback(() => onDraftChange(""), [onDraftChange]);
-  const setDraftDirect = useCallback((value: string) => onDraftChange(value), [onDraftChange]);
+  const setDraftDirect = useCallback(
+    (value: string) => {
+      onDraftChange(formatDraftCommandForComposer(value));
+      focusComposer();
+    },
+    [focusComposer, onDraftChange],
+  );
   const resetScroll = useCallback(() => setUserScrolledUp(false), []);
   const resetPromptHistoryCursor = useCallback(() => {
     historyCursorRef.current = null;
@@ -226,7 +249,11 @@ export function ChatWindow({
     insertedCommandRef.current = insertCommand;
     queueMicrotask(() => {
       onDraftChange((prev) =>
-        prev.trim().length > 0 ? `${prev.trimEnd()} ${insertCommand} ` : `${insertCommand} `,
+        shouldReplaceDraftWithCommand(insertCommand)
+          ? `${insertCommand} `
+          : prev.trim().length > 0
+            ? `${prev.trimEnd()} ${insertCommand} `
+            : `${insertCommand} `,
       );
       closePopovers();
       focusComposer();

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T12:26:43.000Z"
 tags: ["app", "workbench", "notes", "capture", "markdown"]
 spec: spec.md
 ---
@@ -34,6 +34,7 @@ Notes
   │   └─ send(afxAppendNote)
   └─ timeline pane
       ├─ search/date filters
+      ├─ NotesEmptyGuide when no notes exist
       ├─ groupByDate(filtered)
       └─ DateSection
           └─ NoteItem
@@ -83,12 +84,21 @@ newest-first and sorts notes inside each date by timestamp descending.
 ### [DES-NOTES-ITEM] Note Item Editing
 
 `NoteItem` renders markdown content, hover/focus edit/delete actions, edit mode,
-Cmd/Ctrl+Enter save, and Escape cancel.
+Cmd/Ctrl+Enter save, and Escape cancel. Saved notes use a quiet paper-like card
+edge and a narrow brand accent so the timeline feels like a stack of readable
+captures rather than flat log output.
 
 ### [DES-NOTES-TIME] Note Time Formatting
 
 `humanizeTimestamp`, `relativeTimestamp`, `formatClock`, `parseDate`, and
 `startOfDay` produce deterministic display labels and safe fallbacks.
+
+### [DES-NOTES-EMPTY] Fleeting Notes Empty Guide
+
+`NotesEmptyGuide` replaces the generic empty state in the timeline pane. It uses
+a compact right-pane layout so the capture pane and empty guide can coexist in a
+constrained bottom panel: source chips plus a short mock note stream teach the
+final shape without pushing the main controls out of view.
 
 ---
 
@@ -150,12 +160,14 @@ import VSCode or filesystem APIs.
 - Empty notes render onboarding empty state.
 - Search/date no-match renders a simple no-match message.
 - Invalid timestamps display fallback strings.
+- Empty notes render the fleeting-notes guide.
 
 ---
 
 ## [DES-TEST] Testing Strategy
 
-- Existing tests cover deterministic seconds display and recent-note filtering.
+- Existing tests cover deterministic seconds display, recent-note filtering, and
+  the empty guide.
 - Future tests should cover save shortcut, edit shortcut, and markdown rendering.
 
 ---
@@ -170,11 +182,12 @@ import VSCode or filesystem APIs.
 
 ## [DES-NOTES-VIEW-LOC] Code Locator Map
 
-| Map ID                | Code anchor                                                | Messages/data                               | Tests  |
-| --------------------- | ---------------------------------------------------------- | ------------------------------------------- | ------ |
-| `[NotesView.View]`    | `apps/workbench/src/views/notes.tsx` `Notes`               | `notes[]`, `afxAppendNote`                  | future |
-| `[NotesView.Capture]` | `apps/workbench/src/views/notes.tsx` capture pane          | `afxAppendNote`                             | future |
-| `[NotesView.Item]`    | `apps/workbench/src/views/notes.tsx` `NoteItem` row + edit | `QuickNote`, `afxEditNote`, `afxDeleteNote` | future |
+| Map ID                | Code anchor                                                | Messages/data                               | Tests          |
+| --------------------- | ---------------------------------------------------------- | ------------------------------------------- | -------------- |
+| `[NotesView.View]`    | `apps/workbench/src/views/notes.tsx` `Notes`               | `notes[]`, `afxAppendNote`                  | future         |
+| `[NotesView.Capture]` | `apps/workbench/src/views/notes.tsx` capture pane          | `afxAppendNote`                             | future         |
+| `[NotesView.Empty]`   | `apps/workbench/src/views/notes.tsx` `NotesEmptyGuide`     | empty `notes[]`                             | notes.test.tsx |
+| `[NotesView.Item]`    | `apps/workbench/src/views/notes.tsx` `NoteItem` row + edit | `QuickNote`, `afxEditNote`, `afxDeleteNote` | future         |
 
 ## [DES-NOTES-VIEW-TRACE] Functional Trace Matrix
 
@@ -182,13 +195,14 @@ import VSCode or filesystem APIs.
 | ----------- | ------------------------------------------- | ------------------------------- | ------------ |
 | FR-1        | `[DES-NOTES-MOCKUP]`, `[DES-NOTES-CAPTURE]` | `Notes` view, capture pane      | manual       |
 | FR-7        | `[DES-NOTES-TIMELINE]`, `[DES-NOTES-ITEM]`  | timeline render + edit-in-place | future       |
+| FR-8        | `[DES-NOTES-EMPTY]`                         | `NotesEmptyGuide`               | view + e2e   |
 
 ---
 
 ## [DES-REFS] File Reference Map
 
-| File                                      | Required @see                                                                                                    |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `apps/workbench/src/views/notes.tsx`      | `spec.md [FR-1] [FR-7]` + `design.md [DES-NOTES-CAPTURE] [DES-NOTES-TIMELINE] [DES-NOTES-ITEM] [DES-NOTES-TIME]` |
-| `apps/workbench/src/views/notes.test.tsx` | `spec.md [FR-3] [FR-7]` + `design.md [DES-TEST] [DES-NOTES-TIME]`                                                |
-| `apps/workbench/src/index.css`            | `design.md [DES-NOTES-CAPTURE]`                                                                                  |
+| File                                      | Required @see                                                                                                                             |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/workbench/src/views/notes.tsx`      | `spec.md [FR-1] [FR-7] [FR-8]` + `design.md [DES-NOTES-CAPTURE] [DES-NOTES-TIMELINE] [DES-NOTES-ITEM] [DES-NOTES-TIME] [DES-NOTES-EMPTY]` |
+| `apps/workbench/src/views/notes.test.tsx` | `spec.md [FR-3] [FR-7] [FR-8]` + `design.md [DES-TEST] [DES-NOTES-TIME] [DES-NOTES-EMPTY]`                                                |
+| `apps/workbench/src/index.css`            | `design.md [DES-NOTES-CAPTURE]`                                                                                                           |

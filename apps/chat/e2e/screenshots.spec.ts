@@ -39,7 +39,9 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Workflow: Open" })).toBeVisible();
   await capture(page, testInfo, "chat-desktop");
+  await capture(page, testInfo, "chat-code-action-tiles");
 
   await page.getByRole("button", { name: "Ask Intent" }).click();
   await page.getByRole("button", { name: "Preview injected prompt for Ask" }).click();
@@ -107,6 +109,8 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   await page.goto("/");
   await selectMode(page, "Spec");
   await expect(page.getByTestId("intent-strip")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /Open Workbench/i })).toBeVisible();
+  await capture(page, testInfo, "chat-workbench-promo");
   await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
   await page.getByRole("button", { name: "Spec actions" }).click();
   await page.keyboard.press("Escape");

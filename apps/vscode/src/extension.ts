@@ -355,6 +355,14 @@ export async function activate(
     extensionMode: context.extensionMode,
     specsData,
     logger,
+    openChatCommand: async (command, mode) => {
+      await vscode.commands.executeCommand("afx.openSidebar");
+      if (mode === "send") {
+        await sidebarProvider.sendExternalPrompt(command);
+        return;
+      }
+      await sidebarProvider.appendToDraft(command);
+    },
   });
 
   // @see docs/specs/200-app-vscode/spec.md [FR-11]

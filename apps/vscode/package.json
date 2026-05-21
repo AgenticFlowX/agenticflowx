@@ -403,6 +403,10 @@
       ],
       "afx.editorContext": [
         {
+          "command": "afx.openWorkbench",
+          "group": "0_workbench@0"
+        },
+        {
           "command": "afx.action.saveToNotes",
           "group": "0_notes@1"
         },

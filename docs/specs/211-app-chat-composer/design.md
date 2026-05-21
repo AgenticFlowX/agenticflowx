@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.19"
+version: "1.20"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-19T13:55:39.000Z"
+updated_at: "2026-05-20T12:42:47.000Z"
 tags:
   ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard", "intent"]
 spec: spec.md
@@ -61,22 +61,23 @@ Chat-window componentization routes composer placement and shallow file boundari
   -> HostToChat events rehydrate Chat state
 ```
 
-| Flow                | Source anchor                                     | Bridge message                                  | Host/runtime result                                                       | Returned state                                                              |
-| ------------------- | ------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Idle send           | `submit({ followUp: false })` when `!isStreaming` | `chat/send`                                     | Starts a user turn                                                        | `chat/messageStart`, `chat/messageDelta`, `chat/messageEnd`, `agent/status` |
-| Streaming follow-up | `submit({ followUp: true })`                      | `chat/followUp`                                 | Queues content after active turn                                          | Local `queued` mirror plus future stream state                              |
-| Streaming steer     | `submit({ followUp: false })` while streaming     | `chat/steer`                                    | Interrupts/redirects active turn                                          | Local `queued` mirror plus runtime stream state                             |
-| Abort               | `abort()`                                         | `chat/abort`                                    | Stops active run                                                          | `chat/aborted`, `agent/status`                                              |
-| Save note           | `saveAsNote()`                                    | `chat/saveNote`                                 | Host appends note                                                         | Local note event plus note bridge result                                    |
-| Slash action        | `selectSlashAction()`                             | `chat/newSession`, `chat/abort`                 | Host action without textarea insertion                                    | New session/abort events                                                    |
-| Mention picker      | `handleDraftChange()`, `openMentionPicker()`      | `chat/listFiles`                                | Host lists recent/workspace files                                         | `agent/files`                                                               |
-| Slash picker        | mount hydration                                   | `chat/getCommands`                              | Host lists agent/extension commands                                       | `agent/commands`                                                            |
-| Model picker        | `selectModel()`                                   | `chat/setModel`                                 | Runtime default/model changes                                             | `agent/modelChanged`                                                        |
-| Thinking picker     | `setThinkingLevel()`                              | `chat/setThinkingLevel`                         | Runtime effort changes                                                    | `agent/runtimeSettings`                                                     |
-| Context picker      | `applyIncludeActiveFileContext()`                 | `chat/setIncludeActiveFileContext`              | Durable active-file context preference changes                            | `agent/settingsSnapshot`                                                    |
-| Intent picker       | `setIntentSlot()` / `setIntentMinimized()`        | `chat/setIntentSlot`, `chat/setIntentMinimized` | Durable Composer Intent slot/header state changes                         | `agent/settingsSnapshot.intent`                                             |
-| System command      | `submit()` when draft starts with `!`             | `chat/runCommand`                               | Spawns shell in workspace root                                            | `agent/commandOutput` (delta / done / error)                                |
-| Open modified file  | `modified-files` panel pill click                 | `chat/openFile`                                 | `vscode.window.showTextDocument(uri, { selection })` when `line` provided | Editor opens (and reveals first changed line if known)                      |
+| Flow                 | Source anchor                                                        | Bridge message                                  | Host/runtime result                                                       | Returned state                                                              |
+| -------------------- | -------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Idle send            | `submit({ followUp: false })` when `!isStreaming`                    | `chat/send`                                     | Starts a user turn                                                        | `chat/messageStart`, `chat/messageDelta`, `chat/messageEnd`, `agent/status` |
+| Streaming follow-up  | `submit({ followUp: true })`                                         | `chat/followUp`                                 | Queues content after active turn                                          | Local `queued` mirror plus future stream state                              |
+| Streaming steer      | `submit({ followUp: false })` while streaming                        | `chat/steer`                                    | Interrupts/redirects active turn                                          | Local `queued` mirror plus runtime stream state                             |
+| Abort                | `abort()`                                                            | `chat/abort`                                    | Stops active run                                                          | `chat/aborted`, `agent/status`                                              |
+| Save note            | `saveAsNote()`                                                       | `chat/saveNote`                                 | Host appends note                                                         | Local note event plus note bridge result                                    |
+| Slash action         | `selectSlashAction()`                                                | `chat/newSession`, `chat/abort`                 | Host action without textarea insertion                                    | New session/abort events                                                    |
+| Mention picker       | `handleDraftChange()`, `openMentionPicker()`                         | `chat/listFiles`                                | Host lists recent/workspace files                                         | `agent/files`                                                               |
+| Slash picker         | mount hydration                                                      | `chat/getCommands`                              | Host lists agent/extension commands                                       | `agent/commands`                                                            |
+| Model picker         | `selectModel()`                                                      | `chat/setModel`                                 | Runtime default/model changes                                             | `agent/modelChanged`                                                        |
+| Thinking picker      | `setThinkingLevel()`                                                 | `chat/setThinkingLevel`                         | Runtime effort changes                                                    | `agent/runtimeSettings`                                                     |
+| Context picker       | `applyIncludeActiveFileContext()`                                    | `chat/setIncludeActiveFileContext`              | Durable active-file context preference changes                            | `agent/settingsSnapshot`                                                    |
+| Intent picker        | `setIntentSlot()` / `setIntentMinimized()`                           | `chat/setIntentSlot`, `chat/setIntentMinimized` | Durable Composer Intent slot/header state changes                         | `agent/settingsSnapshot.intent`                                             |
+| Draft command insert | `chat/draftAppend`, doc actions, empty states, parsed result actions | host- or UI-inserted `/afx-*` command text      | Replaces the current draft, appends one trailing space, focuses composer  | Caret at end so the user can add context                                    |
+| System command       | `submit()` when draft starts with `!`                                | `chat/runCommand`                               | Spawns shell in workspace root                                            | `agent/commandOutput` (delta / done / error)                                |
+| Open modified file   | `modified-files` panel pill click                                    | `chat/openFile`                                 | `vscode.window.showTextDocument(uri, { selection })` when `line` provided | Editor opens (and reveals first changed line if known)                      |
 
 ---
 

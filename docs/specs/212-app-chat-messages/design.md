@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-19T14:55:06.000Z"
+updated_at: "2026-05-20T10:03:55.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -167,6 +167,9 @@ you go.` and `The usual ceremony, just faster. Opt-in only.`
   creating anything. These dispatch as draft inserts (`onInsert`) so the user can
   edit before sending.
 - Idle quick-command row: `/afx-next`, `/afx-sprint new`, `/afx-context load`.
+- Idle Workbench promo: compact `Open Workbench` action explains that generated
+  specs, tasks, notes, and boards will appear in the bottom panel. It sends
+  `chat/openWorkbench` through the host and does not mutate the chat draft.
 - Idle footer copy: `Same skills. Same files. Same rules.`
 - Doc-active heading: `Working on <doc label>`.
 - Doc-active actions reuse `resolveDocActions(docContext)` so draft vs
@@ -181,6 +184,13 @@ quick commands below starter prompts, and preserves the runtime-unconfigured
 warning. Code mode must not reuse Spec pipeline copy; its supporting sentence is
 workflow-neutral: `Most coding stays in chat. Use the workflow when work needs
 traceability between intent, design, tasks, and code.`
+
+The Code onboarding concept row is a compact action row, not static marketing
+chrome. `Chat` inserts the orientation starter prompt, `Workflow` sends
+`chat/openWorkbench` so the Workbench bottom panel opens immediately, and `Spec`
+switches to Spec mode while inserting a `/afx-spec new` draft. The row uses short
+labels and action affordances so the welcome surface teaches where to go next
+without crowding the chat panel.
 
 When `workspaceMode === "explore"`, the same component switches to a distinct
 read-only onboarding surface with `Inspect`, `Trace`, and `Plan` cards plus

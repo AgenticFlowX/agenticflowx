@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T12:26:43.000Z"
 tags: ["app", "workbench", "documents", "reader", "markdown"]
 depends_on: ["100-package-shared", "130-package-ui", "220-app-workbench"]
 ---
@@ -51,14 +51,18 @@ Developers and agents reading project documentation inside the VSCode bottom pan
 
 ### Functional Requirements
 
-| ID   | Requirement                                                         | Priority  |
-| ---- | ------------------------------------------------------------------- | --------- |
-| FR-1 | Render a searchable, type-filtered document tree                    | Must Have |
-| FR-2 | Show a library home with counts, type chips, recent docs, and stats | Must Have |
-| FR-3 | Render selected markdown documents with metadata chips and outline  | Must Have |
-| FR-4 | Fetch selected document content through the Workbench bridge        | Must Have |
-| FR-5 | Open non-renderable documents in the editor through host messages   | Must Have |
-| FR-6 | Provide reusable document/frontmatter/outline/markdown helpers      | Must Have |
+| ID    | Requirement                                                                         | Priority  |
+| ----- | ----------------------------------------------------------------------------------- | --------- |
+| FR-1  | Render a searchable, type-filtered document tree                                    | Must Have |
+| FR-2  | Show a library home with counts, type chips, recent docs, and stats                 | Must Have |
+| FR-3  | Render selected markdown documents with metadata chips and outline                  | Must Have |
+| FR-4  | Fetch selected document content through the Workbench bridge                        | Must Have |
+| FR-5  | Open non-renderable documents in the editor through host messages                   | Must Have |
+| FR-6  | Provide reusable document/frontmatter/outline/markdown helpers                      | Must Have |
+| FR-7  | Render an upgraded PRD/spec studio for selected planning documents                  | Must Have |
+| FR-8  | Render a launchpad/template state when no documents exist                           | Must Have |
+| FR-9  | Clean AFX reader noise while preserving useful Markdown structure                   | Must Have |
+| FR-10 | Reuse the same document studio rendering in Documents and Workbench feature columns | Must Have |
 
 ### Non-Functional Requirements
 
@@ -84,6 +88,11 @@ Developers and agents reading project documentation inside the VSCode bottom pan
 - [ ] Selected renderable docs fetch content via `afxFetchDocContent`.
 - [ ] Reader renders metadata chips and markdown outline.
 - [ ] Home view shows recent documents and stats when no document is selected.
+- [ ] PRD/spec reader surfaces title, status, owner, outline, section health, and open/refine actions.
+- [ ] PRD/spec reader hides frontmatter, HTML comments, `@see` lines, and trace anchors like `[DES-API]` from reader prose.
+- [ ] PRD/spec reader renders GFM tables, task lists, links, blockquotes, and fenced code without corrupting examples.
+- [ ] Empty library state offers full-spec, sprint, and sample-document creation actions.
+- [ ] The same `design.md` rendered in Documents and Workbench uses the same studio primitives, cleanup, table rendering, and section highlight treatment.
 
 ---
 
@@ -123,7 +132,7 @@ Developers and agents reading project documentation inside the VSCode bottom pan
 | Local anchors   | `Documents`, `DocumentsHome`, `DocumentTree`, `DocReader`, `buildDocumentTree`, `MinimalMarkdown`, `extractOutline`, `parseSimpleFrontmatter`                                                                        |
 | Bridge messages | `afxFetchDocContent`, `afxDocContent`, `afxOpenFile`                                                                                                                                                                 |
 | Settings keys   | None                                                                                                                                                                                                                 |
-| Tests           | Future documents view/helper tests                                                                                                                                                                                   |
+| Tests           | Documents view/helper tests and Workbench e2e screenshots                                                                                                                                                            |
 | Dependencies    | `220-app-workbench`, `100-package-shared`, `130-package-ui`                                                                                                                                                          |
 | Out of scope    | Workbench shell, notes capture, Impact Lens reverse index                                                                                                                                                            |
 | Example prompt  | "Change document outline behavior; start at 222-app-workbench-documents."                                                                                                                                            |

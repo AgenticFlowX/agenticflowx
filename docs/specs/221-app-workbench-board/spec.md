@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T09:57:03.000Z"
 tags: ["app", "workbench", "board", "kanban", "markdown"]
 depends_on: ["100-package-shared", "130-package-ui", "220-app-workbench"]
 ---
@@ -51,15 +51,18 @@ Developers and agents maintaining project-state boards inside VSCode.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                  | Priority  |
-| ---- | ---------------------------------------------------------------------------- | --------- |
-| FR-1 | Render available Kanban boards from Workbench state                          | Must Have |
-| FR-2 | Create, rename, delete, and select board markdown files via host messages    | Must Have |
-| FR-3 | Render columns and cards with editable card/column dialogs                   | Must Have |
-| FR-4 | Support card movement and column reordering from the visual board            | Must Have |
-| FR-5 | Serialize board changes back to markdown without losing frontmatter/preamble | Must Have |
-| FR-6 | Show empty-board and empty-column states with clear next actions             | Must Have |
-| FR-7 | Expose open-in-editor and open-preview actions for the selected board file   | Must Have |
+| ID    | Requirement                                                                  | Priority  |
+| ----- | ---------------------------------------------------------------------------- | --------- |
+| FR-1  | Render available Kanban boards from Workbench state                          | Must Have |
+| FR-2  | Create, rename, delete, and select board markdown files via host messages    | Must Have |
+| FR-3  | Render columns and cards with editable card/column dialogs                   | Must Have |
+| FR-4  | Support card movement and column reordering from the visual board            | Must Have |
+| FR-5  | Serialize board changes back to markdown without losing frontmatter/preamble | Must Have |
+| FR-6  | Show empty-board and empty-column states with clear next actions             | Must Have |
+| FR-7  | Expose open-in-editor and open-preview actions for the selected board file   | Must Have |
+| FR-8  | Keep column/card rendering stable through duplicate titles and reorders      | Must Have |
+| FR-9  | Provide visible, keyboard-reachable reorder controls as the reliable path    | Must Have |
+| FR-10 | Teach empty/new projects with multi-board guidance and mock board preview    | Must Have |
 
 ### Non-Functional Requirements
 
@@ -77,6 +80,8 @@ Developers and agents maintaining project-state boards inside VSCode.
 ### Board Lifecycle
 
 - [ ] Empty state can create a board name through `afxCreateKanbanBoard`.
+- [ ] Empty state explains users can create multiple boards for roadmaps, bugs, sprints, or experiments.
+- [ ] Empty state renders a mock board preview before any `.afx/kanban/*.md` file exists.
 - [ ] Rename sends `afxRenameKanbanBoard` and clears local selection until host refresh.
 - [ ] Delete requires confirmation and sends `afxDeleteKanbanBoard`.
 
@@ -86,6 +91,8 @@ Developers and agents maintaining project-state boards inside VSCode.
 - [ ] Card edit/delete actions appear on hover or focus.
 - [ ] Columns show counts, move controls, delete gating, and add-card input.
 - [ ] Saving emits `afxSaveFile` with serialized markdown.
+- [ ] Duplicate column titles and duplicate card text do not break optimistic reordering.
+- [ ] Move-left/right controls remain visible enough to discover and pass keyboard/e2e verification.
 
 ---
 

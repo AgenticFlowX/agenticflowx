@@ -1594,6 +1594,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void vscode.commands.executeCommand("workbench.action.openSettings", msg.key);
         return;
       }
+      // @see docs/specs/212-app-chat-messages/spec.md [FR-10]
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
+      case "chat/openWorkbench": {
+        void vscode.commands.executeCommand("afx.openWorkbench");
+        return;
+      }
       // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
       case "chat/openFile": {

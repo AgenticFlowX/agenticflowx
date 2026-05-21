@@ -1,23 +1,28 @@
 /**
  * Journal view — session-by-session discussions with timeline and preview.
  *
- * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7]
- * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW] [DES-JOURNAL-TIME]
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7] [FR-8] [FR-9]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW] [DES-JOURNAL-TIME] [DES-JOURNAL-EMPTY]
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { BookOpen, CheckCircle, Circle, MessageCircle, Pause, Sparkles } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle,
+  Circle,
+  FileText,
+  GitBranch,
+  Lightbulb,
+  MessageCircle,
+  Pause,
+  Sparkles,
+} from "lucide-react";
 
 import type { JournalEntry } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
+import { Button } from "@afx/ui/components/button";
 import { Input } from "@afx/ui/components/input";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@afx/ui/components/resizable";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
 import {
   Select,
@@ -142,6 +147,7 @@ function JournalCard({
   const dotBg = config.color.replace("text-", "bg-");
   const featureShort = entry.feature.replace(/^\d+-/, "");
   const decisionsCount = entry.decisions?.length ?? 0;
+  const firstDecision = entry.decisions?.[0];
 
   return (
     <button
@@ -157,15 +163,23 @@ function JournalCard({
         title={config.label}
       />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className={`font-mono text-[10px] font-semibold ${config.color}`}>{entry.id}</span>
+        <div className="grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-2">
+          <span className={`whitespace-nowrap font-mono text-[10px] font-semibold ${config.color}`}>
+            {entry.id}
+          </span>
+          <Badge
+            variant="outline"
+            className={`shrink-0 rounded-sm px-1 py-0 text-[9px] ${config.color}`}
+          >
+            {config.label}
+          </Badge>
           <span className="truncate text-[10px] text-muted-foreground/80">{featureShort}</span>
           {decisionsCount > 0 && (
             <Badge
               variant="outline"
-              className="ml-auto shrink-0 rounded-sm px-1 py-0 text-[9px] text-muted-foreground"
+              className="shrink-0 rounded-sm px-1 py-0 text-[9px] text-afx-brand-soft"
             >
-              {decisionsCount}d
+              {decisionsCount} decision{decisionsCount === 1 ? "" : "s"}
             </Badge>
           )}
         </div>
@@ -176,12 +190,16 @@ function JournalCard({
         >
           {entry.title}
         </p>
-        {entry.context && (
+        {firstDecision ? (
+          <p className="mt-1 line-clamp-1 text-[10px] leading-snug text-afx-brand-soft">
+            {firstDecision}
+          </p>
+        ) : entry.context ? (
           <p className="mt-0.5 line-clamp-1 text-[10px] leading-snug text-muted-foreground/70">
             {entry.context}
           </p>
-        )}
-        {entry.summary && !entry.context && (
+        ) : null}
+        {entry.summary && !entry.context && !firstDecision && (
           <p className="mt-0.5 line-clamp-1 text-[10px] leading-snug text-muted-foreground/70">
             {entry.summary}
           </p>
@@ -202,6 +220,7 @@ function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
   const [content, setContent] = useState<string | null>(null);
   const config = entry ? (STATUS_CONFIG[entry.status] ?? STATUS_CONFIG.active) : null;
   const Icon = config?.icon ?? Circle;
+  const decisions = entry?.decisions ?? [];
 
   useEffect(() => {
     if (!entry) return;
@@ -232,7 +251,7 @@ function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
 
   return (
     <div className="afx-surface-card flex h-full min-w-0 w-full flex-1 flex-col rounded-md border border-border shadow-none">
-      <div className="afx-surface-toolbar flex flex-col gap-1.5 border-b border-border px-3 py-2">
+      <div className="afx-surface-toolbar flex flex-col gap-1.5 border-b border-border px-3 py-2.5">
         <div className="flex items-center gap-2">
           <Icon size={12} className={config?.color} />
           <span className={`font-mono text-xs font-semibold ${config?.color}`}>{entry.id}</span>
@@ -248,31 +267,88 @@ function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
           <OpenActions filePath={entry.filePath} line={entry.line} />
         </div>
         <p className="text-sm font-semibold leading-snug text-foreground">{entry.title}</p>
-        {entry.decisions && entry.decisions.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {entry.decisions.map((d, i) => (
-              <span
-                key={i}
-                className="rounded bg-muted px-1.5 py-0.5 text-[10px] leading-tight text-muted-foreground"
-              >
-                {d}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
       <ScrollArea className="min-h-0 flex-1">
-        <article className="mx-auto w-full max-w-4xl px-5 py-5">
-          {entry.summary && (
-            <p className="mb-4 text-sm text-muted-foreground leading-relaxed">{entry.summary}</p>
-          )}
-          {trimmedContent ? (
-            <MinimalMarkdown content={trimmedContent} />
-          ) : (
-            <p className="text-sm text-muted-foreground">Loading content…</p>
-          )}
+        <article className="grid w-full gap-3 px-4 py-4 xl:grid-cols-[minmax(0,1fr)_280px]">
+          <div className="min-w-0 space-y-3">
+            {entry.summary ? (
+              <section className="rounded-md border border-border bg-muted/15 px-3 py-2.5">
+                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  <Sparkles size={11} aria-hidden />
+                  What mattered
+                </div>
+                <p className="mt-2 text-sm leading-6 text-foreground/90">{entry.summary}</p>
+              </section>
+            ) : null}
+            <section className="overflow-hidden rounded-md border border-border bg-background">
+              <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <FileText size={11} aria-hidden />
+                Captured session
+              </div>
+              <div className="px-3 py-3">
+                {trimmedContent ? (
+                  <MinimalMarkdown content={trimmedContent} hideTitle />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading content…</p>
+                )}
+              </div>
+            </section>
+          </div>
+          <aside className="flex min-w-0 flex-col gap-3">
+            <section className="rounded-md border border-border bg-muted/15 px-3 py-2.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <Lightbulb size={11} aria-hidden />
+                Key decisions
+              </div>
+              {decisions.length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {decisions.map((decision) => (
+                    <li
+                      key={decision}
+                      className="rounded-sm border border-afx-brand/20 bg-afx-brand/8 px-2 py-1.5 text-xs leading-5 text-foreground/90"
+                    >
+                      {decision}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                  No explicit decision was captured for this entry yet.
+                </p>
+              )}
+            </section>
+            <section className="rounded-md border border-border bg-muted/15 px-3 py-2.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                <GitBranch size={11} aria-hidden />
+                Context
+              </div>
+              <dl className="mt-2 grid gap-2 text-xs">
+                <JournalFact label="Feature" value={entry.feature} />
+                <JournalFact label="Status" value={config?.label ?? entry.status} />
+                <JournalFact label="Date" value={formatShortDate(entry.date)} />
+                {entry.context ? <JournalFact label="Why now" value={entry.context} /> : null}
+              </dl>
+            </section>
+          </aside>
         </article>
       </ScrollArea>
+    </div>
+  );
+}
+
+/**
+ * Compact key/value tile for the selected journal entry context rail.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-9]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-PREVIEW]
+ */
+function JournalFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-sm border border-border/70 bg-background/50 px-2 py-1.5">
+      <dt className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="mt-0.5 break-words text-foreground/90">{value}</dd>
     </div>
   );
 }
@@ -313,11 +389,11 @@ function trimRedundantHeader(content: string, title: string): string {
 /**
  * Workbench Journal tab surface: filters, timeline grouping, and preview.
  *
- * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7]
- * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW]
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-1] [FR-7] [FR-8] [FR-9]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-FILTERS] [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW] [DES-JOURNAL-EMPTY]
  */
 export default function Journal() {
-  const { journal } = useWorkbench();
+  const { journal, send } = useWorkbench();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
@@ -363,18 +439,14 @@ export default function Journal() {
 
   if (journal.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <BookOpen size={32} />
-          </EmptyMedia>
-          <EmptyTitle>No journal discussions yet</EmptyTitle>
-          <EmptyDescription>
-            Run <code>/afx-session log</code> in the chat to capture a session, or{" "}
-            <code>/afx-session note</code> to record a decision.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <JournalEmptyGuide
+        onLogSession={() =>
+          send({ type: "afxOpenChatCommand", command: "/afx-session log", mode: "insert" })
+        }
+        onCaptureDecision={() =>
+          send({ type: "afxOpenChatCommand", command: "/afx-session note ", mode: "insert" })
+        }
+      />
     );
   }
 
@@ -456,56 +528,178 @@ export default function Journal() {
         Surface: Workbench.Journal.TimelineAndPreview
         @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-CARD] [DES-JOURNAL-PREVIEW]
       */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="afx-surface-subtle flex w-80 shrink-0 flex-col border-r border-border">
-          <ScrollArea className="min-h-0 flex-1">
-            {grouped.length === 0 ? (
-              <p className="p-4 text-center text-xs text-muted-foreground">
-                No discussions match your filter.
-              </p>
-            ) : (
-              <div className="py-1">
-                {grouped.map((group) => (
-                  <div key={group.date} className="mb-2">
-                    <div className="afx-surface-subtle sticky top-0 z-10 flex items-center gap-2 border-b border-border/40 px-3 py-1.5">
-                      <span
-                        className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
-                        title={group.date}
-                      >
-                        {formatDateHeader(group.date)}
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/70">
-                        {formatShortDate(group.date)}
-                      </span>
-                      <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
-                        {group.entries.length}
-                      </span>
+      <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1 overflow-hidden">
+        <ResizablePanel defaultSize="32%" minSize="280px" maxSize="48%">
+          <div className="afx-surface-subtle flex h-full min-h-0 min-w-[280px] flex-col border-r border-border">
+            <ScrollArea className="min-h-0 flex-1">
+              {grouped.length === 0 ? (
+                <p className="p-4 text-center text-xs text-muted-foreground">
+                  No discussions match your filter.
+                </p>
+              ) : (
+                <div className="py-1">
+                  {grouped.map((group) => (
+                    <div key={group.date} className="mb-2">
+                      <div className="afx-surface-subtle sticky top-0 z-10 flex items-center gap-2 border-b border-border/40 px-3 py-1.5">
+                        <span
+                          className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                          title={group.date}
+                        >
+                          {formatDateHeader(group.date)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {formatShortDate(group.date)}
+                        </span>
+                        <span className="ml-auto font-mono text-[10px] text-muted-foreground/70">
+                          {group.entries.length}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-0.5 px-1.5 py-1">
+                        {group.entries.map((entry) => (
+                          <JournalCard
+                            key={`${entry.feature}-${entry.id}`}
+                            entry={entry}
+                            isSelected={
+                              selected?.id === entry.id && selected?.feature === entry.feature
+                            }
+                            onSelect={() => setSelected(entry)}
+                          />
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-col gap-0.5 px-1.5 py-1">
-                      {group.entries.map((entry) => (
-                        <JournalCard
-                          key={`${entry.feature}-${entry.id}`}
-                          entry={entry}
-                          isSelected={
-                            selected?.id === entry.id && selected?.feature === entry.feature
-                          }
-                          onSelect={() => setSelected(entry)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </ScrollArea>
-        </div>
+                  ))}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle
+          withHandle
+          className="w-2 bg-border/60 transition-colors hover:bg-afx-brand/35 focus-visible:bg-afx-brand/35"
+        />
+        <ResizablePanel defaultSize="68%" minSize="360px">
+          <div className="flex h-full min-w-0 overflow-hidden p-3">
+            <PreviewPanel entry={selected} />
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </div>
+  );
+}
 
-        {/* Preview */}
-        <div className="flex min-w-0 flex-1 overflow-hidden p-3">
-          <PreviewPanel entry={selected} />
+/**
+ * Useful first-run guide for the session journal, with commands and a preview
+ * of the timeline users get after capturing work.
+ *
+ * @see docs/specs/223-app-workbench-journal/spec.md [FR-8]
+ * @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-EMPTY]
+ */
+function JournalEmptyGuide({
+  onLogSession,
+  onCaptureDecision,
+}: {
+  onLogSession: () => void;
+  onCaptureDecision: () => void;
+}) {
+  const previewRows = [
+    { id: "S-021", title: "Composer scope clarified", status: "Decision", tone: "text-afx-brand" },
+    { id: "S-020", title: "Watcher pressure reduced", status: "Closed", tone: "text-green-400" },
+    { id: "S-019", title: "Open question: release notes", status: "Open", tone: "text-amber-400" },
+  ];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-h-full flex-col gap-2 p-3">
+          <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-afx-brand/25 bg-afx-brand/10 text-afx-brand">
+                <BookOpen size={17} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-afx-brand-soft">
+                  Journal
+                </p>
+                <h2 className="truncate text-base font-semibold leading-tight">
+                  Keep the work understandable after the tab closes
+                </h2>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" className="h-8 gap-1.5" onClick={onLogSession}>
+                <MessageCircle size={13} />
+                Log session
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 gap-1.5"
+                onClick={onCaptureDecision}
+              >
+                <Sparkles size={13} />
+                Decision note
+              </Button>
+            </div>
+          </header>
+
+          <section className="grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-2">
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Session log
+              </div>
+              <p className="mt-0.5 text-xs leading-4 text-foreground/90">
+                What changed, what was decided, and what still needs attention.
+              </p>
+              <code className="mt-1 block font-mono text-[10px] text-afx-brand-soft">
+                /afx-session log
+              </code>
+            </div>
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Decision note
+              </div>
+              <p className="mt-0.5 text-xs leading-4 text-foreground/90">
+                One crisp decision while the context is still warm.
+              </p>
+              <code className="mt-1 block font-mono text-[10px] text-afx-brand-soft">
+                /afx-session note
+              </code>
+            </div>
+          </section>
+
+          <section className="min-w-0 rounded-md border border-border bg-muted/15 p-2.5">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-sm font-medium">Preview after your first session</span>
+              <Badge variant="outline" className="text-[10px]">
+                mock
+              </Badge>
+            </div>
+            <ol className="grid gap-2 md:grid-cols-3">
+              {previewRows.map((row) => (
+                <li key={row.id}>
+                  <article className="h-full rounded-md border border-border bg-background/70 px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-mono text-[10px] font-semibold ${row.tone}`}>
+                        {row.id}
+                      </span>
+                      <span className="truncate text-xs font-medium text-foreground">
+                        {row.title}
+                      </span>
+                      <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                        {row.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                      Linked to markdown with decisions ready to promote.
+                    </p>
+                  </article>
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 }

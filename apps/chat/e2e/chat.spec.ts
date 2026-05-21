@@ -102,7 +102,9 @@ test("componentized chat shell remains usable at narrow viewport", async ({ page
   await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "Chat composer" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Attach file or image" })).toHaveCount(0);
-  await expect(page.getByText(/Planning a new feature/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /Chat: Ask/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Workflow: Open/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Spec: Plan/i })).toBeVisible();
 });
 
 test("can switch to Settings tab", async ({ page }) => {

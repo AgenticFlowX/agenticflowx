@@ -3,7 +3,7 @@
  *
  * @see docs/specs/100-package-shared/spec.md [FR-4]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-PROTOCOL]
- * @see docs/specs/227-app-workbench-shell/spec.md [FR-4]
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-4] [FR-9] [FR-10]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-API]
  * @see docs/specs/221-app-workbench-board/spec.md [FR-2]
  * @see docs/specs/224-app-workbench-notes/spec.md [FR-6]
@@ -40,6 +40,7 @@ export type WorkbenchInbound =
 export type WorkbenchOutbound =
   | { type: "afxReady" }
   | { type: "afxOpenFile"; path: string; mode: "editor" | "preview"; line?: number }
+  | { type: "afxOpenChatCommand"; command: string; mode: "insert" | "send" }
   | { type: "afxFetchDocContent"; filePath: string }
   | { type: "afxSelectFeature"; name: string }
   | { type: "afxChangeStatus"; filePath: string; status: string }
@@ -52,6 +53,7 @@ export type WorkbenchOutbound =
       completed: boolean;
     }
   | { type: "afxSaveFile"; path: string; content: string }
+  | { type: "afxCreateSampleDocs"; kind: "full-spec" | "sprint" }
   | { type: "afxCreateKanbanBoard"; name: string }
   | { type: "afxRenameKanbanBoard"; filePath: string; name: string }
   | { type: "afxDeleteKanbanBoard"; filePath: string }

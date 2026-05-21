@@ -1959,6 +1959,9 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     if (msg.type === "chat/openSettings") {
       return;
     }
+    if (msg.type === "chat/openWorkbench") {
+      return;
+    }
     if (msg.type === "chat/showLogs") {
       return;
     }

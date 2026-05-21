@@ -5,21 +5,24 @@
  * and an activity heatmap. The Sessions card includes an inline SVG sparkline
  * built from the heatmap cells — no extra runtime cost.
  *
- * @see docs/specs/226-app-workbench-analytics/spec.md [FR-1] [FR-8]
- * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-RANGE] [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-HEATMAP]
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-1] [FR-8] [FR-9]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-RANGE] [DES-ANALYTICS-HEADLINE] [DES-ANALYTICS-HEATMAP] [DES-ANALYTICS-EMPTY]
  */
 import { useMemo } from "react";
 
-import { Activity, BarChart2, CheckCircle2, Flame, GitBranch, Sparkles } from "lucide-react";
+import {
+  Activity,
+  BarChart2,
+  CheckCircle2,
+  FilePlus2,
+  Flame,
+  GitBranch,
+  Layers3,
+  Sparkles,
+} from "lucide-react";
 
 import { Badge } from "@afx/ui/components/badge";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
+import { Button } from "@afx/ui/components/button";
 import { Progress } from "@afx/ui/components/progress";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
 import { Separator } from "@afx/ui/components/separator";
@@ -43,7 +46,7 @@ const RANGES: Array<{ value: Range; label: string }> = [
  * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-MOCKUP] [DES-ANALYTICS-RANGE]
  */
 export default function Analytics() {
-  const { pipeline, featureTasks, journal, ghostTasks } = useWorkbench();
+  const { pipeline, featureTasks, journal, ghostTasks, send } = useWorkbench();
   const [range, setRange] = useLocalStorage<Range>("afx-analytics-range", "30d");
   const snap = useMemo(
     () => buildSnapshot(pipeline, featureTasks, journal, ghostTasks, range),
@@ -52,17 +55,9 @@ export default function Analytics() {
 
   if (pipeline.length === 0 && featureTasks.length === 0) {
     return (
-      <Empty>
-        <EmptyHeader>
-          <EmptyMedia variant="icon">
-            <BarChart2 size={32} />
-          </EmptyMedia>
-          <EmptyTitle>Nothing to analyze yet</EmptyTitle>
-          <EmptyDescription>
-            Add features and tasks to see your project metrics here.
-          </EmptyDescription>
-        </EmptyHeader>
-      </Empty>
+      <AnalyticsEmptyGuide
+        onCreateSample={() => send({ type: "afxCreateSampleDocs", kind: "full-spec" })}
+      />
     );
   }
 
@@ -232,6 +227,125 @@ export default function Analytics() {
           </div>
         </div>
       </ScrollArea>
+    </div>
+  );
+}
+
+/**
+ * Empty Analytics onboarding with a preview of the dashboard once markdown
+ * specs, tasks, journals, and boards exist.
+ *
+ * @see docs/specs/226-app-workbench-analytics/spec.md [FR-8] [FR-9]
+ * @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-EMPTY]
+ */
+function AnalyticsEmptyGuide({ onCreateSample }: { onCreateSample: () => void }) {
+  const previewCells = [0, 1, 0, 2, 1, 3, 0, 0, 2, 4, 1, 0, 3, 2];
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex min-h-full flex-col gap-2 p-3">
+          <header className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border pb-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md border border-afx-brand/25 bg-afx-brand/10 text-afx-brand">
+                <BarChart2 size={17} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-afx-brand-soft">
+                  Analytics
+                </p>
+                <h2 className="truncate text-base font-semibold leading-tight">
+                  Your project heartbeat will land here
+                </h2>
+              </div>
+            </div>
+            <div className="flex min-w-0 items-center gap-2">
+              <Button type="button" size="sm" className="h-8 gap-1.5" onClick={onCreateSample}>
+                <FilePlus2 size={13} />
+                Sample SDD set
+              </Button>
+              <Badge variant="outline" className="h-8 px-2 font-mono text-[10px]">
+                docs/specs + .afx
+              </Badge>
+            </div>
+          </header>
+
+          <section className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">
+            {[
+              ["Tasks", "completion + next slices"],
+              ["Sessions", "decisions + active days"],
+              ["Pipeline", "spec/design/build mix"],
+              ["Attention", "in-flight + ghost refs"],
+            ].map(([label, body]) => (
+              <div key={label} className="rounded-md border border-border bg-muted/20 px-3 py-2">
+                <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  {label}
+                </div>
+                <div className="mt-0.5 text-xs leading-4 text-foreground/90">{body}</div>
+              </div>
+            ))}
+          </section>
+
+          <section className="min-w-0 rounded-md border border-border bg-muted/15 p-2.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Layers3 size={14} className="text-afx-brand" aria-hidden />
+                <span className="text-sm font-medium">Preview once signals exist</span>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                mock
+              </Badge>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              <MockMetric label="Tasks" value="18 / 24" tone="text-afx-success" />
+              <MockMetric label="Sessions" value="9" tone="text-afx-brand" />
+              <MockMetric label="Streak" value="4d" tone="text-amber-400" />
+            </div>
+            <div className="mt-2 rounded-md border border-border bg-background/70 p-2">
+              <div className="mb-2 flex items-center justify-between text-[10px] text-muted-foreground">
+                <span className="uppercase tracking-[0.14em]">Pipeline mix</span>
+                <span className="font-mono">6 features</span>
+              </div>
+              <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+                <span className="w-[28%] bg-afx-success" />
+                <span className="w-[32%] bg-afx-brand" />
+                <span className="w-[18%] bg-purple-400" />
+                <span className="w-[12%] bg-amber-400" />
+                <span className="w-[10%] bg-muted-foreground/50" />
+              </div>
+              <div className="mt-2 grid grid-cols-7 gap-1">
+                {previewCells.map((value, index) => (
+                  <span
+                    key={index}
+                    className={`h-3 rounded-sm border border-border/50 ${
+                      value === 0
+                        ? "bg-muted/40"
+                        : value === 1
+                          ? "bg-afx-brand/25"
+                          : value === 2
+                            ? "bg-afx-brand/45"
+                            : value === 3
+                              ? "bg-afx-brand/70"
+                              : "bg-afx-brand"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      </ScrollArea>
+    </div>
+  );
+}
+
+function MockMetric({ label, value, tone }: { label: string; value: string; tone: string }) {
+  return (
+    <div className="rounded-md border border-border bg-background/70 px-3 py-1.5">
+      <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </div>
+      <div className={`mt-0.5 text-base font-semibold leading-tight ${tone}`}>{value}</div>
     </div>
   );
 }

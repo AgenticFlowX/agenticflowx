@@ -467,6 +467,13 @@ export type ChatToAgent =
    */
   | { type: "chat/openFile"; path: string; line?: number }
   /**
+   * Open the Workbench bottom panel from chat onboarding or result-adjacent UI.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-10]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
+   */
+  | { type: "chat/openWorkbench"; requestId: string }
+  /**
    * Open Pi's models.json in the editor, creating it with an empty skeleton if absent.
    * The host resolves the path via PI_CODING_AGENT_DIR or ~/.pi/agent/models.json.
    *

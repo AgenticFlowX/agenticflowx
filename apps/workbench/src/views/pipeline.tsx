@@ -21,13 +21,6 @@ import type { PipelineRow, WorkbenchOutbound } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@afx/ui/components/card";
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@afx/ui/components/empty";
 import { Input } from "@afx/ui/components/input";
 import { Progress } from "@afx/ui/components/progress";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
@@ -40,6 +33,7 @@ import {
 } from "@afx/ui/components/select";
 import { cn } from "@afx/ui/lib/utils";
 
+import { WorkbenchLaunchpad } from "../components/workbench-launchpad";
 import { useWorkbench } from "../context/workbench-context";
 import { useLocalStorage } from "../hooks/use-local-storage";
 import {
@@ -164,17 +158,7 @@ export default function Pipeline() {
       </div>
 
       {pipeline.length === 0 ? (
-        <Empty>
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <GitBranch />
-            </EmptyMedia>
-            <EmptyTitle>No features found</EmptyTitle>
-            <EmptyDescription>
-              Create a spec to get started — run /afx-scaffold spec my-feature in the chat.
-            </EmptyDescription>
-          </EmptyHeader>
-        </Empty>
+        <WorkbenchLaunchpad context="pipeline" />
       ) : (
         <ScrollArea className="min-h-0 flex-1">
           {view === "simple" ? (

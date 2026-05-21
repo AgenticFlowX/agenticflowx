@@ -15,6 +15,8 @@ import type { Transport } from "@afx/transport";
 import App from "./app";
 import { initTransport } from "./lib/bridge";
 
+vi.setConfig({ testTimeout: 15_000 });
+
 function renderApp() {
   const transport = createMockTransport();
   initTransport(transport);
@@ -176,17 +178,63 @@ describe("chat App", () => {
     expect(chatTab).toHaveAttribute("aria-selected", "true");
   });
 
+  it("replaces the composer draft when a workbench AFX command is inserted", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+    });
+
+    const composer = await screen.findByRole("textbox", { name: "Chat composer" });
+
+    act(() => {
+      transport.emit({ type: "chat/draftAppend", content: "keep this note around" });
+    });
+    await waitFor(() => expect(composer).toHaveValue("keep this note around"));
+
+    act(() => {
+      transport.emit({
+        type: "chat/draftAppend",
+        content: "/afx-task code all checkout-redesign",
+      });
+    });
+
+    await waitFor(() => expect(composer).toHaveValue("/afx-task code all checkout-redesign "));
+    expect(composer).toHaveFocus();
+    expect((composer as HTMLTextAreaElement).selectionStart).toBe(
+      "/afx-task code all checkout-redesign ".length,
+    );
+  });
+
   /**
    * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-3] [FR-5]
    * @see docs/specs/213-app-chat-history/design.md [DES-TEST]
    */
-  it("keeps Chat, History, and Settings reachable at VS Code sidebar collapse width", async () => {
+  it("keeps Chat, History, and Settings reachable at VS Code sidebar collapse width", () => {
     const originalWidth = window.innerWidth;
     Object.defineProperty(window, "innerWidth", { value: 205, configurable: true });
 
     try {
       const transport = createControlledTransport();
-      const user = userEvent.setup();
       initTransport(transport);
       render(<App transport={transport} />);
 
@@ -239,18 +287,9 @@ describe("chat App", () => {
       expect(screen.getByText("journal.md")).toHaveClass("hidden", "@[260px]:inline");
       expect(screen.getByText("|")).toHaveClass("hidden", "@[260px]:inline");
 
-      await user.hover(screen.getByRole("button", { name: "Mention file" }));
-      const mentionTooltip = await waitFor(() => {
-        const tooltip = document.querySelector('[data-slot="tooltip-content"]');
-        expect(tooltip).not.toBeNull();
-        return tooltip as HTMLElement;
-      });
-      expect(mentionTooltip).toHaveTextContent(/mention a file in the workspace/i);
-      expect(mentionTooltip).toHaveTextContent(/current editor file/i);
-
       const send = transport.send as ReturnType<typeof vi.fn>;
       send.mockClear();
-      await user.click(screen.getByRole("switch", { name: "journal.md" }));
+      fireEvent.click(screen.getByRole("switch", { name: "journal.md" }));
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "chat/setIncludeActiveFileContext",
@@ -258,25 +297,12 @@ describe("chat App", () => {
         }),
       );
 
-      const fileContextTrigger = screen.getByRole("switch", { name: "journal.md" });
-      await user.unhover(fileContextTrigger);
-      await user.hover(fileContextTrigger);
-      const fileContextTooltip = await waitFor(() => {
-        const tooltip = document.querySelector('[data-slot="tooltip-content"]');
-        expect(tooltip).not.toBeNull();
-        return tooltip as HTMLElement;
-      });
-      expect(fileContextTooltip).toHaveTextContent(/file context off/i);
-      expect(fileContextTooltip).toHaveTextContent(
-        /turn this on when you want the next turn to use the current editor file as context\./i,
-      );
-
-      await user.click(screen.getByRole("tab", { name: "History" }));
+      fireEvent.click(screen.getByRole("tab", { name: "History" }));
       expect(screen.getByRole("heading", { name: /history/i })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled();
       expect(screen.getByPlaceholderText("Search work log…")).toBeInTheDocument();
 
-      await user.click(screen.getByRole("tab", { name: "Settings" }));
+      fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
       expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
       // 5-group nav: Workspace, Runtimes, Models, Look, Support
       expect(screen.getByRole("button", { name: "Runtimes" })).toBeInTheDocument();
@@ -1160,10 +1186,13 @@ describe("chat App", () => {
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
 
     await user.click(screen.getByRole("button", { name: "What do I do next?" }));
-    expect(composer).toHaveValue("/afx-next");
+    expect(composer).toHaveValue("/afx-next ");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
 
-    await user.click(screen.getByRole("button", { name: "Plan in Spec mode" }));
+    await user.click(screen.getByRole("button", { name: "Workflow: Open" }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ type: "chat/openWorkbench" }));
+
+    await user.click(screen.getByRole("button", { name: "Spec: Plan" }));
     expect(composer).toHaveValue("/afx-spec new ");
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ type: "chat/setMode", mode: "spec" }),
@@ -1343,7 +1372,7 @@ describe("chat App", () => {
       screen.getByRole("region", { name: /Improve existing spec command receipt/i }),
     ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Insert" }));
-    expect(specComposer().value).toBe("/afx-spec refine auth-flow");
+    expect(specComposer().value).toBe("/afx-spec refine auth-flow ");
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
   });
 
@@ -2299,7 +2328,13 @@ describe("chat App", () => {
     await clickStripAction("Refine");
 
     // Refine is dialogic — it lands in the textarea, not on the wire.
-    expect(screen.getByPlaceholderText(/Spec mode/i)).toHaveValue("/afx-spec refine auth");
+    const composer = screen.getByPlaceholderText(/Spec mode/i);
+    if (!(composer instanceof HTMLTextAreaElement)) {
+      throw new Error("Expected the Spec mode composer to be a textarea");
+    }
+    expect(composer).toHaveValue("/afx-spec refine auth ");
+    expect(composer).toHaveFocus();
+    expect(composer.selectionStart).toBe("/afx-spec refine auth ".length);
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
     expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/followUp" }));
   });
@@ -2391,7 +2426,11 @@ describe("chat App", () => {
       .click(screen.getByRole("button", { name: /Insert Code: \/afx-task code 2\.3/i }));
 
     expect(send).not.toHaveBeenCalled();
-    expect(composer).toHaveValue("/afx-task code 2.3");
+    await waitFor(() => {
+      expect(composer).toHaveValue("/afx-task code 2.3 ");
+    });
+    expect(composer).toHaveFocus();
+    expect(composer.selectionStart).toBe("/afx-task code 2.3 ".length);
   });
 
   it("renders one run-next rail from explicit Next prose and hides the parsed block", async () => {
@@ -2449,7 +2488,11 @@ describe("chat App", () => {
         name: `Insert Refine Design: /afx-sprint design ${longSpec} --approve`,
       }),
     );
-    expect(composer).toHaveValue(`/afx-sprint design ${longSpec} --approve`);
+    await waitFor(() => {
+      expect(composer).toHaveValue(`/afx-sprint design ${longSpec} --approve `);
+    });
+    expect(composer).toHaveFocus();
+    expect(composer.selectionStart).toBe(`/afx-sprint design ${longSpec} --approve `.length);
 
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-20T13:04:07.000Z"
 tags: ["app", "workbench", "shell", "tabs", "bridge", "layout"]
 spec: spec.md
 ---
@@ -18,7 +18,7 @@ spec: spec.md
 
 The Workbench shell is the VSCode bottom-panel webview container. It owns React
 bootstrap, bridge lifecycle, state reducer, tab routing, loading/empty states,
-and the feature-scoped four-column Workbench tab.
+the first-run launchpad, and the feature-scoped Workbench thinking desk.
 
 ---
 
@@ -80,22 +80,72 @@ fields, and the notes capture strip.
 `initWorkbenchBridge`, `workbenchSend`, and `workbenchOn` wrap VSCode webview
 postMessage when available and browser mock behavior when outside VSCode.
 
-### [DES-SHELL-FEATURE-MOCKUP] Feature Four-Column ASCII
+### [DES-SHELL-FEATURE-MOCKUP] Feature Thinking Desk ASCII
 
 ```text
-┌──────────────────────── feature selector / toggles ────────────────────────┐
-│ [feature v] status/progress                         [SPEC][DESIGN][TASKS][SESSIONS] │
-├────────────── SPEC ─────────────┬──────────── DESIGN ────────┬──────── TASKS ───────┬──── SESSIONS ────┤
-│ markdown preview / not-created │ markdown preview / edit    │ phases + checkboxes  │ session rows      │
-│ [open editor] [preview]        │ [open editor] [preview]    │ progress footer      │ human/agent ticks │
-└────────────────────────────────┴────────────────────────────┴──────────────────────┴──────────────────┘
+┌──────────────────────────── feature selector / toggles ────────────────────────────┐
+│ [feature v] status/progress                               [SPEC][DESIGN][TASKS]    │
+├────────────── SPEC paper ────────────┬────────── DESIGN paper ─────────┬──── TASKS ─┤
+│ PRD Studio + [Refine][Review]        │ PRD Studio + [Refine][Review]   │ phases + [Code] │
+│ clean markdown + tables              │ clean markdown + code blocks    │ [Status][Code all] │
+└──────────────────────────────────────┴────────────────────────────────┴────────────┘
+Compact panels: columns keep a readable minimum width and scroll inside the Workbench.
+Zen panels: columns expand into a paper-like reading surface with the same controls.
 Drift footer: spec/design/tasks status, stale age, ghost reference hint.
 ```
 
 ### [DES-SHELL-FEATURE-COLUMNS] Feature Column Layout
 
-`views/workbench.tsx` owns selector, column toggles, resizable panels,
-spec/design/tasks previews, task checklist, session ticks, and drift footer.
+`views/workbench.tsx` owns selector, column toggles, the responsive column rail,
+spec/design/tasks readers, contextual command actions, task checklist, session
+ticks, and drift footer. The feature tab intentionally treats spec/design/tasks
+as a decision surface: document columns use the shared `DocumentStudio` reader
+from Documents, strip AFX trace noise, render tables through GFM, and place
+content in a paper-like card with a constrained reading measure.
+
+The column toggles are explicit show/hide controls. The toolbar labels the
+group as "Show/hide docs", each toggle exposes a `Show ... document column` or
+`Hide ... document column` accessible name, and the pressed state mirrors
+visibility so the buttons read as layout controls instead of ordinary document
+actions.
+
+The column rail must behave differently at the two common bottom-panel sizes:
+
+- Compact bottom panel: keep each visible column at a readable minimum width and
+  scroll horizontally inside the Workbench region, avoiding page-level overflow
+  when primary sidebar, editor, and secondary sidebar are all visible.
+- Expanded or zen bottom panel: let the same columns expand to fill the panel so
+  users can read, compare, and refine spec/design/tasks without opening a new
+  editor group.
+- Column containment: each pane clips to its own paper surface, reserves space
+  for its internal scroll rail, and wraps long prose/paths while keeping code
+  blocks and tables horizontally scrollable inside their own element.
+
+Command actions live inside the surface they affect. Spec cards expose
+`/afx-spec refine` and `/afx-spec review`; design cards expose
+`/afx-design refine` and `/afx-design review`; tasks expose
+`/afx-task refine`, `/afx-task status`, and `/afx-task code all`. Each task
+phase also exposes a compact `Code` action that drafts `/afx-task code
+<feature>#<wbs> phase <number> <name>` for the first open task in that phase,
+making surgical implementation starts possible from the Workbench itself. These
+actions draft typed chat commands through `afxOpenChatCommand`; they do not
+mutate docs directly.
+
+### [DES-SHELL-LAUNCHPAD] First-Run Launchpad
+
+The launchpad appears in empty Workbench, Pipeline, and Documents contexts. It
+offers four durable next moves:
+
+- Draft a full-spec command in Chat.
+- Draft a sprint command in Chat.
+- Create a sample complete SDD set in `docs/specs/sample-workbench-tour/`.
+- Create a sample sprint markdown file in `docs/specs/sample-sprint-tour/`.
+
+The launchpad is a usable control surface, not tutorial prose. It is designed
+for the constrained bottom-panel viewport: compact header, dense starter
+actions, and a slim workflow map that remains readable when the primary
+sidebar, editor, and secondary sidebar are all visible. Shell tabs use
+horizontal overflow rather than clipping when the panel width gets tight.
 
 ---
 
@@ -141,28 +191,31 @@ Outbound:
 - `afxFetchDocContent`
 - `afxToggleTask`
 - `afxToggleSession`
+- `afxOpenChatCommand`
+- `afxCreateSampleDocs`
 
 ---
 
 ## [DES-FILES] File Structure
 
-| File                                               | Purpose                                   |
-| -------------------------------------------------- | ----------------------------------------- |
-| `apps/workbench/src/main.tsx`                      | React entry and bridge init               |
-| `apps/workbench/src/app.tsx`                       | Root shell, tab routing, loading state    |
-| `apps/workbench/src/app.test.tsx`                  | Shell tab smoke tests                     |
-| `apps/workbench/src/index.css`                     | Workbench-local surface and cursor styles |
-| `apps/workbench/src/context/workbench-context.tsx` | State reducer/provider/hook               |
-| `apps/workbench/src/lib/bridge.ts`                 | Typed webview bridge wrapper              |
-| `apps/workbench/src/views/workbench.tsx`           | Feature-scoped four-column tab            |
-| `apps/workbench/src/components/coming-soon.tsx`    | Shared placeholder surface                |
+| File                                                    | Purpose                                      |
+| ------------------------------------------------------- | -------------------------------------------- |
+| `apps/workbench/src/main.tsx`                           | React entry and bridge init                  |
+| `apps/workbench/src/app.tsx`                            | Root shell, tab routing, loading state       |
+| `apps/workbench/src/app.test.tsx`                       | Shell tab smoke tests                        |
+| `apps/workbench/src/index.css`                          | Workbench-local surface and cursor styles    |
+| `apps/workbench/src/context/workbench-context.tsx`      | State reducer/provider/hook                  |
+| `apps/workbench/src/lib/bridge.ts`                      | Typed webview bridge wrapper                 |
+| `apps/workbench/src/views/workbench.tsx`                | Feature-scoped thinking desk                 |
+| `apps/workbench/src/components/workbench-launchpad.tsx` | First-run launchpad and sample creation CTAs |
+| `apps/workbench/src/components/coming-soon.tsx`         | Shared placeholder surface                   |
 
 ---
 
 ## [DES-DEPS] Dependencies
 
 - `@afx/shared` for Workbench state/protocol.
-- `@afx/ui` for tabs, resizable panels, empty states, scroll areas.
+- `@afx/ui` for tabs, empty states, scroll areas, and controls.
 - Child specs `221` through `227` for current tab internals.
 - `228-app-workbench-impact-lens` as a reserved Workbench child surface until
   implementation starts.
@@ -188,6 +241,11 @@ must not import VSCode host APIs or read local files directly.
 ## [DES-TEST] Testing Strategy
 
 - App tests cover tab labels and shell rendering.
+- Launchpad tests cover command/sample CTA payloads.
+- Workbench feature tests cover contextual command actions, clean paper readers, and
+  the internal responsive column rail.
+- E2E screenshots cover populated tabs, standard and constrained first-run
+  launchpad states, and compact/zen feature thinking desk layouts.
 - Future tests should cover provider state update, bridge subscriptions, feature
   column toggles, task/session toggle messages, and Impact Lens tab addition.
 
@@ -203,34 +261,43 @@ must not import VSCode host APIs or read local files directly.
 
 ## [DES-SHELL-LOC] Code Locator Map
 
-| Map ID            | Code anchor                                                                            | Messages/data                           | Tests                             |
-| ----------------- | -------------------------------------------------------------------------------------- | --------------------------------------- | --------------------------------- |
-| `[Shell.App]`     | `apps/workbench/src/app.tsx` `App` + tab routing                                       | `WorkbenchInbound`, `afxUpdate`         | `apps/workbench/src/app.test.tsx` |
-| `[Shell.Context]` | `apps/workbench/src/context/workbench-context.tsx` `WorkbenchProvider`                 | `WorkbenchState`                        | future context tests              |
-| `[Shell.Bridge]`  | `apps/workbench/src/lib/bridge.ts` `initWorkbenchBridge`/`workbenchSend`/`workbenchOn` | `WorkbenchInbound`, `WorkbenchOutbound` | manual                            |
-| `[Shell.Feature]` | `apps/workbench/src/views/workbench.tsx` four-column feature view                      | `selectedFeature` state                 | manual                            |
+| Map ID              | Code anchor                                                                            | Messages/data                               | Tests                             |
+| ------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------- | --------------------------------- |
+| `[Shell.App]`       | `apps/workbench/src/app.tsx` `App` + tab routing                                       | `WorkbenchInbound`, `afxUpdate`             | `apps/workbench/src/app.test.tsx` |
+| `[Shell.Context]`   | `apps/workbench/src/context/workbench-context.tsx` `WorkbenchProvider`                 | `WorkbenchState`                            | future context tests              |
+| `[Shell.Bridge]`    | `apps/workbench/src/lib/bridge.ts` `initWorkbenchBridge`/`workbenchSend`/`workbenchOn` | `WorkbenchInbound`, `WorkbenchOutbound`     | manual                            |
+| `[Shell.Feature]`   | `apps/workbench/src/views/workbench.tsx` thinking desk                                 | `selectedFeature` state                     | workbench.test.tsx + e2e          |
+| `[Shell.Launchpad]` | `apps/workbench/src/components/workbench-launchpad.tsx` first-run actions              | `afxOpenChatCommand`, `afxCreateSampleDocs` | launchpad tests + e2e screenshots |
 
 ## [DES-SHELL-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                | Code anchors                      | Verification |
-| ----------- | ----------------------------------------------------------- | --------------------------------- | ------------ |
-| FR-1        | `[DES-SHELL-MOCKUP]`, `[DES-SHELL-TABS]`                    | `App`, `TabsList`, `TabsContent`  | app.test.tsx |
-| FR-3        | `[DES-SHELL-STATE]`                                         | `WorkbenchProvider`, reducer      | future       |
-| FR-5        | `[DES-SHELL-BRIDGE]`                                        | bridge bootstrap + handlers       | manual       |
-| FR-6        | `[DES-SHELL-DATA]`                                          | `WorkSessionRow` strip            | manual       |
-| FR-8        | `[DES-SHELL-FEATURE-MOCKUP]`, `[DES-SHELL-FEATURE-COLUMNS]` | `WorkbenchTab` four-column layout | manual       |
+| Requirement | Design nodes                                                | Code anchors                      | Verification      |
+| ----------- | ----------------------------------------------------------- | --------------------------------- | ----------------- |
+| FR-1        | `[DES-SHELL-BRIDGE]`                                        | `main.tsx`, `initWorkbenchBridge` | app.test.tsx      |
+| FR-2        | `[DES-SHELL-TABS]`, `[DES-SHELL-MOCKUP]`                    | `App`, `TabsList`, `TabsContent`  | app + e2e         |
+| FR-3        | `[DES-SHELL-STATE]`, `[DES-SHELL-DATA]`                     | `WorkbenchProvider`, reducer      | app + view tests  |
+| FR-4        | `[DES-SHELL-BRIDGE]`, `[DES-API]`                           | `workbenchSend`, `workbenchOn`    | launchpad tests   |
+| FR-5        | `[DES-SHELL-MOCKUP]`, `[DES-SHELL-LAUNCHPAD]`               | loading state, empty launchpad    | app + e2e         |
+| FR-6        | `[DES-SHELL-FEATURE-MOCKUP]`, `[DES-SHELL-FEATURE-COLUMNS]` | `Workbench`, column components    | workbench + e2e   |
+| FR-7        | `[DES-SHELL-FEATURE-COLUMNS]`, `[DES-API]`                  | `OpenActions`, task/session ticks | workbench + board |
+| FR-8        | `[DES-SHELL-TABS]`                                          | child route mapping               | app.test.tsx      |
+| FR-9        | `[DES-SHELL-LAUNCHPAD]`                                     | `WorkbenchLaunchpad`              | app/workbench/e2e |
+| FR-10       | `[DES-SHELL-LAUNCHPAD]`, `[DES-API]`                        | launchpad bridge buttons          | launchpad tests   |
+| FR-11       | `[DES-SHELL-TABS]`, `[DES-SHELL-LAUNCHPAD]`                 | tabs + launchpad compact layout   | compact e2e       |
+| FR-12       | `[DES-SHELL-FEATURE-COLUMNS]`, `[DES-API]`                  | `Workbench`, `ColumnDoc`          | workbench + e2e   |
 
 ---
 
 ## [DES-REFS] File Reference Map
 
-| File                                               | Required @see                                                                                |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| `apps/workbench/src/main.tsx`                      | `spec.md [FR-1]` + `design.md [DES-SHELL-BRIDGE]`                                            |
-| `apps/workbench/src/app.tsx`                       | `spec.md [FR-2] [FR-5]` + `design.md [DES-SHELL-TABS] [DES-SHELL-MOCKUP]`                    |
-| `apps/workbench/src/app.test.tsx`                  | `spec.md [FR-2] [FR-5]` + `design.md [DES-TEST] [DES-SHELL-TABS]`                            |
-| `apps/workbench/src/index.css`                     | `design.md [DES-SHELL-SURFACE-STYLES]`                                                       |
-| `apps/workbench/src/context/workbench-context.tsx` | `spec.md [FR-3]` + `design.md [DES-SHELL-STATE]`                                             |
-| `apps/workbench/src/lib/bridge.ts`                 | `spec.md [FR-4]` + `design.md [DES-SHELL-BRIDGE]`                                            |
-| `apps/workbench/src/views/workbench.tsx`           | `spec.md [FR-6] [FR-7]` + `design.md [DES-SHELL-FEATURE-COLUMNS] [DES-SHELL-FEATURE-MOCKUP]` |
-| `apps/workbench/src/components/coming-soon.tsx`    | `spec.md [FR-5]` + `design.md [DES-SHELL-TABS]`                                              |
+| File                                                    | Required @see                                                                                        |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `apps/workbench/src/main.tsx`                           | `spec.md [FR-1]` + `design.md [DES-SHELL-BRIDGE]`                                                    |
+| `apps/workbench/src/app.tsx`                            | `spec.md [FR-2] [FR-5] [FR-11]` + `design.md [DES-SHELL-TABS] [DES-SHELL-MOCKUP]`                    |
+| `apps/workbench/src/app.test.tsx`                       | `spec.md [FR-2] [FR-5]` + `design.md [DES-TEST] [DES-SHELL-TABS]`                                    |
+| `apps/workbench/src/index.css`                          | `design.md [DES-SHELL-SURFACE-STYLES]`                                                               |
+| `apps/workbench/src/context/workbench-context.tsx`      | `spec.md [FR-3]` + `design.md [DES-SHELL-STATE]`                                                     |
+| `apps/workbench/src/lib/bridge.ts`                      | `spec.md [FR-4]` + `design.md [DES-SHELL-BRIDGE]`                                                    |
+| `apps/workbench/src/views/workbench.tsx`                | `spec.md [FR-6] [FR-7] [FR-12]` + `design.md [DES-SHELL-FEATURE-COLUMNS] [DES-SHELL-FEATURE-MOCKUP]` |
+| `apps/workbench/src/components/workbench-launchpad.tsx` | `spec.md [FR-9] [FR-10] [FR-11]` + `design.md [DES-SHELL-LAUNCHPAD]`                                 |
+| `apps/workbench/src/components/coming-soon.tsx`         | `spec.md [FR-5]` + `design.md [DES-SHELL-TABS]`                                                      |

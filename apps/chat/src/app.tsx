@@ -38,6 +38,15 @@ function isMockTransport(t: Transport): t is MockTransport {
   return "scenarios" in t && typeof (t as MockTransport).scenarios === "object";
 }
 
+function shouldReplaceDraftWithIncoming(content: string): boolean {
+  return /^\/afx-[\w-]+(?:\s|$)/.test(content.trim());
+}
+
+function formatIncomingDraftInsertion(content: string): string {
+  const trimmed = content.trim();
+  return shouldReplaceDraftWithIncoming(trimmed) ? `${trimmed} ` : trimmed;
+}
+
 export default function App({ transport }: AppProps) {
   const showDebugPanel = import.meta.env.DEV && isMockTransport(transport);
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>("chat");
@@ -94,10 +103,11 @@ export default function App({ transport }: AppProps) {
   useEffect(() => {
     const offs = [
       bridgeOn("chat/draftAppend", (msg) => {
-        const insertion = msg.content.trim();
+        const insertion = formatIncomingDraftInsertion(msg.content);
         if (!insertion) return;
         setActiveTab("chat");
         handleDraftChange((prev) => {
+          if (shouldReplaceDraftWithIncoming(insertion)) return insertion;
           const base = prev.trimEnd();
           if (base.length === 0) return insertion;
           return `${base}\n\n${insertion}`;
