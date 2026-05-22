@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T12:36:36.000Z"
+updated_at: "2026-05-22T05:19:41.000Z"
 tags: ["app", "chat", "settings", "providers", "custom-models"]
 spec: spec.md
 design: design.md
@@ -52,6 +52,13 @@ design: design.md
 - [x] Focus hosted provider API key input from setup entry points
 - [x] Collapse Skills & commands under Support by default
 - [x] Merge bundled AFX skills into the Support command catalogue
+
+### 2.4 Runtime Timeout Visibility
+
+- [x] Show the effective model warm-up timeout in Runtimes
+- [x] Open `afx.runtime.responseStartTimeoutMs` from the row's Configure action
+- [x] Describe the timeout as a slow-start warning for providers, proxies, and local runtimes
+- [x] Cover the row with unit, e2e, and screenshot tests
 
 ---
 
@@ -145,6 +152,7 @@ E2E + verify
 | 2.1  | [FR-1], [FR-4]          | [DES-UI], [DES-API]                                                                                           |
 | 2.2  | [FR-5]                  | [DES-SETTINGS-CONTEXT]                                                                                        |
 | 2.3  | [FR-12]                 | [DES-SETTINGS-ONBOARDING], [DES-SETTINGS-SURFACE-SKILLS]                                                      |
+| 2.4  | [FR-13]                 | [DES-SETTINGS-SURFACE-RUNTIME], [DES-DATA], [DES-API]                                                         |
 | 4.1  | [FR-8], [FR-9], [FR-10] | [DES-SETTINGS-CUSTOM-MODELS]                                                                                  |
 | 4.2  | [FR-9], [FR-10]         | [DES-SETTINGS-CUSTOM-MODELS] · `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`                                       |
 | 4.3  | [FR-9], [FR-10]         | `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`                                                                      |
@@ -179,3 +187,5 @@ E2E + verify
 | 2026-05-17T13:48:20.000Z | UX   | Coded       | apps/chat/src/views/settings.tsx, apps/chat/src/components/agent-recovery-card.tsx, apps/chat/src/app.tsx, apps/chat/src/lib/settings-copy.ts, apps/chat/src/app.test.tsx, apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, apps/vscode/package.json, packages/shared/src/messages.ts, packages/transport/src/{mock,mock.test}.ts, docs/specs/214-app-chat-settings/{design,tasks}.md                 | [x]   | [ ]   |
 | 2026-05-21T11:34:14.000Z | 2.3  | Coded       | apps/chat/src/{app.tsx,views/settings.tsx,lib/settings-copy.ts,lib/settings-navigation.ts}, apps/chat/src/components/{provider-card.tsx,custom-provider-form.tsx}, apps/chat/src/components/chat/{chat-window.tsx,composer-toolbar.tsx,conversation-empty-states.tsx}, apps/chat/{src/app.test.tsx,src/components/provider-card.test.tsx,e2e/chat.spec.ts,e2e/screenshots.spec.ts}, docs/specs/214-app-chat-settings/{spec,design,tasks}.md | [x]   | [ ]   |
 | 2026-05-21T12:36:36.000Z | 2.3  | Coded       | apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, packages/transport/src/mock.ts, apps/chat/e2e/chat.spec.ts, docs/specs/214-app-chat-settings/{spec,design,tasks}.md                                                                                                                                                                                                                                  | [x]   | [ ]   |
+| 2026-05-21T21:22:08.000Z | 2.4  | Coded       | apps/vscode/{package.json,src/panels/sidebar-panel.ts,src/panels/sidebar-panel.test.ts}, apps/chat/src/{views/settings.tsx,lib/settings-copy.ts,app.test.tsx}, apps/chat/e2e/{chat.spec.ts,screenshots.spec.ts}, packages/shared/src/messages.ts, docs/specs/214-app-chat-settings/{spec,design,tasks}.md                                                                                                                                   | [x]   | [ ]   |
+| 2026-05-21T22:05:40.000Z | 2.4  | Copy polish | apps/chat/src/lib/settings-copy.ts, apps/chat/{src/app.test.tsx,e2e/chat.spec.ts,e2e/screenshots.spec.ts}, docs/specs/214-app-chat-settings/{spec,design,tasks}.md                                                                                                                                                                                                                                                                          | [x]   | [ ]   |

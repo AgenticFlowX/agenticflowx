@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.7"
+version: "1.8"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T12:36:36.000Z"
+updated_at: "2026-05-22T05:19:41.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models", "intent"]
 depends_on:
@@ -69,6 +69,7 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-10 | Store all custom-provider data — apiKey value, baseUrl, models, headers, opaque compat — in VSCode SecretStorage. The host→webview bridge carries only `CustomProviderSummary` and `CustomProviderModelSummary`: id, displayName, baseUrl, api kind, modelCount, redacted models[] (id/name/contextWindow/maxTokens/capabilities), apiKeySource, apiKeyLabel, hasApiKey, authHeader, UI-known compatFlags (booleans only). AFX never writes to `~/.pi/agent/models.json` from either track                                                                 | Must Have   |
 | FR-11 | Own the Composer Intent settings surface in the Workspace group: expose the current four-slot default, remap slot 4 by active parent mode (`Code` or `PRD`), persist `afx.composer.intent.slot`, persist the `afx.composer.intent.minimized` default, and expose global-default vs workspace-override scope as an either/or radio choice without changing Spec mode behavior                                                                                                                                                                               | Must Have   |
 | FR-12 | Surface a first-run "Connect a model" path at the top of Settings. It guides users to hosted API keys, custom endpoints, or Pi RPC in one or two clicks, focuses the first credential field when possible, and remains navigation-only until Save. Existing provider keys, custom-provider records, bridge payloads, and SecretStorage keys must not change. Skills and command catalogues live in Support inside a collapsed disclosure by default, and include every bundled AFX skill even when the active runtime reports only a partial command list. | Must Have   |
+| FR-13 | Surface the host slow-start threshold in Settings → Runtimes as "Model warm-up timeout" with the effective value, provider/proxy/local first-token copy, and a Configure action for `afx.runtime.responseStartTimeoutMs`. This setting controls the AFX host warning only; it must not change provider keys, custom providers, Ollama URL, or Pi session settings.                                                                                                                                                                                         | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -101,6 +102,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Custom endpoint setup opens the Pi SDK create form without mutating existing custom providers
 - [ ] Support shows Diagnostics, Privacy, and About before a collapsed Skills & commands disclosure
 - [ ] Skills & commands lists every bundled `afx-*` skill plus runtime-only commands after expansion
+- [ ] Runtimes shows the model warm-up timeout row with a Configure action that opens `afx.runtime.responseStartTimeoutMs`
 
 ---
 
@@ -175,18 +177,18 @@ None.
 
 ### Agent Entry Map
 
-| Field           | Values                                                                                                                                                                                                               |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Chat settings panel, provider cards, API key/runtime readiness UX, settings snapshot UI                                                                                                                              |
-| Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts` |
-| Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                           |
-| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                            |
-| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`, `afx.composer.intent.slot`, `afx.composer.intent.minimized`                                   |
-| Commands        | Settings panel actions inside the chat webview                                                                                                                                                                       |
-| Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                      |
-| Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                  |
-| Out of scope    | Secret persistence internals, Pi RPC, composer send behavior                                                                                                                                                         |
-| Example prompts | "Update provider card copy", "Change API key empty state", "Adjust settings theme preview"                                                                                                                           |
+| Field           | Values                                                                                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Owned surface   | Chat settings panel, provider cards, API key/runtime readiness UX, settings snapshot UI                                                                                                                                  |
+| Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts`     |
+| Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                               |
+| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                                |
+| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`, `afx.composer.intent.slot`, `afx.composer.intent.minimized`, `afx.runtime.responseStartTimeoutMs` |
+| Commands        | Settings panel actions inside the chat webview                                                                                                                                                                           |
+| Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                          |
+| Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                      |
+| Out of scope    | Secret persistence internals, Pi RPC, composer send behavior                                                                                                                                                             |
+| Example prompts | "Update provider card copy", "Change API key empty state", "Adjust settings theme preview"                                                                                                                               |
 
 ### Glossary
 

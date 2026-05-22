@@ -5,6 +5,8 @@
  *
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-2] [FR-4]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL] [DES-SHARED-CHAT-VIEW-TYPES]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-13]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-API]
  */
 import type {
   AgentCommand,
@@ -381,8 +383,8 @@ export interface SettingsCustomModelsSnapshot {
 }
 
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6] [FR-8]
- * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-CONTEXT] [DES-SETTINGS-CUSTOM-MODELS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6] [FR-8] [FR-13]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-API] [DES-SETTINGS-SURFACE-CONTEXT] [DES-SETTINGS-CUSTOM-MODELS]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 export interface SettingsSnapshot {
@@ -393,6 +395,13 @@ export interface SettingsSnapshot {
     bundledSkillsPath: string;
     bundledSkillCount: number;
     ephemeral: boolean;
+    /**
+     * Effective clamped host slow-start warning threshold, shown in Settings → Runtimes.
+     *
+     * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
+     * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-RUNTIME]
+     */
+    responseStartTimeoutMs?: number;
   };
   sdk?: SettingsSdkSnapshot;
   context: SettingsContextSnapshot;
@@ -593,8 +602,8 @@ export type ChatToAgent =
   /**
    * Settings panel requests the full settings snapshot.
    *
-   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
-   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-13]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW] [DES-DATA]
    */
   | { type: "chat/getSettingsSnapshot"; requestId: string }
   /**
@@ -658,8 +667,8 @@ export type ChatToAgent =
   /**
    * Open a VSCode settings UI focused on a known AFX configuration key.
    *
-   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
-   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-13]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW] [DES-API]
    */
   | {
       type: "chat/openSettings";
@@ -672,6 +681,7 @@ export type ChatToAgent =
         | "afx.sdk.enabled"
         | "afx.sdk.defaultModel"
         | "afx.sdk.ollamaBaseUrl"
+        | "afx.runtime.responseStartTimeoutMs"
         | "afx.debugPerf"
         | "afx.logLevel"
         | "afx.theme"

@@ -8,8 +8,8 @@
  *
  * @see docs/specs/200-app-vscode/spec.md [FR-7]
  * @see docs/specs/200-app-vscode/design.md [DES-ARCH] [DES-TEST]
- * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4]
- * @see docs/specs/200-app-vscode/design.md [DES-TEST]
+ * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4] [FR-14]
+ * @see docs/specs/200-app-vscode/design.md [DES-TEST] [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  */
 import { EventEmitter } from "events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -122,6 +122,7 @@ describe("sidebar-panel host bridge", () => {
       "sdk.defaultModel": "anthropic:claude-opus-4-5",
       "sdk.enabled": true,
       "sdk.ollamaBaseUrl": "",
+      "runtime.responseStartTimeoutMs": 60_000,
       sessionDir: "",
       "context.includeActiveFileContext": true,
       "mode.active": "code",
@@ -181,6 +182,19 @@ describe("sidebar-panel host bridge", () => {
     }
   }
 
+  async function setupReadyViewWithFakeTimers(): Promise<{
+    inbound: InboundCapture;
+    postMessage: ReturnType<typeof vi.fn>;
+    provider: ReturnType<typeof createSidebarPanel>;
+  }> {
+    const view = setupWithView();
+    view.inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork();
+    view.postMessage.mockClear();
+    vi.useFakeTimers();
+    return view;
+  }
+
   function mockActiveWorkspaceFile(): void {
     const activeEditor = {
       document: {
@@ -206,6 +220,11 @@ describe("sidebar-panel host bridge", () => {
   function firstAgentEventListener(): ((event: AgentEvent) => void) | undefined {
     const calls = (agent.onEvent as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     return calls[0]?.[0] as ((event: AgentEvent) => void) | undefined;
+  }
+
+  function firstAgentStderrListener(): ((chunk: string) => void) | undefined {
+    const calls = (agent.onStderr as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+    return calls[0]?.[0] as ((chunk: string) => void) | undefined;
   }
 
   it("chat/getModels delegates to agent.getAvailableModels", async () => {
@@ -1137,6 +1156,10 @@ describe("sidebar-panel host bridge", () => {
     const { inbound, postMessage } = setupWithView();
     const listener = firstAgentEventListener();
 
+    inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork();
+    postMessage.mockClear();
+
     inbound.fire({ type: "chat/send", requestId: "transient-retry", content: "hello" });
     await flushAsyncWork();
     listener?.({
@@ -1151,9 +1174,16 @@ describe("sidebar-panel host bridge", () => {
       delayMs: 1_000,
       errorMessage: "overloaded_error: upstream service unavailable",
     });
+    listener?.({
+      type: "auto_retry_start",
+      attempt: 2,
+      maxAttempts: 3,
+      delayMs: 2_000,
+      errorMessage: "overloaded_error: upstream service unavailable",
+    });
     listener?.({ type: "agent_start" });
     listener?.({ type: "text_delta", id: "retry-msg", delta: "Recovered after retry." });
-    listener?.({ type: "auto_retry_end", success: true, attempt: 1 });
+    listener?.({ type: "auto_retry_end", success: true, attempt: 2 });
     listener?.({ type: "message_end", role: "assistant", stopReason: "end_turn" });
     listener?.({ type: "agent_end" });
     await flushAsyncWork(2);
@@ -1173,6 +1203,15 @@ describe("sidebar-panel host bridge", () => {
             /overloaded_error/i.test(typeof msg.message === "string" ? msg.message : ""),
         ),
     ).toBe(false);
+    const retryToasts = postMessage.mock.calls
+      .map(([msg]) => msg as { type?: string; message?: string })
+      .filter(
+        (msg) =>
+          msg.type === "chat/toast" &&
+          typeof msg.message === "string" &&
+          msg.message.startsWith("Retrying provider request"),
+      );
+    expect(retryToasts).toHaveLength(1);
   });
 
   it("model switches clear stale streaming state without hiding empty-session onboarding", async () => {
@@ -1519,9 +1558,8 @@ describe("sidebar-panel host bridge", () => {
     expect(prompt).not.toContain("Mode: PRD");
   });
 
-  it("keeps the no-response timeout active when the runtime only reports startup", async () => {
-    vi.useFakeTimers();
-    const { inbound, postMessage } = setupWithView();
+  it("warns without failing when the runtime only reports startup", async () => {
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
     const listener = firstAgentEventListener();
 
     inbound.fire({
@@ -1533,11 +1571,250 @@ describe("sidebar-panel host bridge", () => {
 
     await vi.advanceTimersByTimeAsync(20_000);
 
+    expect(
+      postMessage.mock.calls.some(
+        ([msg]) =>
+          (msg as { type?: string; message?: string }).type === "chat/toast" &&
+          (msg as { message?: string }).message === "Still waiting for the model",
+      ),
+    ).toBe(false);
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(40_000);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+        description: expect.stringContaining("first token"),
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("uses the configured first-response timeout", async () => {
+    mockAfxConfiguration({ "runtime.responseStartTimeoutMs": 120_000 });
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-local-cold", content: "hello world" });
+    listener?.({ type: "agent_start" });
+
+    await vi.advanceTimersByTimeAsync(119_999);
+    expect(
+      postMessage.mock.calls.some(
+        ([msg]) =>
+          (msg as { type?: string; message?: string }).type === "chat/toast" &&
+          (msg as { message?: string }).message === "Still waiting for the model",
+      ),
+    ).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("clamps too-low first-response timeouts", async () => {
+    mockAfxConfiguration({ "runtime.responseStartTimeoutMs": 1_000 });
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-clamped", content: "hello world" });
+    listener?.({ type: "agent_start" });
+
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(
+      postMessage.mock.calls.some(
+        ([msg]) =>
+          (msg as { type?: string; message?: string }).type === "chat/toast" &&
+          (msg as { message?: string }).message === "Still waiting for the model",
+      ),
+    ).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("clamps too-high first-response timeouts", async () => {
+    mockAfxConfiguration({ "runtime.responseStartTimeoutMs": 900_000 });
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-clamped-high", content: "hello world" });
+    listener?.({ type: "agent_start" });
+
+    await vi.advanceTimersByTimeAsync(599_999);
+    expect(
+      postMessage.mock.calls.some(
+        ([msg]) =>
+          (msg as { type?: string; message?: string }).type === "chat/toast" &&
+          (msg as { message?: string }).message === "Still waiting for the model",
+      ),
+    ).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("uses the default first-response timeout for invalid values", async () => {
+    mockAfxConfiguration({ "runtime.responseStartTimeoutMs": "not-a-number" });
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-invalid-timeout", content: "hello world" });
+    listener?.({ type: "agent_start" });
+
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(
+      postMessage.mock.calls.some(
+        ([msg]) =>
+          (msg as { type?: string; message?: string }).type === "chat/toast" &&
+          (msg as { message?: string }).message === "Still waiting for the model",
+      ),
+    ).toBe(false);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("cancels the first-response timeout once assistant output starts", async () => {
+    vi.useFakeTimers();
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-started", content: "hello world" });
+    listener?.({ type: "agent_start" });
+    await vi.advanceTimersByTimeAsync(59_999);
+    listener?.({ type: "text_delta", id: "assistant-1", delta: "hello" });
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/messageDelta",
+        delta: "hello",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("keeps the turn alive when assistant output arrives after the warm-up warning", async () => {
+    const { inbound, postMessage } = await setupReadyViewWithFakeTimers();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-slow-start", content: "hello world" });
+    listener?.({ type: "agent_start" });
+    await vi.advanceTimersByTimeAsync(60_000);
+    listener?.({ type: "text_delta", id: "assistant-1", delta: "finally ready" });
+    listener?.({ type: "message_end", role: "assistant", stopReason: "end_turn" });
+    await vi.advanceTimersByTimeAsync(20);
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Still waiting for the model",
+      }),
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/messageDelta",
+        delta: "finally ready",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("does not fail an active turn for nonfatal runtime stderr warnings", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+    const stderr = firstAgentStderrListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-stderr-warning", content: "hello world" });
+    listener?.({ type: "agent_start" });
+    stderr?.("warning: local backend timeout while warming model cache\n");
+    listener?.({ type: "text_delta", id: "assistant-1", delta: "still working" });
+    listener?.({ type: "message_end", role: "assistant", stopReason: "end_turn" });
+    await flushAsyncWork();
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/messageDelta",
+        delta: "still working",
+      }),
+    );
+    expect(
+      postMessage.mock.calls.some(([msg]) => (msg as { type?: string }).type === "chat/error"),
+    ).toBe(false);
+  });
+
+  it("still fails an active turn for fatal runtime stderr", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const stderr = firstAgentStderrListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-stderr-fatal", content: "hello world" });
+    stderr?.("Error: local backend refused the request\n");
+    await flushAsyncWork();
+
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "chat/error",
-        requestId: "req-start-only",
-        message: expect.stringContaining("did not emit a response"),
+        requestId: "req-stderr-fatal",
+        message: "local backend refused the request",
+      }),
+    );
+  });
+
+  it("fails an active turn for JSON runtime stderr error payloads", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const stderr = firstAgentStderrListener();
+
+    inbound.fire({ type: "chat/send", requestId: "req-stderr-json", content: "hello world" });
+    stderr?.('{"error":"local backend crashed during warmup"}\n');
+    await flushAsyncWork();
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "req-stderr-json",
+        message: "local backend crashed during warmup",
       }),
     );
   });

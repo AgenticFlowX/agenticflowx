@@ -1,8 +1,9 @@
 /**
  * Settings view — 5-group layout: Workspace, Runtimes, Models, Look, Support.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [FR-12] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS] [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [FR-12] [FR-13] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  */
 import {
@@ -1560,6 +1561,13 @@ export default function Settings({
                   onCheckedChange={applyAutoRetry}
                   disabled={runtimeControlsDisabled}
                 />
+                <ConfigField
+                  label={RUNTIMES.responseTimeoutLabel}
+                  value={`${Math.round((snapshot?.engine.responseStartTimeoutMs ?? 60_000) / 1_000)}s`}
+                  settingKey="afx.runtime.responseStartTimeoutMs"
+                  actionLabel="Configure"
+                  hint={RUNTIMES.responseTimeoutDescription}
+                />
               </div>
             </div>
           </SettingsCard>
@@ -2393,10 +2401,12 @@ function ConfigField({
   label,
   value,
   settingKey,
+  actionLabel,
   hint,
 }: {
   label: string;
   value: string;
+  actionLabel?: string;
   hint?: string;
   settingKey?:
     | "afx.agentBinaryPath"
@@ -2406,6 +2416,7 @@ function ConfigField({
     | "afx.sdk.enabled"
     | "afx.sdk.defaultModel"
     | "afx.sdk.ollamaBaseUrl"
+    | "afx.runtime.responseStartTimeoutMs"
     | "afx.debugPerf"
     | "afx.logLevel"
     | "afx.theme"
@@ -2422,7 +2433,7 @@ function ConfigField({
         {settingKey ? (
           <Button
             type="button"
-            size="icon-xs"
+            size={actionLabel ? "sm" : "icon-xs"}
             variant="ghost"
             className="shrink-0"
             aria-label={`Open ${settingKey} setting`}
@@ -2431,6 +2442,7 @@ function ConfigField({
             }
           >
             <ExternalLink size={11} />
+            {actionLabel ? <span>{actionLabel}</span> : null}
           </Button>
         ) : null}
       </div>

@@ -531,6 +531,31 @@ describe("extension.activate", () => {
     expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
   });
 
+  it("refreshes the sidebar snapshot when the model warm-up timeout changes", async () => {
+    let configListener:
+      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
+      | undefined;
+    vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
+      configListener = listener as typeof configListener;
+      return { dispose: vi.fn() };
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    configListener?.({
+      affectsConfiguration: (key: string) => key === "afx.runtime.responseStartTimeoutMs",
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(1);
+    const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
+      | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
+      | undefined;
+    expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
+  });
+
   it("creates configured agent instances from VSCode settings", async () => {
     vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
       get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {

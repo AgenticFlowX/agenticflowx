@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.5"
+version: "1.6"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-19T13:55:39.000Z"
+updated_at: "2026-05-22T04:58:50.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags:
   [
@@ -74,21 +74,22 @@ VSCode users running the AgenticFlowX extension.
 
 ### Functional Requirements
 
-| ID    | Requirement                                                                                                                                                                                                                                | Priority    |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| FR-1  | Extension activates lazily via VSCode view contributions (sidebar/workbench panels) and registers all commands during `activate()`; `activationEvents` may stay empty since the panel views themselves are activation events               | Must Have   |
-| FR-2  | Sidebar webview provider loads `apps/chat` dist output                                                                                                                                                                                     | Must Have   |
-| FR-3  | Workbench webview provider loads `apps/workbench` dist output                                                                                                                                                                              | Must Have   |
-| FR-4  | Commands: `afx.openSidebar`, `afx.openWorkbench`, `afx.showLogs`, `afx.agentSmokeTest`, `afx.agentRestart`, `afx.setMode`, `afx.setIntent`                                                                                                 | Must Have   |
-| FR-5  | Webview HTML generator loads compiled Vite dist with correct CSP and nonce                                                                                                                                                                 | Must Have   |
-| FR-6  | `extension.ts` reads `afx.agentBinaryPath`, `afx.agentEphemeralSession`, and workspace folder from VSCode settings and injects them into `agent-factory.ts`; the active `AgentManager` is disposed on deactivation                         | Must Have   |
-| FR-7  | `sidebar-panel.ts` depends on `AgentManager` from `@afx/shared` — not on `PiManager` or any adapter-specific type; it handles normalized agent events, usage stats, and extension UI requests without referencing Pi-native shapes         | Must Have   |
-| FR-8  | `agent-factory.ts` models configured coding agents as `AgentInstance[]`; AFX can return Pi CLI and API-provider runtimes while keeping webview panels runtime-agnostic                                                                     | Should Have |
-| FR-9  | `package.json` contributes `afx.context.includeActiveFileContext` with a default-on setting that the host snapshots for the settings panel and composer quick toggle                                                                       | Must Have   |
-| FR-10 | `sidebar-panel.ts` auto-attaches the active workspace file context to `chat/send`, `chat/steer`, and `chat/followUp` when the preference is enabled                                                                                        | Must Have   |
-| FR-11 | `package.json` contributes `afx.mode.active` with a default `code` setting plus `explore` and `spec` alternatives; the status bar surfaces the active mode with a colored dot and a click handler that opens the mode quick-pick           | Must Have   |
-| FR-12 | `extension.ts` registers `afx.setMode` (also bound to `Cmd/Ctrl+Shift+M`), persists mode updates globally by default while preserving existing workspace overrides, and refreshes the open sidebar settings snapshot when the mode changes | Must Have   |
-| FR-13 | `extension.ts` registers `afx.setIntent` for parent-aware Composer Intent selection, persists `afx.composer.intent.slot`, and refreshes the open sidebar settings snapshot when Intent configuration changes                               | Must Have   |
+| ID    | Requirement                                                                                                                                                                                                                                                                                          | Priority    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1  | Extension activates lazily via VSCode view contributions (sidebar/workbench panels) and registers all commands during `activate()`; `activationEvents` may stay empty since the panel views themselves are activation events                                                                         | Must Have   |
+| FR-2  | Sidebar webview provider loads `apps/chat` dist output                                                                                                                                                                                                                                               | Must Have   |
+| FR-3  | Workbench webview provider loads `apps/workbench` dist output                                                                                                                                                                                                                                        | Must Have   |
+| FR-4  | Commands: `afx.openSidebar`, `afx.openWorkbench`, `afx.showLogs`, `afx.agentSmokeTest`, `afx.agentRestart`, `afx.setMode`, `afx.setIntent`                                                                                                                                                           | Must Have   |
+| FR-5  | Webview HTML generator loads compiled Vite dist with correct CSP and nonce                                                                                                                                                                                                                           | Must Have   |
+| FR-6  | `extension.ts` reads `afx.agentBinaryPath`, `afx.agentEphemeralSession`, and workspace folder from VSCode settings and injects them into `agent-factory.ts`; the active `AgentManager` is disposed on deactivation                                                                                   | Must Have   |
+| FR-7  | `sidebar-panel.ts` depends on `AgentManager` from `@afx/shared` — not on `PiManager` or any adapter-specific type; it handles normalized agent events, usage stats, and extension UI requests without referencing Pi-native shapes                                                                   | Must Have   |
+| FR-8  | `agent-factory.ts` models configured coding agents as `AgentInstance[]`; AFX can return Pi CLI and API-provider runtimes while keeping webview panels runtime-agnostic                                                                                                                               | Should Have |
+| FR-9  | `package.json` contributes `afx.context.includeActiveFileContext` with a default-on setting that the host snapshots for the settings panel and composer quick toggle                                                                                                                                 | Must Have   |
+| FR-10 | `sidebar-panel.ts` auto-attaches the active workspace file context to `chat/send`, `chat/steer`, and `chat/followUp` when the preference is enabled                                                                                                                                                  | Must Have   |
+| FR-11 | `package.json` contributes `afx.mode.active` with a default `code` setting plus `explore` and `spec` alternatives; the status bar surfaces the active mode with a colored dot and a click handler that opens the mode quick-pick                                                                     | Must Have   |
+| FR-12 | `extension.ts` registers `afx.setMode` (also bound to `Cmd/Ctrl+Shift+M`), persists mode updates globally by default while preserving existing workspace overrides, and refreshes the open sidebar settings snapshot when the mode changes                                                           | Must Have   |
+| FR-13 | `extension.ts` registers `afx.setIntent` for parent-aware Composer Intent selection, persists `afx.composer.intent.slot`, and refreshes the open sidebar settings snapshot when Intent configuration changes                                                                                         | Must Have   |
+| FR-14 | `package.json` contributes `afx.runtime.responseStartTimeoutMs` and `sidebar-panel.ts` uses its clamped effective value to warn when the first model response is slow without failing the active turn. Nonfatal runtime stderr is diagnostic-only; fatal-looking stderr still fails the active turn. | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -117,6 +118,7 @@ VSCode users running the AgenticFlowX extension.
 - [ ] `@see` navigation work routes to `203-app-vscode-see-navigation`
 - [ ] Active-file context preference routes through host config and composer send paths
 - [ ] Workspace mode preference routes through host config and the settings snapshot refresh path
+- [ ] Runtime model warm-up timeout defaults to 60s, clamps unsafe values, and remains visible in the settings snapshot
 
 ---
 

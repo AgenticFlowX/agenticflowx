@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.7"
+version: "1.8"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T12:36:36.000Z"
+updated_at: "2026-05-22T05:19:41.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
@@ -42,6 +42,7 @@ Settings view
 | ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Hydrate panel      | mount effect in `Settings`                                                                               | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                                              | Host broadcasts settings, commands, runtime settings                                      | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings`               |
 | Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry`  | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`                       | Active `AgentManager` runtime setting update                                              | `agent/runtimeSettings` or `chat/error`                                           |
+| Host timeout       | `ConfigField` in Runtimes Behaviour                                                                      | `chat/openSettings` for `afx.runtime.responseStartTimeoutMs`                                                                                 | VS Code opens the contributed setting; host snapshots the effective clamped value         | `agent/settingsSnapshot`                                                          |
 | Context preference | `applyIncludeActiveFileContext`                                                                          | `chat/setIncludeActiveFileContext`                                                                                                           | Host persists `afx.context.includeActiveFileContext` + snapshot                           | `agent/settingsSnapshot` or `chat/error`                                          |
 | Workspace mode     | `applyMode`                                                                                              | `chat/setMode`                                                                                                                               | Host persists `afx.mode.active` globally by default, preserving workspace overrides       | `agent/settingsSnapshot` or `chat/error`                                          |
 | Composer Intent    | `applyIntentSlot`, `applyIntentMinimized`, `applyIntentScope`                                            | `chat/setIntentSlot`, `chat/setIntentMinimized`, `chat/setIntentScope`                                                                       | Host persists `afx.composer.intent.*` globally by default or as a workspace override      | `agent/settingsSnapshot` or `chat/error`                                          |
@@ -234,6 +235,7 @@ Settings copy must be concrete about readiness, missing credentials, active prov
 |                                                                |
 | Auto-compaction                ( ●———)     (settings only)     |
 | Auto-retry                     ( ●———)     (settings only)     |
+| Model warm-up timeout                60s     [Configure]       |
 +----------------------------------------------------------------+
 ```
 
@@ -517,6 +519,7 @@ detector panel above the stepper.
 | `RuntimeChoiceBlock`         | First-run API Provider SDK vs opt-in Pi RPC choice cards                          |
 | `RuntimePathBlock`           | Advanced SDK/RPC/session/bundled skills configuration detail                      |
 | `SelectRow` / `SwitchRow`    | Narrow-safe runtime control rows for thinking, queue modes, compaction, and retry |
+| `ConfigField`                | Shows the effective model warm-up timeout and opens its VS Code setting           |
 
 ### [DES-SETTINGS-SURFACE-CONTEXT] Active File Context Preference
 
@@ -572,7 +575,7 @@ The Runtimes group renders one card per registered `AgentInstance` from `Multipl
 | API Providers (SDK) | Always rendered. Status flips between `Ready` (key configured) and `No keys` (none). | Active model line, Restart, link to Models tab for credentials, Troubleshoot disclosure.                   |
 | Pi RPC              | Always rendered (toggle is discoverable). Body collapses when toggle is off.         | Enable toggle, status pill, Restart, Reconnect, Session controls, Advanced paths, Troubleshoot disclosure. |
 
-Below the cards, a single **Behaviour** card hosts the five Pi knobs (Thinking, Steering, Follow-up, Auto-compaction, Auto-retry). It carries a scope label `Active: ● <instance> · model <id>` that updates live when the user switches model in the composer. The label exists because behaviour mutations route to `requireActive()` only — see `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`.
+Below the cards, a single **Behaviour** card hosts the five Pi knobs (Thinking, Steering, Follow-up, Auto-compaction, Auto-retry) plus the host-side model warm-up timeout row. It carries a scope label `Active: ● <instance> · model <id>` that updates live when the user switches model in the composer. The label exists because behaviour mutations route to `requireActive()` only — see `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`. The timeout row explains slow first-token starts across hosted providers, proxies, and local runtimes, then opens the VS Code setting rather than mutating runtime state from the webview.
 
 **Plural-readiness:** the card list iterates `instances[]`. A future third instance simply registers and gets a third card.
 
@@ -701,20 +704,21 @@ Mutation -> ack mapping for the most common flows:
 
 Settings state includes provider catalog entries, active provider/model, runtime readiness, API key status, appearance selections, diagnostics, telemetry, and pending mutation request ids.
 
-| Data shape                        | Owner                                    | Purpose                                                                                    |
-| --------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `SettingsSnapshot`                | `@afx/shared` and `settings-snapshot.ts` | Webview-ready host/settings/provider snapshot                                              |
-| `ContextPreference`               | `settings.tsx`                           | Default-on active-file context toggle mirrored from host snapshot                          |
-| `WorkspaceMode`                   | `settings.tsx`                           | Workspace posture state: Code default, Explore read-only, Spec planning-only               |
-| `SettingsSnapshot.intent`         | `settings.tsx`                           | Composer Intent effective/global/workspace defaults plus `hasWorkspaceOverride` scope flag |
-| `RuntimeSettings`                 | `settings.tsx`                           | Active runtime controls for thinking, queue modes, compaction, retry, and session metadata |
-| `ProviderFilter`                  | `settings.tsx`                           | Local API provider filter state: all, ready, needs-key                                     |
-| `pending*Mutations` maps          | `settings.tsx`                           | RequestId-to-toast-label maps for success/error feedback                                   |
-| `pendingModeMutations`            | `settings.tsx`                           | RequestId-to-toast-label map for Code / Explore mutation feedback                          |
-| `SettingsSnapshotInput`           | `settings-snapshot.ts`                   | Host-normalized inputs used to compose the snapshot                                        |
-| `ProviderConnectionState`         | `@afx/shared` / `ProviderCard`           | API provider credential/model state                                                        |
-| `ExternalAgentCardProps.status`   | `ExternalAgentCard`                      | Pi/local-agent state: connected, disabled, unavailable, coming-soon                        |
-| `HostModeClass` / theme/style ids | `theme-preview.ts`                       | Browser-only preview classes for settings/debug surfaces                                   |
+| Data shape                                       | Owner                                    | Purpose                                                                                    |
+| ------------------------------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `SettingsSnapshot`                               | `@afx/shared` and `settings-snapshot.ts` | Webview-ready host/settings/provider snapshot                                              |
+| `SettingsSnapshot.engine.responseStartTimeoutMs` | `@afx/shared` and `sidebar-panel.ts`     | Effective clamped host slow-start warning threshold shown in Runtimes                      |
+| `ContextPreference`                              | `settings.tsx`                           | Default-on active-file context toggle mirrored from host snapshot                          |
+| `WorkspaceMode`                                  | `settings.tsx`                           | Workspace posture state: Code default, Explore read-only, Spec planning-only               |
+| `SettingsSnapshot.intent`                        | `settings.tsx`                           | Composer Intent effective/global/workspace defaults plus `hasWorkspaceOverride` scope flag |
+| `RuntimeSettings`                                | `settings.tsx`                           | Active runtime controls for thinking, queue modes, compaction, retry, and session metadata |
+| `ProviderFilter`                                 | `settings.tsx`                           | Local API provider filter state: all, ready, needs-key                                     |
+| `pending*Mutations` maps                         | `settings.tsx`                           | RequestId-to-toast-label maps for success/error feedback                                   |
+| `pendingModeMutations`                           | `settings.tsx`                           | RequestId-to-toast-label map for Code / Explore mutation feedback                          |
+| `SettingsSnapshotInput`                          | `settings-snapshot.ts`                   | Host-normalized inputs used to compose the snapshot                                        |
+| `ProviderConnectionState`                        | `@afx/shared` / `ProviderCard`           | API provider credential/model state                                                        |
+| `ExternalAgentCardProps.status`                  | `ExternalAgentCard`                      | Pi/local-agent state: connected, disabled, unavailable, coming-soon                        |
+| `HostModeClass` / theme/style ids                | `theme-preview.ts`                       | Browser-only preview classes for settings/debug surfaces                                   |
 
 ---
 
@@ -734,7 +738,7 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | Webview to host | `appearance/update`                                                                                                    | Persist theme/style choice                                                                   |
 | Webview to host | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                               | Provider credential/default model mutations                                                  |
 | Webview to host | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                           | Pi RPC local-agent mutations                                                                 |
-| Webview to host | `chat/openSettings`                                                                                                    | Open specific VS Code setting key                                                            |
+| Webview to host | `chat/openSettings`                                                                                                    | Open specific VS Code setting keys, including `afx.runtime.responseStartTimeoutMs`           |
 | Webview to host | `chat/showLogs`                                                                                                        | Open VS Code's Output panel with the AgenticFlowX channel selected                           |
 | Webview to host | `telemetry/setEnabled`                                                                                                 | Persist analytics preference                                                                 |
 | Host to webview | `agent/settingsSnapshot`                                                                                               | Replace snapshot, including `mode.active`, and resolve provider/telemetry/mode pending state |
@@ -747,13 +751,14 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 
 ## [DES-FILES] File Structure
 
-| File                                               | Purpose                      |
-| -------------------------------------------------- | ---------------------------- |
-| `apps/chat/src/views/settings.tsx`                 | Settings panel composition   |
-| `apps/chat/src/components/provider-card.tsx`       | Provider option UI           |
-| `apps/chat/src/components/external-agent-card.tsx` | External/runtime provider UI |
-| `apps/chat/src/lib/settings-snapshot.ts`           | Snapshot normalization       |
-| `apps/chat/src/lib/theme-preview.ts`               | Settings preview helpers     |
+| File                                               | Purpose                       |
+| -------------------------------------------------- | ----------------------------- |
+| `apps/chat/src/views/settings.tsx`                 | Settings panel composition    |
+| `apps/chat/src/components/provider-card.tsx`       | Provider option UI            |
+| `apps/chat/src/components/external-agent-card.tsx` | External/runtime provider UI  |
+| `apps/chat/src/lib/settings-copy.ts`               | Settings labels and help text |
+| `apps/chat/src/lib/settings-snapshot.ts`           | Snapshot normalization        |
+| `apps/chat/src/lib/theme-preview.ts`               | Settings preview helpers      |
 
 ---
 
@@ -787,14 +792,15 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 
 ## [DES-TEST] Testing Strategy
 
-| Coverage target                               | Current/Future test anchor                    |
-| --------------------------------------------- | --------------------------------------------- |
-| Settings panel tab/root rendering             | `apps/chat/src/app.test.tsx`                  |
-| Snapshot normalization                        | `apps/chat/src/lib/settings-snapshot.test.ts` |
-| Provider card masked key/default model states | future `provider-card.test.tsx`               |
-| External agent/Pi RPC states                  | future `external-agent-card.test.tsx`         |
-| Runtime controls and pending toasts           | future settings view test                     |
-| Theme/style preview class updates             | future `theme-preview.test.ts`                |
+| Coverage target                               | Current/Future test anchor                                                                      |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Settings panel tab/root rendering             | `apps/chat/src/app.test.tsx`                                                                    |
+| Runtimes timeout row and Configure action     | `apps/chat/src/app.test.tsx`, `apps/chat/e2e/chat.spec.ts`, `apps/chat/e2e/screenshots.spec.ts` |
+| Snapshot normalization                        | `apps/chat/src/lib/settings-snapshot.test.ts`                                                   |
+| Provider card masked key/default model states | future `provider-card.test.tsx`                                                                 |
+| External agent/Pi RPC states                  | future `external-agent-card.test.tsx`                                                           |
+| Runtime controls and pending toasts           | future settings view test                                                                       |
+| Theme/style preview class updates             | future `theme-preview.test.ts`                                                                  |
 
 ---
 
@@ -823,33 +829,34 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 
 ## [DES-SETTINGS-LOC] Code Locator Map
 
-| Map ID                              | Code anchor                                                                | Messages/settings/commands                                                                                                 | Tests                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `[ChatSettings.Header]`             | `apps/chat/src/views/settings.tsx` sticky header                           | `agent/settingsSnapshot`, `chat/setIncludeActiveFileContext`, `agent/restart`                                              | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Nav]`                | `SETTINGS_SECTIONS`, sticky tab row                                        | section ids: workspace, runtimes, models, look, support                                                                    | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Workspace]`          | `SettingsCard` (Mode + Composer Intent), `SwitchRow` (Active-file context) | `chat/setMode`, `chat/setIntentSlot`, `chat/setIntentMinimized`, `chat/setIntentScope`, `chat/setIncludeActiveFileContext` | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard`     | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`                                                          | `external-agent-card.test.tsx`                        |
-| `[ChatSettings.Runtimes.Sdk]`       | SDK instance card                                                          | `chat/setModel`                                                                                                            | future SDK card test                                  |
-| `[ChatSettings.Runtimes.Rpc]`       | `ExternalAgentCard`                                                        | `external/setRpcEnabled`, `external/detectPiBinary`, `external/setEphemeral`                                               | `external-agent-card.test.tsx`                        |
-| `[ChatSettings.Runtimes.Behaviour]` | Behaviour card (`SelectRow`, `SwitchRow`)                                  | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`     | `apps/chat/src/app.test.tsx`                          |
-| `[ChatSettings.Models.Builtin]`     | `ProviderCard` tile grid                                                   | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                   | `provider-card.test.tsx`, `settings-snapshot.test.ts` |
-| `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                     | (v1) `chat/openSettings` for `~/.pi/agent/models.json`                                                                     | future custom-models tests                            |
-| `[ChatSettings.Look]`               | identity/style cards, `theme-preview.ts`                                   | `appearance/update`, `afx.theme`, `afx.style`                                                                              | `theme-preview.ts` helper tests                       |
-| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                    | `chat/getCommands`, `chat/showLogs`, `telemetry/setEnabled`                                                                | `apps/chat/src/app.test.tsx`                          |
+| Map ID                              | Code anchor                                                                | Messages/settings/commands                                                                                                                  | Tests                                                             |
+| ----------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `[ChatSettings.Header]`             | `apps/chat/src/views/settings.tsx` sticky header                           | `agent/settingsSnapshot`, `chat/setIncludeActiveFileContext`, `agent/restart`                                                               | `apps/chat/src/app.test.tsx`                                      |
+| `[ChatSettings.Nav]`                | `SETTINGS_SECTIONS`, sticky tab row                                        | section ids: workspace, runtimes, models, look, support                                                                                     | `apps/chat/src/app.test.tsx`                                      |
+| `[ChatSettings.Workspace]`          | `SettingsCard` (Mode + Composer Intent), `SwitchRow` (Active-file context) | `chat/setMode`, `chat/setIntentSlot`, `chat/setIntentMinimized`, `chat/setIntentScope`, `chat/setIncludeActiveFileContext`                  | `apps/chat/src/app.test.tsx`                                      |
+| `[ChatSettings.Readiness]`          | `SettingsSetupCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard`     | `agent/runtimeStatus`, `agent/restart`, `external/detectPiBinary`                                                                           | `external-agent-card.test.tsx`                                    |
+| `[ChatSettings.Runtimes.Sdk]`       | SDK instance card                                                          | `chat/setModel`                                                                                                                             | future SDK card test                                              |
+| `[ChatSettings.Runtimes.Rpc]`       | `ExternalAgentCard`                                                        | `external/setRpcEnabled`, `external/detectPiBinary`, `external/setEphemeral`                                                                | `external-agent-card.test.tsx`                                    |
+| `[ChatSettings.Runtimes.Behaviour]` | Behaviour card (`SelectRow`, `SwitchRow`, `ConfigField`)                   | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`, `chat/openSettings` | `apps/chat/src/app.test.tsx`, `apps/chat/e2e/screenshots.spec.ts` |
+| `[ChatSettings.Models.Builtin]`     | `ProviderCard` tile grid                                                   | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                    | `provider-card.test.tsx`, `settings-snapshot.test.ts`             |
+| `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                     | (v1) `chat/openSettings` for `~/.pi/agent/models.json`                                                                                      | future custom-models tests                                        |
+| `[ChatSettings.Look]`               | identity/style cards, `theme-preview.ts`                                   | `appearance/update`, `afx.theme`, `afx.style`                                                                                               | `theme-preview.ts` helper tests                                   |
+| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                    | `chat/getCommands`, `chat/showLogs`, `telemetry/setEnabled`                                                                                 | `apps/chat/src/app.test.tsx`                                      |
 
 ## [DES-SETTINGS-TRACE] Functional Trace Matrix
 
-| Requirement | Design nodes                                                                                    | Code anchors                                                                                   | Verification                                        |
-| ----------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------- |
-| FR-1        | `DES-SETTINGS-MOCKUP-RUNTIME`, `DES-SETTINGS-SURFACE-RUNTIME`, `DES-SETTINGS-SURFACE-PROVIDERS` | `Settings`, `SettingsCard`, `ProviderCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard`  | `apps/chat/src/app.test.tsx`; future provider tests |
-| FR-2        | `DES-DATA`, `DES-SETTINGS-FLOW`                                                                 | `composeSettingsSnapshot`, `bridgeOn("agent/settingsSnapshot")`, snapshot-derived memos        | `settings-snapshot.test.ts`                         |
-| FR-3        | `DES-SETTINGS-SURFACE-APPEARANCE`                                                               | `applyTheme`, `applyStyle`, `applyRuntimeAppearance`                                           | future theme-preview tests                          |
-| FR-4        | `DES-SETTINGS-SURFACE-RUNTIME`, `DES-SETTINGS-SURFACE-PROVIDERS`                                | runtime mutation handlers, `ExternalAgentCard`, recovery actions                               | future runtime settings tests                       |
-| FR-5        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-DATA`, `DES-SETTINGS-FLOW`        | `SettingsCard`, `RadioGroup`, `applyMode`, `pendingModeMutations`                              | `apps/chat/src/app.test.tsx`; mode snapshot tests   |
-| FR-6        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-API`                              | `chat/setMode`, `agent/settingsSnapshot`, `chat/error`                                         | mode mutation coverage                              |
-| FR-11       | `DES-SETTINGS-MOCKUP-WORKSPACE`, `DES-SETTINGS-SURFACE-INTENT`, `DES-DATA`, `DES-API`           | `applyIntentSlot`, `applyIntentMinimized`, `applyIntentScope`, `agent/settingsSnapshot.intent` | app/e2e settings coverage                           |
-| NFR-1       | `DES-SEC`, `DES-SETTINGS-SURFACE-PROVIDERS`                                                     | masked provider key row, `data-clarity-mask`, no raw key render                                | provider-card tests/manual review                   |
-| NFR-2       | `DES-ERR`, `DES-SETTINGS-MOCKUP-RECOVERY`                                                       | `RuntimeConfigurationNotice`, `AgentRecoveryCard`, pending mutation error toasts               | `apps/chat/src/app.test.tsx`; future recovery tests |
+| Requirement | Design nodes                                                                                    | Code anchors                                                                                    | Verification                                        |
+| ----------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| FR-1        | `DES-SETTINGS-MOCKUP-RUNTIME`, `DES-SETTINGS-SURFACE-RUNTIME`, `DES-SETTINGS-SURFACE-PROVIDERS` | `Settings`, `SettingsCard`, `ProviderCard`, `RuntimeConfigurationNotice`, `AgentRecoveryCard`   | `apps/chat/src/app.test.tsx`; future provider tests |
+| FR-2        | `DES-DATA`, `DES-SETTINGS-FLOW`                                                                 | `composeSettingsSnapshot`, `bridgeOn("agent/settingsSnapshot")`, snapshot-derived memos         | `settings-snapshot.test.ts`                         |
+| FR-3        | `DES-SETTINGS-SURFACE-APPEARANCE`                                                               | `applyTheme`, `applyStyle`, `applyRuntimeAppearance`                                            | future theme-preview tests                          |
+| FR-4        | `DES-SETTINGS-SURFACE-RUNTIME`, `DES-SETTINGS-SURFACE-PROVIDERS`                                | runtime mutation handlers, `ExternalAgentCard`, recovery actions                                | future runtime settings tests                       |
+| FR-5        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-DATA`, `DES-SETTINGS-FLOW`        | `SettingsCard`, `RadioGroup`, `applyMode`, `pendingModeMutations`                               | `apps/chat/src/app.test.tsx`; mode snapshot tests   |
+| FR-6        | `DES-SETTINGS-MOCKUP-MODE`, `DES-SETTINGS-SURFACE-MODE`, `DES-API`                              | `chat/setMode`, `agent/settingsSnapshot`, `chat/error`                                          | mode mutation coverage                              |
+| FR-11       | `DES-SETTINGS-MOCKUP-WORKSPACE`, `DES-SETTINGS-SURFACE-INTENT`, `DES-DATA`, `DES-API`           | `applyIntentSlot`, `applyIntentMinimized`, `applyIntentScope`, `agent/settingsSnapshot.intent`  | app/e2e settings coverage                           |
+| FR-13       | `DES-SETTINGS-MOCKUP-RUNTIME`, `DES-SETTINGS-SURFACE-RUNTIME`, `DES-DATA`, `DES-API`            | `Settings` `ConfigField`, `SettingsSnapshot.engine.responseStartTimeoutMs`, `chat/openSettings` | app/e2e settings coverage                           |
+| NFR-1       | `DES-SEC`, `DES-SETTINGS-SURFACE-PROVIDERS`                                                     | masked provider key row, `data-clarity-mask`, no raw key render                                 | provider-card tests/manual review                   |
+| NFR-2       | `DES-ERR`, `DES-SETTINGS-MOCKUP-RECOVERY`                                                       | `RuntimeConfigurationNotice`, `AgentRecoveryCard`, pending mutation error toasts                | `apps/chat/src/app.test.tsx`; future recovery tests |
 
 ---
 

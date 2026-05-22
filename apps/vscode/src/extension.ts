@@ -3,8 +3,8 @@
  * Reads VSCode config and injects into the active agent adapter; types agent as AgentManager.
  * Per-command @see anchors live inline at each registerCommand call.
  *
- * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-6] [FR-7] [FR-11] [FR-12]
- * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG] [DES-COMMAND-SET-MODE] [DES-SETTINGS-CATALOG] [DES-KEYBINDING-CATALOG]
+ * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-6] [FR-7] [FR-11] [FR-12] [FR-14]
+ * @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG] [DES-COMMAND-SET-MODE] [DES-SETTINGS-CATALOG] [DES-KEYBINDING-CATALOG] [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
  * @see docs/specs/350-agent-manager/spec.md [FR-2]
  * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
@@ -93,6 +93,7 @@ const RUNTIME_CONFIGURATION_KEYS = [
   "afx.sdk.enabled",
   "afx.sdk.ollamaBaseUrl",
 ] as const;
+const SETTINGS_SNAPSHOT_CONFIGURATION_KEYS = ["afx.runtime.responseStartTimeoutMs"] as const;
 
 let agentInstances: AgentInstance[] = [];
 let agentManager: MultiplexedAgentManager | null = null;
@@ -309,6 +310,9 @@ export async function activate(
         e.affectsConfiguration("afx.composer.intent.slot") ||
         e.affectsConfiguration("afx.composer.intent.minimized")
       ) {
+        void sidebarProvider?.refreshRuntimeConfiguration();
+      }
+      if (SETTINGS_SNAPSHOT_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {
         void sidebarProvider?.refreshRuntimeConfiguration();
       }
       if (RUNTIME_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {

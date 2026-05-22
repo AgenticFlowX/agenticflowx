@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-19T13:55:39.000Z"
+updated_at: "2026-05-22T05:19:41.000Z"
 approved_at: "2026-05-05T11:53:21.000Z"
 tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode]
 spec: spec.md
@@ -133,6 +133,7 @@ is `package.json` `contributes.configuration.properties`; this table mirrors it 
 | `afx.sdk.enabled`                      | boolean | `true`                      | chat settings panel                           | `350-agent-manager`            |
 | `afx.sdk.defaultModel`                 | string  | `anthropic:claude-opus-4-5` | chat settings provider card                   | `214-app-chat-settings`        |
 | `afx.sdk.ollamaBaseUrl`                | string  | `""`                        | chat settings provider card                   | `214-app-chat-settings`        |
+| `afx.runtime.responseStartTimeoutMs`   | number  | `60000`                     | chat settings runtimes card                   | `214-app-chat-settings`        |
 | `afx.context.includeActiveFileContext` | boolean | `true`                      | chat settings context card / composer toolbar | `214-app-chat-settings`        |
 | `afx.mode.active`                      | enum    | `code`                      | chat settings mode card / composer toolbar    | `214-app-chat-settings`        |
 | `afx.debugPerf`                        | boolean | `false`                     | composer footer (when on)                     | `211-app-chat-composer`        |
@@ -149,6 +150,21 @@ Adding a setting:
 1. Add to `package.json` `contributes.configuration.properties`.
 2. Add a row to this table with the owning spec.
 3. Read it via `vscode.workspace.getConfiguration("afx")` in the owning spec's host code.
+
+### [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
+
+`sidebar-panel.ts` starts a slow-start watchdog for each outbound chat turn. The timer uses
+`afx.runtime.responseStartTimeoutMs`, clamped to 5s–10m with a 60s default. `agent_start`
+means the runtime accepted the prompt, but it does not satisfy the watchdog; real
+response-bearing events such as assistant text, thinking, tool updates, or message lifecycle
+events clear it. If the timer fires first, AFX posts a soft warning toast and keeps the turn
+alive. This keeps hosted providers, proxies, and cold local models usable without turning slow
+first-token latency into a transcript error.
+
+Stderr from adapters is buffered for diagnostics. Only fatal-looking stderr lines fail the
+active turn: JSON error payloads, `Fatal:`, `Error:`, and JavaScript error-class prefixes.
+Warning/status lines are logged and remain available through diagnostics, but they do not post
+chat transcript errors.
 
 ---
 

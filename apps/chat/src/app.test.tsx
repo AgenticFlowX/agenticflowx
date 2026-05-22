@@ -120,6 +120,7 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
       bundledSkillsPath: "resources/skills/agenticflowx",
       bundledSkillCount: 17,
       ephemeral: false,
+      responseStartTimeoutMs: 60_000,
     },
     sdk: {
       enabled: true,
@@ -1697,6 +1698,18 @@ describe("chat App", () => {
       expect.objectContaining({
         type: "external/setRpcEnabled",
         enabled: true,
+      }),
+    );
+    expect(screen.getByText("Model warm-up timeout")).toBeInTheDocument();
+    expect(screen.getByText("60s")).toBeInTheDocument();
+    send.mockClear();
+    await user.click(
+      screen.getByRole("button", { name: "Open afx.runtime.responseStartTimeoutMs setting" }),
+    );
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/openSettings",
+        key: "afx.runtime.responseStartTimeoutMs",
       }),
     );
     // Support group: About + telemetry toggle

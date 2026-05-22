@@ -78,6 +78,10 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   );
   await expect(page.getByText("Thinking level")).toBeVisible();
   await capture(page, testInfo, "settings-desktop");
+  const timeoutRow = page.getByText("Model warm-up timeout");
+  await expect(timeoutRow).toBeVisible();
+  await timeoutRow.scrollIntoViewIfNeeded();
+  await capture(page, testInfo, "settings-runtime-timeout");
   await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
   await page.getByRole("button", { name: "Empty" }).click();
   await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });

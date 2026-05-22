@@ -6,11 +6,12 @@
  * @see docs/specs/201-app-vscode-panels/spec.md [FR-1] [FR-7] [FR-9] [FR-10] [FR-11]
  * @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE] [DES-PANELS-DISPATCH] [DES-PANELS-MODE-WORKFLOW] [DES-PANELS-EXPLORE-PROMPT]
  * @see docs/specs/350-agent-manager/spec.md [FR-2] [FR-4]
- * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE]
+ * @see docs/specs/350-agent-manager/design.md [DES-AGENT-LIFECYCLE] [DES-AGENT-DIAGNOSTICS]
  * @see docs/specs/131-package-ui-design-system/spec.md [FR-1] [FR-4]
  * @see docs/specs/131-package-ui-design-system/design.md [DES-APPEARANCE-BRIDGE]
- * @see docs/specs/200-app-vscode/spec.md [FR-9] [FR-10] [FR-11] [FR-12]
- * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6]
+ * @see docs/specs/200-app-vscode/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-14]
+ * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6] [FR-13]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-13]
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -206,7 +207,9 @@ interface QueuedUserDisplay {
 type ErrorPresentation = "transcript" | "toast" | "settings-toast";
 
 const DELTA_FLUSH_MS = 16;
-const TURN_START_TIMEOUT_MS = 20_000;
+const RESPONSE_START_TIMEOUT_DEFAULT_MS = 60_000;
+const RESPONSE_START_TIMEOUT_MIN_MS = 5_000;
+const RESPONSE_START_TIMEOUT_MAX_MS = 600_000;
 const OVERFLOW_RECOVERY_GRACE_MS = 1_500;
 const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
@@ -418,6 +421,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   let retryRecoveryTimeout: NodeJS.Timeout | null = null;
   let pendingContextOverflowError: string | null = null;
   let pendingRetryableError: string | null = null;
+  let retryToastRequestId: string | null = null;
 
   // Some adapters print fatal errors to stderr (e.g. provider 4xx) instead of
   // emitting a normalized `error` event. We line-buffer that stream so the user
@@ -831,6 +835,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   function clearPendingRetryableError(): void {
     pendingRetryableError = null;
+    retryToastRequestId = null;
     clearRetryRecoveryTimeout();
   }
 
@@ -855,9 +860,33 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     recordRuntimeStatus({ running: true, isStreaming: false, model: currentModel }, requestId);
   }
 
+  /**
+   * @see docs/specs/200-app-vscode/spec.md [FR-14]
+   * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
+   */
+  function responseStartTimeoutMs(): number {
+    const raw = vscode.workspace
+      .getConfiguration("afx")
+      .get<number>("runtime.responseStartTimeoutMs", RESPONSE_START_TIMEOUT_DEFAULT_MS);
+    if (!Number.isFinite(raw)) return RESPONSE_START_TIMEOUT_DEFAULT_MS;
+    return Math.max(
+      RESPONSE_START_TIMEOUT_MIN_MS,
+      Math.min(RESPONSE_START_TIMEOUT_MAX_MS, Math.trunc(raw)),
+    );
+  }
+
+  /**
+   * `agent_start` only means the runtime accepted the prompt. If no response-bearing
+   * event arrives in time, warn once but keep the turn alive for slow model warm-up.
+   *
+   * @see docs/specs/200-app-vscode/spec.md [FR-14]
+   * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
+   */
   function scheduleTurnStartTimeout(requestId: string): void {
     clearTurnStartTimeout();
+    const timeoutMs = responseStartTimeoutMs();
     turnStartTimeout = setTimeout(() => {
+      turnStartTimeout = null;
       if (
         state.currentRequestId !== requestId ||
         !state.isStreaming ||
@@ -865,11 +894,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       ) {
         return;
       }
-      failActiveTurn(
-        requestId,
-        "The selected provider accepted the prompt but did not emit a response. Check the provider API key/model configuration, then retry.",
-      );
-    }, TURN_START_TIMEOUT_MS);
+      log.warn("first model response is still pending", { requestId, timeoutMs });
+      postChatToast({
+        tone: "info",
+        message: "Still waiting for the model",
+        description:
+          "The provider accepted the prompt but has not emitted output yet. Some providers, proxies, or cold models can take longer before the first token.",
+        durationMs: 8_000,
+      });
+    }, timeoutMs);
     turnStartTimeout.unref?.();
   }
 
@@ -1127,7 +1160,8 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     if (!state.isStreaming) return;
     if (errorPostedThisTurn) return;
 
-    const message = parseStderrError(line) ?? line.trim();
+    const message = parseFatalStderrError(line);
+    if (!message) return;
     failActiveTurn(state.currentRequestId ?? undefined, message);
   }
 
@@ -1318,12 +1352,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           model: currentModel,
         });
         void broadcastRuntimeSettings();
-        postChatToast({
-          tone: "info",
-          message: `Retrying provider request (${evt.attempt}/${evt.maxAttempts})`,
-          description: `Transient provider error; retrying in ${formatRetryDelay(evt.delayMs)}.`,
-          durationMs: 4_000,
-        });
+        const retryRequestId = state.currentRequestId;
+        if (!retryRequestId || retryToastRequestId !== retryRequestId) {
+          retryToastRequestId = retryRequestId ?? "__unknown__";
+          postChatToast({
+            tone: "info",
+            message: `Retrying provider request (${evt.attempt}/${evt.maxAttempts})`,
+            description: `Transient provider error; retrying in ${formatRetryDelay(evt.delayMs)}.`,
+            durationMs: 4_000,
+          });
+        }
         return;
       }
       case "auto_retry_end": {
@@ -1331,10 +1369,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         if (!evt.success) {
           const message = evt.finalError ?? pendingRetryableError ?? "Provider retry failed.";
           pendingRetryableError = null;
+          retryToastRequestId = null;
           failActiveTurn(state.currentRequestId ?? undefined, message);
           return;
         }
         pendingRetryableError = null;
+        retryToastRequestId = null;
         recordRuntimeStatus({
           running: true,
           isStreaming: state.isStreaming,
@@ -1963,6 +2003,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     state.suppressNextUserMessageStart = true;
     state.currentTurnSawRuntimeEvent = false;
     errorPostedThisTurn = false;
+    retryToastRequestId = null;
     recordRuntimeStatus({ running: true, isStreaming: true, model: currentModel });
     scheduleTurnStartTimeout(requestId);
 
@@ -2372,6 +2413,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           bundledSkillsPath,
           bundledSkillCount,
           ephemeral,
+          responseStartTimeoutMs: responseStartTimeoutMs(),
         },
         sdk: {
           enabled: cfg.get<boolean>("sdk.enabled", true),
@@ -2698,6 +2740,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     state.currentTurnSawRuntimeEvent = false;
     pendingContextOverflowError = null;
     pendingRetryableError = null;
+    retryToastRequestId = null;
     state.lastUsageTotals = null;
     queuedUserDisplays.length = 0;
     pendingDeltas.clear();
@@ -3255,22 +3298,38 @@ function cryptoRandom(): string {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function parseStderrError(line: string): string | undefined {
+function parseFatalStderrError(line: string): string | undefined {
   const jsonMatch = line.match(/\{[\s\S]*\}\s*$/);
   if (jsonMatch) {
     try {
       const obj = JSON.parse(jsonMatch[0]) as {
-        error?: { message?: string; type?: string };
+        error?: { message?: string; type?: string } | string;
+        level?: string;
+        severity?: string;
+        type?: string;
         message?: string;
       };
-      const inner = obj.error?.message ?? obj.message;
-      if (typeof inner === "string" && inner.length > 0) return inner;
+      const level = `${obj.level ?? obj.severity ?? obj.type ?? ""}`.toLowerCase();
+      const hasFatalLevel = level === "error" || level === "fatal";
+      if (typeof obj.error === "string" && obj.error.length > 0) {
+        return obj.error;
+      }
+      if (
+        typeof obj.error === "object" &&
+        typeof obj.error.message === "string" &&
+        obj.error.message.length > 0
+      ) {
+        return obj.error.message;
+      }
+      if (hasFatalLevel && typeof obj.message === "string" && obj.message.length > 0) {
+        return obj.message;
+      }
     } catch {
       /* not JSON — fall through */
     }
   }
   const errMatch = line.match(
-    /^\s*(?:Error|TypeError|RangeError|ReferenceError|SyntaxError):\s*(.+)$/,
+    /^\s*(?:Fatal|FATAL|Error|TypeError|RangeError|ReferenceError|SyntaxError):\s*(.+)$/,
   );
   if (errMatch?.[1]) return errMatch[1].trim();
   return undefined;

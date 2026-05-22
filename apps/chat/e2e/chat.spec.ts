@@ -129,6 +129,8 @@ test("Settings exposes runtime instance cards and RPC toggle", async ({ page }) 
   await expect(page.getByRole("switch", { name: "Enable Pi RPC" })).toBeVisible();
   // Behaviour card is always visible below the instance cards
   await expect(page.getByText("Thinking level")).toBeVisible();
+  await expect(page.getByText("Model warm-up timeout")).toBeVisible();
+  await expect(page.getByText("60s", { exact: true })).toBeVisible();
 });
 
 test("Settings exposes Composer Intent defaults and scope controls", async ({ page }) => {

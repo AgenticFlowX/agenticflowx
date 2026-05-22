@@ -6,8 +6,8 @@
  * verified against pi-mono/packages/coding-agent/src/core/settings-manager.ts
  * and pi-mono/packages/ai/src/types.ts. Do not modify without re-verifying.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-12] [NFR-3]
- * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-12] [FR-13] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COPY] [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-ONBOARDING]
  */
 
 // ─── Workspace group ─────────────────────────────────────────────────────────
@@ -182,6 +182,12 @@ export const RUNTIMES = {
     "Retry transient provider errors automatically. Default: on. 3 retries, 2s/4s/8s exponential backoff.",
   retryTooltip:
     "Retries on transport timeouts, 5xx, and rate-limit errors. Does NOT retry validation errors or 4xx — those fail immediately.",
+
+  responseTimeoutLabel: "Model warm-up timeout",
+  responseTimeoutDescription:
+    "How long AFX waits before warning that the first model response is taking longer than expected. Increase it for hosted providers, proxies, or local models that need more time before the first token. Default: 60s.",
+  responseTimeoutTooltip:
+    "Useful when a provider, proxy, or local runtime queues the first token slowly.",
 
   // Troubleshoot disclosure
   troubleshootLabel: "Troubleshoot",

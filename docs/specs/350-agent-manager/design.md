@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T13:11:29.000Z"
+updated_at: "2026-05-21T21:22:08.000Z"
 tags: ["agent", "runtime", "manager"]
 spec: spec.md
 ---
@@ -246,6 +246,13 @@ provider payload in the bundled-skill e2e.
 Stderr buffer is captured by the runtime adapter and surfaced in chat settings on demand
 (`chat/getStderr` -> `agent/stderr`). The buffer is bounded; older lines drop with `truncated:
 true`.
+
+The VS Code host filters stderr before posting transcript errors. Fatal-looking lines (JSON error
+payloads, `Fatal:`, `Error:`, and JavaScript error-class prefixes) fail the active turn. Warning
+or status lines stay diagnostic-only so local backend warmup noise does not spam the transcript.
+
+The first-response watchdog is also host-owned. It waits for a real response-bearing runtime event
+instead of `agent_start`, and reads `afx.runtime.responseStartTimeoutMs` from VS Code settings.
 
 ### [DES-AGENT-COMMAND-RESTART] / [DES-AGENT-COMMAND-SMOKE-TEST]
 
