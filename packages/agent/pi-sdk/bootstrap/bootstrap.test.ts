@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildAfxCustomProvidersExtensionFactory, buildBootstrapArgs } from "./bootstrap";
 
-vi.mock("@mariozechner/pi-coding-agent", () => ({
+vi.mock("@earendil-works/pi-coding-agent", () => ({
   main: vi.fn(),
   runRpcMode: vi.fn(),
   createAgentSessionRuntime: vi.fn(),

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T06:20:53.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "skills", "custom-providers"]
 spec: spec.md
 ---
@@ -274,6 +274,8 @@ Conflating them would force AFX to either (a) duplicate Pi's secret resolution l
 ## [DES-TEST] Testing Strategy
 
 Run Pi RPC manager/client tests, SDK bundle tests, no-VSCode-import tests, and host config injection tests.
+
+- **Runtime-floor e2e assertion** (tied to `spec.md [NFR-4]` and `engines.vscode ^1.105.0`): the e2e suite asserts that the extension-host `process.versions.node` satisfies `>=22.19.0`. This is required because the bundled Pi SDK is spawned using the extension-host `process.execPath`; running on a VS Code whose bundled Node is older than `22.19.0` would silently break Pi SDK startup even if the VSIX installs successfully. The `engines.vscode ^1.105.0` floor prevents installation on affected VS Code versions, and the e2e assertion guards against regressions to that floor. See `ADR-0009`.
 
 ---
 

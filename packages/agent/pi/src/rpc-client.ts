@@ -9,12 +9,12 @@ import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
 import { extname } from "node:path";
 import { StringDecoder } from "node:string_decoder";
 
-import type { RpcCommand, RpcResponse } from "@mariozechner/pi-coding-agent";
+import type { RpcCommand, RpcResponse } from "@earendil-works/pi-coding-agent";
 
 import type { Logger } from "@afx/shared";
 
 // `RpcExtensionUIResponse` is not exported from the package root, so we mirror
-// the shape locally — see `dist/modes/rpc/rpc-types.d.ts` in @mariozechner/pi-coding-agent.
+// the shape locally — see `dist/modes/rpc/rpc-types.d.ts` in @earendil-works/pi-coding-agent.
 export type RpcExtensionUIResponse =
   | { type: "extension_ui_response"; id: string; value: string }
   | { type: "extension_ui_response"; id: string; confirmed: boolean }

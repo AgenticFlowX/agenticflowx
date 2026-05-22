@@ -1,6 +1,6 @@
 /**
  * Pi SDK custom-providers bootstrap helpers — pure, no dependence on
- * `@mariozechner/pi-coding-agent` types so unit tests can stay synchronous.
+ * `@earendil-works/pi-coding-agent` types so unit tests can stay synchronous.
  *
  * The exported `createCustomProvidersExtensionFactory` returns an `ExtensionFactory`
  * (typed against pi's runtime API at the call site in `bootstrap.ts`) that reads
@@ -14,7 +14,7 @@
 /**
  * Pi-mono extension API surface — narrowed to what AFX needs. We type-cast
  * this at the integration boundary so the bootstrap helpers stay decoupled
- * from `@mariozechner/pi-coding-agent` for unit testing.
+ * from `@earendil-works/pi-coding-agent` for unit testing.
  */
 export interface PiExtensionApiLike {
   registerProvider: (name: string, config: unknown) => void;

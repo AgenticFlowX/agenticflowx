@@ -15,11 +15,13 @@ describe("bundled Pi SDK bootstrap", () => {
   const dirname = path.dirname(fileURLToPath(import.meta.url));
   const resourceRoot = path.resolve(dirname, "../resources/pi-sdk");
 
-  it("does not ship bare @mariozechner imports", () => {
+  it("does not ship bare Pi package imports", () => {
     const bootstrapPath = path.resolve(resourceRoot, "bootstrap.js");
     const source = readFileSync(bootstrapPath, "utf8");
 
-    expect(source).not.toMatch(/(?:from\s*["']@mariozechner\/|import\(\s*["']@mariozechner\/)/);
+    expect(source).not.toMatch(
+      /(?:from\s*["']@earendil-works\/pi-|import\(\s*["']@earendil-works\/pi-|from\s*["']@mariozechner\/pi-|import\(\s*["']@mariozechner\/pi-)/,
+    );
   });
 
   it("marks the resource folder as ESM for Node startup", () => {
@@ -27,6 +29,7 @@ describe("bundled Pi SDK bootstrap", () => {
 
     expect(JSON.parse(readFileSync(packageJsonPath, "utf8"))).toMatchObject({
       type: "module",
+      afxBundledPi: { package: "@earendil-works/pi-coding-agent", version: "0.75.4" },
     });
   });
 

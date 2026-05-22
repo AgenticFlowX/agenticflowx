@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "custom-providers"]
 depends_on: ["100-package-shared", "300-infra-pi", "350-agent-manager"]
 ---
@@ -58,11 +58,12 @@ Developers maintaining the Pi adapter and host runtime integration.
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                               | Target                                                              |
-| ----- | ----------------------------------------- | ------------------------------------------------------------------- |
-| NFR-1 | Adapter remains Node-only and VSCode-free | No `vscode` imports in `packages/agent/pi`                          |
-| NFR-2 | RPC failures are recoverable              | Process/JSONL failures surface as manager errors/status             |
-| NFR-3 | SDK bootstrap remains portable            | Windows support is considered when bundling/executing Pi SDK assets |
+| ID    | Requirement                                                         | Target                                                                                                                   |
+| ----- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| NFR-1 | Adapter remains Node-only and VSCode-free                           | No `vscode` imports in `packages/agent/pi`                                                                               |
+| NFR-2 | RPC failures are recoverable                                        | Process/JSONL failures surface as manager errors/status                                                                  |
+| NFR-3 | SDK bootstrap remains portable                                      | Windows support is considered when bundling/executing Pi SDK assets                                                      |
+| NFR-4 | Bundled Pi SDK runs only on Node >=22.19.0 (upstream engines floor) | VS Code engine floor `^1.105.0` (extension-host Node `>=22.19.0`); e2e asserts the SDK startup executable's Node version |
 
 ---
 

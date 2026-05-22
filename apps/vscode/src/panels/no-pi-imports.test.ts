@@ -2,7 +2,7 @@
  * Panels boundary guard — only `agent-factory.ts` may know which adapter is in
  * use. Files under `apps/vscode/src/panels/**` must depend on `AgentManager`
  * from `@afx/shared` and never reach into `@afx/agent-pi` or
- * `@mariozechner/*`. Covers the Phase 8.4 optional third guard.
+ * `@earendil-works/*`. Covers the Phase 8.4 optional third guard.
  *
  * @see docs/specs/200-app-vscode/spec.md [NFR-1]
  * @see docs/specs/200-app-vscode/design.md [DES-DEPS]
@@ -24,7 +24,7 @@ describe("vscode panels boundary", () => {
       .filter((file) => /\.(ts|tsx)$/.test(file) && !file.endsWith(".test.ts"))
       .filter((file) => {
         const source = readFileSync(file, "utf8");
-        return /from\s+["']@afx\/agent-[^"']+["']|from\s+["']@mariozechner\//.test(source);
+        return /from\s+["']@afx\/agent-[^"']+["']|from\s+["']@earendil-works\//.test(source);
       });
     expect(offenders).toEqual([]);
   });

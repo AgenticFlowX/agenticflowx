@@ -159,7 +159,7 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
     },
     about: {
       extensionVersion: "2.0.0",
-      bundledPiNpmVersion: "@mariozechner/pi-coding-agent@0.70.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
     },
   };
 }
@@ -1715,7 +1715,7 @@ describe("chat App", () => {
     // Support group: About + telemetry toggle
     await user.click(screen.getByRole("button", { name: "Support" }));
     expect(screen.getByText("Bundled Pi npm")).toBeInTheDocument();
-    expect(screen.getByText("@mariozechner/pi-coding-agent@0.70.2")).toBeInTheDocument();
+    expect(screen.getByText("@earendil-works/pi-coding-agent@0.75.4")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Anonymous UI analytics" })).toBeChecked();
 
     fireEvent.click(screen.getByRole("switch", { name: "Anonymous UI analytics" }));

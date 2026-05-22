@@ -27,7 +27,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:lint
@@ -44,7 +44,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:types
@@ -59,7 +59,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter "./apps/vscode" sync:skills -- --verify
@@ -74,7 +74,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Run unit tests via vitest workspace (excludes vscode-e2e)
@@ -95,7 +95,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
@@ -115,7 +115,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
@@ -136,7 +136,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Build extension
@@ -190,7 +190,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "22.19.0"
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: pnpm audit (high+ on production deps)

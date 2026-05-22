@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: [infra, pi, rpc, subprocess, engine, adapter]
 spec: spec.md
 ---
@@ -138,11 +138,11 @@ function createPiClient(opts?: PiClientOptions): PiClient;
 
 ## [DES-DEPS] Dependencies
 
-| Package                          | Purpose                                                                     |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| `@afx/shared`                    | `AgentManager`, `AgentEvent`, usage, UI bridge, `Disposable`, `Logger`      |
-| `@mariozechner/pi-coding-agent`  | `RpcCommand`, `RpcResponse` type declarations (devDependency — not bundled) |
-| `string_decoder` (Node built-in) | JSONL frame decoding                                                        |
+| Package                           | Purpose                                                                     |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `@afx/shared`                     | `AgentManager`, `AgentEvent`, usage, UI bridge, `Disposable`, `Logger`      |
+| `@earendil-works/pi-coding-agent` | `RpcCommand`, `RpcResponse` type declarations (devDependency — not bundled) |
+| `string_decoder` (Node built-in)  | JSONL frame decoding                                                        |
 
 ---
 

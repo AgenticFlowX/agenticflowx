@@ -367,7 +367,7 @@ export default tseslint.config(
           ],
           patterns: [
             {
-              group: ["@afx/agent-*", "@mariozechner/*"],
+              group: ["@afx/agent-*", "@earendil-works/*"],
               message: "Webviews must not import agent adapters; route through @afx/transport.",
             },
             {

@@ -43,6 +43,11 @@
       "range": ""
     },
     {
+      "label": "Pi runtime migration pins exact upstream package versions",
+      "dependencies": ["@earendil-works/pi-*"],
+      "range": ""
+    },
+    {
       "label": "Catch-all: prefer caret range",
       "dependencies": ["**"],
       "range": "^"

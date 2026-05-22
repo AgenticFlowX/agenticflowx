@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-28T02:36:26.000Z"
-updated_at: "2026-04-28T05:17:39.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: ["430-dx-enforcement", "sprint", "dx", "security", "enforcement"]
 approval:
   spec: Approved
@@ -391,7 +391,7 @@ These all require human (or LLM) judgement and would still surface as `pnpm veri
     "no-restricted-imports": ["error", {
       paths: [{ name: "vscode" }],
       patterns: [
-        { group: ["@afx/agent-*", "@mariozechner/*"],
+        { group: ["@afx/agent-*", "@earendil-works/*"],
           message: "Webviews must not import agent adapters; route through @afx/transport." },
         { group: ["node:child_process", "node:fs", "node:fs/*", "node:path", "child_process", "fs", "fs/promises"],
           message: "Webviews run in a sandboxed iframe — no Node FS/process access." },
@@ -1148,7 +1148,7 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 <!-- files: eslint.config.mjs -->
 <!-- @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-4] [DES-LINT] -->
 
-- [ ] Add `apps/{chat,workbench}/**/*.{ts,tsx}` block forbidding `vscode`, `@afx/agent-*`, `@mariozechner/*`, `node:child_process`, `node:fs`, `node:path`
+- [ ] Add `apps/{chat,workbench}/**/*.{ts,tsx}` block forbidding `vscode`, `@afx/agent-*`, `@earendil-works/*`, `node:child_process`, `node:fs`, `node:path`
 - [ ] Run `pnpm check:lint` — fix any violations
 
 #### 2.3 ESLint no-restricted-imports — packages

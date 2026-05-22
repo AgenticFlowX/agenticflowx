@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: ["infra", "pi", "rpc", "subprocess", "engine", "adapter", "routing"]
 depends_on: [100-package-shared]
 ---
@@ -74,10 +74,10 @@ This spec remains the migration source for older Pi integration requirements. Ne
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                                             | Target                        |
-| ----- | ----------------------------------------------------------------------- | ----------------------------- |
-| NFR-1 | `@mariozechner/pi-coding-agent` is a `devDependency` only — not bundled | Enforced by esbuild externals |
-| NFR-2 | Pi subprocess startup completes in < 500ms                              | Measured in smoke test        |
+| ID    | Requirement                                                               | Target                        |
+| ----- | ------------------------------------------------------------------------- | ----------------------------- |
+| NFR-1 | `@earendil-works/pi-coding-agent` is a `devDependency` only — not bundled | Enforced by esbuild externals |
+| NFR-2 | Pi subprocess startup completes in < 500ms                                | Measured in smoke test        |
 
 ---
 
@@ -109,4 +109,4 @@ This spec remains the migration source for older Pi integration requirements. Ne
 ## Dependencies
 
 - `@afx/shared` (workspace — `AgentManager`, `AgentEvent`, `Disposable`, `Logger` contracts)
-- `@mariozechner/pi-coding-agent` (devDependency — RPC types only, not bundled)
+- `@earendil-works/pi-coding-agent` (devDependency — RPC types only, not bundled)

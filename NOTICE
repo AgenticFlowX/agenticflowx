@@ -16,15 +16,15 @@ reproduction, and distribution. See the upstream project's LICENSE file
 for the full terms.
 
 --------------------------------------------------------------------------------
-Pi (https://github.com/mariozechner/pi)
+Pi (https://github.com/earendil-works/pi-mono)
 --------------------------------------------------------------------------------
 
 The bundled Pi SDK is built from these npm packages:
 
-    @mariozechner/pi-agent-core
-    @mariozechner/pi-ai
-    @mariozechner/pi-coding-agent
-    @mariozechner/pi-tui
+    @earendil-works/pi-agent-core
+    @earendil-works/pi-ai
+    @earendil-works/pi-coding-agent
+    @earendil-works/pi-tui
 
 The compiled bundle is shipped at:
 

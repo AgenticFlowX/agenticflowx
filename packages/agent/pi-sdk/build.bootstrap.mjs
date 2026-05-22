@@ -7,7 +7,7 @@ import { build } from "esbuild";
 
 const outfile = resolve("dist/bootstrap.js");
 const piCodingAgentRoot = resolve(
-  dirname(fileURLToPath(import.meta.resolve("@mariozechner/pi-coding-agent"))),
+  dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))),
   "..",
 );
 
@@ -32,7 +32,7 @@ await build({
 // selects an Amazon Bedrock model. Pre-bundle the provider as a sibling file
 // so the dynamic import resolves at runtime.
 const bedrockEntry = resolve(
-  dirname(fileURLToPath(import.meta.resolve("@mariozechner/pi-ai"))),
+  dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-ai"))),
   "providers/amazon-bedrock.js",
 );
 await build({

@@ -9,8 +9,8 @@
  */
 import { fileURLToPath } from "node:url";
 
-import type { ExtensionAPI, ExtensionFactory } from "@mariozechner/pi-coding-agent";
-import { main } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionFactory } from "@earendil-works/pi-coding-agent";
+import { main } from "@earendil-works/pi-coding-agent";
 
 import { applyProviderEnv, getApiKey } from "./auth";
 import {

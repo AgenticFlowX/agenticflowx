@@ -15,7 +15,7 @@ describe("shared package boundary", () => {
       .filter((file) => /\.(ts|tsx)$/.test(file))
       .filter((file) => {
         const source = readFileSync(file, "utf8");
-        return /from\s+["'](react|vscode|@afx\/agent-[^"']+|@mariozechner\/[^"']+)["']/.test(
+        return /from\s+["'](react|vscode|@afx\/agent-[^"']+|@earendil-works\/[^"']+)["']/.test(
           source,
         );
       });

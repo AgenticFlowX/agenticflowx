@@ -28,7 +28,7 @@ await writeFile(
     {
       type: "module",
       afxBundledPi: {
-        package: piCodingAgentPackageJson.name ?? "@mariozechner/pi-coding-agent",
+        package: piCodingAgentPackageJson.name ?? "@earendil-works/pi-coding-agent",
         version: piCodingAgentPackageJson.version ?? "?",
       },
     },
@@ -55,7 +55,7 @@ async function readPiCodingAgentPackageJson() {
     "agent",
     "pi-sdk",
     "node_modules",
-    "@mariozechner",
+    "@earendil-works",
     "pi-coding-agent",
     "package.json",
   );
@@ -65,9 +65,9 @@ async function readPiCodingAgentPackageJson() {
     const adapterPackageJson = JSON.parse(
       await readFile(resolve(repoRoot, "packages/agent/pi-sdk/package.json"), "utf8"),
     );
-    const versionRange = adapterPackageJson.dependencies?.["@mariozechner/pi-coding-agent"];
+    const versionRange = adapterPackageJson.dependencies?.["@earendil-works/pi-coding-agent"];
     return {
-      name: "@mariozechner/pi-coding-agent",
+      name: "@earendil-works/pi-coding-agent",
       version: typeof versionRange === "string" ? versionRange.replace(/^[^\d]*/, "") : "?",
     };
   }

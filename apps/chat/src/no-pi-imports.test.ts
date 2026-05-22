@@ -24,7 +24,7 @@ describe("chat runtime boundary", () => {
       )
       .filter((file) => {
         const source = readFileSync(file, "utf8");
-        return /from\s+["']@afx\/agent-pi["']|from\s+["']@mariozechner\//.test(source);
+        return /from\s+["']@afx\/agent-pi["']|from\s+["']@earendil-works\//.test(source);
       });
     expect(offenders).toEqual([]);
   });

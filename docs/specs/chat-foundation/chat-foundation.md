@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T14:58:19.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-22T08:05:29.000Z"
 tags: ["chat-foundation", "sprint", "skill-bundling", "models", "slash-commands", "pi-rpc"]
 approval:
   spec: Approved
@@ -294,7 +294,7 @@ function createConfiguredAgentInstances(opts): AgentInstance[] {
 
 Boundary invariants (enforced by `/afx-check trace` and grep at PR time):
 
-- No file under `apps/chat/**` imports from `@afx/agent-pi` or `@mariozechner/*`.
+- No file under `apps/chat/**` imports from `@afx/agent-pi` or `@earendil-works/*`.
 - No file under `apps/vscode/src/panels/**` imports from `@afx/agent-pi` directly — it only uses `AgentManager` returned by `agent-factory.ts`.
 - All adapter-specific knowledge (Pi RPC commands, `--skill` args, slash rewrite) lives in `packages/agent/pi/**`.
 - `packages/shared/**` has zero adapter imports and zero React.
@@ -1173,7 +1173,7 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design s
 <!-- files: apps/chat/__tests__/no-pi-imports.test.ts (NEW), packages/shared/__tests__/no-react.test.ts (NEW) -->
 <!-- @see docs/specs/chat-foundation/chat-foundation.md [NFR-1] [DES-ABSTRACTION] -->
 
-- [x] Add a vitest "import guard" test that walks `apps/chat/src/**` and asserts no file imports from `@afx/agent-pi` or any `@mariozechner/*` package. Acts as a future-runtime guard.
+- [x] Add a vitest "import guard" test that walks `apps/chat/src/**` and asserts no file imports from `@afx/agent-pi` or any `@earendil-works/*` package. Acts as a future-runtime guard.
 - [x] Add a similar guard for `packages/shared/src/**` — no React, no `@afx/agent-*`, no `vscode`.
 - [x] Optional: a third guard for `apps/vscode/src/panels/**` blocking direct adapter imports (only `agent-factory.ts` knows runtimes). Implemented at `apps/vscode/__tests__/no-pi-imports-panels.test.ts`; passes against `apps/vscode/src/panels/{sidebar-panel,workbench-panel,webview-html}.ts`.
 
