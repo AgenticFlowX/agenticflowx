@@ -490,6 +490,7 @@ export function createMockTransport(): MockTransport {
     const chunks = text.match(/.{1,6}/g) ?? [text];
     for (const chunk of chunks) {
       await delay(streamSpeed);
+      if (!mockStreaming || activeAssistantId !== id) return;
       applyQueuedSteers(id);
       emit({ type: "chat/messageDelta", id, delta: chunk });
     }
@@ -514,6 +515,7 @@ export function createMockTransport(): MockTransport {
   }
 
   function endAssistant(id: string): void {
+    if (activeAssistantId !== id) return;
     applyQueuedSteers(id);
     emit({ type: "chat/messageEnd", id, stopReason: "end_turn" });
     emitAgentStatus({ running: true, isStreaming: false, model: MOCK_MODEL });
@@ -1394,6 +1396,7 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
   }
 
   async function runRestartRecovery(requestId = uid()): Promise<void> {
+    const interruptedAssistantId = activeAssistantId;
     emitAgentStatus(
       {
         running: false,
@@ -1404,6 +1407,9 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       },
       requestId,
     );
+    if (interruptedAssistantId) {
+      emit({ type: "chat/messageEnd", id: interruptedAssistantId, stopReason: "interrupt" });
+    }
     activeAssistantId = null;
     mockStreaming = false;
     pendingSteers.length = 0;

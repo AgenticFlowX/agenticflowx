@@ -785,6 +785,47 @@ describe("sidebar-panel host bridge", () => {
     expect(statuses.map((msg) => msg.status?.phase)).toEqual(["checking", "ready"]);
   });
 
+  it("agent/restart clears a streaming turn so the next chat/send is accepted", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    inbound.fire({ type: "chat/send", requestId: "first-turn", content: "first" });
+    await flushAsyncWork(2);
+    listener?.({ type: "agent_start" });
+    listener?.({ type: "text_delta", id: "sdk-stream-1", delta: "partial" });
+
+    inbound.fire({ type: "agent/restart", requestId: "restart-streaming" });
+    await flushAsyncWork(2);
+
+    expect(agent.stop).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/messageEnd",
+        id: "sdk-stream-1",
+        stopReason: "interrupt",
+      }),
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/state",
+        isStreaming: false,
+      }),
+    );
+
+    vi.mocked(agent.send).mockClear();
+    postMessage.mockClear();
+
+    inbound.fire({ type: "chat/send", requestId: "after-restart", content: "second" });
+    await flushAsyncWork(2);
+
+    expect(agent.send).toHaveBeenCalledOnce();
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("second"));
+    const alreadyStreamingErrors = postMessage.mock.calls
+      .map(([msg]) => msg as { type?: string; message?: string })
+      .filter((msg) => msg.type === "chat/error" && /already streaming/i.test(msg.message ?? ""));
+    expect(alreadyStreamingErrors).toHaveLength(0);
+  });
+
   it("chat/setModel delegates to agent.setModel with the provided ids", async () => {
     const inbound = setup();
     inbound.fire({
@@ -856,6 +897,39 @@ describe("sidebar-panel host bridge", () => {
         }),
       }),
     );
+  });
+
+  it("persists chat custom-provider model switches with provider and model ids intact", async () => {
+    const { update, values } = mockAfxConfiguration();
+    const model: AgentModel = {
+      provider: "llama.cpp",
+      id: "qwen2.5-coder:7b",
+      name: "Qwen2.5 Coder 7B",
+      reasoning: false,
+      contextWindow: 32_000,
+      maxTokens: 8_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      instanceLabel: "llama.cpp",
+    };
+    agent.setModel.mockResolvedValue(model);
+    const { inbound } = setupWithView();
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "custom-model-switch",
+      provider: "llama.cpp",
+      modelId: "qwen2.5-coder:7b",
+      instanceId: "pi-sdk",
+    });
+    await flushAsyncWork(3);
+
+    expect(update).toHaveBeenCalledWith(
+      "sdk.defaultModel",
+      "llama.cpp:qwen2.5-coder:7b",
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(values.get("sdk.defaultModel")).toBe("llama.cpp:qwen2.5-coder:7b");
   });
 
   it("keeps external-agent model switches scoped to the active session", async () => {

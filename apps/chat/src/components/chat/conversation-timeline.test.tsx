@@ -4,7 +4,7 @@
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-A11Y] [DES-PERF]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS]
  */
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatTimelineItem, ChatToolView } from "@afx/shared";
@@ -128,7 +128,7 @@ Still visible.`,
     );
 
     expect(screen.getByTestId("timeline-day-header")).toHaveClass(
-      "z-20",
+      "z-40",
       "bg-background",
       "shadow-sm",
     );
@@ -146,6 +146,12 @@ Still visible.`,
 
   it("shows the floating turn context only after the user row scrolls above", () => {
     const observer = installIntersectionObserverMock();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
     const longPrompt = [
       "population of fiji, mt cook, hawaii in 2011, split it by ethnicity",
       "and keep this long enough that the floating context needs to clamp instead of stretching",
@@ -183,13 +189,21 @@ Still visible.`,
       });
 
       const context = screen.getByTestId("timeline-turn-context");
-      expect(context).toHaveAttribute("aria-hidden", "true");
+      expect(context).toHaveAttribute("aria-label", expect.stringContaining("Jump to message"));
       expect(context).toHaveAttribute("title", longPrompt);
       expect(context).toHaveTextContent(/population of fiji/);
+      expect(context).toHaveClass("bg-background", "text-left", "border-afx-info/45");
+      expect(screen.getByRole("button", { name: /jump to message/i })).toBe(context);
       expect(screen.getByTestId("timeline-turn-context-time")).toHaveClass("whitespace-nowrap");
       expect(screen.getByTestId("timeline-turn-context-prompt")).toHaveClass("line-clamp-3");
+      fireEvent.click(context);
+      expect(scrollIntoView).toHaveBeenCalledWith({ behavior: "smooth", block: "start" });
     } finally {
       observer.restore();
+      Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+        configurable: true,
+        value: originalScrollIntoView,
+      });
     }
   });
 

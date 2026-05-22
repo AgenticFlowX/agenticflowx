@@ -3,7 +3,16 @@
  *
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
  */
-import { type ReactNode, type Ref, type RefObject, memo, useEffect, useRef, useState } from "react";
+import {
+  type ReactNode,
+  type Ref,
+  type RefObject,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   AlertTriangle,
@@ -353,7 +362,7 @@ function DayHeader({ label, turnCount }: { label: string; turnCount: number }) {
   return (
     <div
       data-testid="timeline-day-header"
-      className="sticky top-0 z-20 flex items-center gap-2 rounded-md border border-border/50 bg-background px-2.5 py-1.5 shadow-sm"
+      className="sticky top-0 z-40 flex items-center gap-2 rounded-md border border-border/50 bg-background px-2.5 py-1.5 shadow-sm"
     >
       <span
         className="size-1.5 rounded-full bg-afx-brand-soft shadow-[0_0_6px_var(--afx-brand-soft)]"
@@ -389,10 +398,15 @@ const TurnGroup = memo(function TurnGroup({
   );
   const userRowRef = useRef<HTMLLIElement | null>(null);
   const showTurnContext = useUserRowScrolledAbove(userRowRef);
+  const handleJumpToUserMessage = useCallback(() => {
+    userRowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   return (
     <li className="relative" data-timeline-turn={turn.id}>
-      {userEvent && showTurnContext ? <TurnContextBar event={userEvent} /> : null}
+      {userEvent && showTurnContext ? (
+        <TurnContextBar event={userEvent} onJumpToMessage={handleJumpToUserMessage} />
+      ) : null}
       <span
         aria-hidden
         className="pointer-events-none absolute top-5 bottom-1 left-[10px] w-px -translate-x-1/2 bg-border/60"
@@ -412,37 +426,49 @@ const TurnGroup = memo(function TurnGroup({
   );
 });
 
-function TurnContextBar({ event }: { event: Extract<TurnEvent, { kind: "user" }> }) {
+function TurnContextBar({
+  event,
+  onJumpToMessage,
+}: {
+  event: Extract<TurnEvent, { kind: "user" }>;
+  onJumpToMessage: () => void;
+}) {
   const fullPrompt = normalizePrompt(event.message.content);
   const prompt = summarizePrompt(event.message.content);
   if (!fullPrompt) return null;
 
   return (
-    <div className="sticky top-9 z-[9] h-0 overflow-visible">
-      <div
-        aria-hidden="true"
+    <div className="sticky top-[2.3rem] z-30 h-0 overflow-visible">
+      <button
+        type="button"
         data-testid="timeline-turn-context"
-        className="ml-7 flex min-w-0 items-start gap-1.5 rounded-md border border-border/40 bg-background/95 px-2 py-1 shadow-sm backdrop-blur"
+        className="ml-7 -mt-1 flex w-[calc(100%-1.75rem)] min-w-0 cursor-pointer items-start gap-1.5 rounded-md border border-afx-info/45 bg-background px-2.5 py-1.5 text-left shadow-[0_8px_22px_rgba(0,0,0,0.18)] ring-1 ring-afx-info/15 backdrop-blur transition-colors hover:border-afx-info/70 hover:bg-muted/80 focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
         title={fullPrompt}
+        aria-label={`Jump to message: ${prompt}`}
+        onClick={onJumpToMessage}
       >
-        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-medium uppercase tracking-[0.14em] text-afx-info">
+        <span
+          className="mt-[0.35rem] size-1.5 shrink-0 rounded-full bg-afx-info shadow-[0_0_6px_currentColor]"
+          aria-hidden
+        />
+        <span className="shrink-0 whitespace-nowrap font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-afx-info">
           You
         </span>
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">·</span>
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">·</span>
         <span
           data-testid="timeline-turn-context-time"
-          className="shrink-0 whitespace-nowrap font-mono text-[10px] text-muted-foreground/60"
+          className="shrink-0 whitespace-nowrap font-mono text-[10px] text-muted-foreground/80"
         >
           {formatTimeMeta(event.message.createdAt)}
         </span>
-        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/40">·</span>
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground/60">·</span>
         <span
           data-testid="timeline-turn-context-prompt"
-          className="line-clamp-3 min-w-0 text-[11px] leading-snug text-muted-foreground/80"
+          className="line-clamp-3 min-w-0 text-[11px] leading-snug text-foreground"
         >
           {prompt}
         </span>
-      </div>
+      </button>
     </div>
   );
 }

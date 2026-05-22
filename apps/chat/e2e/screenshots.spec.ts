@@ -41,7 +41,34 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Workflow: Open" })).toBeVisible();
   await capture(page, testInfo, "chat-desktop");
+  const fileContextSwitch = page.getByRole("switch", { name: "No active file" });
+  await expect(fileContextSwitch).toHaveAttribute("aria-checked", "true");
+  await capture(page, testInfo, "chat-file-context-on");
+  await fileContextSwitch.click();
+  await expect(fileContextSwitch).toHaveAttribute("aria-checked", "false");
+  await page.waitForTimeout(150);
+  await capture(page, testInfo, "chat-file-context-off");
   await capture(page, testInfo, "chat-code-action-tiles");
+
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Coding bench" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  const pane = page.getByRole("region", { name: "Conversation" });
+  await expect(page.locator('ol[role="log"]')).toContainText("Benchmark refactor slice 24", {
+    timeout: 5_000,
+  });
+  const floatingContext = page.getByTestId("timeline-turn-context").first();
+  for (const scrollTop of [120, 180, 240, 320, 420, 560, 720]) {
+    await pane.evaluate((node, nextScrollTop) => {
+      node.scrollTop = nextScrollTop;
+    }, scrollTop);
+    await page.waitForTimeout(50);
+    if ((await floatingContext.count()) > 0 && (await floatingContext.isVisible())) break;
+  }
+  await expect(floatingContext).toBeVisible();
+  await capture(page, testInfo, "chat-floating-turn-context");
+  await page.goto("/");
+  await expect(page.getByRole("form", { name: "Compose message" })).toBeVisible();
 
   await page.getByRole("button", { name: "Ask Intent" }).click();
   await page.getByRole("button", { name: "Preview injected prompt for Ask" }).click();
@@ -113,6 +140,16 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   );
   await expect(page.getByRole("textbox", { name: "Chat composer" })).toBeVisible();
   await capture(page, testInfo, "chat-mobile");
+  const mobileFileContextSwitch = page.getByRole("switch", { name: "No active file" });
+  if ((await mobileFileContextSwitch.getAttribute("aria-checked")) !== "false") {
+    await mobileFileContextSwitch.click();
+  }
+  await expect(mobileFileContextSwitch).toHaveAttribute("aria-checked", "false");
+  await capture(page, testInfo, "chat-mobile-file-context-off");
+  await mobileFileContextSwitch.click();
+  await expect(mobileFileContextSwitch).toHaveAttribute("aria-checked", "true");
+  await page.waitForTimeout(150);
+  await capture(page, testInfo, "chat-mobile-file-context-on");
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.20"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T09:58:54.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags:
   ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard", "intent"]
 spec: spec.md
@@ -644,6 +644,10 @@ the durable value, the composer renders the quick toggle, and the extension host
 of truth for persistence and prompt shaping. The composer control stays compact: switch first,
 filename label second, and the full path exposed in the hover tooltip. The webview never reads the
 workspace file contents itself; it sends intent, and the host performs the injection.
+
+The toggle must render as a real switch in every toolbar width. Its accessible checked state, track
+color, and thumb position move together; compact mode may hide the filename, but it must not leave a
+static thumb that only changes color.
 
 Workspace mode follows the same host-owned pattern. The composer sends `chat/setMode`, the host
 routes that to `afx.setMode`, and the persisted `afx.mode.active` value rehydrates both the chat

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T13:11:29.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags: ["agent", "runtime", "manager"]
 spec: spec.md
 design: design.md
@@ -88,3 +88,4 @@ Verify manager and webview status payloads
 | 2026-05-03               | 1.2  | Coded      | design.md, agent manager source comments                                                                                                                                                                                                | [x]   | [x]   |
 | 2026-05-17T12:34:48.000Z | FR-5 | Fixed      | extension.ts, agent-factory.ts, Pi RPC/SDK manager args, host overlay docs/tests                                                                                                                                                        | [x]   | [ ]   |
 | 2026-05-17T13:11:29.000Z | FR-5 | Fixed      | apps/vscode/resources/harness-overlays/common/agenticflowx-vscode.md, apps/vscode/src/host-overlay-content.test.ts, docs/specs/350-agent-manager/spec.md, docs/specs/350-agent-manager/design.md, docs/specs/350-agent-manager/tasks.md | [x]   | [ ]   |
+| 2026-05-22T05:56:29.000Z | FR-2 | Fixed      | apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, packages/agent/pi-sdk/src/sdk-rpc-manager.test.ts, docs/specs/350-agent-manager/design.md, docs/specs/350-agent-manager/tasks.md                 | [x]   | [ ]   |

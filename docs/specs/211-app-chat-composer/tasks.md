@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T13:11:29.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags:
   [
     "app",
@@ -485,3 +485,4 @@ Verify traceability
 | 2026-05-17T12:45:57.000Z | FR-15   | Fixed      | apps/chat/src/lib/result-actions.ts, apps/chat/src/lib/result-actions.test.ts, apps/chat/src/app.test.tsx                                                                                                                                                                                                                                                                                                                                                                                                  | [x]   | [ ]   |
 | 2026-05-17T12:59:12.000Z | FR-15   | Fixed      | apps/chat/src/lib/result-actions.ts, apps/chat/src/lib/result-actions.test.ts, apps/chat/e2e/result-actions.spec.ts, packages/transport/src/mock.ts, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/tasks.md                                                                                                                                                                                                                       | [x]   | [ ]   |
 | 2026-05-17T13:11:29.000Z | FR-16   | Fixed      | apps/chat/src/lib/result-actions.ts, apps/chat/src/lib/result-actions.test.ts, apps/chat/src/components/chat/conversation-timeline.tsx, apps/chat/src/components/chat/conversation-timeline.test.tsx, apps/chat/src/components/chat/chat-controller.tsx, apps/chat/src/components/chat/chat-controller.test.tsx, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/tasks.md                                                           | [x]   | [ ]   |
+| 2026-05-22T05:56:29.000Z | FR-11   | Fixed      | apps/chat/src/components/chat/composer-toolbar.tsx, apps/chat/src/components/chat/composer-toolbar.test.tsx, apps/chat/e2e/chat.spec.ts, apps/chat/e2e/screenshots.spec.ts, packages/transport/src/mock.ts, packages/transport/src/mock.test.ts, docs/specs/211-app-chat-composer/spec.md, docs/specs/211-app-chat-composer/design.md, docs/specs/211-app-chat-composer/tasks.md                                                                                                                           | [x]   | [ ]   |

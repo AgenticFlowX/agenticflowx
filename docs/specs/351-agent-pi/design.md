@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-22T06:20:53.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "skills", "custom-providers"]
 spec: spec.md
 ---
@@ -126,6 +126,11 @@ Pi RPC track (read-only display)   ┌──────────────
 ```
 
 The Pi SDK runtime path **never** reads `~/.pi/agent/models.json` when AFX-managed records exist. The empty `ModelRegistry` is overlaid only with AFX records. Pi RPC's runtime path is unchanged and continues to read the file directly.
+
+When the host rebuilds Pi SDK with AFX-managed custom providers, the spawn
+descriptor receives the saved `afx.sdk.defaultModel`. If that default references
+a configured custom provider/model, it becomes the initial Pi SDK provider and
+model; otherwise the first configured custom model remains the fallback.
 
 ### Refresh contract
 

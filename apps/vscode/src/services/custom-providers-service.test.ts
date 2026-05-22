@@ -57,6 +57,23 @@ const OPENROUTER_RECORD: CustomProviderRecord = {
   ],
 };
 
+const LLAMA_CPP_RECORD: CustomProviderRecord = {
+  id: "llama.cpp",
+  displayName: "llama.cpp",
+  baseUrl: "http://127.0.0.1:8080/v1",
+  api: "openai-completions",
+  apiKeyRef: { source: "none" },
+  models: [
+    { id: "tiny", name: "Tiny", contextWindow: 8_000, maxTokens: 2_000 },
+    {
+      id: "qwen2.5-coder:7b",
+      name: "Qwen2.5 Coder 7B",
+      contextWindow: 32_000,
+      maxTokens: 8_000,
+    },
+  ],
+};
+
 let scratchDir: string;
 
 beforeEach(() => {
@@ -334,6 +351,26 @@ describe("createCustomProvidersService — bootstrap env", () => {
       providers: Record<string, { apiKey?: string }>;
     };
     expect(envelope.providers["openrouter"]?.apiKey).toBe("AFX_OPENROUTER_KEY");
+    service.dispose();
+  });
+
+  it("describes the saved custom provider default as the Pi SDK spawn seed", async () => {
+    const ctx = createMockContext();
+    const secretStore = new SecretStore(ctx);
+    const service = createCustomProvidersService({
+      context: ctx,
+      secretStore,
+      adapter: createCustomProvidersAdapter(),
+      logger: createMockLogger().logger,
+      handEditedConfigPath: join(scratchDir, "models.json"),
+    });
+    await secretStore.setCustomProviderRecord(OPENROUTER_RECORD);
+    await secretStore.setCustomProviderRecord(LLAMA_CPP_RECORD);
+
+    await expect(service.describeForSpawn("llama.cpp:qwen2.5-coder:7b")).resolves.toEqual({
+      ids: ["openrouter", "llama.cpp"],
+      initial: { provider: "llama.cpp", modelId: "qwen2.5-coder:7b" },
+    });
     service.dispose();
   });
 });

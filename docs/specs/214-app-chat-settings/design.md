@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.8"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T05:19:41.000Z"
+updated_at: "2026-05-22T06:20:53.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
 spec: spec.md
@@ -54,6 +54,14 @@ Settings view
 | Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack |
 
 ---
+
+When the composer switches to a Pi SDK custom-provider model, the host stores
+`afx.sdk.defaultModel` as `<provider>:<modelId>`. During runtime rebuild,
+`custom-providers-service.describeForSpawn(defaultModel)` prefers the matching
+SecretStorage custom-provider record and model as the Pi SDK startup seed,
+including local model ids that themselves contain `:`. If the saved default no
+longer matches any configured custom model, the service falls back to the first
+available custom model.
 
 ## [DES-SETTINGS-ONBOARDING] Connect A Model
 

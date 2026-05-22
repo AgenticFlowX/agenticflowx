@@ -59,6 +59,43 @@ describe("ComposerToolbar", () => {
     expect(screen.getByRole("button", { name: "Workspace mode: Code" })).toBeInTheDocument();
   });
 
+  it("moves the active-file context switch thumb with the checked state", () => {
+    const props = {
+      isSystemCommand: false,
+      disabled: false,
+      models: [model],
+      selectedModel: model,
+      workspaceMode: "code" as const,
+      activeFileDisplayName: "chat.tsx",
+      activeFileDisplayPath: "apps/chat/src/chat.tsx",
+      onOpenMentionPicker: vi.fn(),
+      onSelectModel: vi.fn(),
+      onSelectThinkingLevel: vi.fn(),
+      onWorkspaceModeChange: vi.fn(),
+      onToggleActiveFileContext: vi.fn(),
+    };
+
+    const { rerender } = render(<ComposerToolbar {...props} includeActiveFileContext />);
+
+    let toggle = screen.getByRole("switch", { name: "chat.tsx" });
+    let track = toggle.querySelector('[data-slot="switch"]');
+    let thumb = toggle.querySelector('[data-slot="switch-thumb"]');
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(track).toHaveAttribute("data-state", "checked");
+    expect(track).toHaveClass("bg-primary");
+    expect(thumb).toHaveClass("translate-x-3");
+
+    rerender(<ComposerToolbar {...props} includeActiveFileContext={false} />);
+
+    toggle = screen.getByRole("switch", { name: "chat.tsx" });
+    track = toggle.querySelector('[data-slot="switch"]');
+    thumb = toggle.querySelector('[data-slot="switch-thumb"]');
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(track).toHaveAttribute("data-state", "unchecked");
+    expect(track).not.toHaveClass("bg-primary");
+    expect(thumb).toHaveClass("translate-x-0");
+  });
+
   it("omits the attachment trigger until a working picker is supplied", () => {
     render(
       <ComposerToolbar

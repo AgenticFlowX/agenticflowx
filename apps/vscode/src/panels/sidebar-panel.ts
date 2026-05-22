@@ -399,6 +399,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   const blockedExploreToolCallIds = new Set<string>();
   const queuedUserDisplays: QueuedUserDisplay[] = [];
   let queueInjectionChain: Promise<void> = Promise.resolve();
+  let queueInjectionEpoch = 0;
 
   /**
    * Serializes streaming queue injections so rapid steer/follow-up submissions
@@ -407,8 +408,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    * @see docs/specs/211-app-chat-composer/spec.md [FR-4] [FR-8]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW] [DES-COMPOSER-QUEUE]
    */
-  function enqueueQueueInjection(work: () => Promise<void>): Promise<void> {
-    const next = queueInjectionChain.then(work, work);
+  function enqueueQueueInjection(work: (epoch: number) => Promise<void>): Promise<void> {
+    const epoch = queueInjectionEpoch;
+    const run = () => (epoch === queueInjectionEpoch ? work(epoch) : Promise.resolve());
+    const next = queueInjectionChain.then(run, run);
     queueInjectionChain = next.catch(() => undefined);
     return next;
   }
@@ -849,6 +852,32 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     state.suppressNextUserMessageStart = false;
     state.currentTurnSawRuntimeEvent = false;
     return finishedId;
+  }
+
+  function clearStreamingStateForRestart(): void {
+    const shouldPostSnapshot =
+      state.isStreaming ||
+      state.isCompacting ||
+      state.currentAssistantId !== null ||
+      state.currentRequestId !== null ||
+      queuedUserDisplays.length > 0 ||
+      pendingDeltas.size > 0 ||
+      pendingContextOverflowError !== null ||
+      pendingRetryableError !== null;
+
+    queueInjectionEpoch += 1;
+    queueInjectionChain = Promise.resolve();
+    clearStreamingState("interrupt");
+    state.isCompacting = false;
+    queuedUserDisplays.length = 0;
+    pendingDeltas.clear();
+    suppressRuntimeEventsUntilAgentEnd = false;
+    blockedExploreToolCallIds.clear();
+    errorPostedThisTurn = false;
+
+    if (shouldPostSnapshot) {
+      postSnapshot();
+    }
   }
 
   function failActiveTurn(requestId: string | undefined, message: string): void {
@@ -1677,6 +1706,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/350-agent-manager/design.md [DES-API]
       case "agent/restart": {
+        clearStreamingStateForRestart();
         void runtimeMonitor.restart(msg.requestId);
         return;
       }
@@ -2851,12 +2881,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       return;
     }
     try {
-      await enqueueQueueInjection(async () => {
+      await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
         await agentManager.steer(prefixWorkspaceModePrompt(inflated, intentSlot));
+        if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });
@@ -2877,12 +2908,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       return;
     }
     try {
-      await enqueueQueueInjection(async () => {
+      await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
         await agentManager.followUp(prefixWorkspaceModePrompt(inflated, intentSlot));
+        if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
       });

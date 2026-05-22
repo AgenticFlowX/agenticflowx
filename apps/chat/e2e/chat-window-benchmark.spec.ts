@@ -162,16 +162,23 @@ test("floating turn context appears only after the prompt scrolls out of view", 
 
   expect(foundContext).toBe(true);
   await expect(context).toBeVisible();
+  await expect(context).toHaveAttribute("aria-label", /Jump to message/i);
   await expect(context).toContainText("You");
   await expect(context).toContainText(/Benchmark refactor slice/);
 
   const floatingMetrics = await context.evaluate((node) => {
+    const header = document.querySelector<HTMLElement>('[data-testid="timeline-day-header"]');
     const prompt = node.querySelector<HTMLElement>('[data-testid="timeline-turn-context-prompt"]');
     const time = node.querySelector<HTMLElement>('[data-testid="timeline-turn-context-time"]');
-    if (!prompt || !time) {
+    if (!header || !prompt || !time) {
       throw new Error("Floating turn context parts were not rendered");
     }
 
+    const contextBox = node.getBoundingClientRect();
+    const headerBox = header.getBoundingClientRect();
+    const headerStyle = window.getComputedStyle(header);
+    const contextWrapperStyle = window.getComputedStyle(node.parentElement ?? node);
+    const contextStyle = window.getComputedStyle(node);
     const promptStyle = window.getComputedStyle(prompt);
     const timeStyle = window.getComputedStyle(time);
     const lineHeight = Number.parseFloat(promptStyle.lineHeight);
@@ -180,6 +187,12 @@ test("floating turn context appears only after the prompt scrolls out of view", 
       : 0;
 
     return {
+      headerGap: contextBox.top - headerBox.bottom,
+      headerZIndex: Number(headerStyle.zIndex),
+      contextWrapperZIndex: Number(contextWrapperStyle.zIndex),
+      contextCursor: contextStyle.cursor,
+      contextShadow: contextStyle.boxShadow,
+      contextBackground: contextStyle.backgroundColor,
       promptLineCount,
       promptLineClamp: promptStyle.webkitLineClamp,
       timeWhiteSpace: timeStyle.whiteSpace,
@@ -189,6 +202,11 @@ test("floating turn context appears only after the prompt scrolls out of view", 
   expect(floatingMetrics.promptLineClamp).toBe("3");
   expect(floatingMetrics.promptLineCount).toBeLessThanOrEqual(3.25);
   expect(floatingMetrics.timeWhiteSpace).toBe("nowrap");
+  expect(floatingMetrics.contextCursor).toBe("pointer");
+  expect(floatingMetrics.contextShadow).not.toBe("none");
+  expect(floatingMetrics.contextBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(floatingMetrics.headerZIndex).toBeGreaterThan(floatingMetrics.contextWrapperZIndex);
+  expect(floatingMetrics.headerGap).toBeLessThanOrEqual(8);
 
   const afterScrollScreenshot = testInfo.outputPath("timeline-context-after-scroll.png");
   await page.screenshot({ path: afterScrollScreenshot });
@@ -196,6 +214,10 @@ test("floating turn context appears only after the prompt scrolls out of view", 
     path: afterScrollScreenshot,
     contentType: "image/png",
   });
+
+  const beforeJump = await pane.evaluate((node) => node.scrollTop);
+  await context.click();
+  await expect.poll(() => pane.evaluate((node) => node.scrollTop)).toBeLessThan(beforeJump);
 });
 
 test("sticky day header masks rail markers while transcript scrolls", async ({
@@ -242,7 +264,7 @@ test("sticky day header masks rail markers while transcript scrolls", async ({
   });
 
   expect(metrics.headerAlpha).toBe(1);
-  expect(metrics.headerZIndex).toBeGreaterThanOrEqual(20);
+  expect(metrics.headerZIndex).toBeGreaterThanOrEqual(40);
   expect(metrics.markerAlpha).toBe(1);
   expect(metrics.markerBoxShadow).toContain("rgb");
 
@@ -280,23 +302,27 @@ test("floating turn context renders above marker icon", async ({ page }, testInf
   expect(foundContext).toBe(true);
 
   const stackMetrics = await page.evaluate(() => {
+    const header = document.querySelector<HTMLElement>('[data-testid="timeline-day-header"]');
     const contextBar = document.querySelector<HTMLElement>('[data-testid="timeline-turn-context"]');
     const markerSpan = document.querySelector<HTMLElement>('[data-timeline-marker="assistant"]');
-    if (!contextBar || !markerSpan) {
+    if (!header || !contextBar || !markerSpan) {
       throw new Error("Turn context bar or assistant marker was not rendered");
     }
     const markerContainer = markerSpan.parentElement;
     if (!markerContainer) {
       throw new Error("Marker container not found");
     }
+    const headerStyle = window.getComputedStyle(header);
     const contextBarStyle = window.getComputedStyle(contextBar.parentElement ?? contextBar);
     const markerContainerStyle = window.getComputedStyle(markerContainer);
     return {
+      headerZIndex: Number(headerStyle.zIndex),
       contextBarZIndex: Number(contextBarStyle.zIndex),
       markerContainerZIndex: Number(markerContainerStyle.zIndex),
     };
   });
 
+  expect(stackMetrics.headerZIndex).toBeGreaterThan(stackMetrics.contextBarZIndex);
   expect(stackMetrics.contextBarZIndex).toBeGreaterThan(stackMetrics.markerContainerZIndex);
 
   const screenshot = testInfo.outputPath("timeline-context-stacking.png");

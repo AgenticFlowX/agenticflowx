@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.17"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-20T12:42:47.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
   [
@@ -88,6 +88,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 | NFR-5 | Source/spec traceability is bidirectional                     | Major composer zones have local source anchors and design node references                                                                                                                                           |
 | NFR-6 | System command UX is persistent but unobtrusive               | An amber "Shell" badge appears in the composer input group when `!` is active; footer shows `"⚠ Shell · output is local only"`; these cues are always visible while the prefix is active and do not block execution |
 | NFR-7 | Toolbar controls stay compact on the smallest supported width | Model/thinking, workspace mode, active-file context, memory, and doc-action controls collapse to icon or ellipsis affordances without clipping, sideways submenu overflow, or horizontal cutoff                     |
+| NFR-8 | Active-file context toggle behaves like a real switch         | Checked state changes both color and thumb position, remains accessible as `role="switch"`, and stays visually correct at compact widths                                                                            |
 
 ---
 

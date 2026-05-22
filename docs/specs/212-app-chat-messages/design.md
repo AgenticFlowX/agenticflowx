@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-20T10:03:55.000Z"
+updated_at: "2026-05-22T06:20:53.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -83,11 +83,14 @@ still visible in the scroll root:
 ```
 
 After the user row scrolls above the transcript viewport, a compact sticky
-context chip appears above the assistant content:
+context button appears directly below the sticky day header and above assistant
+content. It uses an opaque background, visible border/shadow, and high-contrast
+prompt text so it does not blend into long history. Clicking it scrolls back to
+the original user row.
 
 ```text
 +------------------------------------------------------------------+
-| [You] Update the chat footer instruction                          |
+| [You · 14:02 · Update the chat footer instruction]                |
 |------------------------------------------------------------------|
 |       o AFX                                      14:03           |
 |         Working through the change...                           |

@@ -294,13 +294,18 @@ function ActiveFileContextToggle({
             aria-hidden="true"
             className={cn(
               "cn-switch",
-              "group/switch relative inline-flex shrink-0 items-center rounded-full border border-transparent transition-all outline-none data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] data-checked:bg-primary data-unchecked:bg-input dark:data-unchecked:bg-input/80",
-              "shrink-0 origin-center scale-[0.8]",
+              "relative inline-flex h-[14px] w-[26px] shrink-0 items-center rounded-full border border-transparent p-px transition-all outline-none",
+              enabled ? "bg-primary" : "bg-input dark:bg-input/80",
             )}
           >
             <span
               data-slot="switch-thumb"
-              className="cn-switch-thumb pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] dark:data-checked:bg-primary-foreground group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 dark:data-unchecked:bg-foreground"
+              className={cn(
+                "cn-switch-thumb pointer-events-none block size-3 rounded-full bg-background ring-0 transition-transform",
+                enabled
+                  ? "translate-x-3 dark:bg-primary-foreground"
+                  : "translate-x-0 dark:bg-foreground",
+              )}
             />
           </span>
           <span className="hidden min-w-0 max-w-[7rem] truncate font-mono text-[10px] tracking-tight @[260px]:inline">

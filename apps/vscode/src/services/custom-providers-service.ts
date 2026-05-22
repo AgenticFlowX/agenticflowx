@@ -58,7 +58,7 @@ export interface CustomProvidersService {
    *
    * @see docs/specs/351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]
    */
-  describeForSpawn(): Promise<{
+  describeForSpawn(defaultModelRef?: string): Promise<{
     ids: string[];
     initial?: { provider: string; modelId: string };
   }>;
@@ -323,12 +323,23 @@ export function createCustomProvidersService(
     };
   }
 
-  async function describeForSpawn(): Promise<{
+  async function describeForSpawn(defaultModelRef?: string): Promise<{
     ids: string[];
     initial?: { provider: string; modelId: string };
   }> {
     const records = await opts.secretStore.listCustomProviderRecords();
     const ids = records.map((r) => r.id);
+    const defaultModel = parseModelRef(defaultModelRef);
+    if (defaultModel) {
+      const matchingDefault = records.find(
+        (record) =>
+          record.id.toLowerCase() === defaultModel.provider &&
+          record.models.some((model) => model.id === defaultModel.modelId),
+      );
+      if (matchingDefault) {
+        return { ids, initial: { provider: matchingDefault.id, modelId: defaultModel.modelId } };
+      }
+    }
     const seed = records.find((r) => r.models.length > 0);
     if (seed && seed.models[0]) {
       return { ids, initial: { provider: seed.id, modelId: seed.models[0].id } };
@@ -350,5 +361,16 @@ export function createCustomProvidersService(
     describeForSpawn,
     onDidChange: (listener) => onDidChangeEmitter.event(listener),
     dispose,
+  };
+}
+
+function parseModelRef(value?: string): { provider: string; modelId: string } | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  const separator = trimmed.indexOf(":");
+  if (separator <= 0 || separator === trimmed.length - 1) return null;
+  return {
+    provider: trimmed.slice(0, separator).trim().toLowerCase(),
+    modelId: trimmed.slice(separator + 1).trim(),
   };
 }

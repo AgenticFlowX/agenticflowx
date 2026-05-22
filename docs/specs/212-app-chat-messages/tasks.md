@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
+updated_at: "2026-05-22T06:20:53.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 design: design.md
@@ -82,6 +82,7 @@ Verify rendering
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task | Action     | Files Modified                    | Agent | Human |
-| ---------- | ---- | ---------- | --------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/212-app-chat-messages/ | [x]   | [x]   |
+| Date                     | Task | Action     | Files Modified                                                                                                                                                                                                                                                 | Agent | Human |
+| ------------------------ | ---- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1  | Scaffolded | docs/specs/212-app-chat-messages/                                                                                                                                                                                                                              | [x]   | [x]   |
+| 2026-05-22T06:20:53.000Z | FR-9 | Fixed      | apps/chat/src/components/chat/conversation-timeline.tsx, apps/chat/src/components/chat/conversation-timeline.test.tsx, apps/chat/e2e/chat-window-benchmark.spec.ts, apps/chat/e2e/screenshots.spec.ts, docs/specs/212-app-chat-messages/{spec,design,tasks}.md | [x]   | [ ]   |

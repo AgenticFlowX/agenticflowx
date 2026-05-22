@@ -5,7 +5,26 @@
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
  * @see docs/specs/210-app-chat/design.md [DES-TEST]
  */
-import { expect, test } from "@playwright/test";
+import { type Locator, expect, test } from "@playwright/test";
+
+async function switchGeometry(toggle: Locator): Promise<{
+  trackX: number;
+  trackWidth: number;
+  thumbX: number;
+  thumbWidth: number;
+}> {
+  const track = toggle.locator('[data-slot="switch"]');
+  const thumb = toggle.locator('[data-slot="switch-thumb"]');
+  const [trackBox, thumbBox] = await Promise.all([track.boundingBox(), thumb.boundingBox()]);
+  expect(trackBox, "switch track box").not.toBeNull();
+  expect(thumbBox, "switch thumb box").not.toBeNull();
+  return {
+    trackX: trackBox!.x,
+    trackWidth: trackBox!.width,
+    thumbX: thumbBox!.x,
+    thumbWidth: thumbBox!.width,
+  };
+}
 
 test("chat root mounts", async ({ page }) => {
   await page.goto("/");
@@ -49,6 +68,49 @@ test("componentized chat shell exposes composer and top-bar actions", async ({ p
   await expect(page.getByRole("button", { name: "New session" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Compact session" })).toBeVisible();
   await expect(page.getByRole("log")).toHaveCount(0);
+});
+
+test("active-file context switch moves the thumb when toggled", async ({ page }) => {
+  await page.goto("/");
+
+  const toggle = page.getByRole("switch", { name: "No active file" });
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+
+  const checked = await switchGeometry(toggle);
+  expect(checked.thumbX).toBeGreaterThan(checked.trackX + checked.trackWidth / 2 - 1);
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+
+  await expect
+    .poll(async () => {
+      const unchecked = await switchGeometry(toggle);
+      return checked.thumbX - unchecked.thumbX;
+    })
+    .toBeGreaterThan(2);
+
+  const unchecked = await switchGeometry(toggle);
+  expect(unchecked.thumbX).toBeLessThan(unchecked.trackX + unchecked.trackWidth / 2);
+});
+
+test("restart during streaming recovers the composer for the next send", async ({ page }) => {
+  await page.goto("/");
+
+  const composer = page.getByRole("textbox", { name: "Chat composer" });
+  const conversation = page.getByLabel("Conversation");
+  await composer.fill("start a long response");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(conversation.getByText("start a long response")).toBeVisible();
+  const restart = page.getByRole("button", { name: "Restart agent" });
+  await restart.click();
+  await expect(composer).toBeEnabled({ timeout: 3_000 });
+
+  await composer.fill("message after restart");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(conversation.getByText("message after restart")).toBeVisible();
+  await expect(page.getByText("Agent runtime error")).toHaveCount(0);
+  await expect(page.getByText(/Already streaming/i)).toHaveCount(0);
 });
 
 test("Composer Intent strip exposes slots and prompt preview", async ({ page }) => {

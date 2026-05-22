@@ -334,6 +334,32 @@ describe("createPiSdkAgentManager", () => {
     );
   });
 
+  it("resets streaming state when stop disposes an active SDK client", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai",
+      modelId: "gpt-5.3-codex",
+      getApiKey: () => "secret-key",
+    });
+
+    await manager.getStatus();
+    mocks.clients[0]!.eventListener?.({ type: "agent_start" });
+
+    await expect(manager.getStatus()).resolves.toMatchObject({
+      running: true,
+      isStreaming: true,
+    });
+
+    await manager.stop();
+
+    expect(mocks.clients[0]!.isRunning).toBe(false);
+    await expect(manager.getStatus()).resolves.toMatchObject({
+      running: true,
+      isStreaming: false,
+    });
+  });
+
   it("normalizes SDK context overflow as recoverable compaction events", async () => {
     const manager = createPiSdkAgentManager({
       logger,

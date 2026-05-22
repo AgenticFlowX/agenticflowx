@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-21T21:22:08.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags: ["agent", "runtime", "manager"]
 spec: spec.md
 ---
@@ -86,6 +86,12 @@ Inbound (from chat webview / settings):
 | `agent/restart`     | Settings recovery button, command | `runtimeMonitor.restart(requestId)` (rebuilds active instance)    |
 | `agent/reload`      | Settings, manual                  | `vscode.commands.executeCommand("workbench.action.reloadWindow")` |
 | `chat/getStderr`    | Settings diagnostics              | `getStderr(maxLines)` for the active instance                     |
+
+When `agent/restart` is received while the chat panel is streaming, the panel first abandons the
+local turn state: finish any active assistant row as interrupted, clear queued steer/follow-up
+mirrors, clear pending recovery timers, and publish a non-streaming `chat/state`. The runtime monitor
+then stops and rechecks the active instance so the next `chat/send` is not blocked by stale host
+state.
 
 Outbound (to webview):
 

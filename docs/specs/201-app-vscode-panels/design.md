@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-21T09:58:54.000Z"
+updated_at: "2026-05-22T05:56:29.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -22,6 +22,10 @@ dispatch for both the sidebar (chat) and bottom (workbench) panels. The sidebar 
 busiest: its `dispatchInbound` is the host-side seam every chat-webview message flows through.
 It also owns the effective posture bridge (`afx.mode.active`), the Explore prompt prefix, and the
 host guardrails for runtime tools and composer shell commands.
+
+The sidebar also owns chat-local recovery state around runtime restart. Restarting during an active
+turn clears the panel's streaming lock and queued mirrors before the runtime monitor rebuilds the
+agent instance, so a recovered runtime accepts the next send immediately.
 
 ---
 

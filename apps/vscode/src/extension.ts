@@ -204,9 +204,10 @@ export async function activate(
     const piBinaryPath = rpcEnabled
       ? resolvePiBinaryPath(configuredPiBinary, workspaceRoot)
       : undefined;
+    const sdkDefaultModel = cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5");
     const [piSdkExtraEnv, customDescriptor] = await Promise.all([
       customProvidersService.buildEnvForPiSdkSpawn(),
-      customProvidersService.describeForSpawn(),
+      customProvidersService.describeForSpawn(sdkDefaultModel),
     ]);
     return createConfiguredAgentInstances({
       logger,
@@ -222,7 +223,7 @@ export async function activate(
       secretStore,
       bootstrapPath: bundledPiSdkBootstrapPath,
       sdkEnabled: cfg.get<boolean>("sdk.enabled", true),
-      sdkDefaultModel: cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5"),
+      sdkDefaultModel,
       ollamaBaseUrl: cfg.get<string>("sdk.ollamaBaseUrl", "").trim() || undefined,
       piSdkExtraEnv: Object.keys(piSdkExtraEnv).length > 0 ? piSdkExtraEnv : undefined,
       piSdkCustomProviderIds: customDescriptor.ids.length > 0 ? customDescriptor.ids : undefined,

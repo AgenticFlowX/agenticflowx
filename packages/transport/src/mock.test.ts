@@ -270,6 +270,25 @@ describe("createMockTransport", () => {
     vi.useRealTimers();
   });
 
+  it("interrupts an active mock stream during restart recovery", async () => {
+    vi.useFakeTimers();
+    const t = createMockTransport();
+    t.setStreamSpeed(1_000);
+    const deltas: string[] = [];
+    const stopReasons: Array<string | undefined> = [];
+    t.on("chat/messageDelta", (msg) => deltas.push(msg.delta));
+    t.on("chat/messageEnd", (msg) => stopReasons.push(msg.stopReason));
+
+    t.scenarios["streaming-reply"]?.();
+    t.send({ type: "agent/restart", requestId: "restart-streaming" });
+    await vi.runAllTimersAsync();
+
+    expect(stopReasons).toEqual(["interrupt"]);
+    expect(deltas).toEqual([]);
+    t.dispose();
+    vi.useRealTimers();
+  });
+
   it("provider-error scenario fires chat/error", async () => {
     vi.useFakeTimers();
     const t = createMockTransport();
