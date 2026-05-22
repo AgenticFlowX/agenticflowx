@@ -111,7 +111,7 @@
     "syncpack": "14.3.1",
     "turbo": "2.9.14",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.59.3",
+    "typescript-eslint": "^8.59.4",
     "vitest": "^4.1.6",
     "vitest-fail-on-console": "^0.10.1"
   }
