@@ -24,7 +24,7 @@
     "@mariozechner/pi-tui": "^0.73.1"
   },
   "devDependencies": {
-    "@types/node": "^25.8.0",
+    "@types/node": "^25.9.0",
     "esbuild": "^0.28.0",
     "typescript": "^5.7.2",
     "vitest": "^4.1.6"
