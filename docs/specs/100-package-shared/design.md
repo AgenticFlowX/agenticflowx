@@ -504,11 +504,14 @@ Structured leveled logger — `packages/shared/src/logger.ts`. See ADR-0003 for 
 | Sink                  | Purpose                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
 | `outputChannelSink`   | Writes `[ISO] [LEVEL] [scope] message {k=v} json={...}` to a `vscode.OutputChannel`-shaped object |
-| `onErrorAutoShowSink` | Calls `channel.show(true)` on the first error record (preserves prior sidebar UX)                 |
+| `onErrorAutoShowSink` | Optional diagnostic sink that calls `channel.show(true)` on the first error record                |
 | `consoleSink`         | Routes records to `console.error/warn/info/debug` for webview / browser context                   |
 | `memorySink`          | Test-only — captures records for assertion (`records()`, `clear()`)                               |
 
 A faulty sink throws are caught and isolated; logging to other sinks continues.
+
+AFX extension activation wires `outputChannelSink(channel)` only. Errors are still logged, but the
+Output panel opens only through explicit diagnostics actions such as `afx.showLogs`.
 
 **Level resolution at app entry** (`apps/vscode/src/extension.ts`):
 

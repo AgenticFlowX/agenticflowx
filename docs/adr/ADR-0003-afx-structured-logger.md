@@ -77,7 +77,7 @@ function memorySink(): LogSink & { records(): LogRecord[]; clear(): void };
 
 **Wiring:**
 
-- `apps/vscode/src/extension.ts` creates the root logger with `outputChannelSink(channel)` + `onErrorAutoShowSink(channel)`. Channel ownership stays with the extension; sinks do not dispose channels.
+- `apps/vscode/src/extension.ts` creates the root logger with `outputChannelSink(channel)`. Channel ownership stays with the extension; sinks do not dispose channels. `onErrorAutoShowSink(channel)` remains available for explicit diagnostic sessions, but normal chat/runtime errors must not open the Output panel without user action.
 - Initial level resolution: `process.env.AFX_LOG_LEVEL` → `vscode.workspace.getConfiguration("afx").get("logLevel")` → `"info"`.
 - A new VSCode setting `afx.logLevel` (enum: silent/error/warn/info/debug/trace, default info) is wired to a `onDidChangeConfiguration` listener that calls `logger.setLevel(...)`.
 - `packages/agent/pi/src/rpc-{manager,client}.ts` accept `logger: Logger` (manager) and `logger?: Logger` (client). Each calls `parent.child("rpc-manager")` once at the top of their factory.
@@ -110,9 +110,9 @@ JavaScript template literals are eagerly built at the call site. The cost — `J
 
 The old `Logger` interface was `{ appendLine(value: string): void }` — satisfied by `vscode.OutputChannel` with no adapter. Convenient, but it's a single-method API that can't carry levels, scopes, or fields. The new contract is strictly richer. To preserve the OutputChannel as a sink target, we wrap it in `outputChannelSink(channel)` — which still consumes the structural `{ appendLine }` shape. So OutputChannel is still the underlying writer; it just enters through a sink rather than directly satisfying `Logger`.
 
-### Why preserve `outputShown` auto-show as a sink?
+### Why keep Output auto-show as an optional sink?
 
-The prior `sidebar-panel.ts:logErr` opened the AFX OutputChannel on the first error. This is a UX behavior, not a logging concern. We extracted it as `onErrorAutoShowSink(channel)` — a sink wrapper that calls `channel.show(true)` on the first record at level `error`. Channel ownership stays with the extension entry, not the sink.
+The prior `sidebar-panel.ts:logErr` opened the AFX OutputChannel on the first error. This is a UX behavior, not a logging concern. We extracted it as `onErrorAutoShowSink(channel)` — a sink wrapper that calls `channel.show(true)` on the first record at level `error`. Channel ownership stays with the extension entry, not the sink. AFX no longer wires this sink during normal extension activation because chat/runtime errors should not abruptly open the Output panel while the user is working.
 
 ---
 

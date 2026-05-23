@@ -598,6 +598,28 @@ describe("extension.activate", () => {
     expect(createStatus).toHaveBeenCalled();
   });
 
+  it("logs activation/runtime errors without opening the output panel automatically", async () => {
+    const channel = {
+      appendLine: vi.fn(),
+      append: vi.fn(),
+      clear: vi.fn(),
+      show: vi.fn(),
+      hide: vi.fn(),
+      replace: vi.fn(),
+      dispose: vi.fn(),
+    };
+    createOutput.mockReturnValue(channel);
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    const api = await activate(ctx);
+    createConfiguredAgentInstances.mockRejectedValueOnce(new Error("boom"));
+
+    await api?.reconfigureAgentRuntimes("test-error");
+
+    expect(channel.appendLine).toHaveBeenCalledWith(expect.stringContaining("[ERROR]"));
+    expect(channel.show).not.toHaveBeenCalled();
+  });
+
   it("pushes disposables onto context.subscriptions", async () => {
     const { activate } = await import("./extension");
     const ctx = makeContext();

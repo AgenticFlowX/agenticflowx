@@ -32,7 +32,6 @@ import {
   formatIntentTokenEstimate,
   getIntentPrompt,
   normalizeIntentSlot,
-  onErrorAutoShowSink,
   outputChannelSink,
 } from "@afx/shared";
 
@@ -136,7 +135,7 @@ export async function activate(
   const logger = createLogger({
     scope: "agenticflowx",
     level: resolveInitialLevel(),
-    sinks: [outputChannelSink(channel), onErrorAutoShowSink(channel)],
+    sinks: [outputChannelSink(channel)],
   });
 
   const packageJSON = context.extension.packageJSON as { version?: string };

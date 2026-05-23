@@ -194,8 +194,9 @@ export function outputChannelSink(channel: { appendLine(line: string): void }): 
 }
 
 /**
- * Sink that wraps another sink and shows the channel on the first error record.
- * Preserves the prior `sidebar-panel.logErr` UX (open AFX output on first failure).
+ * Optional sink that shows the channel on the first error record. Use only for
+ * explicit diagnostic sessions; ordinary chat UX should log errors without
+ * stealing focus.
  */
 export function onErrorAutoShowSink(channel: { show(preserveFocus?: boolean): void }): LogSink {
   let shown = false;
