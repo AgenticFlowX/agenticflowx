@@ -133,6 +133,7 @@ describe("extension.activate", () => {
       expect.arrayContaining([
         "afx.openSidebar",
         "afx.openWorkbench",
+        "afx.openAfxPreview",
         "afx.showLogs",
         "afx.agentSmokeTest",
         "afx.agentRestart",

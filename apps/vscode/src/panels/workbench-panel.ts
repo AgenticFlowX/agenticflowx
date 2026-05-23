@@ -18,6 +18,14 @@ import { type Logger, type WorkbenchInbound, type WorkbenchOutbound } from "@afx
 import { type SpecsDataProvider } from "../services/specs-data";
 import { parseSprintPath, sliceSprintSection } from "../services/sprint";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
+import { type AfxPreviewDeps, openAfxPreview } from "./afx-preview-panel";
+import {
+  approveWorkSessionCheckboxes,
+  toggleAllWorkSessionCheckboxes,
+  toggleMarkdownCheckboxLine,
+  toggleWorkSessionCheckbox,
+  toggleWorkSessionCheckboxLine,
+} from "./markdown-checkbox-toggle";
 import { getAppDistPath, getAppearanceClass, loadWebviewHtml } from "./webview-html";
 
 export const WORKBENCH_VIEW_TYPE = "afx-workbench";
@@ -69,10 +77,20 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         post({ type: "afxUpdate", ...data });
       }
 
+      const previewDeps: AfxPreviewDeps = { extensionUri, extensionMode, logger };
+
       view.webview.onDidReceiveMessage((raw: unknown) => {
         if (!raw || typeof raw !== "object" || !("type" in raw)) return;
         const msg = raw as WorkbenchOutbound;
-        void handleMessage(msg, post, specsData, log, computeTelemetryEnabled, openChatCommand);
+        void handleMessage(
+          msg,
+          post,
+          specsData,
+          log,
+          computeTelemetryEnabled,
+          openChatCommand,
+          previewDeps,
+        );
       });
 
       // Push initial data after a short tick for webview startup races.
@@ -155,7 +173,13 @@ async function handleMessage(
   log: Logger | undefined,
   computeTelemetryEnabled: () => boolean,
   openChatCommand?: (command: string, mode: "insert" | "send") => Promise<void>,
+  previewDeps?: AfxPreviewDeps,
 ): Promise<void> {
+  if (msg.type === "afxCopyMarkdown") {
+    await vscode.env.clipboard.writeText(msg.content);
+    return;
+  }
+
   const workspaceFolders = vscode.workspace.workspaceFolders ?? [];
   const primaryFolder = workspaceFolders[0];
   if (!primaryFolder) {
@@ -287,6 +311,10 @@ async function handleMessage(
         if (!stat) {
           log?.warn(() => `afxOpenFile: file not found, skipping (${realPath})`);
           vscode.window.showWarningMessage(`AgenticFlowX: file not found — ${realPath}`);
+          return;
+        }
+        if (msg.mode === "afxPreview") {
+          if (previewDeps) openAfxPreview(previewDeps, uri);
           return;
         }
         if (msg.mode === "preview" && realPath.toLowerCase().endsWith(".md")) {
@@ -426,15 +454,55 @@ async function handleMessage(
         return;
       }
       case "afxToggleTask": {
-        const uri = await resolvePath(msg.path, true);
+        const { path: realPath, section } = parseSprintPath(msg.path);
+        const uri = await resolvePath(realPath, true);
         const buf = await vscode.workspace.fs.readFile(uri);
         const text = Buffer.from(buf).toString("utf8");
-        const lines = text.split("\n");
-        const target = lines[msg.line - 1] ?? "";
-        const next = target.replace(/\[( |x|X)\]/, msg.completed ? "[x]" : "[ ]");
-        if (next === target) return;
-        lines[msg.line - 1] = next;
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(lines.join("\n"), "utf8"));
+        let line = msg.line;
+        if (section) {
+          const slice = sliceSprintSection(text, section);
+          if (slice) line = slice.contentStartLine + msg.line;
+        }
+        const next = toggleMarkdownCheckboxLine(text, line, msg.completed);
+        if (next === text) return;
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await refreshAndPost();
+        return;
+      }
+      case "afxToggleSession": {
+        const { path: realPath } = parseSprintPath(msg.filePath);
+        const uri = await resolvePath(realPath, true);
+        const buf = await vscode.workspace.fs.readFile(uri);
+        const text = Buffer.from(buf).toString("utf8");
+        const column = msg.column === "human" ? "human" : "agent";
+        const next =
+          typeof msg.line === "number"
+            ? toggleWorkSessionCheckboxLine(text, msg.line, column, msg.completed)
+            : toggleWorkSessionCheckbox(text, msg.sessionIndex, column, msg.completed);
+        if (next === text) return;
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await refreshAndPost();
+        return;
+      }
+      case "afxToggleAllSessions": {
+        const { path: realPath } = parseSprintPath(msg.filePath);
+        const uri = await resolvePath(realPath, true);
+        const buf = await vscode.workspace.fs.readFile(uri);
+        const text = Buffer.from(buf).toString("utf8");
+        const next = toggleAllWorkSessionCheckboxes(text, msg.column, msg.completed);
+        if (next === text) return;
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await refreshAndPost();
+        return;
+      }
+      case "afxApproveSessions": {
+        const { path: realPath } = parseSprintPath(msg.filePath);
+        const uri = await resolvePath(realPath, true);
+        const buf = await vscode.workspace.fs.readFile(uri);
+        const text = Buffer.from(buf).toString("utf8");
+        const next = approveWorkSessionCheckboxes(text);
+        if (next === text) return;
+        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
         await refreshAndPost();
         return;
       }
@@ -475,7 +543,6 @@ async function handleMessage(
         return;
       }
       case "afxSelectFeature":
-      case "afxToggleSession":
       case "afxChangeStatus":
         // host-side persistence not yet required for these — webview manages local state
         return;

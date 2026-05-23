@@ -135,7 +135,92 @@ export function _resetBridgeForTest(): void {
 function mockDocContent(filePath: string): string {
   const name = filePath.split("/").slice(-2).join(" / ");
   if (filePath.endsWith("tasks.md")) {
-    return `# ${name}\n\n## Phase 1: Setup\n\n- [x] Wire Workbench data\n- [x] Render documents\n- [ ] Polish visual density\n\n## Phase 2: Verification\n\n- [ ] Review light theme\n- [ ] Review dark theme\n`;
+    if (filePath.includes("16-marketplace-asset-recovery")) {
+      return `# ${name}
+
+## Phase 1: Planning
+
+### 1.1 Define recovery workflow
+
+- [x] Define recovery workflow
+
+### 1.2 Design API endpoints
+
+- [x] Design API endpoints
+
+### 1.3 Plan UI components
+
+- [x] Plan UI components
+
+## Phase 2: Implementation
+
+### 2.1 Implement recovery service
+
+- [x] Implement recovery service
+
+### 2.2 Create API routes
+
+- [x] Create API routes
+
+### 2.3 Add recovery dashboard
+
+- [x] Add recovery dashboard
+
+### 2.4 Implement notifications
+
+- [x] Implement notifications
+
+### 2.5 Add audit logging
+
+- [x] Add audit logging
+
+### 2.6 Write tests
+
+- [ ] Write tests
+
+### 2.7 Documentation
+
+- [ ] Documentation
+
+## Work Sessions
+
+| Date | Task | Action | Files Modified | Agent | Human |
+| ---- | ---- | ------ | -------------- | ----- | ----- |
+| 2026-05-20 | 2.5 | Coded | packages/db/src/services/recovery.ts | [x] | [ ] |
+`;
+    }
+    return `# ${name}
+
+## Phase 1: Setup
+
+### 1.1 Wire Workbench data
+
+- [x] Wire Workbench data
+
+### 1.2 Render documents
+
+- [x] Render documents
+
+### 1.3 Polish visual density
+
+- [ ] Polish visual density
+
+## Phase 2: Verification
+
+### 2.1 Review light theme
+
+- [ ] Review light theme
+
+### 2.2 Review dark theme
+
+- [ ] Review dark theme
+
+## Work Sessions
+
+| Date | Task | Action | Files Modified | Agent | Human |
+| ---- | ---- | ------ | -------------- | ----- | ----- |
+| 2026-05-20 | 1.2 | Coded | apps/workbench/src/views/workbench.tsx | [x] | [ ] |
+`;
   }
   if (filePath.endsWith("design.md")) {
     return `# ${name}\n\n## Design Direction\n\nUse shadcn primitives with clear surfaces, visible borders, and small AFX metadata accents.\n\n\`\`\`text\nToolbar -> content panes -> durable markdown files\n\`\`\`\n`;

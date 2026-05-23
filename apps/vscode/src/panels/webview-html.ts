@@ -30,15 +30,16 @@ export function loadWebviewHtml(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   extensionMode: vscode.ExtensionMode,
+  opts?: { view?: "preview" },
 ): string {
   const appearanceClass = getAppearanceClass();
 
   if (extensionMode === vscode.ExtensionMode.Development) {
-    const devHtml = tryDevModeHtml(extensionUri, appName, appearanceClass);
+    const devHtml = tryDevModeHtml(extensionUri, appName, appearanceClass, opts);
     if (devHtml) return devHtml;
   }
 
-  return prodHtml(webview, extensionUri, appName, appearanceClass);
+  return prodHtml(webview, extensionUri, appName, appearanceClass, opts);
 }
 
 /**
@@ -89,6 +90,7 @@ function tryDevModeHtml(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   appearanceClass: string,
+  opts?: { view?: "preview" },
 ): string | null {
   // .vite-port-{chat|workbench} lives at repo root: two levels up from apps/vscode
   const vitePortFile = path.join(extensionUri.fsPath, "..", "..", `.vite-port-${appName}`);
@@ -97,7 +99,8 @@ function tryDevModeHtml(
 
   const localServerUrl = `${devServer.host}:${devServer.port}`;
   const nonce = getNonce();
-  const bodyClass = ` class="${appearanceClass}"`;
+  const viewAttr = opts?.view === "preview" ? ` data-afx-view="preview"` : "";
+  const bodyClass = ` class="${appearanceClass}"${viewAttr}`;
 
   const csp = [
     "default-src 'none'",
@@ -218,6 +221,7 @@ function prodHtml(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   appearanceClass: string,
+  opts?: { view?: "preview" },
 ): string {
   const appDistPath = getAppDistPath(extensionUri, appName);
 
@@ -254,11 +258,13 @@ function prodHtml(
   const cspTag = `<meta http-equiv="Content-Security-Policy" content="${csp}">`;
   html = html.replace(/<head>/, `<head>\n  ${cspTag}`);
 
+  // Static body attributes are NOT governed by `script-src`, so this requires no CSP change.
+  const viewAttr = opts?.view === "preview" ? ` data-afx-view="preview"` : "";
   html = html.replace(/<body([^>]*)>/, (_match: string, attrs: string) => {
     if (attrs.includes('class="')) {
-      return `<body${attrs.replace('class="', `class="${appearanceClass} `)}>`;
+      return `<body${attrs.replace('class="', `class="${appearanceClass} `)}${viewAttr}>`;
     }
-    return `<body class="${appearanceClass}"${attrs}>`;
+    return `<body class="${appearanceClass}"${attrs}${viewAttr}>`;
   });
 
   return html;

@@ -6,17 +6,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import {
-  ArrowLeft,
-  CalendarDays,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Folder,
-  Library,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, FileText, Folder, Library } from "lucide-react";
 
 import type { DocumentRow, WorkbenchInbound } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
@@ -31,26 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@afx/ui/components/select";
-import { Separator } from "@afx/ui/components/separator";
 import { cn } from "@afx/ui/lib/utils";
 
+import { DocPreview } from "../components/doc-preview";
 import { WorkbenchLaunchpad } from "../components/workbench-launchpad";
 import { useWorkbench } from "../context/workbench-context";
 import { workbenchOn } from "../lib/bridge";
-import { extractOutline } from "../lib/document-outline";
-import {
-  DocumentStudio,
-  docDisplayName,
-  documentTitle,
-  featureFromPath,
-  formatShortDate,
-  refineCommandFor,
-  stringMeta,
-  summarizeDocumentQuality,
-} from "../lib/document-studio";
+import { docDisplayName, featureFromPath, formatShortDate } from "../lib/document-studio";
 import { isRenderable } from "../lib/documents";
-import { extractMetaChips, parseSimpleFrontmatter } from "../lib/frontmatter";
-import { OpenActions } from "../lib/open-actions";
 
 const TYPE_OPTIONS = ["all", "SPEC", "DESIGN", "TASKS", "JOURNAL", "ADR", "RES"];
 
@@ -68,14 +46,6 @@ const TYPE_CHIPS: TypeChip[] = [
   { type: "ADR", label: "ADR", className: "text-blue-400" },
   { type: "RES", label: "Research", className: "text-muted-foreground" },
 ];
-const OUTLINE_INDENT_CLASS: Record<number, string> = {
-  1: "pl-0",
-  2: "pl-2",
-  3: "pl-4",
-  4: "pl-6",
-  5: "pl-8",
-  6: "pl-10",
-};
 const TREE_INDENT_CLASS: Record<number, string> = {
   0: "pl-2",
   1: "pl-5",
@@ -569,147 +539,26 @@ function DocReader({
   content: string | undefined;
   onBack?: () => void;
 }) {
-  const { send } = useWorkbench();
-  const frontmatter = useMemo(() => (content ? parseSimpleFrontmatter(content) : {}), [content]);
-  const chips = extractMetaChips(frontmatter);
-  const outline = useMemo(() => (content ? extractOutline(content) : []), [content]);
-  const quality = useMemo(
-    () => summarizeDocumentQuality(doc, content, frontmatter, outline),
-    [content, doc, frontmatter, outline],
-  );
-  const title = documentTitle(doc, content);
-  const studioActions = useMemo(
-    () => [
-      {
-        label: "Refine",
-        command: refineCommandFor(doc),
-        description: "Send a focused document refinement command to chat.",
-      },
-    ],
-    [doc],
-  );
-
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="afx-surface-toolbar flex flex-col gap-3 border-b border-border px-3 py-2.5">
-        <div className="flex flex-wrap items-center gap-2">
-          {onBack && (
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={onBack}
-              className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
-              aria-label="Back to library"
-            >
-              <ArrowLeft size={12} />
-              Library
-            </Button>
-          )}
-          <Badge variant="outline" className="font-mono text-[10px]">
-            {doc.type}
-          </Badge>
-          <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{title}</h2>
-          <span className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {doc.filePath}
-          </span>
-          <OpenActions filePath={doc.filePath} />
+      {onBack && (
+        <div className="afx-surface-toolbar flex items-center border-b border-border px-3 py-1.5">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={onBack}
+            className="h-7 gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+            aria-label="Back to library"
+          >
+            <ArrowLeft size={12} />
+            Library
+          </Button>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <InfoChip
-            icon={UserRound}
-            label="Owner"
-            value={stringMeta(frontmatter, "owner") ?? "unset"}
-          />
-          <InfoChip
-            icon={CheckCircle2}
-            label="Status"
-            value={doc.status || stringMeta(frontmatter, "status") || "Draft"}
-          />
-          <InfoChip
-            icon={CalendarDays}
-            label="Updated"
-            value={formatShortDate(doc.updatedAt) ?? "unknown"}
-          />
-          {chips.slice(0, 4).map((c, i) => (
-            <Badge key={`${c.kind}-${i}`} variant="outline" className="text-[10px]">
-              {c.label}: {c.value}
-            </Badge>
-          ))}
-        </div>
-      </div>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_220px] overflow-hidden">
-        <ScrollArea className="h-full min-h-0">
-          <DocumentStudio
-            doc={doc}
-            content={content}
-            actions={studioActions}
-            onCommand={(command) =>
-              send({
-                type: "afxOpenChatCommand",
-                command,
-                mode: "insert",
-              })
-            }
-          />
-        </ScrollArea>
-        <div className="afx-surface-subtle flex min-h-0 flex-col gap-2 border-l border-border p-3">
-          <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Quality pulse
-          </h3>
-          <div className="flex flex-col gap-1.5">
-            {quality.issues.length === 0 ? (
-              <span className="rounded-md border border-afx-success/30 bg-afx-success/10 px-2 py-1.5 text-xs text-afx-success">
-                Looks ready to read
-              </span>
-            ) : (
-              quality.issues.map((issue) => (
-                <span
-                  key={issue}
-                  className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-xs text-amber-300"
-                >
-                  {issue}
-                </span>
-              ))
-            )}
-          </div>
-          <Separator />
-          <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            Outline
-          </h3>
-          <Separator />
-          <ScrollArea className="flex-1">
-            <ul className="flex flex-col gap-1">
-              {outline.map((o) => (
-                <li
-                  key={`${o.line}-${o.slug}`}
-                  className={`rounded-sm px-1 py-0.5 text-xs leading-5 text-foreground/80 ${OUTLINE_INDENT_CLASS[o.level] ?? "pl-10"}`}
-                >
-                  {o.text}
-                </li>
-              ))}
-            </ul>
-          </ScrollArea>
-        </div>
+      )}
+      <div className="min-h-0 flex-1">
+        <DocPreview doc={doc} content={content} mode="full" showAfxPreviewAction />
       </div>
     </div>
-  );
-}
-
-function InfoChip({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: typeof UserRound;
-  label: string;
-  value: string;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted/20 px-2 py-1 text-[10px]">
-      <Icon size={11} className="text-muted-foreground" aria-hidden />
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </span>
   );
 }
 

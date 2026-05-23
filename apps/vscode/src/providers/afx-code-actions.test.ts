@@ -14,6 +14,37 @@ import { createMockAgentManager } from "../__fixtures__/mock-agent-manager";
 import { createMockLogger } from "../__fixtures__/mock-logger";
 import { createAfxCodeActionProvider } from "./afx-code-actions";
 
+type CommandContribution = {
+  category?: string;
+  command: string;
+  icon?: string | { dark: string; light: string };
+  title: string;
+};
+
+type MenuEntry = {
+  command?: string;
+  group?: string;
+  submenu?: string;
+  when?: string;
+};
+
+type ExtensionManifest = {
+  contributes: {
+    commands: CommandContribution[];
+    menus: {
+      "afx.editorContext": MenuEntry[];
+      "editor/title": MenuEntry[];
+    };
+    submenus: Array<{ icon?: string; id: string; label: string }>;
+  };
+};
+
+function readExtensionManifest(): ExtensionManifest {
+  return JSON.parse(
+    readFileSync(resolve(__dirname, "../../package.json"), "utf8"),
+  ) as ExtensionManifest;
+}
+
 describe("createAfxCodeActionProvider", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -222,15 +253,69 @@ describe("createAfxCodeActionProvider", () => {
     );
   });
 
+  it("surfaces a single Open Preview title action with the AFX activity icon", () => {
+    const packageJson = readExtensionManifest();
+    const iconSvg = readFileSync(resolve(__dirname, "../../resources/activity-icon.svg"), "utf8");
+    const previewCommand = packageJson.contributes.commands.find(
+      (entry) => entry.command === "afx.openAfxPreview",
+    );
+    const workbenchCommand = packageJson.contributes.commands.find(
+      (entry) => entry.command === "afx.openWorkbench",
+    );
+    const submenu = packageJson.contributes.submenus.find(
+      (entry) => entry.id === "afx.editorContext",
+    );
+    const editorTitle = packageJson.contributes.menus["editor/title"];
+    const editorContext = packageJson.contributes.menus["afx.editorContext"];
+
+    expect(previewCommand).toMatchObject({
+      category: "AgenticFlowX",
+      command: "afx.openAfxPreview",
+      icon: {
+        dark: "resources/activity-icon.svg",
+        light: "resources/activity-icon.svg",
+      },
+      title: "Open Preview",
+    });
+    expect(workbenchCommand).toMatchObject({
+      category: "AgenticFlowX",
+      command: "afx.openWorkbench",
+      title: "Open Workbench",
+    });
+    expect(submenu).toMatchObject({
+      icon: "resources/activity-icon.svg",
+      id: "afx.editorContext",
+      label: "AgenticFlowX",
+    });
+    expect(editorTitle[0]).toMatchObject({
+      command: "afx.openAfxPreview",
+      group: "navigation@0",
+      when: "editorLangId == markdown",
+    });
+    expect(editorTitle).toHaveLength(1);
+    expect(editorTitle.some((entry) => entry.submenu === "afx.editorContext")).toBe(false);
+    expect(editorContext[0]).toMatchObject({
+      command: "afx.openAfxPreview",
+      group: "0_preview@0",
+      when: "editorLangId == markdown",
+    });
+    expect(editorContext[1]).toMatchObject({
+      command: "afx.openWorkbench",
+      group: "0_preview@1",
+    });
+    expect(editorContext[2]).toMatchObject({
+      command: "afx.action.saveToNotes",
+      group: "1_notes@1",
+    });
+    expect(iconSvg).toContain(">AF<");
+    expect(iconSvg).toContain(">x<");
+    expect(iconSvg).toContain("#111111");
+    expect(iconSvg).not.toContain("#F59E0B");
+    expect(iconSvg).not.toContain("#C5C5C5");
+  });
+
   it("contributes command and menu entries for every supported right-click parity action", () => {
-    const packageJson = JSON.parse(
-      readFileSync(resolve(__dirname, "../../package.json"), "utf8"),
-    ) as {
-      contributes: {
-        commands: Array<{ command: string }>;
-        menus: { "afx.editorContext": Array<{ command?: string; group?: string }> };
-      };
-    };
+    const packageJson = readExtensionManifest();
     const commands = new Set(packageJson.contributes.commands.map((entry) => entry.command));
     const menuEntries = new Map(
       packageJson.contributes.menus["afx.editorContext"]
@@ -260,5 +345,18 @@ describe("createAfxCodeActionProvider", () => {
     expect(menuEntries.get("afx.action.journalRecap")).toBe("6_journal@1");
     expect(menuEntries.get("afx.action.adrAccept")).toBe("7_adr@4");
     expect(menuEntries.get("afx.action.researchFinalize")).toBe("8_research@1");
+  });
+
+  it("keeps every AgenticFlowX context-menu command registered once", () => {
+    const packageJson = readExtensionManifest();
+    const commands = new Set(packageJson.contributes.commands.map((entry) => entry.command));
+    const menuCommands = packageJson.contributes.menus["afx.editorContext"]
+      .map((entry) => entry.command)
+      .filter((command): command is string => Boolean(command));
+
+    expect(new Set(menuCommands).size).toBe(menuCommands.length);
+    for (const command of menuCommands) {
+      expect(commands.has(command), `${command} contributes.commands`).toBe(true);
+    }
   });
 });

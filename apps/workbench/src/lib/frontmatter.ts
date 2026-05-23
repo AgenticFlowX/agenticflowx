@@ -50,6 +50,23 @@ export function parseSimpleFrontmatter(source: string): Record<string, unknown> 
 }
 
 /**
+ * Decide whether parsed frontmatter represents a full AFX-managed document
+ * (`afx: true` + a `type` + a `status`). Drives the full-vs-generic preview
+ * degrade in the standalone preview panel. Note: `parseSimpleFrontmatter`
+ * parses `afx: true` as the string `"true"`, so both forms are accepted.
+ *
+ * @see docs/specs/222-app-workbench-documents/spec.md [FR-11]
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-PREVIEW-STANDALONE]
+ */
+export function isFullAfxDoc(fm: Record<string, unknown>): boolean {
+  return (
+    (fm.afx === true || fm.afx === "true") &&
+    typeof fm.type === "string" &&
+    typeof fm.status === "string"
+  );
+}
+
+/**
  * Convert parsed frontmatter into reader chip rows.
  *
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6]

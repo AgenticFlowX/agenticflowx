@@ -25,6 +25,28 @@ describe("parseFrontmatter", () => {
     expect(result.data).toEqual({});
     expect(result.content).toBe("No frontmatter here.");
   });
+
+  it("recovers simple malformed frontmatter and body content", () => {
+    const raw = `---
+afx: true
+type: SPEC
+status: Draft
+   owner: "@rixrix"
+---
+
+# Body still renders
+`;
+
+    const result = parseFrontmatter(raw);
+
+    expect(result.data).toMatchObject({
+      afx: true,
+      type: "SPEC",
+      status: "Draft",
+      owner: "@rixrix",
+    });
+    expect(result.content.trim()).toBe("# Body still renders");
+  });
 });
 
 describe("parseJournal", () => {

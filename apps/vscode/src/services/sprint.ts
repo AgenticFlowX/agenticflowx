@@ -16,6 +16,8 @@ interface SectionSlice {
   content: string;
   /** Zero-indexed line in the original file where the section begins. */
   startLine: number;
+  /** Zero-indexed line in the original file where `content` starts after trimming outer blanks. */
+  contentStartLine: number;
   /** Whether the slice was matched via explicit HTML markers (true) or heading fallback (false). */
   byMarker: boolean;
 }
@@ -50,12 +52,16 @@ export function sliceSprintSection(raw: string, section: SprintSection): Section
   const markerStartIdx = findLineMatching(lines, markerStartRe(section));
   const markerEndIdx = findLineMatching(lines, markerEndRe(section));
   if (markerStartIdx >= 0 && markerEndIdx > markerStartIdx) {
-    const body = lines
-      .slice(markerStartIdx + 1, markerEndIdx)
-      .join("\n")
-      .trim();
+    const bodyLines = lines.slice(markerStartIdx + 1, markerEndIdx);
+    const firstContentIdx = bodyLines.findIndex((line) => line.trim().length > 0);
+    const body = bodyLines.join("\n").trim();
     if (body.length > 0) {
-      return { content: body, startLine: markerStartIdx, byMarker: true };
+      return {
+        content: body,
+        startLine: markerStartIdx,
+        contentStartLine: markerStartIdx + 1 + Math.max(firstContentIdx, 0),
+        byMarker: true,
+      };
     }
   }
 
@@ -76,7 +82,13 @@ export function sliceSprintSection(raw: string, section: SprintSection): Section
   }
   const body = collected.join("\n").trim();
   if (!body) return undefined;
-  return { content: body, startLine: startIdx, byMarker: false };
+  const firstContentIdx = collected.findIndex((line) => line.trim().length > 0);
+  return {
+    content: body,
+    startLine: startIdx,
+    contentStartLine: startIdx + Math.max(firstContentIdx, 0),
+    byMarker: false,
+  };
 }
 
 /** Convenience — slice all four sections, returning whichever ones resolve. */

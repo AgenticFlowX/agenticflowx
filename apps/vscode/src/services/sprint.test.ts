@@ -117,6 +117,8 @@ describe("sliceSprintSection", () => {
   it("returns marker-driven body without the marker lines", () => {
     const slice = sliceSprintSection(MARKER_BODY, "SPEC");
     expect(slice?.byMarker).toBe(true);
+    expect(slice?.startLine).toBe(10);
+    expect(slice?.contentStartLine).toBe(11);
     expect(slice?.content).toContain("## 1. Spec");
     expect(slice?.content).not.toContain("SPRINT-SECTION-START");
   });
@@ -124,6 +126,7 @@ describe("sliceSprintSection", () => {
     const slice = sliceSprintSection(H1_HEADING_BODY, "DESIGN");
     expect(slice?.byMarker).toBe(false);
     expect(slice?.startLine).toBe(15);
+    expect(slice?.contentStartLine).toBe(15);
     expect(slice?.content).toContain("# 2. Design");
     expect(slice?.content).toContain("## [DES-OVR] Overview");
     expect(slice?.content).not.toContain("# 3. Tasks");

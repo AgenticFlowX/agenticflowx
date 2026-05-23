@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.2"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-20T13:04:07.000Z"
+updated_at: "2026-05-23T11:03:30.000Z"
 tags: ["app", "workbench", "shell", "tabs", "bridge", "layout"]
 depends_on: ["100-package-shared", "110-package-transport", "130-package-ui", "220-app-workbench"]
 ---
@@ -52,22 +52,23 @@ Developers and agents using the bottom panel as the AFX control plane.
 
 ### Functional Requirements
 
-| ID    | Requirement                                                                                                      | Priority  |
-| ----- | ---------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1  | Bootstrap the Workbench React app and bridge once                                                                | Must Have |
-| FR-2  | Render bottom-panel tabs for Workbench child surfaces                                                            | Must Have |
-| FR-3  | Store typed Workbench state from host updates                                                                    | Must Have |
-| FR-4  | Provide typed send/on bridge wrappers for Workbench messages                                                     | Must Have |
-| FR-5  | Render loading and friendly empty states                                                                         | Must Have |
-| FR-6  | Render the feature-scoped Workbench tab                                                                          | Must Have |
-| FR-7  | Support open actions and task/session toggles from the feature tab                                               | Must Have |
-| FR-8  | Keep child surfaces routed to their own specs                                                                    | Must Have |
-| FR-9  | Render a first-run launchpad when no AFX docs/features exist                                                     | Must Have |
-| FR-10 | Let the launchpad draft chat commands or create sample docs                                                      | Must Have |
-| FR-11 | Keep shell tabs and launchpad usable in constrained bottom panels                                                | Must Have |
-| FR-12 | Keep feature docs readable as a thinking/refinement workspace                                                    | Must Have |
-| FR-13 | Place AFX command actions inside the relevant spec/design/tasks surface, including phase-scoped task code drafts | Must Have |
-| FR-14 | Label feature document toggles as show/hide controls and contain column content inside each pane                 | Must Have |
+| ID    | Requirement                                                                                                                                                                                                                                                                                      | Priority  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| FR-1  | Bootstrap the Workbench React app and bridge once                                                                                                                                                                                                                                                | Must Have |
+| FR-2  | Render bottom-panel tabs for Workbench child surfaces                                                                                                                                                                                                                                            | Must Have |
+| FR-3  | Store typed Workbench state from host updates                                                                                                                                                                                                                                                    | Must Have |
+| FR-4  | Provide typed send/on bridge wrappers for Workbench messages                                                                                                                                                                                                                                     | Must Have |
+| FR-5  | Render loading and friendly empty states                                                                                                                                                                                                                                                         | Must Have |
+| FR-6  | Render the feature-scoped Workbench tab                                                                                                                                                                                                                                                          | Must Have |
+| FR-7  | Support open actions and task/session toggles from the feature tab. Session signoff covers per-row Agent/Human toggles, bulk "Select all" toggles (`afxToggleAllSessions`), and a bulk Approve action (`afxApproveSessions`) routed through the host                                             | Must Have |
+| FR-8  | Keep child surfaces routed to their own specs                                                                                                                                                                                                                                                    | Must Have |
+| FR-9  | Render a first-run launchpad when no AFX docs/features exist                                                                                                                                                                                                                                     | Must Have |
+| FR-10 | Let the launchpad draft chat commands or create sample docs                                                                                                                                                                                                                                      | Must Have |
+| FR-11 | Keep shell tabs and launchpad usable in constrained bottom panels                                                                                                                                                                                                                                | Must Have |
+| FR-12 | Keep feature docs readable as a thinking/refinement workspace                                                                                                                                                                                                                                    | Must Have |
+| FR-13 | Place AFX command actions inside the relevant spec/design/tasks surface, including phase-scoped task code drafts                                                                                                                                                                                 | Must Have |
+| FR-14 | Label feature document toggles as show/hide controls and contain column content inside each pane                                                                                                                                                                                                 | Must Have |
+| FR-15 | Preview boot mode: the Workbench bundle supports a standalone preview mode selected by a `data-afx-view="preview"` attribute on `<body>` (read in `main.tsx`). In this mode it mounts `<PreviewApp/>` (wrapped in `WorkbenchProvider`) instead of the tab shell, subscribing to `afxPreviewShow` | Must Have |
 
 ### Non-Functional Requirements
 

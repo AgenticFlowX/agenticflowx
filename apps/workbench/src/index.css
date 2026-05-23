@@ -196,3 +196,49 @@ input:disabled {
   background: var(--input);
   border-color: var(--border);
 }
+
+/* ── Warm paper tone (reading preview) ───────────────────────────
+ * A cream "sheet of paper" reading surface, theme-independent, so the
+ * document reads like print regardless of the host light/dark theme.
+ * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-PREVIEW-STANDALONE]
+ */
+.afx-paper--warm {
+  background-color: #f7f1e3;
+  border-color: rgba(60, 45, 20, 0.16);
+  color: #3c3527;
+}
+.afx-paper--warm :is(p, li, td, em, del, summary, blockquote) {
+  color: #443c2c;
+}
+.afx-paper--warm :is(h1, h2, h3, h4, h5, h6, strong) {
+  color: #241f17;
+}
+.afx-paper--warm .afx-doc-eyebrow {
+  color: #9a6b34;
+}
+.afx-paper--warm .text-muted-foreground {
+  color: #6f6249;
+}
+.afx-paper--warm a {
+  color: #8a5a2b;
+  text-decoration-color: rgba(138, 90, 43, 0.4);
+}
+.afx-paper--warm code {
+  background-color: rgba(60, 40, 15, 0.08);
+  color: #4a3a22;
+}
+.afx-paper--warm pre {
+  background-color: rgba(60, 40, 15, 0.06);
+  border-color: rgba(60, 45, 20, 0.16);
+  color: #3a2f1e;
+}
+.afx-paper--warm blockquote {
+  background-color: rgba(154, 107, 52, 0.08);
+  border-color: rgba(154, 107, 52, 0.5);
+}
+.afx-paper--warm :is(hr, header, table, th, td, h2) {
+  border-color: rgba(60, 45, 20, 0.16);
+}
+.afx-paper--warm thead {
+  background-color: rgba(60, 40, 15, 0.06);
+}

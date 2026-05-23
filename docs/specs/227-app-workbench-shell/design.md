@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.2"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-20T13:04:07.000Z"
+updated_at: "2026-05-23T11:28:05.000Z"
 tags: ["app", "workbench", "shell", "tabs", "bridge", "layout"]
 spec: spec.md
 ---
@@ -96,40 +96,39 @@ Drift footer: spec/design/tasks status, stale age, ghost reference hint.
 
 ### [DES-SHELL-FEATURE-COLUMNS] Feature Column Layout
 
-`views/workbench.tsx` owns selector, column toggles, the responsive column rail,
-spec/design/tasks readers, contextual command actions, task checklist, session
-ticks, and drift footer. The feature tab intentionally treats spec/design/tasks
-as a decision surface: document columns use the shared `DocumentStudio` reader
-from Documents, strip AFX trace noise, render tables through GFM, and place
-content in a paper-like card with a constrained reading measure.
+`views/workbench.tsx` owns the feature-scoped thinking desk. It is a shell
+surface because the implementation is primarily layout, tab state, splitters,
+and bridge routing; document rendering itself belongs to `222`.
 
-The column toggles are explicit show/hide controls. The toolbar labels the
-group as "Show/hide docs", each toggle exposes a `Show ... document column` or
-`Hide ... document column` accessible name, and the pressed state mirrors
-visibility so the buttons read as layout controls instead of ordinary document
-actions.
+| Area              | Shell responsibility                                                 | Delegated design                                  |
+| ----------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
+| Feature selector  | Select current feature and derive spec/design/tasks paths            | Data shape from `WorkbenchState`                  |
+| Column visibility | Show/hide spec, design, tasks, and sessions columns                  | Accessible toggle labels and pressed state        |
+| Column rail       | Horizontal rail in compact panels; expanded grid in zen/large panels | Internal document rendering from `DocumentStudio` |
+| Command routing   | Draft typed chat commands with `afxOpenChatCommand`                  | Command catalog behavior from child AFX workflows |
+| Source toggles    | Forward task/session toggle messages to the host                     | Mutation helpers in VSCode panel code             |
+| Drift footer      | Show status, stale age, and ghost-reference hints                    | Child document specs own source semantics         |
 
-The column rail must behave differently at the two common bottom-panel sizes:
+Layout rules:
 
-- Compact bottom panel: keep each visible column at a readable minimum width and
-  scroll horizontally inside the Workbench region, avoiding page-level overflow
-  when primary sidebar, editor, and secondary sidebar are all visible.
-- Expanded or zen bottom panel: let the same columns expand to fill the panel so
-  users can read, compare, and refine spec/design/tasks without opening a new
-  editor group.
-- Column containment: each pane clips to its own paper surface, reserves space
-  for its internal scroll rail, and wraps long prose/paths while keeping code
-  blocks and tables horizontally scrollable inside their own element.
+- Compact bottom panel: visible columns keep a readable minimum width and scroll
+  horizontally inside the Workbench region.
+- Expanded or zen bottom panel: visible columns expand to fill the available
+  panel so spec/design/tasks can be compared without opening a new editor group.
+- Column containment: each pane clips to its paper surface, reserves internal
+  scroll space, wraps long prose and paths, and lets tables/code blocks scroll
+  inside their own element.
 
-Command actions live inside the surface they affect. Spec cards expose
-`/afx-spec refine` and `/afx-spec review`; design cards expose
-`/afx-design refine` and `/afx-design review`; tasks expose
-`/afx-task refine`, `/afx-task status`, and `/afx-task code all`. Each task
-phase also exposes a compact `Code` action that drafts `/afx-task code
-<feature>#<wbs> phase <number> <name>` for the first open task in that phase,
-making surgical implementation starts possible from the Workbench itself. These
-actions draft typed chat commands through `afxOpenChatCommand`; they do not
-mutate docs directly.
+Command actions are scoped to the surface they affect:
+
+| Column | Global actions                                               | Surgical actions                                                                        |
+| ------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| Spec   | `/afx-spec refine`, `/afx-spec review`                       | Section-scoped actions from the shared document toolbar                                 |
+| Design | `/afx-design refine`, `/afx-design review`                   | Section-scoped actions from the shared document toolbar                                 |
+| Tasks  | `/afx-task refine`, `/afx-task status`, `/afx-task code all` | Per-phase `Code` action drafting `/afx-task code <feature>#<wbs> phase <number> <name>` |
+
+All actions draft or send through `afxOpenChatCommand`; they do not mutate
+markdown source directly.
 
 ### [DES-SHELL-LAUNCHPAD] First-Run Launchpad
 
@@ -146,6 +145,34 @@ for the constrained bottom-panel viewport: compact header, dense starter
 actions, and a slim workflow map that remains readable when the primary
 sidebar, editor, and secondary sidebar are all visible. Shell tabs use
 horizontal overflow rather than clipping when the panel width gets tight.
+
+### [DES-SHELL-PREVIEW-MODE] Standalone Preview Boot Mode
+
+The Workbench bundle has two boot targets from the same Vite entry. There is no
+separate preview build.
+
+| Boot target            | Selector                                               | Mounted root     |
+| ---------------------- | ------------------------------------------------------ | ---------------- |
+| Bottom-panel Workbench | default                                                | `<App />`        |
+| Editor-area preview    | `body[data-afx-view="preview"]` or `?afx-view=preview` | `<PreviewApp />` |
+
+`main.tsx` always initializes the bridge, appearance subscription, and telemetry
+subscription once. Only the React root component changes.
+
+Preview host contract:
+
+| Step                     | Owner                         | Contract                                                                                                |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Mark preview HTML        | VSCode host                   | `loadWebviewHtml(..., { view: "preview" })` writes static `data-afx-view="preview"` on `<body>`.        |
+| Mount preview root       | `apps/workbench/src/main.tsx` | Reads the body dataset or query fallback before rendering.                                              |
+| Provide bridge context   | `PreviewApp`                  | Wraps content in `WorkbenchProvider` so `DocPreview` command buttons can call `send`.                   |
+| Receive document content | `PreviewApp`                  | Subscribes to `afxPreviewShow`; it does not call `afxFetchDocContent`.                                  |
+| Build document row       | `PreviewApp`                  | Parses frontmatter and builds a synthetic `DocumentRow` from `filePath` plus metadata.                  |
+| Choose render mode       | `PreviewApp`                  | Uses `isFullAfxDoc`; full AFX docs get `mode="full"`, other markdown gets `mode="generic"`.             |
+| Render                   | `DocPreview`                  | Uses `showAfxPreviewAction={false}` so the preview panel does not show a recursive open-preview button. |
+
+The static body attribute is present before React mounts and is not an inline
+script, so it does not require a CSP nonce or `script-src` change.
 
 ---
 
@@ -187,10 +214,14 @@ Inbound:
 Outbound:
 
 - `afxReady`
-- `afxOpenFile`
+- `afxOpenFile` — `mode: "editor" | "preview" | "afxPreview"`
 - `afxFetchDocContent`
 - `afxToggleTask`
-- `afxToggleSession`
+- `afxToggleSession` — per-row Agent/Human signoff toggle (optional `line?` for exact source-line targeting)
+- `afxToggleAllSessions` — bulk "Select all" for the chosen column (FR-7)
+- `afxApproveSessions` — bulk Approve: check Human wherever Agent is already checked (FR-7)
+- `afxCopyMarkdown` — copy raw markdown source through the host clipboard (see
+  `222-app-workbench-documents [DES-DOCS-PREVIEW-STANDALONE]`)
 - `afxOpenChatCommand`
 - `afxCreateSampleDocs`
 

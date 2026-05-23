@@ -93,7 +93,6 @@ describe("Documents", () => {
     await waitFor(() => {
       expect(screen.getAllByText("Sample Workbench PRD").length).toBeGreaterThan(0);
     });
-    expect(screen.getByText("PRD Studio")).toBeInTheDocument();
     expect(screen.getByText("Quality pulse")).toBeInTheDocument();
     expect(screen.getAllByText("Overview").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Success Metrics").length).toBeGreaterThan(0);

@@ -27,8 +27,8 @@ design: design.md
 
 ### 1.1 Retarget Editor Action Files
 
-- [ ] Point editor action provider docs at this spec
-- [ ] Keep notes payload refs pointed at `215-app-chat-notes`
+- [x] Point editor action provider docs at this spec
+- [x] Keep notes payload refs pointed at `215-app-chat-notes`
 
 ---
 
@@ -36,8 +36,8 @@ design: design.md
 
 ### 2.1 Add Or Change Editor Action
 
-- [ ] Update command/menu requirements first
-- [ ] Add or update provider/manifest tests
+- [x] Update command/menu requirements first
+- [x] Add or update provider/manifest tests
 
 ---
 
@@ -45,8 +45,8 @@ design: design.md
 
 ### 3.1 Verify Editor Action Routing
 
-- [ ] Run stale-ref search for editor action files
-- [ ] Run VSCode targeted tests if command behavior changed
+- [x] Run stale-ref search for editor action files
+- [x] Run VSCode targeted tests if command behavior changed
 
 ---
 
@@ -82,7 +82,9 @@ Verify command dispatch
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task | Action     | Files Modified                            | Agent | Human |
-| ---------- | ---- | ---------- | ----------------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1  | Scaffolded | docs/specs/202-app-vscode-editor-actions/ | [x]   | [x]   |
-| 2026-05-03 | 1.2  | Coded      | design.md, editor-action source comments  | [x]   | [x]   |
+| Date                     | Task | Action     | Files Modified                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Agent | Human |
+| ------------------------ | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1  | Scaffolded | docs/specs/202-app-vscode-editor-actions/                                                                                                                                                                                                                                                                                                                                                                                                                                                   | [x]   | [x]   |
+| 2026-05-03               | 1.2  | Coded      | design.md, editor-action source comments                                                                                                                                                                                                                                                                                                                                                                                                                                                    | [x]   | [x]   |
+| 2026-05-22T10:46:37.000Z | 2.1  | Coded      | spec.md (FR-6), design.md (DES-ACTION-PREVIEW-PANEL, DES-ACTION-PREVIEW-CODELENS), apps/vscode/src/panels/afx-preview-panel.ts, apps/vscode/src/panels/afx-preview-panel.test.ts, apps/vscode/src/panels/markdown-checkbox-toggle.ts, apps/vscode/src/panels/markdown-checkbox-toggle.test.ts, apps/vscode/src/providers/afx-preview-codelens.ts, apps/vscode/src/panels/webview-html.ts, apps/vscode/src/panels/workbench-panel.ts, apps/vscode/src/extension.ts, apps/vscode/package.json | [x]   | [x]   |
+| 2026-05-23T11:03:30.000Z | 3.1  | Verified   | Bumped spec/design to v1.3 (FR-6 wording + DES anchors), aligned @see anchors on markdown-checkbox-toggle helpers, confirmed extension + manifest + preview-panel tests all green                                                                                                                                                                                                                                                                                                           | [x]   | [x]   |

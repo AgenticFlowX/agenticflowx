@@ -145,8 +145,9 @@ test("feature thinking desk keeps readable columns in compact bottom panels", as
   await page.setViewportSize({ width: 760, height: 360 });
   await page.goto("/");
 
-  await expect(page.getByText("PRD Studio").first()).toBeVisible();
+  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Refine spec" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open in AFX Preview" }).first()).toBeVisible();
 
   await expect(page.getByTestId("workbench-column-toggles")).toContainText("Show/hide docs");
   await expect(page.getByRole("button", { name: "Hide SPEC document column" })).toBeVisible();
@@ -195,9 +196,10 @@ test("feature thinking desk expands into a zen reading layout", async ({ page },
   await page.setViewportSize({ width: 1440, height: 760 });
   await page.goto("/");
 
-  await expect(page.getByText("PRD Studio").first()).toBeVisible();
+  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Refine spec" })).toBeVisible();
-  await expect(page.getByText("Execution plan")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open in AFX Preview" }).first()).toBeVisible();
+  await expect(page.getByText("Open tasks")).toBeVisible();
   await expect(page.getByRole("button", { name: "Code Phase 1: Setup" })).toBeVisible();
 
   const region = page.getByTestId("workbench-column-region");
@@ -483,8 +485,9 @@ test("documents tab renders the PRD studio reader", async ({ page }, testInfo) =
   await page.getByRole("tab", { name: "Documents" }).click();
   await page.getByRole("button", { name: /^Infrastructure\b.*SPEC/i }).click();
 
-  await expect(page.getByText("PRD Studio")).toBeVisible();
+  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
   await expect(page.getByText("Quality pulse")).toBeVisible();
+  await expect(page.locator('[data-afx-preview-outline="rail"]')).toBeVisible();
   const buf = await page.screenshot({ fullPage: false });
   await testInfo.attach("workbench-document-studio-prd.png", {
     body: buf,
@@ -503,7 +506,7 @@ test("documents tab renders a real-spec-style PRD with clean tables", async ({
   await page.getByRole("button", { name: /Warranty Claims PRD.*SPEC/i }).click();
   await postDocContent(page, REAL_SPEC_PATH, REAL_SPEC_CONTENT);
 
-  await expect(page.getByText("PRD Studio")).toBeVisible();
+  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
   await expect(
     page.getByRole("heading", { level: 1, name: "Warranty Claims - Product Specification" }),
   ).toBeVisible();
@@ -535,10 +538,60 @@ test("journal tab surfaces summary and key decisions before raw notes", async ({
     page.getByRole("complementary").getByText("Cursor-based pagination (not offset)"),
   ).toBeVisible();
   await expect(page.getByText("Captured session")).toBeVisible();
+  await expect(page.locator('[data-afx-reader-preset="journal"]').first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open reader outline" })).toBeVisible();
 
   const screenshotPath = resolve(SCREENSHOT_DIR, "workbench-journal-decision-preview.png");
   const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
   await testInfo.attach("workbench-journal-decision-preview.png", {
+    body: buf,
+    contentType: "image/png",
+  });
+  expect(buf.length).toBeGreaterThan(10_000);
+});
+
+test("notes tab renders markdown through the shared reader and toggles checkboxes", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Notes" }).click();
+  await page.evaluate(() => {
+    window.postMessage(
+      {
+        type: "afxUpdate",
+        pipeline: [],
+        featureTasks: [],
+        documents: [],
+        journal: [],
+        kanban: { dirPath: ".afx/kanban", boards: [] },
+        notes: [
+          {
+            timestamp: "2026-05-23T08:15:30.000Z",
+            time: "8:15:30 AM",
+            displayTime: "8:15:30 AM",
+            date: "2026-05-23",
+            text: "- [ ] Confirm reader preset\n- [x] Keep note source markdown",
+          },
+        ],
+        notesRaw: "",
+        notesFilePath: ".afx/notes.md",
+        ghostTasks: { count: 0, items: [] },
+      },
+      "*",
+    );
+  });
+
+  await expect(page.locator('[data-afx-reader-preset="note"]').first()).toBeVisible();
+  await expect(page.getByText("Confirm reader preset")).toBeVisible();
+  const checkbox = page.getByRole("checkbox", { name: /Toggle task checkbox/ }).first();
+  await expect(checkbox).not.toBeChecked();
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
+
+  const screenshotPath = resolve(SCREENSHOT_DIR, "workbench-notes-reader-checkbox.png");
+  const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
+  await testInfo.attach("workbench-notes-reader-checkbox.png", {
     body: buf,
     contentType: "image/png",
   });

@@ -76,10 +76,12 @@ describe("Journal", () => {
       expect(screen.getByText("Cursor-based pagination")).toBeInTheDocument();
     });
     expect(screen.getByRole("separator")).toBeInTheDocument();
-    expect(postMessage).toHaveBeenCalledWith(
-      { type: "afxFetchDocContent", filePath: JOURNAL_ENTRY.filePath },
-      "*",
-    );
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledWith(
+        { type: "afxFetchDocContent", filePath: JOURNAL_ENTRY.filePath },
+        "*",
+      );
+    });
 
     act(() => {
       window.dispatchEvent(

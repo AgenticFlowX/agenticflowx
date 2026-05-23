@@ -218,6 +218,22 @@ describe("createWorkbenchPanel", () => {
     expect(openChatCommand).toHaveBeenCalledWith("/afx-spec new sample", "insert");
   });
 
+  it("copies markdown source through the VS Code clipboard bridge", async () => {
+    const writeText = vi.spyOn(vscode.env.clipboard, "writeText").mockResolvedValue(undefined);
+    const { view, fireMessage } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData: makeSpecsData(),
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxCopyMarkdown", content: "# Copied\n", label: "spec.md" });
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith("# Copied\n");
+    });
+  });
+
   it("creates sample docs through the host bridge and refreshes data", async () => {
     const specsData = makeSpecsData();
     const writes: string[] = [];

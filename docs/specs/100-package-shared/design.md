@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.9"
+version: "2.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-19T14:32:26.000Z"
+updated_at: "2026-05-23T11:03:30.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -366,6 +366,87 @@ apps/workbench/src/views/*
                       | afxToggleTask | afxToggleSession
                       | afxSaveFile | afxAppendNote | afxDeleteNote
 ```
+
+#### Editor-Area Preview Message (FR-16)
+
+The host can drive a standalone editor-area preview that reuses the Workbench bundle
+(`data-afx-view="preview"` boot mode) rather than the bottom-panel tab shell. Two protocol
+additions support this:
+
+- **Inbound** `afxPreviewShow` (host -> webview) — pushes the full document text into the preview
+  panel. `content` is the in-memory editor buffer (so unsaved/live-on-type edits render); `filePath`
+  is workspace-relative for display only; `isAfxHint` is an optional, non-authoritative first-paint
+  hint to avoid layout flicker (the webview re-derives AFX-vs-generic from `content`). The preview
+  panel never calls `afxFetchDocContent`; content always arrives inside this message.
+
+  ```typescript
+  type WorkbenchInbound =
+    | …
+    | { type: "afxPreviewShow"; filePath: string; content: string; isAfxHint?: boolean };
+  ```
+
+- **Outbound** `afxOpenFile.mode` gains an `"afxPreview"` value alongside the existing
+  `"editor" | "preview"`. Workbench-originated "Open AFX Preview" clicks send
+  `afxOpenFile { path, mode: "afxPreview" }`; the host resolves the workspace-relative path and opens
+  the same singleton editor-area preview panel used by the `afx.openAfxPreview` command. `"editor"`
+  still opens the file in the editor and `"preview"` still opens the native markdown preview.
+
+  ```typescript
+  // WorkbenchOutbound
+  | { type: "afxOpenFile"; path: string; mode: "editor" | "preview" | "afxPreview" };
+  ```
+
+The host-side panel lifecycle, `afxReady`->`afxPreviewShow` handshake, and live-on-type push are
+owned by `202-app-vscode-editor-actions` (`[DES-ACTION-PREVIEW-PANEL]`); the standalone webview boot
+mode is owned by `227-app-workbench-shell` (`[DES-SHELL-PREVIEW-MODE]`); the `<DocPreview>` rendering
+contract is owned by `222-app-workbench-documents` (`[DES-DOCS-PREVIEW-STANDALONE]`).
+
+#### Preview-Side Outbound Mutations (FR-16)
+
+The preview panel adds three outbound messages so the standalone webview can drive deterministic
+document mutations without binding to VSCode APIs. The host is the single point of write — the
+webview never touches the filesystem:
+
+- **`afxCopyMarkdown { content; label? }`** — copies the raw markdown source through
+  `vscode.env.clipboard.writeText`. Driven by the `<CopyMarkdownButton>` in the reader. Falls back
+  to the browser Clipboard API outside the webview (mock dev), so the message is webview-only.
+- **`afxToggleSession { filePath; sessionIndex; column: "agent" | "human"; completed; line? }`** —
+  tightens the existing toggle: `column` is a literal union (`"agent" | "human"`) and an optional
+  `line` (1-indexed source line of the row) lets the preview path toggle by exact source line to
+  avoid row-index drift after markdown cleanup/normalization. The legacy `sessionIndex` path remains
+  for callers that count rows.
+- **`afxToggleAllSessions { filePath; column: "agent" | "human"; completed }`** — bulk-toggle every
+  row's Agent or Human cell, used by the `<SessionSignoffToolbar>` "Select all" controls.
+- **`afxApproveSessions { filePath }`** — for every row where Agent is checked and Human is not,
+  check Human. The session signoff "Approve" affordance routes through this.
+
+```typescript
+type WorkbenchOutbound =
+  | …
+  | { type: "afxCopyMarkdown"; content: string; label?: string }
+  | {
+      type: "afxToggleSession";
+      filePath: string;
+      sessionIndex: number;
+      column: "agent" | "human";
+      completed: boolean;
+      line?: number;
+    }
+  | {
+      type: "afxToggleAllSessions";
+      filePath: string;
+      column: "agent" | "human";
+      completed: boolean;
+    }
+  | { type: "afxApproveSessions"; filePath: string };
+```
+
+The host-side mutation helpers (`toggleMarkdownCheckboxLine`,
+`toggleWorkSessionCheckbox(Line)`, `toggleAllWorkSessionCheckboxes`,
+`approveWorkSessionCheckboxes`) live in `apps/vscode/src/panels/markdown-checkbox-toggle.ts` and are
+shared by `workbench-panel.ts` and `afx-preview-panel.ts`. The preview workflow surface is owned by
+`222-app-workbench-documents` (`[DES-DOCS-PREVIEW-STANDALONE]`) and the workbench surface by
+`227-app-workbench-shell` (`[DES-SHELL-FEATURE-COLUMNS]`).
 
 ### [DES-SHARED-WORKBENCH-TYPES] Workbench Row Models
 

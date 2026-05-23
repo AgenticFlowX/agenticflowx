@@ -26,8 +26,10 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@afx/ui/co
 import { ScrollArea } from "@afx/ui/components/scroll-area";
 import { Textarea } from "@afx/ui/components/textarea";
 
+import { CopyMarkdownButton } from "../components/copy-markdown-button";
+import { DocumentReader } from "../components/document-reader";
 import { useWorkbench } from "../context/workbench-context";
-import { MinimalMarkdown } from "../lib/markdown-render";
+import type { MarkdownCheckboxToggle } from "../lib/markdown-render";
 import { OpenActions } from "../lib/open-actions";
 
 interface DateGroup {
@@ -415,6 +417,11 @@ function NoteItem({
           {time.secondary && <span className="text-muted-foreground/60">{time.secondary}</span>}
           {!editing && (
             <div className="ml-auto flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+              <CopyMarkdownButton
+                content={note.text}
+                label={`note ${note.timestamp}`}
+                ariaLabel="Copy note markdown source"
+              />
               <Button
                 variant="ghost"
                 size="icon-xs"
@@ -459,13 +466,59 @@ function NoteItem({
             </div>
           </div>
         ) : (
-          <div className="text-sm leading-relaxed text-foreground">
-            <MinimalMarkdown content={note.text} />
-          </div>
+          <DocumentReader
+            preset="note"
+            chrome="none"
+            content={note.text}
+            onCheckboxToggle={(target) => {
+              const next = toggleNoteCheckbox(note.text, target);
+              if (next !== note.text) onEdit(note.timestamp, next);
+            }}
+          />
         )}
       </article>
     </li>
   );
+}
+
+function toggleNoteCheckbox(text: string, target: MarkdownCheckboxToggle): string {
+  if (target.checkboxIndex !== undefined) {
+    return toggleNthCheckbox(text, target.checkboxIndex, target.completed);
+  }
+  if (!target.line) return toggleFirstCheckboxNeedingState(text, target.completed);
+  const lines = text.split("\n");
+  const lineIndex = target.line - 1;
+  const original = lines[lineIndex];
+  if (original === undefined) return toggleFirstCheckboxNeedingState(text, target.completed);
+
+  const replacement = target.completed ? "[x]" : "[ ]";
+  const next = original.replace(/\[(?: |x|X)?\]/, replacement);
+  if (next === original) return toggleFirstCheckboxNeedingState(text, target.completed);
+
+  lines[lineIndex] = next;
+  const updated = lines.join("\n");
+  return updated === text ? toggleFirstCheckboxNeedingState(text, target.completed) : updated;
+}
+
+function toggleNthCheckbox(text: string, checkboxIndex: number, completed: boolean): string {
+  let seen = 0;
+  const replacement = completed ? "[x]" : "[ ]";
+  return text.replace(/\[(?: |x|X)?\]/g, (match) => {
+    if (seen !== checkboxIndex) {
+      seen++;
+      return match;
+    }
+    seen++;
+    return replacement;
+  });
+}
+
+function toggleFirstCheckboxNeedingState(text: string, completed: boolean): string {
+  const replacement = completed ? "[x]" : "[ ]";
+  return text.replace(/\[(?: |x|X)?\]/, (match) => {
+    const checked = match.toLowerCase() === "[x]";
+    return checked === completed ? match : replacement;
+  });
 }
 
 /**

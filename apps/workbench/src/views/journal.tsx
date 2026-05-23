@@ -10,7 +10,6 @@ import {
   BookOpen,
   CheckCircle,
   Circle,
-  FileText,
   GitBranch,
   Lightbulb,
   MessageCircle,
@@ -33,9 +32,9 @@ import {
 } from "@afx/ui/components/select";
 import { ToggleGroup, ToggleGroupItem } from "@afx/ui/components/toggle-group";
 
+import { DocumentReader } from "../components/document-reader";
 import { useWorkbench } from "../context/workbench-context";
 import { workbenchOn } from "../lib/bridge";
-import { MinimalMarkdown } from "../lib/markdown-render";
 import { OpenActions } from "../lib/open-actions";
 
 type TimeFilter = "today" | "week" | "month" | "year" | "all";
@@ -280,19 +279,18 @@ function PreviewPanel({ entry }: { entry: JournalEntry | null }) {
                 <p className="mt-2 text-sm leading-6 text-foreground/90">{entry.summary}</p>
               </section>
             ) : null}
-            <section className="overflow-hidden rounded-md border border-border bg-background">
-              <div className="flex items-center gap-2 border-b border-border bg-muted/20 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                <FileText size={11} aria-hidden />
-                Captured session
-              </div>
-              <div className="px-3 py-3">
-                {trimmedContent ? (
-                  <MinimalMarkdown content={trimmedContent} hideTitle />
-                ) : (
-                  <p className="text-sm text-muted-foreground">Loading content…</p>
-                )}
-              </div>
-            </section>
+            <DocumentReader
+              preset="journal"
+              title="Captured session"
+              subtitle={entry.filePath}
+              content={trimmedContent}
+              filePath={entry.filePath}
+              line={entry.line}
+              hideTitle
+              showOutline
+              showReadingControls
+              loadingText="Loading content..."
+            />
           </div>
           <aside className="flex min-w-0 flex-col gap-3">
             <section className="rounded-md border border-border bg-muted/15 px-3 py-2.5">

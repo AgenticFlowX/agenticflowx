@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Living
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-05T12:03:56.000Z"
+updated_at: "2026-05-23T11:03:30.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging"]
 spec: spec.md
 design: design.md
@@ -50,17 +50,28 @@ design: design.md
 - [x] Add `chat/setIncludeActiveFileContext` to the chat-to-host protocol
 - [x] Update shared protocol/design tests for the new snapshot field and toggle message
 
+## Phase 5 — Editor-Area Preview Protocol (FR-16)
+
+- [x] Add inbound `afxPreviewShow { filePath, content, isAfxHint? }` to `WorkbenchInbound`
+- [x] Extend `afxOpenFile.mode` to `"editor" | "preview" | "afxPreview"`
+- [x] Add outbound `afxCopyMarkdown { content; label? }` for host-owned clipboard writes
+- [x] Tighten `afxToggleSession.column` to `"agent" | "human"` and add optional `line?`
+- [x] Add outbound `afxToggleAllSessions` and `afxApproveSessions` for bulk Work Sessions signoff
+- [x] Document the new messages in design.md (`[DES-SHARED-WORKBENCH-PROTOCOL]`) with cross-references to 202/222/227
+
 ---
 
 ## Work Sessions
 
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 
-| Date                     | Task                                   | Action      | Files Modified                                                                                                 | Agent | Human |
-| ------------------------ | -------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-26               | Phase 1 — scaffold                     | Completed   | docs/specs/100-package-shared/ (scaffolded)                                                                    | [x]   | [x]   |
-| 2026-04-26               | Phase 2 — AgentManager (ADR-002)       | Completed   | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002 | [x]   | [x]   |
-| 2026-04-26               | Review fixes                           | Completed   | packages/shared/src/agent.ts, spec.md, design.md                                                               | [x]   | [x]   |
-| 2026-05-05               | Phase 4 — active file context          | In progress | spec.md, design.md, packages/shared/src/messages.ts, messages.test.ts                                          | [x]   | [x]   |
-| 2026-05-05T11:53:21.000Z | Phase 4 — active file context snapshot | Coded       | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | [x]   |
-| 2026-05-05T12:03:56.000Z | Phase 4 — active file context snapshot | Completed   | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                      | [x]   | [x]   |
+| Date                     | Task                                   | Action      | Files Modified                                                                                                                            | Agent | Human |
+| ------------------------ | -------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-04-26               | Phase 1 — scaffold                     | Completed   | docs/specs/100-package-shared/ (scaffolded)                                                                                               | [x]   | [x]   |
+| 2026-04-26               | Phase 2 — AgentManager (ADR-002)       | Completed   | packages/shared/src/agent.ts (created), packages/shared/src/index.ts, spec.md (v1.1 FR-6), design.md, ADR-0002                            | [x]   | [x]   |
+| 2026-04-26               | Review fixes                           | Completed   | packages/shared/src/agent.ts, spec.md, design.md                                                                                          | [x]   | [x]   |
+| 2026-05-05               | Phase 4 — active file context          | In progress | spec.md, design.md, packages/shared/src/messages.ts, messages.test.ts                                                                     | [x]   | [x]   |
+| 2026-05-05T11:53:21.000Z | Phase 4 — active file context snapshot | Coded       | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                                                 | [x]   | [x]   |
+| 2026-05-05T12:03:56.000Z | Phase 4 — active file context snapshot | Completed   | spec.md, design.md, packages/shared/src/messages.ts, packages/shared/src/messages.test.ts                                                 | [x]   | [x]   |
+| 2026-05-22T10:17:22.000Z | Phase 5 — editor-area preview protocol | Coded       | spec.md (FR-16), design.md (DES-SHARED-WORKBENCH-PROTOCOL — preview-side outbound mutations), packages/shared/src/workbench-protocol.ts   | [x]   | [x]   |
+| 2026-05-23T11:03:30.000Z | Phase 5 — editor-area preview protocol | Verified    | spec.md (v1.7 FR-16 widened to cover copy/bulk-signoff), design.md (v2.1 — added "Preview-Side Outbound Mutations" sub-section), tasks.md | [x]   | [x]   |

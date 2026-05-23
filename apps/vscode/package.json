@@ -80,6 +80,13 @@
           "default": false,
           "description": "Enable the Pi CLI RPC runtime. Disabled by default so API Providers can run without spawning a local Pi process."
         },
+        "afx.runtime.responseStartTimeoutMs": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 5000,
+          "maximum": 600000,
+          "description": "Milliseconds to wait before showing a soft warning that the first model response is taking longer than expected. Increase this for hosted providers, proxies, or local models with slow first-token warm-up."
+        },
         "afx.agentBinaryPath": {
           "type": "string",
           "default": "",
@@ -199,7 +206,8 @@
       },
       {
         "command": "afx.openWorkbench",
-        "title": "AgenticFlowX: Open Workbench"
+        "title": "Open Workbench",
+        "category": "AgenticFlowX"
       },
       {
         "command": "afx.showLogs",
@@ -379,12 +387,22 @@
         "command": "afx.action.researchFinalize",
         "title": "Research — Finalize",
         "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.openAfxPreview",
+        "title": "Open Preview",
+        "category": "AgenticFlowX",
+        "icon": {
+          "light": "resources/activity-icon.svg",
+          "dark": "resources/activity-icon.svg"
+        }
       }
     ],
     "submenus": [
       {
         "id": "afx.editorContext",
-        "label": "AgenticFlowX"
+        "label": "AgenticFlowX",
+        "icon": "resources/activity-icon.svg"
       }
     ],
     "menus": {
@@ -396,19 +414,24 @@
       ],
       "editor/title": [
         {
-          "submenu": "afx.editorContext",
-          "group": "navigation@9",
-          "when": "afx.isSprint || resourceFilename == spec.md || resourceFilename == design.md || resourceFilename == tasks.md || resourceFilename == journal.md || resource =~ /\\/docs\\/(adr|research)\\// || resource =~ /\\/docs\\/specs\\/.*\\/research\\//"
+          "command": "afx.openAfxPreview",
+          "group": "navigation@0",
+          "when": "editorLangId == markdown"
         }
       ],
       "afx.editorContext": [
         {
+          "command": "afx.openAfxPreview",
+          "group": "0_preview@0",
+          "when": "editorLangId == markdown"
+        },
+        {
           "command": "afx.openWorkbench",
-          "group": "0_workbench@0"
+          "group": "0_preview@1"
         },
         {
           "command": "afx.action.saveToNotes",
-          "group": "0_notes@1"
+          "group": "1_notes@1"
         },
         {
           "command": "afx.action.addToContext",

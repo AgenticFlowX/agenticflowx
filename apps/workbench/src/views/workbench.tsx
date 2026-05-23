@@ -13,11 +13,22 @@
  * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7] [FR-12]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-MOCKUP] [DES-SHELL-FEATURE-COLUMNS]
  */
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Code2, Columns3, FileText, GitBranch, History, Layout, StickyNote } from "lucide-react";
+import {
+  Columns3,
+  FileText,
+  Focus,
+  GitBranch,
+  History,
+  Layout,
+  ListTree,
+  Minimize2,
+  SlidersHorizontal,
+  StickyNote,
+} from "lucide-react";
 
-import type { DocumentRow, FeatureTasksData, PhaseRow } from "@afx/shared";
+import type { DocumentRow } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
 import {
@@ -27,6 +38,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@afx/ui/components/empty";
+import { Popover, PopoverContent, PopoverTrigger } from "@afx/ui/components/popover";
 import { Progress } from "@afx/ui/components/progress";
 import { ScrollArea } from "@afx/ui/components/scroll-area";
 import {
@@ -38,13 +50,32 @@ import {
 } from "@afx/ui/components/select";
 import { Separator } from "@afx/ui/components/separator";
 import { Skeleton } from "@afx/ui/components/skeleton";
+import { ToggleGroup, ToggleGroupItem } from "@afx/ui/components/toggle-group";
 import { cn } from "@afx/ui/lib/utils";
 
+import { CopyMarkdownButton } from "../components/copy-markdown-button";
+import { SessionSignoffToolbar } from "../components/session-signoff-toolbar";
 import { WorkbenchLaunchpad } from "../components/workbench-launchpad";
 import { useWorkbench } from "../context/workbench-context";
 import { workbenchOn } from "../lib/bridge";
-import { DocumentStudio, type DocumentStudioAction } from "../lib/document-studio";
+import { extractOutline } from "../lib/document-outline";
+import {
+  type DocumentSessionBulkAction,
+  DocumentStudio,
+  type DocumentStudioAction,
+} from "../lib/document-studio";
+import { type MarkdownCheckboxToggle, MinimalMarkdown } from "../lib/markdown-render";
 import { OpenActions } from "../lib/open-actions";
+import {
+  type ReadingFont,
+  type ReadingPrefs,
+  type ReadingSize,
+  type ReadingTone,
+  readReadingPrefs,
+  writeReadingPrefs,
+} from "../lib/reading-prefs";
+import { splitSprintSections } from "../lib/sprint-sections";
+import { summarizeWorkSessionSignoffs } from "../lib/work-sessions";
 
 // Column visibility type
 type ColumnId = "spec" | "design" | "tasks" | "sessions";
@@ -68,6 +99,47 @@ const defaultVisible: Record<ColumnId, boolean> = {
   tasks: true,
   sessions: false,
 };
+
+const COLUMN_WIDTH_STORAGE_KEY = "afx.workbench.columnWidths.v1";
+const MIN_COLUMN_WIDTH = 320;
+const MAX_COLUMN_WIDTH = 760;
+const COLUMN_RESIZE_STEP = 32;
+const DEFAULT_COLUMN_WIDTHS: Record<ColumnId, number> = {
+  spec: 420,
+  design: 420,
+  tasks: 420,
+  sessions: 460,
+};
+
+function clampColumnWidth(width: number): number {
+  return Math.min(MAX_COLUMN_WIDTH, Math.max(MIN_COLUMN_WIDTH, Math.round(width)));
+}
+
+function readColumnWidths(): Record<ColumnId, number> {
+  try {
+    const raw = globalThis.localStorage?.getItem(COLUMN_WIDTH_STORAGE_KEY);
+    if (!raw) return { ...DEFAULT_COLUMN_WIDTHS };
+    const parsed = JSON.parse(raw) as Partial<Record<ColumnId, number>>;
+    return ALL_COLUMNS.reduce(
+      (acc, id) => {
+        const value = parsed[id];
+        acc[id] = typeof value === "number" ? clampColumnWidth(value) : DEFAULT_COLUMN_WIDTHS[id];
+        return acc;
+      },
+      { ...DEFAULT_COLUMN_WIDTHS },
+    );
+  } catch {
+    return { ...DEFAULT_COLUMN_WIDTHS };
+  }
+}
+
+function writeColumnWidths(widths: Record<ColumnId, number>): void {
+  try {
+    globalThis.localStorage?.setItem(COLUMN_WIDTH_STORAGE_KEY, JSON.stringify(widths));
+  } catch {
+    // localStorage unavailable — resizing stays in-memory only.
+  }
+}
 
 /**
  * Renders one [Workbench.ColumnToggle] button in the feature toolbar.
@@ -124,11 +196,13 @@ function ColumnHeader({
   status,
   onOpen,
   docPath,
+  controls,
 }: {
   colId: ColumnId;
   status: string;
   onOpen: () => void;
   docPath?: string;
+  controls?: ReactNode;
 }) {
   const config = COLUMN_CONFIG[colId];
   const Icon = config.icon;
@@ -150,182 +224,273 @@ function ColumnHeader({
           </Badge>
         )}
       </div>
-      {docPath && <OpenActions filePath={docPath} />}
-      {!docPath && (
-        <Button variant="ghost" size="xs" onClick={onOpen} className="h-6 text-[10px]">
-          Open
-        </Button>
-      )}
+      <div className="flex shrink-0 items-center gap-0.5">
+        {docPath && <OpenActions filePath={docPath} includeAfxPreview />}
+        {controls}
+        {!docPath && (
+          <Button variant="ghost" size="xs" onClick={onOpen} className="h-6 text-[10px]">
+            Open
+          </Button>
+        )}
+      </div>
     </header>
   );
 }
 
-/**
- * Renders the [Workbench.TasksColumn] phase/task checklist.
- *
- * @see docs/specs/227-app-workbench-shell/spec.md [FR-6] [FR-7]
- * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
- */
-function ColumnTasks({
-  feature,
-  onToggle,
-  onOpen,
-  onCommand,
+function ColumnReaderControls({
+  colId,
+  content,
+  outline,
+  reading,
+  focused,
+  onJump,
+  onReadingChange,
+  onToggleFocus,
 }: {
-  feature: FeatureTasksData;
-  onToggle: (line: number, completed: boolean) => void;
-  onOpen: () => void;
-  onCommand: (command: string) => void;
+  colId: ColumnId;
+  content: string | null | undefined;
+  outline: ReturnType<typeof extractOutline>;
+  reading: ReadingPrefs;
+  focused: boolean;
+  onJump: (slug: string) => void;
+  onReadingChange: (patch: Partial<ReadingPrefs>) => void;
+  onToggleFocus: () => void;
 }) {
-  const pct = feature.total === 0 ? 0 : Math.round((feature.completed / feature.total) * 100);
-  const actions = useMemo(() => taskActionsForFeature(feature.name), [feature.name]);
+  const label = COLUMN_CONFIG[colId].label;
 
   return (
-    <div className="flex h-full min-w-0 flex-col">
-      <ColumnHeader
-        colId="tasks"
-        status={`${feature.completed}/${feature.total}`}
-        onOpen={onOpen}
-        docPath={feature.tasksPath}
+    <>
+      <CopyMarkdownButton
+        content={content}
+        label={label}
+        ariaLabel={`Copy ${label} markdown source`}
       />
-      <ScrollArea className="afx-workbench-pane-scroll min-h-0 flex-1">
-        <div className="min-w-0 p-3">
-          <article className="mx-auto flex min-h-full w-full min-w-0 max-w-[76ch] flex-col gap-4 overflow-hidden rounded-sm border border-border bg-background px-4 py-4 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_30px_rgba(0,0,0,0.06)]">
-            <header className="border-b border-border/70 pb-3">
-              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-afx-success">
-                Execution plan
-              </p>
-              <div className="mt-2 flex min-w-0 items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="break-words text-lg font-semibold leading-tight [overflow-wrap:anywhere]">
-                    Tasks and checkpoints
-                  </h2>
-                  <p className="mt-1 break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
-                    Turn the decisions into a visible implementation path.
-                  </p>
-                </div>
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">
-                  {feature.completed}/{feature.total}
-                </span>
-              </div>
-              <Progress value={pct} className="mt-3 h-1.5" />
-            </header>
-
-            <TaskCommandRail actions={actions} onCommand={onCommand} />
-
-            {feature.phases.map((phase: PhaseRow) => {
-              const phasePct =
-                phase.total === 0 ? 0 : Math.round((phase.completed / phase.total) * 100);
-              const phaseCodeAction = phaseCodeActionForFeature(feature.name, phase);
-              return (
-                <section
-                  key={`${phase.number}-${phase.line}`}
-                  className="flex min-w-0 flex-col gap-2 overflow-hidden rounded-md border border-border/80 bg-muted/10 px-3 py-3"
-                >
-                  <div className="flex min-w-0 items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h4 className="break-words text-sm font-semibold">
-                        Phase {phase.number} · {phase.name}
-                      </h4>
-                      <p className="mt-0.5 break-words text-[11px] text-muted-foreground [overflow-wrap:anywhere]">
-                        {phaseCodeAction
-                          ? `Next open: ${phaseCodeAction.targetLabel}`
-                          : "No open tasks in this phase"}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="font-mono text-[10px] text-muted-foreground">
-                        {phase.completed}/{phase.total}
-                      </span>
-                      <Button
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="h-6 shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground"
+            aria-label={`Open ${label} outline`}
+            title={`Open ${label} outline`}
+          >
+            <ListTree size={12} aria-hidden />
+            <span className="hidden sm:inline">Outline</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          sideOffset={6}
+          className="max-h-[min(24rem,calc(100vh-4rem))] w-[min(22rem,calc(100vw-2rem))] overflow-hidden p-0"
+        >
+          <section
+            aria-label={`${label} outline`}
+            className="flex max-h-[min(24rem,calc(100vh-4rem))] min-w-0 flex-col overflow-hidden rounded-[inherit] bg-popover p-2"
+          >
+            <div className="mb-1.5 flex min-w-0 shrink-0 items-center gap-2">
+              <ListTree size={12} className="shrink-0 text-afx-brand" aria-hidden />
+              <h3 className="shrink-0 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                Outline
+              </h3>
+              <span className="min-w-0 truncate text-[11px] text-muted-foreground">
+                {outline.length} {outline.length === 1 ? "section" : "sections"}
+              </span>
+            </div>
+            <div className="min-h-0 max-h-[min(21rem,calc(100vh-7rem))] overflow-y-auto overscroll-contain pr-1">
+              {outline.length === 0 ? (
+                <p className="px-1 py-1 text-xs text-muted-foreground">No headings detected.</p>
+              ) : (
+                <ul className="flex flex-col gap-0.5">
+                  {outline.map((item) => (
+                    <li key={`${item.line}-${item.slug}`}>
+                      <button
                         type="button"
-                        variant="outline"
-                        size="xs"
-                        className="h-6 gap-1 px-2 text-[10px]"
-                        disabled={!phaseCodeAction}
-                        title={
-                          phaseCodeAction?.description ??
-                          `No open tasks remain in Phase ${phase.number}`
-                        }
-                        aria-label={`Code Phase ${phase.number}: ${phase.name}`}
-                        onClick={() => phaseCodeAction && onCommand(phaseCodeAction.command)}
+                        onClick={() => onJump(item.slug)}
+                        className={cn(
+                          "w-full rounded-sm px-1 py-0.5 text-left text-xs leading-4 text-foreground/80 transition-colors hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                          item.level === 1
+                            ? "pl-0"
+                            : item.level === 2
+                              ? "pl-2"
+                              : item.level === 3
+                                ? "pl-4"
+                                : item.level === 4
+                                  ? "pl-6"
+                                  : item.level === 5
+                                    ? "pl-8"
+                                    : "pl-10",
+                        )}
+                        title={`Jump to "${item.text}"`}
                       >
-                        <Code2 size={11} />
-                        Code
-                      </Button>
-                    </div>
-                  </div>
-                  <Progress value={phasePct} className="h-1" />
-                  <ul className="flex flex-col gap-1">
-                    {phase.items.map((item) => (
-                      <li
-                        key={item.line}
-                        className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 text-xs leading-5 hover:bg-accent/50"
-                        onClick={() => onToggle(item.line, !item.completed)}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={item.completed}
-                          readOnly
-                          className="mt-0.5 shrink-0 cursor-pointer accent-afx-success"
-                        />
-                        <span
-                          className={
-                            item.completed
-                              ? "break-words text-muted-foreground line-through"
-                              : "break-words text-foreground"
-                          }
-                        >
-                          {item.text}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              );
-            })}
-          </article>
-        </div>
-      </ScrollArea>
+                        <span className="block truncate">{item.text}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </section>
+        </PopoverContent>
+      </Popover>
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={`${label} reading options`}
+            title={`${label} reading options`}
+          >
+            <SlidersHorizontal size={12} aria-hidden />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-56 gap-3 rounded-md">
+          <ColumnOptionRow label="Text size">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={reading.size}
+              onValueChange={(value) => value && onReadingChange({ size: value as ReadingSize })}
+            >
+              <ToggleGroupItem value="s" className="w-8 text-[11px]" aria-label="Small">
+                S
+              </ToggleGroupItem>
+              <ToggleGroupItem value="m" className="w-8 text-[11px]" aria-label="Medium">
+                M
+              </ToggleGroupItem>
+              <ToggleGroupItem value="l" className="w-8 text-[11px]" aria-label="Large">
+                L
+              </ToggleGroupItem>
+              <ToggleGroupItem value="xl" className="w-8 text-[11px]" aria-label="Extra large">
+                XL
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </ColumnOptionRow>
+          <ColumnOptionRow label="Paper tone">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={reading.tone}
+              onValueChange={(value) => value && onReadingChange({ tone: value as ReadingTone })}
+            >
+              <ToggleGroupItem value="default" className="px-2 text-[11px]">
+                Default
+              </ToggleGroupItem>
+              <ToggleGroupItem value="warm" className="px-2 text-[11px]">
+                Warm
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </ColumnOptionRow>
+          <ColumnOptionRow label="Font">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={reading.font}
+              onValueChange={(value) => value && onReadingChange({ font: value as ReadingFont })}
+            >
+              <ToggleGroupItem value="sans" className="px-2 text-[11px]">
+                Sans
+              </ToggleGroupItem>
+              <ToggleGroupItem value="serif" className="px-2 font-serif text-[11px]">
+                Serif
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </ColumnOptionRow>
+        </PopoverContent>
+      </Popover>
+
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-xs"
+        className="text-muted-foreground hover:text-foreground"
+        aria-label={focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
+        title={focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
+        onClick={onToggleFocus}
+      >
+        {focused ? <Minimize2 size={12} aria-hidden /> : <Focus size={12} aria-hidden />}
+      </Button>
+    </>
+  );
+}
+
+function ColumnOptionRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      {children}
     </div>
   );
 }
 
-function TaskCommandRail({
-  actions,
-  onCommand,
+/**
+ * Drag/keyboard affordance for resizing one Workbench document column.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-6]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
+ */
+function ColumnResizeHandle({
+  colId,
+  width,
+  onResize,
 }: {
-  actions: DocumentStudioAction[];
-  onCommand: (command: string) => void;
+  colId: ColumnId;
+  width: number;
+  onResize: (colId: ColumnId, delta: number) => void;
 }) {
+  const drag = useRef<{ pointerId: number; x: number } | null>(null);
+  const label = `Resize ${COLUMN_CONFIG[colId].label} column`;
+
   return (
-    <section className="min-w-0 overflow-hidden rounded-md border border-afx-success/20 bg-afx-success/5 px-3 py-2">
-      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
-        <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-afx-success">
-            Implementation launch
-          </p>
-          <p className="break-words text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-            Pick, inspect, or draft a coding run from this task plan.
-          </p>
-        </div>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {actions.map((action) => (
-          <Button
-            key={action.command}
-            type="button"
-            variant="outline"
-            size="xs"
-            className="h-7 min-w-0 gap-1 text-[10px]"
-            title={action.description ?? action.command}
-            onClick={() => onCommand(action.command)}
-          >
-            <span className="truncate">{action.label}</span>
-          </Button>
-        ))}
-      </div>
-    </section>
+    <div
+      role="separator"
+      aria-label={label}
+      aria-orientation="vertical"
+      aria-valuemin={MIN_COLUMN_WIDTH}
+      aria-valuemax={MAX_COLUMN_WIDTH}
+      aria-valuenow={width}
+      tabIndex={0}
+      title={label}
+      className="absolute bottom-0 right-0 top-0 z-10 flex w-3 translate-x-1/2 cursor-col-resize items-center justify-center opacity-70 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      onPointerDown={(event) => {
+        event.preventDefault();
+        drag.current = { pointerId: event.pointerId, x: event.clientX };
+        event.currentTarget.setPointerCapture(event.pointerId);
+      }}
+      onPointerMove={(event) => {
+        const active = drag.current;
+        if (!active || active.pointerId !== event.pointerId) return;
+        const delta = event.clientX - active.x;
+        if (delta === 0) return;
+        drag.current = { ...active, x: event.clientX };
+        onResize(colId, delta);
+      }}
+      onPointerUp={(event) => {
+        if (drag.current?.pointerId === event.pointerId) drag.current = null;
+        if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }
+      }}
+      onPointerCancel={(event) => {
+        if (drag.current?.pointerId === event.pointerId) drag.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+        event.preventDefault();
+        onResize(colId, event.key === "ArrowRight" ? COLUMN_RESIZE_STEP : -COLUMN_RESIZE_STEP);
+      }}
+    >
+      <span
+        className="h-12 w-px rounded-full bg-border shadow-[0_0_0_1px_rgba(255,255,255,0.18)]"
+        aria-hidden
+      />
+    </div>
   );
 }
 
@@ -336,78 +501,129 @@ function TaskCommandRail({
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
  */
 function ColumnSessions({
-  feature,
-  onToggle,
+  content,
+  docPath,
+  featureName,
+  onOpen,
+  onCheckboxToggle,
+  onSessionBulkAction,
+  reading,
+  focused,
+  onReadingChange,
+  onToggleFocus,
 }: {
-  feature: FeatureTasksData;
-  onToggle: (sessionIndex: number, column: "agent" | "human", completed: boolean) => void;
+  content: string | undefined;
+  docPath: string | undefined;
+  featureName: string;
+  onOpen: () => void;
+  onCheckboxToggle: (target: MarkdownCheckboxToggle) => void;
+  onSessionBulkAction: (action: DocumentSessionBulkAction) => void;
+  reading: ReadingPrefs;
+  focused: boolean;
+  onReadingChange: (patch: Partial<ReadingPrefs>) => void;
+  onToggleFocus: () => void;
 }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const sessions = useMemo(
+    () => (content ? extractWorkSessionsMarkdown(content) : null),
+    [content],
+  );
+  const summary = useMemo(
+    () => (content ? summarizeWorkSessionSignoffs(content) : null),
+    [content],
+  );
+  const outline = useMemo(() => (sessions ? extractOutline(sessions.content) : []), [sessions]);
+  const jumpToHeading = useCallback((slug: string) => {
+    const target = contentRef.current?.querySelector<HTMLElement>(`#${CSS.escape(slug)}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   return (
     <div className="flex h-full min-w-0 flex-col">
       <ColumnHeader
         colId="sessions"
-        status={`(${feature.workSessions.length})`}
-        onOpen={() => {}}
+        status={summary ? `${summary.humanChecked}/${summary.total}` : ""}
+        onOpen={onOpen}
+        docPath={docPath}
+        controls={
+          docPath ? (
+            <ColumnReaderControls
+              colId="sessions"
+              content={sessions?.content ?? content}
+              outline={outline}
+              reading={reading}
+              focused={focused}
+              onJump={jumpToHeading}
+              onReadingChange={onReadingChange}
+              onToggleFocus={onToggleFocus}
+            />
+          ) : null
+        }
       />
       <ScrollArea className="afx-workbench-pane-scroll min-h-0 flex-1">
-        {feature.workSessions.length === 0 ? (
+        {!docPath ? (
+          <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
+            <Layout size={24} className="text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">No task document yet</p>
+          </div>
+        ) : !content ? (
+          <div className="flex items-center justify-center p-4 text-xs text-muted-foreground">
+            Loading...
+          </div>
+        ) : !sessions || !summary ? (
           <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
             <Layout size={24} className="text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">No sessions logged</p>
           </div>
         ) : (
-          <div className="overflow-auto p-3">
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-border text-left">
-                  <th className="px-2 py-1 font-medium text-muted-foreground">Date</th>
-                  <th className="px-2 py-1 font-medium text-muted-foreground">Task</th>
-                  <th className="px-2 py-1 font-medium text-muted-foreground">Action</th>
-                  <th className="px-2 py-1 font-medium text-muted-foreground">Files</th>
-                  <th className="w-10 px-2 py-1 text-center font-medium text-muted-foreground">
-                    Agent
-                  </th>
-                  <th className="w-10 px-2 py-1 text-center font-medium text-muted-foreground">
-                    Human
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {feature.workSessions.map((ws, i) => (
-                  <tr key={i} className="border-b border-border hover:bg-accent/30">
-                    <td className="whitespace-nowrap px-2 py-1 font-mono text-[10px] text-muted-foreground">
-                      {ws.date.slice(0, 10)}
-                    </td>
-                    <td className="px-2 py-1">{ws.task}</td>
-                    <td className="px-2 py-1 text-muted-foreground">{ws.action}</td>
-                    <td className="px-2 py-1 font-mono text-[10px] text-muted-foreground">
-                      {ws.filesModified}
-                    </td>
-                    <td className="px-2 py-1 text-center">
-                      <input
-                        type="checkbox"
-                        checked={ws.agent}
-                        onChange={() => onToggle(i, "agent", !ws.agent)}
-                        className="cursor-pointer accent-afx-success"
-                      />
-                    </td>
-                    <td className="px-2 py-1 text-center">
-                      <input
-                        type="checkbox"
-                        checked={ws.human}
-                        onChange={() => onToggle(i, "human", !ws.human)}
-                        className="cursor-pointer accent-afx-success"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div ref={contentRef} className="min-w-0 p-3">
+            <article
+              className={cn(
+                "afx-paper mx-auto flex min-h-full w-full min-w-0 max-w-none flex-col gap-3 overflow-hidden rounded-xl border border-border/60 px-5 py-5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.10)]",
+                reading.tone === "warm" ? "afx-paper--warm" : "bg-card",
+                reading.font === "serif" && "font-serif",
+              )}
+            >
+              <header className="border-b border-border/70 pb-3">
+                <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                  Work Sessions
+                </p>
+                <h2 className="mt-1 break-words text-lg font-semibold leading-tight [overflow-wrap:anywhere]">
+                  {titleFromFeatureName(featureName)}
+                </h2>
+              </header>
+              <SessionSignoffToolbar
+                summary={summary}
+                density="compact"
+                onToggleAll={(column, completed) =>
+                  onSessionBulkAction({ type: "toggleAll", column, completed })
+                }
+                onApprove={() => onSessionBulkAction({ type: "approve" })}
+              />
+              <MinimalMarkdown
+                content={sessions.content}
+                hideTitle
+                density="relaxed"
+                scale={reading.size}
+                sourceLineOffset={sessions.sourceLineOffset}
+                onCheckboxToggle={onCheckboxToggle}
+              />
+            </article>
           </div>
         )}
       </ScrollArea>
     </div>
   );
+}
+
+function extractWorkSessionsMarkdown(
+  content: string,
+): { content: string; sourceLineOffset: number } | null {
+  const segment = splitSprintSections(content).find((part) => part.kind === "SESSIONS");
+  if (segment?.body.trim()) {
+    return { content: segment.body, sourceLineOffset: segment.startLine - 1 };
+  }
+  return null;
 }
 
 /**
@@ -425,6 +641,12 @@ function ColumnDoc({
   status,
   onOpen,
   onCommand,
+  onCheckboxToggle,
+  onSessionBulkAction,
+  reading,
+  focused,
+  onReadingChange,
+  onToggleFocus,
 }: {
   colId: ColumnId;
   content: string | undefined;
@@ -433,18 +655,49 @@ function ColumnDoc({
   status?: string;
   onOpen: () => void;
   onCommand: (command: string) => void;
+  onCheckboxToggle?: (target: MarkdownCheckboxToggle) => void;
+  onSessionBulkAction?: (action: DocumentSessionBulkAction) => void;
+  reading: ReadingPrefs;
+  focused: boolean;
+  onReadingChange: (patch: Partial<ReadingPrefs>) => void;
+  onToggleFocus: () => void;
 }) {
   const config = COLUMN_CONFIG[colId];
   const Icon = config.icon;
+  const contentRef = useRef<HTMLDivElement>(null);
   const doc = useMemo(
     () => documentRowForColumn(colId, featureName, docPath, status),
     [colId, docPath, featureName, status],
   );
   const actions = useMemo(() => documentActionsForColumn(colId, featureName), [colId, featureName]);
+  const outline = useMemo(() => (content ? extractOutline(content) : []), [content]);
+  const jumpToHeading = useCallback((slug: string) => {
+    const target = contentRef.current?.querySelector<HTMLElement>(`#${CSS.escape(slug)}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <ColumnHeader colId={colId} status={status ?? ""} onOpen={onOpen} docPath={docPath} />
+      <ColumnHeader
+        colId={colId}
+        status={status ?? ""}
+        onOpen={onOpen}
+        docPath={docPath}
+        controls={
+          docPath ? (
+            <ColumnReaderControls
+              colId={colId}
+              content={content}
+              outline={outline}
+              reading={reading}
+              focused={focused}
+              onJump={jumpToHeading}
+              onReadingChange={onReadingChange}
+              onToggleFocus={onToggleFocus}
+            />
+          ) : null
+        }
+      />
       <ScrollArea className="afx-workbench-pane-scroll min-h-0 flex-1">
         {!docPath ? (
           <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
@@ -456,13 +709,18 @@ function ColumnDoc({
             Loading...
           </div>
         ) : (
-          <DocumentStudio
-            doc={doc}
-            content={content}
-            variant="column"
-            actions={actions}
-            onCommand={onCommand}
-          />
+          <div ref={contentRef} className="min-w-0 p-3">
+            <DocumentStudio
+              doc={doc}
+              content={content}
+              variant="column"
+              actions={actions}
+              reading={reading}
+              onCommand={onCommand}
+              onCheckboxToggle={onCheckboxToggle}
+              onSessionBulkAction={onSessionBulkAction}
+            />
+          </div>
         )}
       </ScrollArea>
     </div>
@@ -476,14 +734,33 @@ function documentRowForColumn(
   status: string | undefined,
 ): DocumentRow {
   const type = COLUMN_CONFIG[colId].label;
+  const displayName = `${titleFromFeatureName(featureName)} — ${type}`;
   return {
     type,
-    name: docPath ?? `${featureName}/${type.toLowerCase()}.md`,
+    name: displayName,
     status: status ?? "",
     owner: "",
     filePath: docPath ?? `docs/specs/${featureName}/${type.toLowerCase()}.md`,
     isAfx: true,
   };
+}
+
+function titleFromFeatureName(featureName: string): string {
+  const parts = featureName.split("/").filter(Boolean);
+  const leaf = parts.length > 0 ? parts[parts.length - 1] : featureName;
+  return leaf
+    .replace(/^\d+[-_]/, "")
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part) => {
+      if (/^agenticflowx$/i.test(part)) return "AgenticFlowX";
+      if (/^afx$/i.test(part)) return "AFX";
+      if (/^ui$/i.test(part)) return "UI";
+      if (/^api$/i.test(part)) return "API";
+      if (/^vscode$/i.test(part)) return "VS Code";
+      return `${part[0]?.toUpperCase() ?? ""}${part.slice(1)}`;
+    })
+    .join(" ");
 }
 
 function documentActionsForColumn(colId: ColumnId, featureName: string): DocumentStudioAction[] {
@@ -536,30 +813,6 @@ function taskActionsForFeature(featureName: string): DocumentStudioAction[] {
       description: "Draft a coding run for every remaining task in this feature.",
     },
   ];
-}
-
-function phaseCodeActionForFeature(
-  featureName: string,
-  phase: PhaseRow,
-): { command: string; description: string; targetLabel: string } | null {
-  const targetIndex = phase.items.findIndex((item) => !item.completed);
-  if (targetIndex < 0) return null;
-
-  const target = phase.items[targetIndex];
-  if (!target) return null;
-
-  const wbsId = target.wbsId?.trim() || fallbackTaskWbsId(phase, targetIndex);
-  const phaseName = phase.name.trim().replace(/\s+/g, " ");
-  const targetLabel = `${wbsId} ${target.text}`.trim();
-  return {
-    command: `/afx-task code ${featureName}#${wbsId} phase ${phase.number} ${phaseName}`,
-    description: `Draft a surgical coding run for ${targetLabel}.`,
-    targetLabel,
-  };
-}
-
-function fallbackTaskWbsId(phase: PhaseRow, index: number): string {
-  return `${phase.number}.${Math.max(index, 0) + 1}`;
 }
 
 /**
@@ -620,6 +873,26 @@ export default function Workbench() {
     useWorkbench();
   const [content, setContent] = useState<Record<string, string>>({});
   const [visible, setVisible] = useState<Record<ColumnId, boolean>>(defaultVisible);
+  const [columnWidths, setColumnWidths] = useState<Record<ColumnId, number>>(readColumnWidths);
+  const [reading, setReading] = useState<ReadingPrefs>(readReadingPrefs);
+  const [focusedColumn, setFocusedColumn] = useState<ColumnId | null>(null);
+
+  useEffect(() => {
+    writeColumnWidths(columnWidths);
+  }, [columnWidths]);
+
+  useEffect(() => {
+    writeReadingPrefs(reading);
+  }, [reading]);
+
+  useEffect(() => {
+    if (!focusedColumn) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocusedColumn(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [focusedColumn]);
 
   // Listen for doc content
   useEffect(() => {
@@ -649,30 +922,70 @@ export default function Workbench() {
   // Toggle column visibility
   const toggleColumn = (id: ColumnId) => {
     setVisible((prev) => ({ ...prev, [id]: !prev[id] }));
+    setFocusedColumn((prev) => (prev === id ? null : prev));
   };
 
-  // Handle task toggle
-  const handleToggleTask = (line: number, completed: boolean) => {
-    if (tasks?.tasksPath) {
-      send({ type: "afxToggleTask", path: tasks.tasksPath, line, completed });
+  const resizeColumn = useCallback((id: ColumnId, delta: number) => {
+    setColumnWidths((prev) => ({
+      ...prev,
+      [id]: clampColumnWidth(prev[id] + delta),
+    }));
+  }, []);
+
+  const updateReading = useCallback((patch: Partial<ReadingPrefs>) => {
+    setReading((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const toggleColumnFocus = useCallback((id: ColumnId) => {
+    setFocusedColumn((prev) => (prev === id ? null : id));
+  }, []);
+
+  const handleMarkdownCheckboxToggle = (target: MarkdownCheckboxToggle) => {
+    if (!tasks?.tasksPath) return;
+    if (target.kind === "task" && typeof target.line === "number") {
+      send({
+        type: "afxToggleTask",
+        path: tasks.tasksPath,
+        line: target.line,
+        completed: target.completed,
+      });
+      return;
     }
-  };
-
-  // Handle session toggle
-  const handleToggleSession = (
-    sessionIndex: number,
-    column: "agent" | "human",
-    completed: boolean,
-  ) => {
-    if (tasks?.tasksPath) {
+    if (target.kind === "session" && target.column && target.sessionIndex !== undefined) {
       send({
         type: "afxToggleSession",
         filePath: tasks.tasksPath,
-        sessionIndex,
+        sessionIndex: target.sessionIndex,
+        column: target.column,
+        completed: target.completed,
+        line: target.line,
+      });
+    }
+  };
+
+  const handleToggleAllSessions = (column: "agent" | "human", completed: boolean) => {
+    if (tasks?.tasksPath) {
+      send({
+        type: "afxToggleAllSessions",
+        filePath: tasks.tasksPath,
         column,
         completed,
       });
     }
+  };
+
+  const handleApproveSessions = () => {
+    if (tasks?.tasksPath) {
+      send({ type: "afxApproveSessions", filePath: tasks.tasksPath });
+    }
+  };
+
+  const handleSessionBulkAction = (action: DocumentSessionBulkAction) => {
+    if (action.type === "approve") {
+      handleApproveSessions();
+      return;
+    }
+    handleToggleAllSessions(action.column, action.completed);
   };
 
   const openChatCommand = (command: string) => {
@@ -681,6 +994,7 @@ export default function Workbench() {
 
   // Visible columns
   const visibleColumns = ALL_COLUMNS.filter((c) => visible[c]);
+  const activeColumns = focusedColumn && visible[focusedColumn] ? [focusedColumn] : visibleColumns;
 
   // Progress percentage
   const featurePct = row
@@ -809,7 +1123,7 @@ export default function Workbench() {
         Surface: [Workbench.ColumnRegion]
         @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
       */}
-      {visibleColumns.length === 0 ? (
+      {activeColumns.length === 0 ? (
         <Empty className="flex-1">
           <EmptyHeader>
             <EmptyMedia variant="icon">
@@ -824,19 +1138,18 @@ export default function Workbench() {
           data-testid="workbench-column-region"
           className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden p-2"
         >
-          <div
-            className="grid h-full min-w-full gap-2"
-            style={{
-              gridTemplateColumns:
-                visibleColumns.length === 1
-                  ? "minmax(0, 1fr)"
-                  : `repeat(${visibleColumns.length}, minmax(420px, 1fr))`,
-            }}
-          >
-            {visibleColumns.map((colId) => (
+          <div className="flex h-full min-w-full gap-2" data-testid="workbench-column-rail">
+            {activeColumns.map((colId) => (
               <div
                 key={colId}
-                className="afx-surface-card afx-workbench-column-card flex h-full min-w-0 flex-col overflow-hidden rounded-md border border-border bg-muted/5 shadow-none"
+                data-testid={`workbench-column-${colId}`}
+                className="afx-surface-card afx-workbench-column-card group/column relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.10)]"
+                style={{
+                  flexBasis: activeColumns.length === 1 ? "100%" : `${columnWidths[colId]}px`,
+                  flexGrow: 1,
+                  flexShrink: 0,
+                  minWidth: activeColumns.length === 1 ? 0 : MIN_COLUMN_WIDTH,
+                }}
               >
                 {colId === "spec" && row ? (
                   <ColumnDoc
@@ -846,6 +1159,10 @@ export default function Workbench() {
                     featureName={row.name}
                     status={row.specStatus}
                     onCommand={openChatCommand}
+                    reading={reading}
+                    focused={focusedColumn === "spec"}
+                    onReadingChange={updateReading}
+                    onToggleFocus={() => toggleColumnFocus("spec")}
                     onOpen={() =>
                       row.specPath &&
                       send({ type: "afxOpenFile", path: row.specPath, mode: "preview" })
@@ -859,16 +1176,29 @@ export default function Workbench() {
                     featureName={row.name}
                     status={row.designStatus}
                     onCommand={openChatCommand}
+                    reading={reading}
+                    focused={focusedColumn === "design"}
+                    onReadingChange={updateReading}
+                    onToggleFocus={() => toggleColumnFocus("design")}
                     onOpen={() =>
                       row.designPath &&
                       send({ type: "afxOpenFile", path: row.designPath, mode: "preview" })
                     }
                   />
                 ) : colId === "tasks" && tasks ? (
-                  <ColumnTasks
-                    feature={tasks}
-                    onToggle={handleToggleTask}
+                  <ColumnDoc
+                    colId="tasks"
+                    content={tasks.tasksPath ? content[tasks.tasksPath] : undefined}
+                    docPath={tasks.tasksPath}
+                    featureName={tasks.name}
+                    status={`${tasks.completed}/${tasks.total}`}
                     onCommand={openChatCommand}
+                    onCheckboxToggle={handleMarkdownCheckboxToggle}
+                    onSessionBulkAction={handleSessionBulkAction}
+                    reading={reading}
+                    focused={focusedColumn === "tasks"}
+                    onReadingChange={updateReading}
+                    onToggleFocus={() => toggleColumnFocus("tasks")}
                     onOpen={() =>
                       row?.tasksPath &&
                       send({ type: "afxOpenFile", path: row.tasksPath, mode: "preview" })
@@ -882,18 +1212,43 @@ export default function Workbench() {
                     featureName={row.name}
                     status={row.tasksStatus}
                     onCommand={openChatCommand}
+                    reading={reading}
+                    focused={focusedColumn === "tasks"}
+                    onReadingChange={updateReading}
+                    onToggleFocus={() => toggleColumnFocus("tasks")}
                     onOpen={() =>
                       row.tasksPath &&
                       send({ type: "afxOpenFile", path: row.tasksPath, mode: "preview" })
                     }
                   />
                 ) : colId === "sessions" && tasks ? (
-                  <ColumnSessions feature={tasks} onToggle={handleToggleSession} />
+                  <ColumnSessions
+                    content={tasks.tasksPath ? content[tasks.tasksPath] : undefined}
+                    docPath={tasks.tasksPath}
+                    featureName={tasks.name}
+                    onCheckboxToggle={handleMarkdownCheckboxToggle}
+                    onSessionBulkAction={handleSessionBulkAction}
+                    reading={reading}
+                    focused={focusedColumn === "sessions"}
+                    onReadingChange={updateReading}
+                    onToggleFocus={() => toggleColumnFocus("sessions")}
+                    onOpen={() =>
+                      row?.tasksPath &&
+                      send({ type: "afxOpenFile", path: row.tasksPath, mode: "preview" })
+                    }
+                  />
                 ) : (
                   <div className="flex items-center justify-center p-4 text-sm text-muted-foreground">
                     Select a feature to view {COLUMN_CONFIG[colId].label.toLowerCase()}.
                   </div>
                 )}
+                {activeColumns.length > 1 ? (
+                  <ColumnResizeHandle
+                    colId={colId}
+                    width={columnWidths[colId]}
+                    onResize={resizeColumn}
+                  />
+                ) : null}
               </div>
             ))}
           </div>

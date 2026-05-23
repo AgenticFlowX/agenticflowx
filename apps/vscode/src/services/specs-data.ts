@@ -119,6 +119,39 @@ export function createSpecsDataProvider(
     return prefix ? `${prefix}/${path}` : path;
   }
 
+  function recoverSimpleFrontmatter(raw: string): Record<string, unknown> {
+    const source = raw.replace(/^\uFEFF/, "");
+    const lines = source.split(/\r?\n/);
+    if (lines[0]?.trim() !== "---") return {};
+    const closeIndex = lines.findIndex((line, index) => index > 0 && line.trim() === "---");
+    if (closeIndex === -1) return {};
+
+    const data: Record<string, unknown> = {};
+    for (const rawLine of lines.slice(1, closeIndex)) {
+      const line = rawLine.trim();
+      const match = /^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s*(.*)$/.exec(line);
+      if (!match) continue;
+      const key = match[1] ?? "";
+      const value = (match[2] ?? "").trim();
+      if (/^true$/i.test(value)) data[key] = true;
+      else if (/^false$/i.test(value)) data[key] = false;
+      else if (
+        (value.startsWith('"') && value.endsWith('"')) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        data[key] = value.slice(1, -1);
+      } else {
+        data[key] = value;
+      }
+    }
+    return data;
+  }
+
+  function frontmatterData(raw: string): Record<string, unknown> {
+    const data = parseFrontmatter(raw).data ?? {};
+    return Object.keys(data).length > 0 ? data : recoverSimpleFrontmatter(raw);
+  }
+
   async function discoverProjectRoots(rootUri: vscode.Uri): Promise<ProjectRoot[]> {
     const roots: ProjectRoot[] = [];
     const addIfDocsRoot = async (uri: vscode.Uri, prefix: string): Promise<void> => {
@@ -141,7 +174,7 @@ export function createSpecsDataProvider(
     content: string | null,
     stat: vscode.FileStat | null,
   ): DocumentRow {
-    const fmData = content ? parseFrontmatter(content).data : {};
+    const fmData = content ? frontmatterData(content) : {};
     const isAfx = fmData["afx"] === true;
     const status = (fmData["status"] as string | undefined) ?? "";
     const owner = (fmData["owner"] as string | undefined) ?? "";
@@ -410,7 +443,7 @@ export function createSpecsDataProvider(
 
         const filename = filePath.split("/").pop() ?? filePath;
         const dir = filePath.slice(0, Math.max(0, filePath.length - filename.length - 1));
-        const fmType = parseFrontmatter(raw).data["type"];
+        const fmType = frontmatterData(raw)["type"];
         const type =
           typeof fmType === "string" && fmType.trim()
             ? fmType.trim().toUpperCase()
@@ -463,9 +496,9 @@ export function createSpecsDataProvider(
         const journalRaw = journal?.raw ?? null;
         const displayName = dir.replace(prefixed(project.prefix, `${DOCS_DIR}/`), "");
 
-        const specFm = specRaw ? parseFrontmatter(specRaw).data : {};
-        const designFm = designRaw ? parseFrontmatter(designRaw).data : {};
-        const tasksFm = tasksRaw ? parseFrontmatter(tasksRaw).data : {};
+        const specFm = specRaw ? frontmatterData(specRaw) : {};
+        const designFm = designRaw ? frontmatterData(designRaw) : {};
+        const tasksFm = tasksRaw ? frontmatterData(tasksRaw) : {};
 
         const phaseInfo = tasksRaw
           ? buildPhaseRows(tasksRaw)

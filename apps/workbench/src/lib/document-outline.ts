@@ -4,7 +4,7 @@
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6] [FR-9]
  * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-HELPERS]
  */
-import { cleanInlineTraceTokens } from "./markdown-cleanup";
+import { cleanInlineMarkdownText } from "./markdown-cleanup";
 
 export interface OutlineItem {
   level: number;
@@ -49,7 +49,7 @@ export function extractOutline(content: string): OutlineItem[] {
     const m = HEADING_RE.exec(line);
     if (!m) continue;
     const level = m[1]?.length ?? 1;
-    const text = cleanInlineTraceTokens(m[2] ?? "").trim();
+    const text = cleanInlineMarkdownText(m[2] ?? "");
     if (!text) continue;
     out.push({ level, text, slug: slugify(text), line: i + 1 });
   }

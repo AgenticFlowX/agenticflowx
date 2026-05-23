@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.5"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-20T13:04:07.000Z"
+updated_at: "2026-05-23T11:28:05.000Z"
 tags: ["app", "workbench", "documents", "reader", "markdown"]
 spec: spec.md
 ---
@@ -135,6 +135,106 @@ Mermaid diagrams are not rendered yet; adding Mermaid should be a dedicated
 slice that validates license output, CSP-safe SVG rendering, theming, fallback
 errors, and screenshot coverage.
 
+### [DES-DOCS-PREVIEW-STANDALONE] Standalone DocPreview Component
+
+`DocPreview` is the shared document reader used by Documents and the
+editor-area preview panel. It keeps parsing/rendering behavior in one component
+while letting each host surface decide whether the AFX Preview self-action is
+visible.
+
+| Contract item   | Design                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Component       | `apps/workbench/src/components/doc-preview.tsx`                                                                    |
+| Inputs          | `doc: DocumentRow`, `content?: string`, `mode: "full" \| "generic"`, `showAfxPreviewAction?: boolean`              |
+| Host dependency | Must render inside `WorkbenchProvider` so bridge-backed actions can call `send`.                                   |
+| Documents usage | `DocReader` delegates to `<DocPreview mode="full" showAfxPreviewAction />`.                                        |
+| Preview usage   | `PreviewApp` renders `<DocPreview ... showAfxPreviewAction={false} />` to avoid a recursive "open preview" action. |
+
+#### Preview Modes
+
+| Mode      | Applies to                                                  | Renderer                                                  | Chrome                                                                                      |
+| --------- | ----------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `full`    | AFX docs with `afx: true`, `type`, and `status` frontmatter | `DocumentStudio` full variant + relaxed `MinimalMarkdown` | Metadata toolbar, copy, reading controls, command actions, collapsible outline/quality rail |
+| `generic` | Non-AFX markdown or incomplete frontmatter                  | `MinimalMarkdown` only                                    | Minimal file toolbar, copy, reading controls, no AFX rail or command actions                |
+
+`isFullAfxDoc(frontmatter)` in `apps/workbench/src/lib/frontmatter.ts`
+selects the mode. It accepts both boolean `true` and string `"true"` because the
+lightweight frontmatter parser can return either shape for `afx: true`.
+
+#### Rendering Rules
+
+| Area               | Rule                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source cleanup     | Hide frontmatter, HTML comments, `@see` trace lines, and inline trace anchors from visible prose.                                                       |
+| Source fidelity    | Copy actions and host write actions operate on the raw markdown source, not cleaned render output.                                                      |
+| Overflow           | Prose wraps inside the pane; tables, fenced code, and ASCII diagrams scroll inside their own elements.                                                  |
+| ScrollArea wrapper | Preview scroll containers force Radix viewport children back to block layout with `[&_[data-slot=scroll-area-viewport]>div]:!block`.                    |
+| Column parity      | Workbench feature columns use the same `DocumentStudio` primitives through `variant="column"`; the full preview uses the default reading-first variant. |
+
+#### Reader State
+
+| State                  | Storage key                                 | Default                                            | Behavior                                                                                |
+| ---------------------- | ------------------------------------------- | -------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Outline rail collapsed | `afx.workbench.preview.outlineCollapsed.v2` | Expanded                                           | Toggle omits the rail `<aside>` so the paper column gets the full width.                |
+| Reading preferences    | `afx.workbench.preview.reading`             | Comfortable, medium, default tone, sans, focus off | Stores width, text size, paper tone, font, and Focus/Zen mode as one guarded JSON blob. |
+
+All storage access is wrapped in `try/catch`; restricted storage falls back to
+in-memory React state. Below the preview container breakpoint (`34rem`), the rail
+and rail toggle auto-hide so narrow side panels always retain a readable paper
+column.
+
+#### Outline Navigation
+
+| Step       | Design                                                                                                                                               |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Extraction | `extractOutline` reads markdown headings and cleans trace tokens.                                                                                    |
+| Slugging   | `slugify` from `document-outline.ts` is shared by outline extraction and heading render IDs.                                                         |
+| Rendering  | Outline rows are focusable buttons.                                                                                                                  |
+| Action     | Click or keyboard activation calls `scrollIntoView({ behavior: "smooth", block: "start" })` on the matching heading inside the preview content root. |
+
+#### Toolbar Actions
+
+| Action family              | Surface                | Message                                                                |
+| -------------------------- | ---------------------- | ---------------------------------------------------------------------- |
+| Open source/editor/preview | Full/generic toolbar   | `afxOpenFile`                                                          |
+| Copy raw markdown          | Full/generic toolbar   | `afxCopyMarkdown` in VSCode; browser clipboard fallback outside VSCode |
+| Reading options            | Full/generic toolbar   | Local state + guarded `localStorage`                                   |
+| Focus/Zen                  | Full/generic toolbar   | Local state; exits via `Escape` or floating exit control               |
+| AFX command verbs          | Full AFX previews only | `afxOpenChatCommand` with `insert` or `send` mode                      |
+
+#### AFX Command Coverage
+
+| Document kind    | Inline commands                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `SPEC`           | Refine, validate, review, approve                                                                      |
+| `DESIGN`         | Refine, author tasks, verify, approve                                                                  |
+| `TASKS`          | Refine, status, code all, per-open-task `Code <wbs>`                                                   |
+| `JOURNAL`        | Recap, promote                                                                                         |
+| `ADR`            | Review, list, supersede, accept                                                                        |
+| `RES` / research | Finalize                                                                                               |
+| Sprint file      | Section-scoped spec/design/tasks/session toolbars plus `/afx-sprint code <feature> <wbs>` task buttons |
+
+Sprint files are split by
+`<!-- SPRINT-SECTION-START: SPEC|DESIGN|TASKS|SESSIONS -->` / matching end
+markers with heading fallback. The browser helper
+`apps/workbench/src/lib/sprint-sections.ts` mirrors the host section model in
+`apps/vscode/src/services/sprint.ts`.
+
+#### Checkbox And Work Session Writes
+
+| Source shape                   | UI action                          | Message                                                                 |
+| ------------------------------ | ---------------------------------- | ----------------------------------------------------------------------- |
+| Task checklist item            | Per-item checkbox                  | `afxToggleTask { path, line, completed }`                               |
+| Work Sessions Agent/Human cell | Per-row checkbox                   | `afxToggleSession { filePath, sessionIndex, column, completed, line? }` |
+| Work Sessions column           | Select all / clear                 | `afxToggleAllSessions { filePath, column, completed }`                  |
+| Work Sessions approval         | Check Human where Agent is checked | `afxApproveSessions { filePath }`                                       |
+
+`line?` is the exact 1-indexed source line when available, which avoids
+row-index drift after markdown cleanup. Work Sessions parsing for row counts and
+signoff totals lives in `apps/workbench/src/lib/work-sessions.ts`; host-side
+source mutation lives in `apps/vscode/src/panels/markdown-checkbox-toggle.ts`
+(`100-package-shared [DES-SHARED-WORKBENCH-PROTOCOL]`).
+
 ---
 
 ## [DES-DEC] Key Decisions
@@ -172,7 +272,15 @@ The documents surface owns four shared types defined in
 
 - `afxFetchDocContent { filePath }`
 - `afxDocContent { filePath, content }`
-- `afxOpenFile { path, mode }`
+- `afxOpenFile { path, mode }` — `mode: "editor" | "preview" | "afxPreview"`
+- `afxCopyMarkdown { content; label? }` (preview → host clipboard, FR-15)
+- `afxToggleSession { filePath, sessionIndex, column: "agent" | "human", completed, line? }` (FR-17)
+- `afxToggleAllSessions { filePath, column: "agent" | "human", completed }` (FR-17)
+- `afxApproveSessions { filePath }` (FR-17)
+- `afxToggleTask { path, line, completed }` — preview task checkboxes (FR-16)
+- `afxOpenChatCommand { command, mode: "insert" | "send" }` — inline AFX action verbs (FR-16)
+- `afxPreviewShow { filePath, content, isAfxHint? }` (host → standalone preview, see
+  `100-package-shared [DES-SHARED-WORKBENCH-PROTOCOL]`)
 
 ---
 

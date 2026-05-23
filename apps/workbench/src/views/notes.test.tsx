@@ -4,12 +4,12 @@
  */
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { QuickNote } from "@afx/shared";
 
 import { WorkbenchProvider } from "../context/workbench-context";
-import { _resetBridgeForTest } from "../lib/bridge";
+import { _resetBridgeForTest, initWorkbenchBridge } from "../lib/bridge";
 import Notes from "./notes";
 
 function localTimestamp(date: Date): string {
@@ -44,6 +44,7 @@ function note(text: string, date: Date): QuickNote {
 
 describe("Notes", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     _resetBridgeForTest();
   });
 
@@ -105,5 +106,52 @@ describe("Notes", () => {
 
     expect(screen.getByText("Fresh context")).toBeInTheDocument();
     expect(screen.queryByText("Older context")).not.toBeInTheDocument();
+  });
+
+  it("uses the shared reader to toggle note checkboxes", async () => {
+    const user = userEvent.setup();
+    const timestamp = new Date(2026, 4, 2, 13, 14, 15, 123);
+    const quickNote = note("- [ ] Confirm preview reader\n- [x] Keep markdown source", timestamp);
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
+    initWorkbenchBridge();
+
+    render(
+      <WorkbenchProvider initialState={{ isLoading: false, notes: [quickNote] }}>
+        <Notes />
+      </WorkbenchProvider>,
+    );
+
+    await user.click(screen.getByRole("checkbox", { name: /Toggle task checkbox on line 1/i }));
+
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxEditNote",
+        timestamp: quickNote.timestamp,
+        text: "- [x] Confirm preview reader\n- [x] Keep markdown source",
+      },
+      "*",
+    );
+  });
+
+  it("copies rendered note markdown source", async () => {
+    const user = userEvent.setup();
+    const timestamp = new Date(2026, 4, 2, 13, 14, 15, 123);
+    const quickNote = note("## Decision\n\nKeep the source copyable.", timestamp);
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    initWorkbenchBridge();
+
+    render(
+      <WorkbenchProvider initialState={{ isLoading: false, notes: [quickNote] }}>
+        <Notes />
+      </WorkbenchProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Copy note markdown source" }));
+
+    expect(writeText).toHaveBeenCalledWith(quickNote.text);
   });
 });

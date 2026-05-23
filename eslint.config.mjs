@@ -131,6 +131,7 @@ export default tseslint.config(
             "**/vitest.workspace.*",
             "**/vite.config.*",
             "**/playwright.config.*",
+            "**/e2e/**",
             "scripts/conventions/**",
             "scripts/**",
             "**/.vscode-test.mjs",
@@ -163,6 +164,7 @@ export default tseslint.config(
       "**/vitest.workspace.*",
       "**/vite.config.*",
       "**/playwright.config.*",
+      "**/e2e/**",
     ],
     rules: {
       "@typescript-eslint/naming-convention": [

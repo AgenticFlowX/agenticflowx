@@ -29,13 +29,13 @@ status: Draft
 
 const TASKS_WITH_EARLIER_DONE = TASKS_WITH_ALL_OPEN.replace("- [ ] First task", "- [x] First task");
 
-function mockWorkspaceTasks(rawTasks: string): void {
+function mockWorkspaceFile(filePath: string, rawContent: string): void {
   vi.spyOn(vscode.workspace.fs, "stat").mockImplementation(async (uri: vscode.Uri) => {
     if (uri.fsPath === "/workspace/docs") {
       return { type: vscode.FileType.Directory, ctime: 0, mtime: 0, size: 0 };
     }
-    if (uri.fsPath === "/workspace/docs/specs/demo/tasks.md") {
-      return { type: vscode.FileType.File, ctime: 0, mtime: 0, size: rawTasks.length };
+    if (uri.fsPath === filePath) {
+      return { type: vscode.FileType.File, ctime: 0, mtime: 0, size: rawContent.length };
     }
     throw new Error(`Missing fixture stat: ${uri.fsPath}`);
   });
@@ -51,17 +51,21 @@ function mockWorkspaceTasks(rawTasks: string): void {
       return [["demo", vscode.FileType.Directory]];
     }
     if (uri.fsPath === "/workspace/docs/specs/demo") {
-      return [["tasks.md", vscode.FileType.File]];
+      return [[filePath.split("/").pop() ?? "tasks.md", vscode.FileType.File]];
     }
     return [];
   });
 
   vi.spyOn(vscode.workspace.fs, "readFile").mockImplementation(async (uri: vscode.Uri) => {
-    if (uri.fsPath === "/workspace/docs/specs/demo/tasks.md") {
-      return Buffer.from(rawTasks);
+    if (uri.fsPath === filePath) {
+      return Buffer.from(rawContent);
     }
     throw new Error(`Missing fixture file: ${uri.fsPath}`);
   });
+}
+
+function mockWorkspaceTasks(rawTasks: string): void {
+  mockWorkspaceFile("/workspace/docs/specs/demo/tasks.md", rawTasks);
 }
 
 async function scanTasks(rawTasks: string) {
@@ -130,6 +134,33 @@ describe("createSpecsDataProvider task parsing", () => {
           line: 15,
         },
       ],
+    });
+  });
+
+  it("keeps scanning when a document has malformed frontmatter", async () => {
+    const rawSpec = `---
+afx: true
+type: SPEC
+status: Draft
+   owner: "@rixrix"
+---
+
+# Demo Spec
+
+Body still belongs in the documents list.
+`;
+
+    mockWorkspaceFile("/workspace/docs/specs/demo/spec.md", rawSpec);
+    const provider = createSpecsDataProvider(() => "/workspace", createMockLogger().logger);
+    const payload = await provider.getPanelData();
+
+    expect(payload.documents[0]).toMatchObject({
+      filePath: "docs/specs/demo/spec.md",
+      type: "SPEC",
+      isAfx: true,
+      status: "Draft",
+      owner: "@rixrix",
+      excerpt: "Body still belongs in the documents list.",
     });
   });
 });

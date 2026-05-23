@@ -231,6 +231,68 @@ describe("loadWebviewHtml — Development (HMR)", () => {
   });
 });
 
+// @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-6]
+// @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-PANEL]
+describe("loadWebviewHtml — preview boot mode", () => {
+  let tmpRoot: string;
+  let extensionUri: vscode.Uri;
+
+  beforeEach(() => {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "afx-wv-preview-"));
+    fs.mkdirSync(path.join(tmpRoot, "apps", "vscode"), { recursive: true });
+    extensionUri = vscode.Uri.file(path.join(tmpRoot, "apps", "vscode"));
+    const distDir = path.join(tmpRoot, "apps", "workbench", "dist");
+    fs.mkdirSync(distDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(distDir, "index.html"),
+      `<!doctype html><html><head></head><body><div id="root"></div></body></html>`,
+    );
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+    vi.restoreAllMocks();
+  });
+
+  it('adds data-afx-view="preview" on <body> when view is preview', () => {
+    const html = loadWebviewHtml(
+      fakeWebview(),
+      extensionUri,
+      "workbench",
+      vscode.ExtensionMode.Production,
+      { view: "preview" },
+    );
+
+    expect(html).toMatch(/<body[^>]*data-afx-view="preview"/);
+  });
+
+  it("does NOT add the attribute for a non-preview call", () => {
+    const html = loadWebviewHtml(
+      fakeWebview(),
+      extensionUri,
+      "workbench",
+      vscode.ExtensionMode.Production,
+    );
+
+    expect(html).not.toContain('data-afx-view="preview"');
+  });
+
+  it("leaves the prod CSP unchanged in preview mode (FR-22 guard still passes)", () => {
+    const html = loadWebviewHtml(
+      fakeWebview(),
+      extensionUri,
+      "workbench",
+      vscode.ExtensionMode.Production,
+      { view: "preview" },
+    );
+
+    expect(html).toMatch(/<meta\s+http-equiv="Content-Security-Policy"/);
+    expect(html).not.toMatch(/script-src[^;]*'unsafe-eval'/);
+    expect(html).not.toMatch(/script-src[^;]*'unsafe-inline'/);
+    expect(html).toMatch(/script-src\s+vscode-webview:\/\/test/);
+  });
+});
+
 // @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-22] [DES-APPSEC]
 describe("CSP guard (430-dx-enforcement FR-22)", () => {
   let tmpRoot: string;
