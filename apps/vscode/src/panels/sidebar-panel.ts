@@ -217,9 +217,11 @@ const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
 
 Read-only investigation policy:
 - Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
+- You may use read-only inspection tools without asking first when they help answer the user.
 - Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
-- Do not output commands or patches.
+- Do not output patches or commands that write.
 - If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
+- If the next step is to write, save, scaffold, or persist a PRD/spec document, stop and say: "This requires Spec mode."
 
 Allowed:
 - Explain, summarize, compare, trace behavior, cite files/symbols, identify risks, and propose safe next steps.`;
@@ -257,7 +259,15 @@ const EXPLORE_READ_ONLY_SHELL_COMMANDS = new Set([
   "yq",
 ]);
 const EXPLORE_READ_ONLY_WEB_SHELL_COMMANDS = new Set(["curl", "wget"]);
-const EXPLORE_SHELL_COMMAND_SEPARATORS = /\s*(?:&&|\|\|?|\n|;)\s*/;
+const EXPLORE_READ_ONLY_TOOL_NAMES = new Set([
+  "browser_fetch",
+  "browser_search",
+  "fetch_url",
+  "open_url",
+  "read_url",
+  "search_query",
+  "web_run",
+]);
 const EXPLORE_READ_ONLY_TOOL_PATTERNS = [
   /(^|_)(read|view)($|_)/,
   /(^|_)open_(file|document|text|url|page|web)($|_)/,
@@ -524,6 +534,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     if (EXPLORE_SHELL_TOOL_PATTERN.test(normalized)) {
       return isExploreReadOnlyShellCommand(extractExploreShellCommand(args));
     }
+    if (EXPLORE_READ_ONLY_TOOL_NAMES.has(normalized)) return true;
     if (EXPLORE_BLOCKED_TOOL_PATTERNS.some((pattern) => pattern.test(normalized))) return false;
     return EXPLORE_READ_ONLY_TOOL_PATTERNS.some((pattern) => pattern.test(normalized));
   }
@@ -545,13 +556,55 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     const trimmed = command.trim();
     if (!trimmed || trimmed.length > 2_000) return false;
     if (/[<>`$(){}]/.test(trimmed)) return false;
-    if (/(^|[^&])&($|[^&])/.test(trimmed)) return false;
     if (/\b(?:sudo|su|xargs)\b/i.test(trimmed)) return false;
     if (/\b(?:-delete|-exec|-ok)\b/i.test(trimmed)) return false;
 
-    const segments = trimmed.split(EXPLORE_SHELL_COMMAND_SEPARATORS).filter(Boolean);
-    if (segments.length === 0 || segments.length > 8) return false;
+    const segments = splitExploreShellCommandSegments(trimmed);
+    if (!segments || segments.length === 0 || segments.length > 8) return false;
     return segments.every(isExploreReadOnlyShellSegment);
+  }
+
+  function splitExploreShellCommandSegments(command: string): string[] | null {
+    const segments: string[] = [];
+    let current = "";
+    let quote: "'" | '"' | null = null;
+
+    const pushSegment = (): boolean => {
+      const segment = current.trim();
+      current = "";
+      if (!segment) return false;
+      segments.push(segment);
+      return true;
+    };
+
+    for (let index = 0; index < command.length; index += 1) {
+      const char = command.charAt(index);
+      if (quote) {
+        current += char;
+        if (char === quote) quote = null;
+        continue;
+      }
+      if (char === "'" || char === '"') {
+        quote = char;
+        current += char;
+        continue;
+      }
+      if (char === "\n" || char === ";" || char === "|") {
+        if (!pushSegment()) return null;
+        if (char === "|" && command.charAt(index + 1) === "|") index += 1;
+        continue;
+      }
+      if (char === "&") {
+        if (command.charAt(index + 1) !== "&") return null;
+        if (!pushSegment()) return null;
+        index += 1;
+        continue;
+      }
+      current += char;
+    }
+
+    if (quote || !pushSegment()) return null;
+    return segments;
   }
 
   function isExploreReadOnlyShellSegment(segment: string): boolean {

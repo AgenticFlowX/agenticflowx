@@ -87,7 +87,8 @@ chat/runCommand in Explore
 
 Code is full access. Explore is read-only inspection. All four Explore intent slots inherit the
 same guardrail: Default adds no extra intent block, and Ask/Architect/PRD append their intent after
-the guardrail. File/folder/source/web inspection is allowed.
+the guardrail. PRD remains a chat-only discussion intent; if the user asks to persist a PRD/spec
+document, the assistant hands off to Spec mode. File/folder/source/web inspection is allowed.
 Simple shell reads are allowed only through an allowlist (`pwd`, `ls`, `cat`, `rg`, `grep`,
 `sed -n`, `head`, `tail`, `find`, `stat`, stdout-only `curl`/`wget`). Writes, edits, installs,
 tests, builds, git mutations, uploads, form submits, and mutating shell commands are blocked. For a
@@ -107,9 +108,11 @@ turn while `afx.mode.active === "explore"`:
 
 Read-only investigation policy:
 - Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
+- You may use read-only inspection tools without asking first when they help answer the user.
 - Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
-- Do not output commands or patches.
+- Do not output patches or commands that write.
 - If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
+- If the next step is to write, save, scaffold, or persist a PRD/spec document, stop and say: "This requires Spec mode."
 
 Allowed:
 - Explain, summarize, compare, trace behavior, cite files/symbols, identify risks, and propose safe next steps.

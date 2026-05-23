@@ -41,10 +41,11 @@ describe("Composer Intent prompt registry", () => {
     expect(isIntentParentMode("spec")).toBe(false);
   });
 
-  it("keeps non-default prefixes within the 50 token budget", () => {
+  it("keeps non-default prefixes within their token budget", () => {
     for (const parentMode of ["code", "explore"] as const) {
       for (const entry of getIntentPrompts(parentMode).slice(1)) {
-        expect(entry.estimatedTokens).toBeLessThanOrEqual(50);
+        const maxTokens = entry.id === "prd" ? 80 : 50;
+        expect(entry.estimatedTokens).toBeLessThanOrEqual(maxTokens);
         expect(entry.prefix).toMatch(/^Mode: /);
       }
     }
@@ -102,8 +103,8 @@ describe("Composer Intent prompt registry", () => {
       {
         label: "PRD",
         prefix:
-          "Mode: PRD. Draft a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not write files.",
-        estimatedTokens: 48,
+          "Mode: PRD. Stay in discussion mode. Draft or refine a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not create, edit, update, or save files. If the user asks to write, save, scaffold, or persist the PRD or spec, tell them to switch to Spec mode.",
+        estimatedTokens: 80,
       },
     ]);
   });
@@ -114,7 +115,12 @@ describe("Composer Intent prompt registry", () => {
     }
     expect(getIntentPrompt("explore", 2).prefix).toContain("read-only file");
     expect(getIntentPrompt("explore", 3).prefix).toContain("web-page");
-    expect(getIntentPrompt("explore", 4).prefix).toContain("Do not write files");
+    expect(getIntentPrompt("explore", 4).prefix).toContain("Stay in discussion mode");
+    expect(getIntentPrompt("explore", 4).prefix).toContain("Draft or refine a PRD in chat");
+    expect(getIntentPrompt("explore", 4).prefix).toContain(
+      "Do not create, edit, update, or save files",
+    );
+    expect(getIntentPrompt("explore", 4).prefix).toContain("switch to Spec mode");
   });
 
   it("formats prompt overhead with human-facing copy instead of token shorthand", () => {

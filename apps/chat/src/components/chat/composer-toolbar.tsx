@@ -200,7 +200,7 @@ function ModeToggle({
         </TooltipTrigger>
         <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
           {current.value === "explore"
-            ? "Explore is experimental and read-only. Use it to inspect code, trace behavior, and plan changes without running commands or edits."
+            ? "Explore is experimental and read-only. Use it to inspect code, trace behavior, and plan changes without writes or mutating commands."
             : current.value === "spec"
               ? "Spec mode powers Spec-Driven Development: Shape → Design → Slice → Build → Verify → Ship → Evolve. The agent edits specs, designs, tasks, journals, ADRs, and research notes — your source code stays untouched."
               : "Code is the default full-access coding mode."}

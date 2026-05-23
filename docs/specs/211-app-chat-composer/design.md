@@ -143,7 +143,7 @@ The Intent panel is a `ComposerPanelStack` workflow panel rendered above the inp
 +--------------------------------------------------------------------------------+
 ```
 
-Slot identity is persisted by index, not raw intent id. Slot `4` renders `Code` under parent mode Code and `PRD` under parent mode Explore, so switching parent modes preserves the user's stance position while remapping the parent-specific label/prefix.
+Slot identity is persisted by index, not raw intent id. Slot `4` renders `Code` under parent mode Code and `PRD` under parent mode Explore, so switching parent modes preserves the user's stance position while remapping the parent-specific label/prefix. Explore `PRD` stays discussion-only: it drafts or refines PRD content in chat from read-only repo/web context, and if the user asks to write, save, scaffold, or persist the PRD/spec, the agent tells them to switch to Spec mode.
 
 ### [DES-COMPOSER-MOCKUP-NOTICE] Composer Notice Panel
 

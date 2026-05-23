@@ -140,9 +140,11 @@ workspace mode is `explore`:
 
 Read-only investigation policy:
 - Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
+- You may use read-only inspection tools without asking first when they help answer the user.
 - Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
-- Do not output commands or patches.
+- Do not output patches or commands that write.
 - If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
+- If the next step is to write, save, scaffold, or persist a PRD/spec document, stop and say: "This requires Spec mode."
 
 Allowed:
 - Explain, summarize, compare, trace behavior, cite files/symbols, identify risks, and propose safe next steps.

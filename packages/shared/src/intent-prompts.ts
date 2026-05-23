@@ -95,10 +95,10 @@ const REGISTRY: Record<IntentParentMode, Record<IntentSlot, IntentPromptEntry>> 
       id: "prd",
       slot: 4,
       label: "PRD",
-      description: "draft a PRD from discussion plus read-only repo/web context.",
+      description: "draft a chat-only PRD from discussion plus read-only repo/web context.",
       prefix:
-        "Mode: PRD. Draft a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not write files.",
-      estimatedTokens: 48,
+        "Mode: PRD. Stay in discussion mode. Draft or refine a PRD in chat from the discussion and read-only repo/web context. Use AFX spec sections: Problem, User Stories, FR/NFR, Acceptance, Non-Goals, Open Questions, Dependencies. Do not create, edit, update, or save files. If the user asks to write, save, scaffold, or persist the PRD or spec, tell them to switch to Spec mode.",
+      estimatedTokens: 80,
       parents: ["explore"],
       icon: "§",
     },

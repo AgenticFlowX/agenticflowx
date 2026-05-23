@@ -193,6 +193,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Default is active on first mount and sends zero Intent prompt text
 - [ ] Non-default slots show the active label, static token estimate, tooltip preview, and full prompt-preview popover
 - [ ] Slot 4 is preserved by index when switching parent modes, remapping `Code` ↔ `PRD`
+- [ ] Explore `PRD` stays chat-only and routes write/save/scaffold/persist requests to Spec mode
 - [ ] Collapsing the Intent panel leaves a one-line header with active Intent and cost visible; there is no dismiss/close affordance
 - [ ] Outbound send, steer, follow-up, and immediate send paths carry the active `intentSlot`
 
