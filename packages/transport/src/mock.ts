@@ -895,6 +895,97 @@ This is a long-running response on purpose so the queue stays visible while you 
   }
 
   /**
+   * Builds N realistic deep-path filenames so the Modified files panel can be
+   * stress-tested against THRESHOLD overflow with names that wrap and exceed
+   * the typical sidebar width. Mirrors the AFX monorepo's actual path shapes
+   * (`apps/<app>/src/...`, `packages/<pkg>/src/...`) so the visual matches
+   * what users will see in production.
+   */
+  function buildLongModifiedPaths(count: number): string[] {
+    const stems: ReadonlyArray<readonly [string, string]> = [
+      ["apps/chat/src/components/chat", "chat-controller-with-very-long-name.tsx"],
+      ["apps/chat/src/components", "composer-panel-stack.tsx"],
+      ["apps/chat/src/components", "files-panel.tsx"],
+      ["apps/chat/src/components/chat", "composer-panel.tsx"],
+      ["apps/chat/src/components/chat", "chat-window.tsx"],
+      ["apps/chat/src/components/chat", "chat-input.tsx"],
+      ["apps/chat/src/lib", "derive-modified-files.ts"],
+      ["apps/chat/src/lib", "doc-actions.ts"],
+      ["apps/chat/src/lib", "context-presets.ts"],
+      ["apps/chat/src/lib", "result-actions.ts"],
+      ["apps/chat/src/views", "history.tsx"],
+      ["apps/chat/src/views", "settings.tsx"],
+      ["apps/workbench/src/lib", "document-studio.tsx"],
+      ["apps/workbench/src/lib", "markdown-render.tsx"],
+      ["apps/workbench/src/lib", "markdown-cleanup.ts"],
+      ["apps/workbench/src/lib", "markdown-table.ts"],
+      ["apps/workbench/src/lib", "sprint-sections.ts"],
+      ["apps/workbench/src/lib", "work-sessions.ts"],
+      ["apps/workbench/src/components", "doc-preview.tsx"],
+      ["apps/workbench/src/components", "document-reader.tsx"],
+      ["apps/workbench/src/components", "command-toolbar.tsx"],
+      ["apps/vscode/src/panels", "afx-preview-panel.ts"],
+      ["apps/vscode/src/panels", "workbench-panel.ts"],
+      ["apps/vscode/src/panels", "markdown-checkbox-toggle.ts"],
+      ["apps/vscode/src/services", "specs-data.ts"],
+      ["packages/shared/src", "workbench-protocol.ts"],
+      ["packages/transport/src", "mock.ts"],
+      ["packages/parsers/src", "frontmatter.ts"],
+      ["docs/specs/211-app-chat-composer", "spec.md"],
+      ["docs/specs/211-app-chat-composer", "design.md"],
+    ];
+    const paths: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const [dir, name] = stems[i % stems.length]!;
+      // Suffix the index past the first lap so each entry is unique without
+      // changing the realistic stem distribution.
+      const lap = Math.floor(i / stems.length);
+      const finalName = lap === 0 ? name : name.replace(/\.(\w+)$/, `-v${lap}.$1`);
+      paths.push(`${dir}/${finalName}`);
+    }
+    return paths;
+  }
+
+  /**
+   * Many-files edit scenario — fires N distinct edit tool calls in a single
+   * assistant turn so the Modified files panel exceeds `THRESHOLD` (6) and
+   * exercises the compact-by-default + `+N more` toggle.
+   *
+   * Path mix is realistic AFX monorepo shapes (long `apps/*` / `packages/*`
+   * paths) so the toggle is stress-tested against the kinds of filenames that
+   * actually show up in production.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  async function runToolEditManyFiles(count: number): Promise<void> {
+    const id = startAssistant();
+    const paths = buildLongModifiedPaths(count);
+    for (const path of paths) {
+      await delay(15);
+      const toolCallId = uid();
+      emit({
+        type: "chat/toolStart",
+        toolCallId,
+        toolName: "edit_file",
+        args: { path, description: `Bulk edit ${path}` },
+      });
+      await delay(30);
+      emit({
+        type: "chat/toolEnd",
+        toolCallId,
+        ok: true,
+        summary: `${path} — 1 line changed`,
+      });
+    }
+    await streamText(
+      id,
+      `Done. Touched ${paths.length} files in this turn — the Modified files panel should render compact-by-default with a "+N more" toggle regardless of count.`,
+    );
+    endAssistant(id);
+  }
+
+  /**
    * Dev/e2e scenario for the chat composer's AFX doc-action rail.
    *
    * It mirrors the VSCode host opening `docs/specs/auth/spec.md`, then emits a
@@ -2101,6 +2192,10 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     "tool-bash": () => void runToolBash(),
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
+    "tool-edit-many-files": () => void runToolEditManyFiles(8),
+    "tool-edit-many-files-10": () => void runToolEditManyFiles(10),
+    "tool-edit-many-files-20": () => void runToolEditManyFiles(20),
+    "tool-edit-many-files-50": () => void runToolEditManyFiles(50),
     "spec-doc-actions": () => runSpecDocActions(),
     "spec-doc-clear": () => clearDocContext(),
     "spec-doc-preview": () => emitSpecDocContext(),

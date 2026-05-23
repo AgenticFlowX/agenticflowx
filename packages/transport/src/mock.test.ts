@@ -1,6 +1,10 @@
 /**
  * Unit tests for createMockTransport — verifies all scenarios fire correct
  * message sequences and the log captures both directions.
+ *
+ * @see docs/specs/110-package-transport/spec.md [FR-3] [FR-4] [FR-7]
+ * @see docs/specs/110-package-transport/design.md [DES-TRANSPORT-MOCK-ADAPTER] [DES-TRANSPORT-MOCK-SCENARIOS]
+ * @see docs/specs/420-dx-testing/spec.md [FR-1]
  */
 import { describe, expect, it, vi } from "vitest";
 
@@ -114,6 +118,10 @@ describe("createMockTransport", () => {
       "tool-bash",
       "tool-read-file",
       "tool-edit-file",
+      "tool-edit-many-files",
+      "tool-edit-many-files-10",
+      "tool-edit-many-files-20",
+      "tool-edit-many-files-50",
       "spec-doc-actions",
       "spec-doc-clear",
       "spec-doc-preview",
