@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.23"
+version: "1.24"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-24T03:51:51.000Z"
+updated_at: "2026-05-24T05:28:56.000Z"
 tags:
   ["app", "chat", "composer", "webview", "mode", "workspace-mode", "prompt", "host-guard", "intent"]
 spec: spec.md
@@ -872,8 +872,10 @@ active markdown document in the editor-area AFX Preview.
 
 The action sends `chat/openFile { path, mode: "afxPreview" }`; default `chat/openFile` callers keep
 opening the source editor. Default styling is transparent and muted. Hover/focus may add the same
-subtle border/background treatment as the Intent dropdown. Compact widths keep the icon and expose
-`Open AFX Preview` through tooltip/accessibility text.
+subtle border/background treatment as the Intent dropdown. When space allows, the visible label is
+`Preview <basename>`; compact widths keep the icon only. Tooltip/accessibility text uses
+`Open <basename> in AFX Preview` and presents the AFX Markdown Previewer as a polished renderer for
+frontmatter, sections, tables, task lists, and code blocks.
 
 #### Doc-action overflow menu
 

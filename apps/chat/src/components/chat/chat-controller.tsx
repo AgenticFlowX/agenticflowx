@@ -1667,7 +1667,7 @@ export function useChatController({
         workspaceMode === "spec" ? null : (
           <ComposerHeaderActionButton
             aria-label="Switch to Spec"
-            title="Switch to Spec"
+            tooltip="Switch to Spec mode for the action rail, stage tracker, and approval workflow."
             onClick={() => {
               setMode("spec");
               setOnboardingFlag("specModeOfferDismissed", true);
@@ -1715,7 +1715,7 @@ export function useChatController({
         actions: (
           <ComposerHeaderActionButton
             aria-label="Switch to Spec"
-            title="Switch to Spec"
+            tooltip="Switch to Spec mode for the action rail, stage tracker, and approval workflow."
             onClick={() => {
               setMode("spec");
               setAfxCommandSuggestVisible(false);

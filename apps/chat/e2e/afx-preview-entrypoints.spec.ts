@@ -49,9 +49,9 @@ test.describe("AFX Preview composer entry points", () => {
     await page.goto("/");
     await fireScenario(page, "Markdown file");
 
-    const preview = page.getByRole("button", { name: "Open AFX Preview" });
+    const preview = page.getByRole("button", { name: "Open design.md in AFX Preview" });
     await expect(preview).toBeVisible();
-    await expect(preview).toContainText("Preview");
+    await expect(preview).toContainText("Preview design.md");
     const intentRegion = page.getByRole("region", { name: /Intent/i });
     await intentRegion.getByRole("button", { name: "Minimize panel" }).click();
     const intentSwitcher = page.getByRole("button", { name: "Switch Intent. Current: Default" });
@@ -77,10 +77,12 @@ test.describe("AFX Preview composer entry points", () => {
     await fireScenario(page, "Spec actions");
 
     const docActions = page.locator("#composer-panel-doc-actions").locator("..");
-    await expect(docActions.getByRole("button", { name: "Open AFX Preview" })).toBeVisible();
+    await expect(
+      docActions.getByRole("button", { name: "Open spec.md in AFX Preview" }),
+    ).toBeVisible();
     await capture(page, testInfo, "afx-preview-doc-actions-header");
 
-    await docActions.getByRole("button", { name: "Open AFX Preview" }).click();
+    await docActions.getByRole("button", { name: "Open spec.md in AFX Preview" }).click();
     await openLatestOpenFilePayload(page);
     const payload = page.locator("pre").last();
     await expect(payload).toContainText('"path": "/workspace/docs/specs/auth/spec.md"');
@@ -96,7 +98,7 @@ test.describe("AFX Preview composer entry points", () => {
 
     const docActions = page.locator("#composer-panel-doc-actions").locator("..");
     await expect(page.getByRole("button", { name: /Switch Intent\. Current:/ })).toBeVisible();
-    await expect(docActions.getByRole("button", { name: "Open AFX Preview" })).toBeVisible();
+    await expect(docActions.getByRole("button", { name: /Open .* in AFX Preview/ })).toBeVisible();
     await expect(docActions.getByRole("button", { name: "Switch to Spec" })).toBeVisible();
     await capture(page, testInfo, "afx-preview-doc-actions-switch");
   });

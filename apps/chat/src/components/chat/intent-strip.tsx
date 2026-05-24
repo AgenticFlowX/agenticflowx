@@ -61,62 +61,78 @@ export function IntentStripHeaderExtras({
   const entries = getIntentPrompts(parentMode);
   const active = getIntentPrompt(parentMode, activeSlot);
   const promptBadge = formatIntentPromptBadge(active.estimatedTokens);
+  const switcherTooltip = active.prefix
+    ? `Change Intent. Current: ${active.label}. ${active.description}`
+    : `Change Intent. Current: ${active.label}. No prompt is injected.`;
+
   return (
-    <span
-      className="afx-intent-strip flex min-w-0 items-center gap-1.5"
-      data-workspace-mode={parentMode}
-    >
-      {previewAction}
-      {collapsed ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <ComposerHeaderActionButton
-              className="max-w-32"
-              aria-label={`Switch Intent. Current: ${active.label}`}
-              title={`Switch Intent: ${active.label}`}
-              trailingIcon={
-                <ChevronDown size={10} aria-hidden="true" className="shrink-0 opacity-70" />
-              }
-            >
-              {active.label}
-            </ComposerHeaderActionButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuRadioGroup
-              value={String(activeSlot)}
-              onValueChange={(value) => {
-                const nextSlot = normalizeIntentSlot(Number(value));
-                if (nextSlot !== activeSlot) onSlotChange(nextSlot);
-              }}
-            >
-              {entries.map((entry) => (
-                <DropdownMenuRadioItem
-                  key={`${parentMode}-${entry.slot}`}
-                  value={String(entry.slot)}
-                  className="items-start gap-2 pr-8"
-                >
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-[11px] font-medium text-foreground">{entry.label}</span>
-                    <span className="text-[10px] leading-snug text-muted-foreground">
-                      {entry.description}
+    <TooltipProvider delayDuration={250}>
+      <span
+        className="afx-intent-strip flex min-w-0 items-center gap-1.5"
+        data-workspace-mode={parentMode}
+      >
+        {previewAction}
+        {collapsed ? (
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <ComposerHeaderActionButton
+                    className="max-w-32"
+                    aria-label={`Switch Intent. Current: ${active.label}`}
+                    trailingIcon={
+                      <ChevronDown size={10} aria-hidden="true" className="shrink-0 opacity-70" />
+                    }
+                  >
+                    {active.label}
+                  </ComposerHeaderActionButton>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                align="end"
+                className="max-w-[240px] text-left text-[11px]"
+              >
+                {switcherTooltip}
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuRadioGroup
+                value={String(activeSlot)}
+                onValueChange={(value) => {
+                  const nextSlot = normalizeIntentSlot(Number(value));
+                  if (nextSlot !== activeSlot) onSlotChange(nextSlot);
+                }}
+              >
+                {entries.map((entry) => (
+                  <DropdownMenuRadioItem
+                    key={`${parentMode}-${entry.slot}`}
+                    value={String(entry.slot)}
+                    className="items-start gap-2 pr-8"
+                  >
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="text-[11px] font-medium text-foreground">{entry.label}</span>
+                      <span className="text-[10px] leading-snug text-muted-foreground">
+                        {entry.description}
+                      </span>
                     </span>
-                  </span>
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
-      {promptBadge ? (
-        <span
-          className="hidden rounded-full border border-border/70 px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground/80 @[420px]:inline-flex"
-          title={formatIntentPromptTitle(active.estimatedTokens)}
-        >
-          {promptBadge}
-        </span>
-      ) : null}
-      <IntentPromptPreview entry={active} />
-    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+        {promptBadge ? (
+          <span
+            className="hidden rounded-full border border-border/70 px-1.5 py-0.5 text-[10px] leading-none text-muted-foreground/80 @[420px]:inline-flex"
+            title={formatIntentPromptTitle(active.estimatedTokens)}
+          >
+            {promptBadge}
+          </span>
+        ) : null}
+        <IntentPromptPreview entry={active} />
+      </span>
+    </TooltipProvider>
   );
 }
 

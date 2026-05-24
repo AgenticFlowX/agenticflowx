@@ -11,6 +11,12 @@ import { Component, type ErrorInfo, type ReactNode, memo } from "react";
 
 import { Minus, Plus, X } from "lucide-react";
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 export type ComposerPanelTone = "neutral" | "brand" | "warning";
@@ -114,34 +120,40 @@ export const ComposerPanel = memo(function ComposerPanel({
           <div className="flex shrink-0 items-center gap-1.5">{resolvedHeaderExtras}</div>
         ) : null}
         {/* Panel actions appear before minimize and close. */}
-        <div className="flex shrink-0 items-center gap-1">
-          {actions}
-          {collapsible ? (
-            <button
-              type="button"
-              className="rounded-sm p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
-              aria-label={
-                collapsed ? `Expand ${stringifyTitle(title)}` : `Minimize ${stringifyTitle(title)}`
-              }
-              aria-expanded={!collapsed}
-              title={collapsed ? "Expand" : "Minimize"}
-              onClick={() => onCollapsedChange?.(!collapsed)}
-            >
-              {collapsed ? <Plus size={11} /> : <Minus size={11} />}
-            </button>
-          ) : null}
-          {dismissible ? (
-            <button
-              type="button"
-              className="rounded-sm p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
-              aria-label={`Dismiss ${stringifyTitle(title)}`}
-              title="Close"
-              onClick={onDismiss}
-            >
-              <X size={11} />
-            </button>
-          ) : null}
-        </div>
+        <TooltipProvider delayDuration={250}>
+          <div className="flex shrink-0 items-center gap-1">
+            {actions}
+            {collapsible ? (
+              <PanelIconTooltip label={collapsed ? "Expand" : "Minimize"}>
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+                  aria-label={
+                    collapsed
+                      ? `Expand ${stringifyTitle(title)}`
+                      : `Minimize ${stringifyTitle(title)}`
+                  }
+                  aria-expanded={!collapsed}
+                  onClick={() => onCollapsedChange?.(!collapsed)}
+                >
+                  {collapsed ? <Plus size={11} /> : <Minus size={11} />}
+                </button>
+              </PanelIconTooltip>
+            ) : null}
+            {dismissible ? (
+              <PanelIconTooltip label="Close">
+                <button
+                  type="button"
+                  className="rounded-sm p-0.5 text-muted-foreground/60 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+                  aria-label={`Dismiss ${stringifyTitle(title)}`}
+                  onClick={onDismiss}
+                >
+                  <X size={11} />
+                </button>
+              </PanelIconTooltip>
+            ) : null}
+          </div>
+        </TooltipProvider>
       </div>
       <ComposerPanelErrorBoundary title={stringifyTitle(title)}>
         <div
@@ -154,6 +166,17 @@ export const ComposerPanel = memo(function ComposerPanel({
     </section>
   );
 });
+
+function PanelIconTooltip({ children, label }: { children: ReactNode; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" align="end" className="text-[11px]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 function slugifyTitle(title: ReactNode): string {
   return stringifyTitle(title)

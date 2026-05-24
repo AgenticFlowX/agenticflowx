@@ -2562,7 +2562,20 @@ describe("chat App", () => {
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Open AFX Preview" }));
+    const previewButton = screen.getByRole("button", { name: "Open overview.md in AFX Preview" });
+    expect(previewButton).toHaveTextContent("Preview overview.md");
+    expect(previewButton).not.toHaveAttribute("title");
+
+    fireEvent.focus(previewButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/AFX Markdown Previewer/i).length).toBeGreaterThan(0);
+      expect(
+        screen.getAllByText(/frontmatter, sections, tables, task lists/i).length,
+      ).toBeGreaterThan(0);
+    });
+
+    await userEvent.setup().click(previewButton);
 
     expect(send).toHaveBeenCalledWith({
       type: "chat/openFile",
@@ -2585,7 +2598,7 @@ describe("chat App", () => {
       );
     });
 
-    expect(screen.queryByRole("button", { name: "Open AFX Preview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /AFX Preview/ })).not.toBeInTheDocument();
   });
 
   it("opens AFX Preview from the doc-actions header for active AFX markdown docs", async () => {
@@ -2609,7 +2622,11 @@ describe("chat App", () => {
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
 
-    await userEvent.setup().click(screen.getByRole("button", { name: "Open AFX Preview" }));
+    await userEvent.setup().click(
+      screen.getByRole("button", {
+        name: "Open postgresql-marketplace-backend-rewrite.md in AFX Preview",
+      }),
+    );
 
     expect(send).toHaveBeenCalledWith({
       type: "chat/openFile",

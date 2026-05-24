@@ -4,7 +4,7 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-3] [FR-9] [FR-13] [FR-17] [FR-18]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -75,6 +75,20 @@ describe("IntentStripHeaderExtras", () => {
     expect(screen.queryByText("Intent guide")).not.toBeInTheDocument();
   });
 
+  it("uses tooltip content for the collapsed intent switcher", async () => {
+    render(<IntentStripHeaderExtras parentMode="code" slot={1} onSlotChange={vi.fn()} collapsed />);
+
+    const switcher = screen.getByRole("button", { name: "Switch Intent. Current: Default" });
+    expect(switcher).not.toHaveAttribute("title");
+
+    fireEvent.focus(switcher);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Change Intent\. Current: Default/i).length).toBeGreaterThan(0);
+    });
+    expect(screen.getAllByText(/No prompt is injected/i).length).toBeGreaterThan(0);
+  });
+
   it("orders Preview before the collapsed intent switcher", () => {
     render(
       <IntentStripHeaderExtras
@@ -110,5 +124,25 @@ describe("IntentStripHeaderExtras", () => {
     expect(
       screen.getByRole("button", { name: "Preview injected prompt for PRD" }),
     ).toBeInTheDocument();
+  });
+
+  it("uses tooltip content for the Intent prompt preview button", async () => {
+    render(
+      <IntentStripHeaderExtras
+        parentMode="explore"
+        slot={4}
+        onSlotChange={vi.fn()}
+        collapsed={false}
+      />,
+    );
+
+    const previewButton = screen.getByRole("button", { name: "Preview injected prompt for PRD" });
+    expect(previewButton).not.toHaveAttribute("title");
+
+    fireEvent.focus(previewButton);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Show the Intent prompt text/i).length).toBeGreaterThan(0);
+    });
   });
 });
