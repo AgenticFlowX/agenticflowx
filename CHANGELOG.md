@@ -2,6 +2,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.2.1] - 2026-05-24
+
+### Changed
+
+- **AFX Preview entry points** — the chat header action now labels the target file (`Preview <filename>`) and uses richer tooltips for the AFX Markdown Previewer.
+- **Preview telemetry** — standalone AFX Preview sessions are tagged separately in Clarity with `afx_surface=preview`.
+
 ## [2.2.0] - 2026-05-24
 
 ### Added
