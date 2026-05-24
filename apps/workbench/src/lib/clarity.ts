@@ -18,16 +18,21 @@ type ClarityFn = ((...args: unknown[]) => void) & { q?: unknown[][] };
 
 const CLARITY_PROJECT_ID = "w6orgkccwz";
 
+export type WorkbenchClaritySurface = "panel" | "preview";
+
 let bootstrapped = false;
 
-export function setClarityEnabled(enabled: boolean): void {
+export function setClarityEnabled(
+  enabled: boolean,
+  surface: WorkbenchClaritySurface = "panel",
+): void {
   if (!enabled || isDoNotTrackEnabled()) {
     stopClarity();
     return;
   }
 
   bootstrapClarity();
-  tagSession();
+  tagSession(surface);
 }
 
 function isDoNotTrackEnabled(): boolean {
@@ -87,13 +92,13 @@ function bootstrapClarity(): void {
   }
 }
 
-function tagSession(): void {
+function tagSession(surface: WorkbenchClaritySurface): void {
   if (typeof window.clarity !== "function") return;
 
   try {
     window.clarity("consentv2", { ad_Storage: "denied", analytics_Storage: "granted" });
     window.clarity("set", "afx_app", "workbench");
-    window.clarity("set", "afx_surface", "panel");
+    window.clarity("set", "afx_surface", surface);
   } catch (err) {
     log.warn("Clarity tagging failed", {
       message: err instanceof Error ? err.message : String(err),

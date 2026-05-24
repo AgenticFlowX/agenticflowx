@@ -5,6 +5,8 @@
  *
  * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-15]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-BRIDGE] [DES-SHELL-PREVIEW-MODE]
+ * @see docs/specs/901-cross-telemetry/spec.md [FR-1] [FR-3]
+ * @see docs/specs/901-cross-telemetry/design.md [DES-TELEMETRY-CATALOG]
  */
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -20,13 +22,13 @@ initWorkbenchBridge();
 workbenchOn("afxAppearanceUpdated", (msg) => {
   applyAppearanceClass(msg.appearanceClass);
 });
-workbenchOn("afxTelemetryUpdated", (msg) => {
-  setClarityEnabled(msg.enabled);
-});
 
 const root = document.getElementById("root");
 if (!root) throw new Error("Root element not found");
 const search = new URLSearchParams(window.location.search);
 const IS_PREVIEW_MODE =
   document.body.dataset.afxView === "preview" || search.get("afx-view") === "preview";
+workbenchOn("afxTelemetryUpdated", (msg) => {
+  setClarityEnabled(msg.enabled, IS_PREVIEW_MODE ? "preview" : "panel");
+});
 createRoot(root).render(<StrictMode>{IS_PREVIEW_MODE ? <PreviewApp /> : <App />}</StrictMode>);

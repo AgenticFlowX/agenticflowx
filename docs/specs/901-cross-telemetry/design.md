@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-24T05:38:13.000Z"
 tags: ["cross-cutting", "telemetry", "clarity"]
 spec: spec.md
 ---
@@ -57,6 +57,9 @@ Telemetry helpers expose initialization and event-recording functions for app su
 ```typescript
 // Each app webview exposes a single toggle:
 export function setClarityEnabled(enabled: boolean): void;
+
+// Workbench additionally labels which host surface booted the bundle:
+export function setClarityEnabled(enabled: boolean, surface?: "panel" | "preview"): void;
 ```
 
 Internally the helper bootstraps the Clarity script lazily, applies session dimensions, manages
@@ -75,14 +78,17 @@ below.
 
 ### Session dimensions (always set when enabled)
 
-| Dimension     | Values                | Source                                                  | Owning spec           |
-| ------------- | --------------------- | ------------------------------------------------------- | --------------------- |
-| `afx_app`     | `chat` \| `workbench` | `apps/{chat,workbench}/src/lib/clarity.ts` `tagSession` | `901-cross-telemetry` |
-| `afx_surface` | `sidebar` \| `panel`  | `apps/{chat,workbench}/src/lib/clarity.ts` `tagSession` | `901-cross-telemetry` |
+| Dimension     | Values                            | Source                                                  | Owning spec           |
+| ------------- | --------------------------------- | ------------------------------------------------------- | --------------------- |
+| `afx_app`     | `chat` \| `workbench`             | `apps/{chat,workbench}/src/lib/clarity.ts` `tagSession` | `901-cross-telemetry` |
+| `afx_surface` | `sidebar` \| `panel` \| `preview` | `apps/{chat,workbench}/src/lib/clarity.ts` `tagSession` | `901-cross-telemetry` |
 
 These dimensions identify the AFX surface within a Clarity session and are the **only** AFX-shaped
 data sent. No prompts, message content, file paths, secrets, or model identifiers leave the
 device.
+
+The Workbench bundle uses `panel` for the bottom-panel shell and `preview` for the standalone
+editor-area AFX Markdown Previewer boot mode.
 
 ### Consent / lifecycle transitions
 

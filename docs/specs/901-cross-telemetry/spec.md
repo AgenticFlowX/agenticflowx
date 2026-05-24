@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
+updated_at: "2026-05-24T05:38:13.000Z"
 tags: ["cross-cutting", "telemetry", "clarity"]
 depends_on: ["210-app-chat", "220-app-workbench"]
 ---
@@ -50,7 +50,7 @@ Developers instrumenting product behavior and users whose privacy must be respec
 | ---- | ---------------------------------------------------------------------------------------- | ----------- |
 | FR-1 | Own Clarity/telemetry initialization and event behavior shared across chat and workbench | Must Have   |
 | FR-2 | Define privacy boundaries for telemetry payloads and disabled/fallback states            | Must Have   |
-| FR-3 | Coordinate with app child specs for surface-specific event naming                        | Should Have |
+| FR-3 | Coordinate with app child specs for surface-specific event naming and session dimensions | Should Have |
 
 ### Non-Functional Requirements
 
@@ -67,6 +67,7 @@ Developers instrumenting product behavior and users whose privacy must be respec
 
 - [ ] Chat and workbench telemetry files route to this spec
 - [ ] App-specific specs document event intent when introducing new surface behavior
+- [ ] Workbench preview sessions are distinguishable from the bottom-panel Workbench surface
 - [ ] Unnumbered telemetry refs are removed from source
 
 ---
