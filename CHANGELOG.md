@@ -2,6 +2,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.2.0] - 2026-05-24
+
+### Added
+
+- **AFX Preview** — added the editor-area AFX Preview panel and low-noise Preview entry points from chat composer headers.
+- **Workbench document preview polish** — improved document rendering controls, reader width handling, tooltips, and preview icon affordances.
+
+### Changed
+
+- **Pi runtime package** — migrated the bundled runtime to `@earendil-works/pi-coding-agent@0.75.4`.
+- **Chat settings and panels** — streamlined model setup, skills catalog, runtime recovery copy, and made the Modified files panel compact by default.
+- **Dependencies** — refreshed minor and patch dependency updates, including the OSV scanner action.
+
+### Fixed
+
+- **Explore mode guardrails** — allow read-only repo and web inspection more reliably while continuing to block writes and mutating commands.
+- **Output panel behaviour** — chat errors are logged without unexpectedly opening the VS Code Output panel.
+- **Markdown preview workflow state** — preserved the AFX stepper in markdown preview and tightened related preview routing.
+- **Runtime UX** — made slow model warm-up warnings configurable and improved recovery/timeline feedback.
+
 ## [2.1.0] - 2026-05-20
 
 ### Added
