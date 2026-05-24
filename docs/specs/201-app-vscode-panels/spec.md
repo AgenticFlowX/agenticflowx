@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-21T08:53:29.000Z"
+updated_at: "2026-05-24T01:34:02.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "composer", "intent"]
 depends_on: ["100-package-shared", "110-package-transport", "200-app-vscode"]
@@ -62,11 +62,11 @@ loading behavior.
 | FR-7  | The sidebar panel acts as the message dispatcher for the chat webview (`dispatchInbound` switch)                                                                                                                                                                                              | Must Have |
 | FR-8  | The workbench panel acts as the message dispatcher for the workbench webview                                                                                                                                                                                                                  | Must Have |
 | FR-9  | The sidebar panel includes `mode.active` in the settings snapshot and routes `chat/setMode` requests to the host `afx.setMode` command                                                                                                                                                        | Must Have |
-| FR-10 | In Explore, prefix outbound turns with a read-only prompt: file/folder/source/web/simple shell inspection is allowed; mutation is blocked                                                                                                                                                     | Must Have |
-| FR-11 | In Explore, `chat/runCommand` may spawn only allowlisted read-only shell commands; mutating commands emit `agent/actionBlocked` before spawn                                                                                                                                                  | Must Have |
+| FR-10 | In Explore, prefix outbound turns with a read-only investigation prompt: repo, source, local file, shell-read, and web research are allowed; persistence and mutation route to Code or Spec mode                                                                                              | Must Have |
+| FR-11 | In Explore, `chat/runCommand` classifies shell invocations before spawn; bounded read-only commands, pipelines, substitutions, loops, stdout-only HTTP reads, and read-only interpreter helpers are allowed; mutation emits `agent/actionBlocked` before spawn                                | Must Have |
 | FR-12 | When workspace mode is Spec, the sidebar dispatcher prepends a planning-only guardrail prompt to outbound agent messages and emits a transient exit-prompt when the user leaves Spec mode for another mode                                                                                    | Must Have |
 | FR-13 | The sidebar dispatcher reads optional `intentSlot` from `chat/send`, `chat/steer`, and `chat/followUp`, resolves the parent-aware Composer Intent prefix, and composes it after any reset prompt and parent-mode guardrail. Slot 1 is zero-injection and Spec mode suppresses Intent entirely | Must Have |
-| FR-14 | In Explore, runtime tool events may render only for read-only inspection; write/edit/git/build/test/install/mutation output is suppressed                                                                                                                                                     | Must Have |
+| FR-14 | In Explore, runtime tool events render only after read-only tool classification; write, edit, git mutation, build, test, install, upload, and host mutation events are blocked or suppressed                                                                                                  | Must Have |
 
 ### Non-Functional Requirements
 
@@ -90,7 +90,7 @@ loading behavior.
 - [ ] `dispatchInbound` exhaustively covers every `ChatToAgent` variant; new variants fail type-check until handled
 - [ ] Workbench panel handles its inbound types and posts `afxUpdate` payloads back
 - [ ] `chat/setMode` updates the effective mode preference and refreshes the settings snapshot
-- [ ] Explore allows read-only inspection from prompts, runtime tools, and `!` commands; mutation paths produce `agent/actionBlocked` or a transcript error before output renders
+- [ ] Explore allows read-only investigation from prompts, runtime tools, and `!` commands; mutation paths produce `agent/actionBlocked` or a transcript error before output renders
 - [ ] Composer Intent prefixes are applied once per outbound turn after parent guardrails; Default and Spec mode are zero-injection
 
 ---
@@ -111,12 +111,12 @@ Chat webview (browser or VSCode)
   ├─ chat/setMode ───────────────────► afx.setMode (global default or workspace override)
   ├─ chat/send / chat/steer / chat/followUp
   │     └─ if mode = explore, prefix EXPLORE_GUARDRAIL_PROMPT
-  │     └─ if mode = explore, allow read-only inspection tools and block mutations
+  │     └─ if mode = explore, classify runtime tools before rendering output
   │     └─ if mode = spec, prefix SPEC_MODE_PROMPT and suppress Intent
   │     └─ if intentSlot != 1 and mode = code|explore, append Composer Intent prefix
   │     └─ otherwise forward unchanged
   └─ chat/runCommand
-        ├─ if mode = explore and command is not allowlisted read-only, emit agent/actionBlocked
+        ├─ if mode = explore and command is not classified read-only, emit agent/actionBlocked
         └─ if mode = code, spawn a shell in the workspace root
 
 Host bridge state

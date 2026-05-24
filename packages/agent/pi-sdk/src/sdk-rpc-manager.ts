@@ -1,6 +1,6 @@
 import { dirname } from "node:path";
 
-import { type PiClient, type PiEvent, createPiClient } from "@afx/agent-pi";
+import { type PiClient, type PiEvent, createPiClient, normalizePiToolArgs } from "@afx/agent-pi";
 import { PROVIDER_API_KEY_ENV_ALIASES, getDefaultApiProviderModel } from "@afx/shared";
 import type {
   AgentCommand,
@@ -545,7 +545,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
           type: "tool_start",
           toolCallId,
           toolName: typeof raw.toolName === "string" ? raw.toolName : "tool",
-          args: raw.args as Record<string, unknown> | undefined,
+          args: normalizePiToolArgs(raw, typeof raw.toolName === "string" ? raw.toolName : "tool"),
         };
       }
       case "tool_execution_end": {

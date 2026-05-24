@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T07:46:18.000Z"
-updated_at: "2026-05-22T05:56:29.000Z"
+updated_at: "2026-05-24T01:34:02.000Z"
 tags:
   ["app", "vscode", "panels", "webview", "host", "mode", "workspace-mode", "prompt", "host-guard"]
 spec: spec.md
@@ -59,44 +59,51 @@ loadWebviewHtml
 
 ## [DES-PANELS-MODE-WORKFLOW] Workspace Mode And Guardrail Workflow
 
-The sidebar panel does not invent a separate mode service. It reads the effective VS Code
-setting, routes mode changes through the shared `afx.setMode` command, and applies the same
-mode-aware guardrails to every outbound prompt path.
+The sidebar panel uses the VS Code setting as the mode source of truth.
 
-```text
-Composer/Settings mode control
-  -> chat/setMode { mode }
-  -> SidebarPanel.dispatchInbound
-  -> vscode.commands.executeCommand("afx.setMode", mode)
-  -> append compact timeline info row when the mode actually changes
-  -> extension.ts persists afx.mode.active globally unless a workspace override already exists
-  -> agent/settingsSnapshot refresh
-  -> chat + settings surfaces rehydrate the new mode
+| Area        | Contract                                                                             |
+| ----------- | ------------------------------------------------------------------------------------ |
+| Mode write  | `chat/setMode` dispatches `vscode.commands.executeCommand("afx.setMode", mode)`.     |
+| Persistence | `extension.ts` stores `afx.mode.active` globally unless a workspace override exists. |
+| Rehydration | The host sends `agent/settingsSnapshot` with the effective mode.                     |
+| Mode event  | The host appends one compact timeline row.                                           |
+| Exit reset  | Explore -> Code prepends one internal reset prompt on the next outbound turn only.   |
 
-chat/send | chat/steer | chat/followUp
-  -> normalizePromptMentions()
-  -> inflateMentionContext()
-  -> prefixWorkspaceModePrompt()
-  -> agentManager.send(...) / steer(...) / followUp(...)
+| Prompt Path     | Required Pipeline                                                                                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `chat/send`     | `normalizePromptMentions()` -> `inflateMentionContext()` -> `prefixWorkspaceModePrompt()` -> `agentManager.send(...)`     |
+| `chat/steer`    | `normalizePromptMentions()` -> `inflateMentionContext()` -> `prefixWorkspaceModePrompt()` -> `agentManager.steer(...)`    |
+| `chat/followUp` | `normalizePromptMentions()` -> `inflateMentionContext()` -> `prefixWorkspaceModePrompt()` -> `agentManager.followUp(...)` |
+| Runtime tools   | In Explore, call `classifyExploreRuntimeTool()` before rendering output.                                                  |
+| Run shell       | In Explore, `chat/runCommand` calls `classifyExploreShellCommand()` before spawn.                                         |
 
-chat/runCommand in Explore
-  -> isExploreMode()
-  -> if command is allowlisted read-only inspection, spawn shell in workspace root
-  -> otherwise post agent/actionBlocked and return without spawn()
-```
+| Mode        | Guardrail                                                                          |
+| ----------- | ---------------------------------------------------------------------------------- |
+| Code        | Full coding-agent access subject to host permissions.                              |
+| Spec        | Planning/spec-document writes only; source changes remain blocked.                 |
+| Explore     | Read-only investigation only. Applies to Default, Ask, Architect, and PRD intents. |
+| Explore PRD | Chat-only PRD drafting. Persisted PRD/spec work routes to Spec mode.               |
 
-Code is full access. Explore is read-only inspection. All four Explore intent slots inherit the
-same guardrail: Default adds no extra intent block, and Ask/Architect/PRD append their intent after
-the guardrail. PRD remains a chat-only discussion intent; if the user asks to persist a PRD/spec
-document, the assistant hands off to Spec mode. File/folder/source/web inspection is allowed.
-Simple shell reads are allowed only through an allowlist (`pwd`, `ls`, `cat`, `rg`, `grep`,
-`sed -n`, `head`, `tail`, `find`, `stat`, stdout-only `curl`/`wget`). Writes, edits, installs,
-tests, builds, git mutations, uploads, form submits, and mutating shell commands are blocked. For a
-blocked runtime tool, the host aborts the turn and suppresses late output until `agent_end`.
-When the user switches back from Explore to Code, the next outbound prompt receives a hidden,
-one-shot Code reset prefix so the agent session does not continue obeying the prior Explore
-instruction from conversation history. The visible chat history should only show a compact timeline
-info row, for example `Switched to Code mode. Normal workspace actions are available.`
+Explore classifier contract:
+
+- Runtime tool names: allow read/view/open, list/glob, source search, browser/web read, URL
+  fetch, weather, finance, sports, and time tools; block write/edit/delete/upload/click/type,
+  git mutation, build, test, install, database, and runtime mutator tools.
+- Runtime request args: allow HTTP GET-style reads with no body, upload, form, output file, or
+  mutating method; block POST, PUT, PATCH, DELETE, request bodies, form data, upload, save-to-file,
+  and output targets.
+- Shell structure: allow bounded chains and pipelines, read-only `$(...)`, simple `for` loops,
+  simple `[ -f ]` checks, `time`, `timeout`, and `bash -c` wrappers; block background execution,
+  unsupported control flow, stdin/file write redirection, and heredocs.
+- Shell command families: allow read commands such as `pwd`, `ls`, `cat`, `rg`, `grep`, `sed -n`,
+  `awk`, `head`, `tail`, `find`, `stat`, `du`, `wc`, `jq`, `yq`, `curl`, `wget`, git reads, `gh`
+  reads, and package metadata reads; block file mutation, installs, builds, tests, linters,
+  formatters, git mutators, and mutating HTTP flags.
+- Interpreter one-liners: allow Python/Node stdout-only reads, JSON parsing, local file reads, and
+  HTTP GET reads; block file writes, write modes, subprocess/child process, process mutation,
+  filesystem mutation, and mutating fetch/request.
+
+Blocked Explore runtime tools abort the turn and suppress late output until `agent_end`.
 
 ## [DES-PANELS-EXPLORE-PROMPT] Read-Only Explore Prompt
 

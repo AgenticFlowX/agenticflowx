@@ -24,6 +24,7 @@ import type {
 } from "@afx/shared";
 
 import { type PiClient, type PiEvent, createPiClient } from "./rpc-client";
+import { normalizePiToolArgs } from "./tool-args";
 
 const START_RETRY_COOLDOWN_MS = 10_000;
 const START_MAX_ATTEMPTS = 3;
@@ -344,7 +345,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
           type: "tool_start",
           toolCallId,
           toolName,
-          args: raw.args as Record<string, unknown> | undefined,
+          args: normalizePiToolArgs(raw, toolName),
         };
       }
       case "tool_execution_end": {
