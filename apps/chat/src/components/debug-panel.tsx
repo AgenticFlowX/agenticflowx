@@ -175,6 +175,7 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
       { name: "spec-doc-actions", label: "Spec actions", accent: "bg-afx-brand" },
       { name: "spec-doc-clear", label: "Clear doc", accent: "bg-muted-foreground" },
       { name: "spec-doc-preview", label: "Preview doc", accent: "bg-afx-brand" },
+      { name: "markdown-active-file", label: "Markdown file", accent: "bg-afx-brand" },
       { name: "long-next-actions", label: "Long next", accent: "bg-afx-brand" },
       { name: "sprint-doc-actions", label: "Sprint actions", accent: "bg-afx-brand" },
       { name: "journal-doc-actions", label: "Journal actions", accent: "bg-afx-brand" },

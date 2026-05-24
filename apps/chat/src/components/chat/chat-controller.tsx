@@ -54,6 +54,7 @@ import type { AgentRecoveryActions } from "../agent-recovery-card";
 import { ChatDocActionsPanelBody, ChatDocActionsPanelTitle } from "../chat-doc-actions-panel";
 import { FilesPanelBody } from "../files-panel";
 import { toast } from "../toast";
+import { AfxPreviewHeaderAction } from "./afx-preview-header-action";
 import type {
   ChatHistoryStore,
   ChatWindowFlags,
@@ -61,6 +62,7 @@ import type {
   ComposerPanelStackConfig,
 } from "./chat.types";
 import { DEFAULT_CHAT_WINDOW_FLAGS } from "./chat.types";
+import { ComposerHeaderActionButton } from "./composer-header-action-button";
 import {
   type BlockedActionView,
   BlockedCommandPanelBody,
@@ -74,6 +76,16 @@ import { IntentStrip, IntentStripHeaderExtras, IntentStripTitle } from "./intent
 type ActiveDocContextMessage = MessageOf<AgentToChat, "chat/activeDocContext">;
 
 const EDIT_TOOL_NAME_PATTERN = /(edit|write|patch|create|notebookedit)/i;
+
+function resolveMarkdownPreviewPath(
+  docContext: ActiveDocCtx,
+  activeFileContext: ActiveFileContextSnapshot | null,
+): string | null {
+  const candidate = docContext.filePath ?? activeFileContext?.path ?? null;
+  if (!candidate) return null;
+  const normalized = candidate.toLowerCase();
+  return normalized.endsWith(".md") || normalized.endsWith(".markdown") ? candidate : null;
+}
 
 function activeDocContextFromMessage(msg: ActiveDocContextMessage): ActiveDocCtx {
   const { type: _type, ...ctx } = msg;
@@ -572,6 +584,7 @@ export function useChatController({
     : null;
   const activeFileDisplayName = activeFileContext?.name ?? "No active file";
   const activeFileDisplayPath = activeFileContext?.path ?? "No active editor file";
+  const activePreviewPath = resolveMarkdownPreviewPath(activeDocContext, activeFileContext);
 
   // Compaction lifecycle. `setCompactionActive` flips a single bit on the
   // runtime snapshot so the composer/footer can show the "Compacting…" state;
@@ -1094,6 +1107,10 @@ export function useChatController({
     bridgeSend({ type: "chat/openFile", path: p, line });
   });
 
+  const handleOpenAfxPreview = useStableCallback((p: string) => {
+    bridgeSend({ type: "chat/openFile", path: p, mode: "afxPreview" });
+  });
+
   const dismissModifiedFiles = useStableCallback(() => {
     setDismissedAtAssistantMessageId(latestEditingAssistantMessageId);
   });
@@ -1607,6 +1624,10 @@ export function useChatController({
     }
 
     // 4. Intent: Code/Explore only; Spec keeps doc-actions/spec-stepper framing.
+    const previewAction = activePreviewPath ? (
+      <AfxPreviewHeaderAction path={activePreviewPath} onOpen={handleOpenAfxPreview} />
+    ) : null;
+
     if (isIntentParentMode(workspaceMode)) {
       panels.push({
         id: "intent",
@@ -1625,6 +1646,7 @@ export function useChatController({
             slot={intentSlot}
             onSlotChange={setIntentSlot}
             collapsed={collapsed}
+            previewAction={docActionsVisible ? null : previewAction}
           />
         ),
         onCollapsedChange: setIntentMinimized,
@@ -1641,6 +1663,19 @@ export function useChatController({
     //
     // Memory is not duplicated in this panel header.
     if (docActionsVisible) {
+      const switchToSpecAction =
+        workspaceMode === "spec" ? null : (
+          <ComposerHeaderActionButton
+            aria-label="Switch to Spec"
+            title="Switch to Spec"
+            onClick={() => {
+              setMode("spec");
+              setOnboardingFlag("specModeOfferDismissed", true);
+            }}
+          >
+            Switch to Spec
+          </ComposerHeaderActionButton>
+        );
       panels.push({
         id: "doc-actions",
         zone: "workflow",
@@ -1650,18 +1685,12 @@ export function useChatController({
         collapsible: true,
         dismissible: true,
         actions:
-          workspaceMode === "spec" ? null : (
-            <button
-              type="button"
-              onClick={() => {
-                setMode("spec");
-                setOnboardingFlag("specModeOfferDismissed", true);
-              }}
-              className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
-            >
-              Switch to Spec
-            </button>
-          ),
+          previewAction || switchToSpecAction ? (
+            <>
+              {previewAction}
+              {switchToSpecAction}
+            </>
+          ) : null,
         component: ChatDocActionsPanelBody as ComponentType<unknown>,
         props: {
           workspaceMode,
@@ -1684,16 +1713,16 @@ export function useChatController({
         visible: true,
         dismissible: true,
         actions: (
-          <button
-            type="button"
+          <ComposerHeaderActionButton
+            aria-label="Switch to Spec"
+            title="Switch to Spec"
             onClick={() => {
               setMode("spec");
               setAfxCommandSuggestVisible(false);
             }}
-            className="inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] text-muted-foreground/80 hover:bg-muted hover:text-foreground"
           >
             Switch to Spec
-          </button>
+          </ComposerHeaderActionButton>
         ),
         component: ComposerNoticePanelBody as ComponentType<unknown>,
         props: {
@@ -1707,6 +1736,7 @@ export function useChatController({
     return { panels };
   }, [
     activeDocContext,
+    activePreviewPath,
     afxCommandSuggestDismissed,
     afxCommandSuggestVisible,
     blockedAction,
@@ -1717,6 +1747,7 @@ export function useChatController({
     dismissedDocActionsStrip,
     dispatchHostAction,
     filesPanelVisible,
+    handleOpenAfxPreview,
     handleOpenModifiedFile,
     intentMinimized,
     intentSlot,

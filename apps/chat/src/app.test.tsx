@@ -2545,6 +2545,79 @@ describe("chat App", () => {
     });
   });
 
+  it("opens AFX Preview from the Intent header for markdown active files", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      emitChatState(
+        transport,
+        {},
+        { name: "overview.md", path: "/repo/docs/specs/001-overview/overview.md" },
+        "code",
+      );
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open AFX Preview" }));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "/repo/docs/specs/001-overview/overview.md",
+      mode: "afxPreview",
+    });
+  });
+
+  it("hides the AFX Preview header action for non-markdown active files", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      emitChatState(
+        transport,
+        {},
+        { name: "chat-controller.tsx", path: "/repo/apps/chat/src/components/chat-controller.tsx" },
+        "code",
+      );
+    });
+
+    expect(screen.queryByRole("button", { name: "Open AFX Preview" })).not.toBeInTheDocument();
+  });
+
+  it("opens AFX Preview from the doc-actions header for active AFX markdown docs", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      emitChatState(transport, {}, null, "code");
+      transport.emit({
+        type: "chat/activeDocContext",
+        format: "sprint",
+        section: "SPEC",
+        docKind: "spec",
+        feature: "postgresql-marketplace-backend-rewrite",
+        filePath: "/repo/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+        approvalStatus: "Draft",
+      });
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open AFX Preview" }));
+
+    expect(send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "/repo/docs/specs/999-fleet/postgresql-marketplace-backend-rewrite.md",
+      mode: "afxPreview",
+    });
+  });
+
   it("inserts draft-first parsed Next result actions without sending immediately", async () => {
     const transport = createControlledTransport();
     initTransport(transport);

@@ -1026,6 +1026,17 @@ This is a long-running response on purpose so the queue stays visible while you 
     });
   }
 
+  function emitMarkdownActiveFileContext(): void {
+    clearDocContext();
+    emit({
+      type: "agent/activeFileContext",
+      snapshot: {
+        name: "design.md",
+        path: "/workspace/docs/specs/auth/design.md",
+      },
+    });
+  }
+
   function clearDocContext(): void {
     emit({
       type: "chat/activeDocContext",
@@ -2199,6 +2210,7 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     "spec-doc-actions": () => runSpecDocActions(),
     "spec-doc-clear": () => clearDocContext(),
     "spec-doc-preview": () => emitSpecDocContext(),
+    "markdown-active-file": () => emitMarkdownActiveFileContext(),
     "long-next-actions": () => runLongNextActions(),
     "sprint-doc-actions": () => runSprintDocActions(),
     "journal-doc-actions": () => runJournalDocActions(),

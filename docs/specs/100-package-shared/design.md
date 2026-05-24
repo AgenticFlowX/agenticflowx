@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "2.1"
+version: "2.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-23T11:03:30.000Z"
+updated_at: "2026-05-24T03:51:51.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
 tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
 spec: spec.md
@@ -71,12 +71,13 @@ type ChatToAgent =
   // @see docs/specs/211-app-chat-composer/spec.md [FR-11]
   // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-CONTEXT]
   | { type: "chat/setIncludeActiveFileContext"; requestId: string; enabled: boolean }
-  // Composer modified-files strip pill click — host opens path in editor; if
+  // Composer modified-files strip pill click defaults to the source editor; if
   // `line` is provided (1-indexed), the host reveals that line via the editor
-  // selection. Optional, harness-agnostic.
+  // selection. Composer preview actions may pass `mode: "afxPreview"` to open
+  // the editor-area AFX Preview instead. Optional, harness-agnostic.
   // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
   // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
-  | { type: "chat/openFile"; path: string; line?: number };
+  | { type: "chat/openFile"; path: string; line?: number; mode?: "editor" | "afxPreview" };
 
 // Extension host → Chat direction (streaming-aware event protocol)
 type AgentToChat =

@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.19"
+version: "1.20"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-23T12:43:08.000Z"
+updated_at: "2026-05-24T03:51:51.000Z"
 tags: ["app", "chat", "composer", "webview", "mode", "workspace-mode", "host-guard"]
 depends_on:
   [
@@ -210,6 +210,7 @@ Chat users, developers maintaining the chat webview, and AI agents making target
 - [ ] Long doc-action dropdown labels may truncate visually, but every parsed focus/task/command target exposes full title, line/command metadata, and available body context through shadcn tooltip content
 - [ ] Completed assistant messages parse explicit `Next:` / `Next (ranked):` sections, including ranked lists and unlisted bare `/afx-*` command lines, scrub obsolete machine-action marker blocks from stale assistant prose without supporting them as actions, hide parsed `Next` prose when actions render, and surface one `RUN NEXT` rail with at most three buttons; auto-send entries run immediately, draft-first entries insert into the composer, and long commands retain their full value in tooltip/accessible text
 - [ ] Host- and UI-inserted draft-first `/afx-*` commands replace the existing composer draft, append one trailing space, focus the composer, and place the cursor at the end for extra user context.
+- [ ] When the active file or active doc context path is markdown, composer panel headers expose a flat `Preview` action that sends `chat/openFile { path, mode: "afxPreview" }`; the action is hidden for non-markdown/no-file contexts and becomes icon-only at compact widths
 - [ ] Icons come from `lucide-react` and match the command intent; no bespoke icon set is introduced for these controls
 - [ ] Unit tests cover command catalog, doc actions, memory dropdown, context presets, result-action parsing/rendering, and host active-doc context parsing
 - [ ] E2E coverage is required before broad rollout for: switching into/out of Spec without lock-in, using doc-action More/focus controls, and selecting result-action follow-ups from a completed assistant turn

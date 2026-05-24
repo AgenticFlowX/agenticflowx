@@ -4,7 +4,7 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-1] [FR-3] [FR-7] [FR-9] [FR-17]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { ChevronDown, Target } from "lucide-react";
 
@@ -30,6 +30,7 @@ import {
   formatIntentPromptDetail,
   formatIntentPromptTitle,
 } from "../../lib/intent-copy";
+import { ComposerHeaderActionButton } from "./composer-header-action-button";
 import { IntentPromptPreview } from "./intent-prompt-preview";
 
 export function IntentStripTitle() {
@@ -46,6 +47,7 @@ export interface IntentStripHeaderExtrasProps {
   slot: IntentSlot;
   onSlotChange: (slot: IntentSlot) => void;
   collapsed?: boolean;
+  previewAction?: ReactNode;
 }
 
 export function IntentStripHeaderExtras({
@@ -53,6 +55,7 @@ export function IntentStripHeaderExtras({
   slot,
   onSlotChange,
   collapsed,
+  previewAction,
 }: IntentStripHeaderExtrasProps) {
   const activeSlot = normalizeIntentSlot(slot);
   const entries = getIntentPrompts(parentMode);
@@ -63,18 +66,20 @@ export function IntentStripHeaderExtras({
       className="afx-intent-strip flex min-w-0 items-center gap-1.5"
       data-workspace-mode={parentMode}
     >
+      {previewAction}
       {collapsed ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex h-5 max-w-32 items-center gap-1 rounded-full border border-[var(--intent-accent-border)] bg-[var(--intent-accent-bg)] px-2 text-[10px] font-medium leading-none text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/50"
+            <ComposerHeaderActionButton
+              className="max-w-32"
               aria-label={`Switch Intent. Current: ${active.label}`}
               title={`Switch Intent: ${active.label}`}
+              trailingIcon={
+                <ChevronDown size={10} aria-hidden="true" className="shrink-0 opacity-70" />
+              }
             >
-              <span className="truncate">{active.label}</span>
-              <ChevronDown size={10} aria-hidden="true" className="shrink-0 opacity-70" />
-            </button>
+              {active.label}
+            </ComposerHeaderActionButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuRadioGroup

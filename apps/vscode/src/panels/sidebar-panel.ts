@@ -97,6 +97,8 @@ export interface SidebarPanelDeps {
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
   secretStore?: SecretStore;
+  /** Open a markdown document in the standalone editor-area AFX preview. */
+  openAfxPreview?: (uri: vscode.Uri) => void;
   /**
    * Workspace memento for one-time onboarding flags (mode-suggest, tooltips).
    *
@@ -318,6 +320,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     runtimeMonitor: providedRuntimeMonitor,
     logger: parentLogger,
     secretStore,
+    openAfxPreview,
     customProvidersService,
   } = deps;
   const log = parentLogger.child("sidebar");
@@ -1726,6 +1729,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
             ? path.join(root, msg.path)
             : msg.path;
         const uri = vscode.Uri.file(abs);
+        if (msg.mode === "afxPreview" && openAfxPreview) {
+          openAfxPreview(uri);
+          return;
+        }
         const lineIndex =
           typeof msg.line === "number" && Number.isFinite(msg.line) && msg.line > 0
             ? msg.line - 1

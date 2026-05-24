@@ -46,7 +46,7 @@ import {
   updateAfxConfigurationWithWorkspaceFallback,
 } from "./configuration-target";
 import { MultiplexedAgentManager } from "./multiplex-agent-manager";
-import { openAfxPreview } from "./panels/afx-preview-panel";
+import { type AfxPreviewDeps, openAfxPreview } from "./panels/afx-preview-panel";
 import {
   SIDEBAR_VIEW_TYPE,
   type SidebarPanelProvider,
@@ -54,7 +54,6 @@ import {
 } from "./panels/sidebar-panel";
 import { WORKBENCH_VIEW_TYPE, createWorkbenchPanel } from "./panels/workbench-panel";
 import { createAfxCodeActionProvider } from "./providers/afx-code-actions";
-import { createAfxPreviewCodeLensProvider } from "./providers/afx-preview-codelens";
 import { createSeeCompletionProvider } from "./providers/see-completion";
 import {
   OPEN_SPEC_AT_LINE_COMMAND,
@@ -335,6 +334,24 @@ export async function activate(
     customProvidersService,
   );
 
+  // Shared: route an AFX command (e.g. the preview "Refine" action) to the chat
+  // sidebar — either appended to the draft or sent immediately.
+  const openChatCommand = async (command: string, mode: "insert" | "send"): Promise<void> => {
+    await vscode.commands.executeCommand("afx.openSidebar");
+    if (mode === "send") {
+      await sidebarProvider?.sendExternalPrompt(command);
+      return;
+    }
+    await sidebarProvider?.appendToDraft(command);
+  };
+
+  const afxPreviewDeps: AfxPreviewDeps = {
+    extensionUri: context.extensionUri,
+    extensionMode: context.extensionMode,
+    logger,
+    openChatCommand,
+  };
+
   sidebarProvider = createSidebarPanel({
     extensionUri: context.extensionUri,
     extensionMode: context.extensionMode,
@@ -345,6 +362,7 @@ export async function activate(
     runtimeMonitor,
     logger,
     secretStore,
+    openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     workspaceState: context.workspaceState,
     // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
@@ -355,17 +373,6 @@ export async function activate(
     logger,
   );
   context.subscriptions.push({ dispose: () => specsData.dispose() });
-
-  // Shared: route an AFX command (e.g. the preview "Refine" action) to the chat
-  // sidebar — either appended to the draft or sent immediately.
-  const openChatCommand = async (command: string, mode: "insert" | "send"): Promise<void> => {
-    await vscode.commands.executeCommand("afx.openSidebar");
-    if (mode === "send") {
-      await sidebarProvider.sendExternalPrompt(command);
-      return;
-    }
-    await sidebarProvider.appendToDraft(command);
-  };
 
   const workbenchProvider = createWorkbenchPanel({
     extensionUri: context.extensionUri,
@@ -543,25 +550,12 @@ export async function activate(
 
   const getRoot = (): string | undefined => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 
-  // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-PANEL]
-  const afxPreviewDeps = {
-    extensionUri: context.extensionUri,
-    extensionMode: context.extensionMode,
-    logger,
-    openChatCommand,
-  };
-
   // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
   context.subscriptions.push(
     // @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-6]
     // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-PANEL]
     vscode.commands.registerCommand("afx.openAfxPreview", (uri?: vscode.Uri) =>
       openAfxPreview(afxPreviewDeps, uri ?? vscode.window.activeTextEditor?.document.uri),
-    ),
-    // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-CODELENS]
-    vscode.languages.registerCodeLensProvider(
-      { language: "markdown" },
-      createAfxPreviewCodeLensProvider(),
     ),
     // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-MOCKUP-CODELENS]
     vscode.languages.registerCodeLensProvider(TRACE_LANGUAGES, createSpecCodeLensProvider(getRoot)),

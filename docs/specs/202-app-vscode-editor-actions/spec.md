@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-23T11:03:30.000Z"
+updated_at: "2026-05-24T03:51:51.000Z"
 tags: ["app", "vscode", "editor-actions", "commands"]
 depends_on: ["100-package-shared", "200-app-vscode", "215-app-chat-notes"]
 ---
@@ -46,14 +46,14 @@ VSCode users invoking AFX from editor context and developers adding editor actio
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Priority  |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| FR-1 | Own editor context menu, editor title menu, and code-action contribution behavior                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Must Have |
-| FR-2 | Own runtime dispatch from editor actions into commands, chat, notes, and spec helpers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Must Have |
-| FR-3 | Own action availability/context-key rules for editor selection and sprint context                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Must Have |
-| FR-4 | Coordinate with `203-app-vscode-see-navigation` for `@see` navigation actions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Must Have |
-| FR-5 | Keep webview UI behavior in app webview specs                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Must Have |
-| FR-6 | Open in AFX Preview: command `afx.openAfxPreview` opens the active markdown file in an editor-area webview panel beside the file (`ViewColumn.Beside`), reusing the Workbench `DocumentStudio` engine. One panel per file URI — multiple previews are supported for side-by-side reading; re-invoking on the same file reuses its panel. Surfaced via title-bar icon, AFX context submenu item, and a top-of-file CodeLens. Works on any markdown (AFX frontmatter renders the full preview; otherwise generic `MinimalMarkdown`). Additive — existing actions remain | Must Have |
+| ID   | Requirement                                                                                                                                                                                                                                                                  | Priority  |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| FR-1 | Own editor context menu, editor title menu, and code-action contribution behavior                                                                                                                                                                                            | Must Have |
+| FR-2 | Own runtime dispatch from editor actions into commands, chat, notes, and spec helpers                                                                                                                                                                                        | Must Have |
+| FR-3 | Own action availability/context-key rules for editor selection and sprint context                                                                                                                                                                                            | Must Have |
+| FR-4 | Coordinate with `203-app-vscode-see-navigation` for `@see` navigation actions                                                                                                                                                                                                | Must Have |
+| FR-5 | Keep webview UI behavior in app webview specs                                                                                                                                                                                                                                | Must Have |
+| FR-6 | Open AFX Preview for markdown files via a reusable editor-area panel. Entry points: markdown editor title, first AFX context submenu item, and chat composer header `Preview` through `chat/openFile.mode = "afxPreview"`. No top-of-file CodeLens or bottom status-bar CTA. | Must Have |
 
 ### Non-Functional Requirements
 
@@ -71,6 +71,16 @@ VSCode users invoking AFX from editor context and developers adding editor actio
 - [ ] `package.json` editor menu contributions and editor action providers route here
 - [ ] Adding a right-click or title action starts from this spec
 - [ ] Notes actions depend on `215-app-chat-notes` for note payload behavior
+
+### AFX Preview (FR-6)
+
+- [ ] `afx.openAfxPreview` opens markdown in `ViewColumn.Beside`
+- [ ] One preview panel is reused per file URI; different files can preview side by side
+- [ ] Preview content comes from the in-memory editor buffer, including unsaved edits
+- [ ] AFX frontmatter uses the full `DocumentStudio` preview; generic markdown uses fallback rendering
+- [ ] Markdown editor title and AFX context submenu show native preview access
+- [ ] Chat `chat/openFile { mode: "afxPreview" }` routes to the same preview helper
+- [ ] Top-of-file CodeLens provider is not registered
 
 ---
 

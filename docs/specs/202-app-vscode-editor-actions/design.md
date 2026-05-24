@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-23T11:03:30.000Z"
+updated_at: "2026-05-24T03:51:51.000Z"
 tags: ["app", "vscode", "editor-actions", "commands"]
 spec: spec.md
 ---
@@ -188,56 +188,69 @@ Group separators are visible because each group prefix changes (`0_notes`, `1_ch
 
 ### [DES-ACTION-PREVIEW-PANEL] Open in AFX Preview Panel
 
-`afx.openAfxPreview` opens the active markdown file in an editor-area webview panel beside the
-source (`ViewColumn.Beside`), reusing the Workbench bundle in standalone preview boot mode. Owned by
-`apps/vscode/src/panels/afx-preview-panel.ts` (`openAfxPreview(deps, targetUri?)`).
+| Concern        | Contract                                                                                         |
+| -------------- | ------------------------------------------------------------------------------------------------ |
+| Owner          | `apps/vscode/src/panels/afx-preview-panel.ts` `openAfxPreview(deps, targetUri?)`                 |
+| View type      | `afxPreview` editor-area webview                                                                 |
+| Placement      | `ViewColumn.Beside`, `preserveFocus: true`                                                       |
+| Bundle         | Workbench webview bundle, booted with `data-afx-view="preview"`                                  |
+| Scope          | Markdown files; AFX frontmatter renders full `DocumentStudio`, generic markdown uses fallback UI |
+| State model    | One panel per `uri.toString()`; same URI reveals/reuses, different URI opens another panel       |
+| Content source | `TextDocument.getText()` from the in-memory editor buffer                                        |
+| Refresh        | Debounced live-on-type push per URI                                                              |
 
-**Per-URI panel lifecycle.** A module-level registry `panels: Map<string, PreviewEntry>` keyed by
-`uri.toString()`. **One panel per file URI** — multiple previews are supported for side-by-side
-reading; re-invoking on the **same** file reuses its panel. `resolved = targetUri ??
-activeTextEditor?.document.uri`; bail if neither resolves. If an entry already exists for the key,
-call `panel.reveal(ViewColumn.Beside, true)` and re-push its content. Otherwise
-`createWebviewPanel("afxPreview", "AFX Preview — <basename>", { viewColumn: Beside, preserveFocus: true }, { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [workbench dist] })`,
-storing the new entry under its key with its own `post` callback and `afxReady` handler. Including
-the file basename in the title keeps multiple panels distinguishable.
-`retainContextWhenHidden: true` preserves scroll/state when a panel tab is hidden. The HTML is built
-via `loadWebviewHtml(panel.webview, extensionUri, "workbench", extensionMode, { view: "preview" })`,
-which adds the `data-afx-view="preview"` body attribute (no CSP change).
+#### Panel lifecycle
 
-**Handshake.** Boot follows the existing `afxReady`->host pattern (never timers/query strings). On
-`afxReady` the host posts `afxAppearanceUpdated` (parity with `workbench-panel.ts`) and then pushes
-that panel's preview.
+1. Resolve target URI from command argument, or active editor.
+2. If no URI exists, show a non-blocking warning.
+3. If a panel exists for `uri.toString()`, reveal it beside the source and push fresh content.
+4. Otherwise create `AFX Preview — <basename>` with:
+   - `enableScripts: true`
+   - `retainContextWhenHidden: true`
+   - `localResourceRoots: [workbench dist]`
+5. Store `{ panel, uri, post, disposables }` in a module-level registry.
+6. On dispose, remove the entry, cancel its debounce timer, and dispose panel-local subscriptions.
 
-**Content source.** Per panel, the host opens the `TextDocument` for the entry's URI and posts
-`afxPreviewShow { filePath: asRelativePath(uri, false), content: doc.getText(), isAfxHint }`.
-Content is the **in-memory editor buffer** (`getText()`), so unsaved edits render; `isAfxHint` is
-computed host-side via `parseFrontmatter` from `@afx/parsers`. The panel never round-trips through
-`afxFetchDocContent`, so `workbench-panel.ts` is untouched and no content-fetch extraction is needed.
+#### Host-to-preview messages
 
-**Live-on-type refresh.** A **single** module-level `vscode.workspace.onDidChangeTextDocument`
-subscription looks up the registry by `e.document.uri.toString()` and, if a panel exists for that
-key, re-pushes to **that panel only** — avoiding N change-subscriptions. Refresh is debounced
-(~200ms) via a per-key `Map<string, timer>`, so typing in one file never cancels another file's
-pending refresh (save is covered by the same change events).
+| Message                | Trigger                   | Payload / rule                                                               |
+| ---------------------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `afxAppearanceUpdated` | `afxReady`, config change | Reposts current appearance class for theme parity                            |
+| `afxPreviewShow`       | `afxReady`, text change   | `{ filePath, content, isAfxHint }`; `filePath` is workspace-relative         |
+| `afxOpenChatCommand`   | Preview toolbar command   | Routes through `openChatCommand(command, mode)` into chat sidebar draft/send |
+| Checkbox mutations     | Preview checkbox click    | Toggle helpers apply `WorkspaceEdit` against the same source document        |
 
-**Appearance + teardown.** A single module-level `onDidChangeConfiguration` re-posts
-`afxAppearanceUpdated` to **all** open panels for theme parity. Both shared subscriptions are
-registered lazily on first open and torn down once the registry is empty. Each panel's
-`onDidDispose` removes its entry from the registry, disposes its per-panel subscriptions, and
-cancels its keyed debounce timer — no leaks and no errors after all panels close.
+#### Shared subscriptions
 
-**Workbench-originated clicks.** Workbench document actions open the same panel by sending
-`afxOpenFile { mode: "afxPreview" }` (see `[DES-SHARED-WORKBENCH-PROTOCOL]`); `workbench-panel.ts`
-resolves the workspace-relative path and calls the same `openAfxPreview(deps, uri)` helper. Existing
-`mode: "preview"` continues to open the native markdown preview.
+| Subscription                         | Count | Rule                                                                 |
+| ------------------------------------ | ----- | -------------------------------------------------------------------- |
+| `workspace.onDidChangeTextDocument`  | 1     | Lookup by URI key; debounce and push only the matching preview panel |
+| `workspace.onDidChangeConfiguration` | 1     | Broadcast `afxAppearanceUpdated` to all open preview panels          |
 
-### [DES-ACTION-PREVIEW-CODELENS] Open in AFX Preview CodeLens
+Register shared subscriptions lazily on first preview open. Dispose them when the panel registry is
+empty.
 
-`apps/vscode/src/providers/afx-preview-codelens.ts` registers a single top-of-file CodeLens for
-language `markdown`. It emits exactly one lens at `Range(0, 0, 0, 0)` titled
-`$(open-preview) Open AFX Preview`, command `afx.openAfxPreview`, `arguments: [document.uri]`. It
-mirrors only the **factory shape** of `spec-codelens.ts` (not its per-`@see`-match logic) and
-coexists with the existing spec CodeLens provider on markdown files.
+#### Cross-surface callers
+
+| Caller                  | Message / command                                      | Host behavior                                               |
+| ----------------------- | ------------------------------------------------------ | ----------------------------------------------------------- |
+| Editor title            | `afx.openAfxPreview(uri?)`                             | Opens/reveals target markdown preview                       |
+| AFX editor submenu      | `afx.openAfxPreview(uri?)`                             | Same helper                                                 |
+| Workbench document UI   | `afxOpenFile { path, mode: "afxPreview" }`             | `workbench-panel.ts` resolves path, calls `openAfxPreview`  |
+| Chat composer panel UI  | `chat/openFile { path, mode: "afxPreview" }`           | `sidebar-panel.ts` resolves path, calls injected preview fn |
+| Native markdown preview | `afxOpenFile { path, mode: "preview" }` workbench only | Unchanged: opens VS Code's native markdown preview          |
+
+### [DES-ACTION-PREVIEW-ENTRYPOINTS] Open in AFX Preview Entry Points
+
+| Entry point                  | Owner / route                                                                 | UX rule                                              |
+| ---------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Markdown editor title action | `apps/vscode/package.json` `menus.editor/title` → `afx.openAfxPreview`        | Small native icon; visible only for markdown editors |
+| AFX editor submenu           | `menus.afx.editorContext` first item → `afx.openAfxPreview`                   | First item above Workbench and chat/editor actions   |
+| Chat composer header action  | `chat/openFile { path, mode: "afxPreview" }` → `sidebar-panel.openAfxPreview` | Flat Preview action owned by `211-app-chat-composer` |
+
+The retired top-of-file CodeLens is intentionally not registered. Preview access should be native
+or header-adjacent, not a line-1 marker inside the document. A bottom status-bar CTA is also out of
+scope because it competes with the composer/workbench chrome.
 
 ---
 
@@ -247,6 +260,7 @@ coexists with the existing spec CodeLens provider on markdown files.
 | ----------------------------------------------- | ------------------------------------------- |
 | `apps/vscode/package.json`                      | VSCode menu/command contribution manifest   |
 | `apps/vscode/src/providers/afx-code-actions.ts` | Code action provider and action definitions |
+| `apps/vscode/src/panels/afx-preview-panel.ts`   | Editor-area AFX Preview panel lifecycle     |
 | `apps/vscode/src/extension.ts`                  | Provider/command registration               |
 | `apps/vscode/src/services/sprint-context.ts`    | Context keys that affect editor actions     |
 

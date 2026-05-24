@@ -25,7 +25,7 @@ import {
 } from "@afx/shared";
 
 import { type MockAgentManager, createMockAgentManager } from "../__fixtures__/mock-agent-manager";
-import { createSidebarPanel } from "./sidebar-panel";
+import { type SidebarPanelDeps, createSidebarPanel } from "./sidebar-panel";
 
 vi.mock("./webview-html", () => ({
   getAppDistPath: () => "/tmp/agenticflowx/chat/dist",
@@ -83,7 +83,7 @@ describe("sidebar-panel host bridge", () => {
     mockSpawn.mockClear();
   });
 
-  function setupWithView(): {
+  function setupWithView(overrides: Partial<SidebarPanelDeps> = {}): {
     inbound: InboundCapture;
     postMessage: ReturnType<typeof vi.fn>;
     provider: ReturnType<typeof createSidebarPanel>;
@@ -97,6 +97,7 @@ describe("sidebar-panel host bridge", () => {
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
+      ...overrides,
     });
     provider.resolveWebviewView(view, {} as never, {} as never);
     return {
@@ -1410,6 +1411,35 @@ describe("sidebar-panel host bridge", () => {
     const inbound = setup();
     inbound.fire({ type: "chat/openWorkbench", requestId: "workbench-1" });
     expect(executeCommand).toHaveBeenCalledWith("afx.openWorkbench");
+  });
+
+  it("chat/openFile opens the source editor by default", () => {
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md" });
+
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile opens AFX Preview when requested", () => {
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const openAfxPreview = vi.fn();
+    const { inbound } = setupWithView({ openAfxPreview });
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "afxPreview" });
+
+    expect(openAfxPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+    );
+    expect(showTextDocument).not.toHaveBeenCalled();
   });
 
   it("appearance/update persists validated theme and style settings", async () => {

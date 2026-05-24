@@ -125,6 +125,7 @@ describe("createMockTransport", () => {
       "spec-doc-actions",
       "spec-doc-clear",
       "spec-doc-preview",
+      "markdown-active-file",
       "sprint-doc-actions",
       "journal-doc-actions",
       "global-journal-doc-actions",

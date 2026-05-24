@@ -93,6 +93,7 @@ describe("extension.activate", () => {
   // mock.calls) are runtime, so widening the declared type is safe.
   let registerCommand: MockInstance;
   let registerWebview: MockInstance;
+  let registerCodeLensProvider: MockInstance;
   let createStatus: MockInstance;
   let createOutput: MockInstance;
 
@@ -105,6 +106,7 @@ describe("extension.activate", () => {
     createConfiguredAgentInstances.mockResolvedValue([agentInstance]);
     registerCommand = vi.spyOn(vscode.commands, "registerCommand");
     registerWebview = vi.spyOn(vscode.window, "registerWebviewViewProvider");
+    registerCodeLensProvider = vi.spyOn(vscode.languages, "registerCodeLensProvider");
     createStatus = vi.spyOn(vscode.window, "createStatusBarItem");
     createOutput = vi.spyOn(vscode.window, "createOutputChannel");
   });
@@ -596,6 +598,18 @@ describe("extension.activate", () => {
 
     expect(createOutput).toHaveBeenCalledWith("AgenticFlowX");
     expect(createStatus).toHaveBeenCalled();
+  });
+
+  it("does not register the retired markdown-only AFX Preview CodeLens", async () => {
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    expect(registerCodeLensProvider).toHaveBeenCalledTimes(1);
+    expect(registerCodeLensProvider).not.toHaveBeenCalledWith(
+      { language: "markdown" },
+      expect.anything(),
+    );
   });
 
   it("logs activation/runtime errors without opening the output panel automatically", async () => {

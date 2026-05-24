@@ -75,6 +75,23 @@ describe("IntentStripHeaderExtras", () => {
     expect(screen.queryByText("Intent guide")).not.toBeInTheDocument();
   });
 
+  it("orders Preview before the collapsed intent switcher", () => {
+    render(
+      <IntentStripHeaderExtras
+        parentMode="code"
+        slot={1}
+        onSlotChange={vi.fn()}
+        collapsed
+        previewAction={<button type="button">Preview</button>}
+      />,
+    );
+
+    const preview = screen.getByRole("button", { name: "Preview" });
+    const switcher = screen.getByRole("button", { name: "Switch Intent. Current: Default" });
+
+    expect(preview.compareDocumentPosition(switcher)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("shows the prompt annotation for non-default intents", () => {
     render(
       <IntentStripHeaderExtras
