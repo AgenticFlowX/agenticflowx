@@ -114,6 +114,55 @@ test.describe.serial("standalone AFX preview boot mode", () => {
     expect(buf.length).toBeGreaterThan(10_000);
   });
 
+  test("editor-area Comfortable caps at ~88ch ≈ VSCode preview width", async ({
+    page,
+  }, testInfo) => {
+    mkdirSync(SCREENSHOT_DIR, { recursive: true });
+    // Wide viewport so the editor-area preview gets real estate
+    // (matches typical AFX Preview panel beside a code file).
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await bootInPreviewMode(page);
+    await postPreview(page, AFX_SPEC_PATH, AFX_SPEC_CONTENT, true);
+    await expect(page.getByText("Quality pulse")).toBeVisible();
+
+    const studio = page.locator('[data-afx-doc-surface="document-studio"]').first();
+
+    // Open reading options + toggle Width — assert class AND measure rendered
+    // width to confirm Comfortable actually narrows the article.
+    const readingBtn = page.getByRole("button", { name: "Reading options" });
+    await readingBtn.click();
+    const popover = page.locator('[role="dialog"]', { hasText: "Width" });
+
+    await popover.getByRole("radio", { name: "Comfortable" }).click();
+    await expect(studio).toHaveClass(/max-w-\[88ch\]/);
+    const comfortableWidth = await studio.evaluate((node) => node.getBoundingClientRect().width);
+    const comfortableBuf = await page.screenshot({
+      fullPage: false,
+      path: resolve(SCREENSHOT_DIR, "preview-comfortable-wide-viewport.png"),
+    });
+    await testInfo.attach("preview-comfortable-wide-viewport.png", {
+      body: comfortableBuf,
+      contentType: "image/png",
+    });
+
+    await popover.getByRole("radio", { name: "Wide" }).click();
+    await expect(studio).toHaveClass(/max-w-none/);
+    const wideWidth = await studio.evaluate((node) => node.getBoundingClientRect().width);
+    const wideBuf = await page.screenshot({
+      fullPage: false,
+      path: resolve(SCREENSHOT_DIR, "preview-wide-wide-viewport.png"),
+    });
+    await testInfo.attach("preview-wide-wide-viewport.png", {
+      body: wideBuf,
+      contentType: "image/png",
+    });
+
+    // The whole point of the change — at a wide viewport Comfortable must be
+    // visibly narrower than Wide. ≥ 200 px of headroom guards against a
+    // future regression that re-tightens or accidentally caps Wide.
+    expect(wideWidth - comfortableWidth).toBeGreaterThan(200);
+  });
+
   test("degrades to MinimalMarkdown for generic markdown", async ({ page }, testInfo) => {
     mkdirSync(SCREENSHOT_DIR, { recursive: true });
     await bootInPreviewMode(page);

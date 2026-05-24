@@ -51,6 +51,7 @@ import {
 import { Separator } from "@afx/ui/components/separator";
 import { Skeleton } from "@afx/ui/components/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@afx/ui/components/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { CopyMarkdownButton } from "../components/copy-markdown-button";
@@ -71,7 +72,9 @@ import {
   type ReadingPrefs,
   type ReadingSize,
   type ReadingTone,
+  type ReadingWidth,
   readReadingPrefs,
+  readingWidthClass,
   writeReadingPrefs,
 } from "../lib/reading-prefs";
 import { splitSprintSections } from "../lib/sprint-sections";
@@ -266,19 +269,23 @@ function ColumnReaderControls({
         ariaLabel={`Copy ${label} markdown source`}
       />
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className="h-6 shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground"
-            aria-label={`Open ${label} outline`}
-            title={`Open ${label} outline`}
-          >
-            <ListTree size={12} aria-hidden />
-            <span className="hidden sm:inline">Outline</span>
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="h-6 shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground"
+                aria-label={`Open ${label} outline`}
+              >
+                <ListTree size={12} aria-hidden />
+                <span className="hidden sm:inline">Outline</span>
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Open {label} outline</TooltipContent>
+        </Tooltip>
         <PopoverContent
           align="end"
           sideOffset={6}
@@ -335,19 +342,39 @@ function ColumnReaderControls({
       </Popover>
 
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label={`${label} reading options`}
-            title={`${label} reading options`}
-          >
-            <SlidersHorizontal size={12} aria-hidden />
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label={`${label} reading options`}
+              >
+                <SlidersHorizontal size={12} aria-hidden />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{label} reading options</TooltipContent>
+        </Tooltip>
         <PopoverContent align="end" className="w-56 gap-3 rounded-md">
+          <ColumnOptionRow label="Width">
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={reading.width}
+              onValueChange={(value) => value && onReadingChange({ width: value as ReadingWidth })}
+            >
+              <ToggleGroupItem value="comfortable" className="px-2 text-[11px]">
+                Comfortable
+              </ToggleGroupItem>
+              <ToggleGroupItem value="wide" className="px-2 text-[11px]">
+                Wide
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </ColumnOptionRow>
           <ColumnOptionRow label="Text size">
             <ToggleGroup
               type="single"
@@ -405,17 +432,23 @@ function ColumnReaderControls({
         </PopoverContent>
       </Popover>
 
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground hover:text-foreground"
-        aria-label={focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
-        title={focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
-        onClick={onToggleFocus}
-      >
-        {focused ? <Minimize2 size={12} aria-hidden /> : <Focus size={12} aria-hidden />}
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label={focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
+            onClick={onToggleFocus}
+          >
+            {focused ? <Minimize2 size={12} aria-hidden /> : <Focus size={12} aria-hidden />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {focused ? `Exit ${label} focus mode` : `Focus ${label} column`}
+        </TooltipContent>
+      </Tooltip>
     </>
   );
 }
@@ -579,7 +612,8 @@ function ColumnSessions({
           <div ref={contentRef} className="min-w-0 p-3">
             <article
               className={cn(
-                "afx-paper mx-auto flex min-h-full w-full min-w-0 max-w-none flex-col gap-3 overflow-hidden rounded-xl border border-border/60 px-5 py-5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.10)]",
+                "afx-paper mx-auto flex min-h-full w-full min-w-0 flex-col gap-3 overflow-hidden rounded-xl border border-border/60 px-5 py-5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.10)]",
+                readingWidthClass(reading.width),
                 reading.tone === "warm" ? "afx-paper--warm" : "bg-card",
                 reading.font === "serif" && "font-serif",
               )}

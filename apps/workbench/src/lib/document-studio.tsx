@@ -173,7 +173,8 @@ export function DocumentStudio({
       data-afx-doc-surface="document-studio"
       data-afx-doc-type={doc.type || "DOC"}
       className={cn(
-        "afx-paper mx-auto flex w-full min-w-0 max-w-none flex-col gap-4 overflow-hidden rounded-xl border border-border/60 px-5 py-5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.10)]",
+        "afx-paper mx-auto flex w-full min-w-0 flex-col gap-4 overflow-hidden rounded-xl border border-border/60 px-5 py-5 shadow-[0_1px_0_rgba(255,255,255,0.04),0_10px_30px_rgba(0,0,0,0.10)]",
+        readingWidthClass(reading.width),
         reading.tone === "warm" ? "afx-paper--warm" : "bg-card",
         reading.font === "serif" && "font-serif",
         className,

@@ -598,6 +598,71 @@ test("notes tab renders markdown through the shared reader and toggles checkboxe
   expect(buf.length).toBeGreaterThan(10_000);
 });
 
+test("workbench column reading-options popover has Width + tooltips fire on toolbar buttons", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.setViewportSize({ width: 1024, height: 720 });
+  await page.goto("/");
+  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
+
+  // 1. Open the SPEC column's reading options and verify Width row is present
+  //    with both Comfortable/Wide toggles (regression: was missing per user bug).
+  const readingOptionsBtn = page.getByRole("button", { name: "SPEC reading options" }).first();
+  await readingOptionsBtn.click();
+  const popover = page.locator('[role="dialog"]', { hasText: "Width" });
+  await expect(popover).toBeVisible();
+  await expect(popover.getByText("Width", { exact: true })).toBeVisible();
+  await expect(popover.getByRole("radio", { name: "Comfortable" })).toBeVisible();
+  await expect(popover.getByRole("radio", { name: "Wide" })).toBeVisible();
+  // Confirm the other rows are still present.
+  await expect(popover.getByText("Text size", { exact: true })).toBeVisible();
+  await expect(popover.getByText("Paper tone", { exact: true })).toBeVisible();
+  await expect(popover.getByText("Font", { exact: true })).toBeVisible();
+
+  const popoverPath = resolve(SCREENSHOT_DIR, "workbench-reading-options-popover-with-width.png");
+  const popoverBuf = await page.screenshot({ fullPage: false, path: popoverPath });
+  await testInfo.attach("workbench-reading-options-popover-with-width.png", {
+    body: popoverBuf,
+    contentType: "image/png",
+  });
+
+  // Toggling Width must actually change the article's max-w class on the
+  // column body — confirms `reading.width` is wired into `readingWidthClass`,
+  // not just stored in localStorage. Class assertion is robust to viewport
+  // (column rail may be narrower than 70ch so both modes render the same px).
+  const studio = page.locator('[data-afx-doc-surface="document-studio"]').first();
+  await popover.getByRole("radio", { name: "Comfortable" }).click();
+  await expect(popover.getByRole("radio", { name: "Comfortable" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  // Column variant uses a looser cap (~88ch ≈ VSCode's natural markdown
+  // preview width) so Comfortable doesn't visibly pinch normal-width columns.
+  await expect(studio).toHaveClass(/max-w-\[88ch\]/);
+  await popover.getByRole("radio", { name: "Wide" }).click();
+  await expect(popover.getByRole("radio", { name: "Wide" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await expect(studio).toHaveClass(/max-w-none/);
+  await page.keyboard.press("Escape");
+
+  // 2. Hover the SPEC column's "Open in editor" toolbar button and confirm
+  //    a shadcn Tooltip appears (regression: native title-only previously).
+  const editBtn = page.getByRole("button", { name: "Open in editor" }).first();
+  await editBtn.hover();
+  const tooltip = page.getByRole("tooltip", { name: "Open in editor" }).first();
+  await expect(tooltip).toBeVisible({ timeout: 5_000 });
+
+  const tooltipPath = resolve(SCREENSHOT_DIR, "workbench-tooltip-open-in-editor.png");
+  const tooltipBuf = await page.screenshot({ fullPage: false, path: tooltipPath });
+  await testInfo.attach("workbench-tooltip-open-in-editor.png", {
+    body: tooltipBuf,
+    contentType: "image/png",
+  });
+});
+
 test("board column move controls reorder columns", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Board" }).click();

@@ -29,6 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@afx/ui/components/popo
 import { ScrollArea } from "@afx/ui/components/scroll-area";
 import { Separator } from "@afx/ui/components/separator";
 import { ToggleGroup, ToggleGroupItem } from "@afx/ui/components/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { useWorkbench } from "../context/workbench-context";
@@ -342,19 +343,23 @@ function OutlineToolbarControl({
   return (
     <>
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            className="shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground xl:hidden"
-            aria-label="Open outline"
-            title="Open outline"
-          >
-            <ListTree size={13} aria-hidden />
-            <span className="hidden @[24rem]:inline">Outline</span>
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="xs"
+                className="shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground xl:hidden"
+                aria-label="Open outline"
+              >
+                <ListTree size={13} aria-hidden />
+                <span className="hidden @[24rem]:inline">Outline</span>
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Open outline</TooltipContent>
+        </Tooltip>
         <PopoverContent
           align="end"
           sideOffset={6}
@@ -363,23 +368,29 @@ function OutlineToolbarControl({
           <OutlinePopoverPanel summary={summary} outline={outline} onJump={onJump} />
         </PopoverContent>
       </Popover>
-      <Button
-        type="button"
-        variant="ghost"
-        size="xs"
-        className="hidden shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground xl:inline-flex"
-        aria-label={railCollapsed ? "Show outline" : "Hide outline"}
-        aria-pressed={!railCollapsed}
-        title={railCollapsed ? "Show outline" : "Hide outline"}
-        onClick={onToggleRail}
-      >
-        {railCollapsed ? (
-          <PanelRightOpen size={13} aria-hidden />
-        ) : (
-          <PanelRightClose size={13} aria-hidden />
-        )}
-        <span>Outline</span>
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="hidden shrink-0 gap-1 border-border/50 px-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:border-border hover:text-foreground xl:inline-flex"
+            aria-label={railCollapsed ? "Show outline" : "Hide outline"}
+            aria-pressed={!railCollapsed}
+            onClick={onToggleRail}
+          >
+            {railCollapsed ? (
+              <PanelRightOpen size={13} aria-hidden />
+            ) : (
+              <PanelRightClose size={13} aria-hidden />
+            )}
+            <span>Outline</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">
+          {railCollapsed ? "Show outline" : "Hide outline"}
+        </TooltipContent>
+      </Tooltip>
     </>
   );
 }
@@ -518,18 +529,22 @@ function ReadingControls({
   return (
     <div className="flex shrink-0 items-center gap-0.5">
       <Popover>
-        <PopoverTrigger asChild>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground hover:text-foreground"
-            aria-label="Reading options"
-            title="Reading options"
-          >
-            <SlidersHorizontal size={13} aria-hidden />
-          </Button>
-        </PopoverTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                className="text-muted-foreground hover:text-foreground"
+                aria-label="Reading options"
+              >
+                <SlidersHorizontal size={13} aria-hidden />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Reading options</TooltipContent>
+        </Tooltip>
         <PopoverContent align="end" className="w-60 gap-3 rounded-md">
           <OptionRow label="Width">
             <ToggleGroup
@@ -603,17 +618,21 @@ function ReadingControls({
           </OptionRow>
         </PopoverContent>
       </Popover>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground hover:text-foreground"
-        aria-label="Focus mode"
-        title="Focus mode (hide chrome)"
-        onClick={() => onChange({ focus: true })}
-      >
-        <Focus size={13} aria-hidden />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Focus mode"
+            onClick={() => onChange({ focus: true })}
+          >
+            <Focus size={13} aria-hidden />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Focus mode (hide chrome)</TooltipContent>
+      </Tooltip>
     </div>
   );
 }

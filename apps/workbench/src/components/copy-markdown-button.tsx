@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 import { Button } from "@afx/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { isInVsCodeWebview, workbenchSend } from "../lib/bridge";
@@ -66,19 +67,25 @@ export function CopyMarkdownButton({
 
   const Icon = copied ? Check : Copy;
 
+  const tooltipText = copied ? `Copied ${label} source` : `Copy ${label} source`;
+
   return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-xs"
-      className={cn("text-muted-foreground hover:text-foreground", className)}
-      aria-label={ariaLabel}
-      title={copied ? "Copied markdown" : "Copy markdown"}
-      disabled={!text}
-      onClick={() => void onCopy()}
-    >
-      <Icon size={12} aria-hidden />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          className={cn("text-muted-foreground hover:text-foreground", className)}
+          aria-label={ariaLabel}
+          disabled={!text}
+          onClick={() => void onCopy()}
+        >
+          <Icon size={12} aria-hidden />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{tooltipText}</TooltipContent>
+    </Tooltip>
   );
 }
 

@@ -5,9 +5,10 @@
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-FEATURE-COLUMNS]
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-5]
  */
-import { Columns2, Eye, Pencil } from "lucide-react";
+import { Eye, Newspaper, Pencil } from "lucide-react";
 
 import { Button } from "@afx/ui/components/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 
 import { workbenchSend } from "./bridge";
 
@@ -35,37 +36,53 @@ export function OpenActions({
   if (!filePath) return null;
   return (
     <div className={`flex shrink-0 items-center gap-0.5 ${className}`}>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground hover:text-foreground"
-        title="Open in editor"
-        aria-label="Open in editor"
-        onClick={() => workbenchSend({ type: "afxOpenFile", path: filePath, mode: "editor", line })}
-      >
-        <Pencil size={11} />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-xs"
-        className="text-muted-foreground hover:text-foreground"
-        title="Open in preview"
-        aria-label="Open in preview"
-        onClick={() => workbenchSend({ type: "afxOpenFile", path: filePath, mode: "preview" })}
-      >
-        <Eye size={11} />
-      </Button>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Open in editor"
+            onClick={() =>
+              workbenchSend({ type: "afxOpenFile", path: filePath, mode: "editor", line })
+            }
+          >
+            <Pencil size={11} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Open in editor</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Open in preview"
+            onClick={() => workbenchSend({ type: "afxOpenFile", path: filePath, mode: "preview" })}
+          >
+            <Eye size={11} />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Open in native preview</TooltipContent>
+      </Tooltip>
       {includeAfxPreview ? (
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          title="Open in AFX Preview"
-          aria-label="Open in AFX Preview"
-          onClick={() => workbenchSend({ type: "afxOpenFile", path: filePath, mode: "afxPreview" })}
-        >
-          <Columns2 size={11} />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Open in AFX Preview"
+              onClick={() =>
+                workbenchSend({ type: "afxOpenFile", path: filePath, mode: "afxPreview" })
+              }
+            >
+              <Newspaper size={11} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Open in AFX Preview</TooltipContent>
+        </Tooltip>
       ) : null}
     </div>
   );

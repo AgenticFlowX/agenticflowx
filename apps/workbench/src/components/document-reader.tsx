@@ -25,6 +25,7 @@ import {
 import { Button } from "@afx/ui/components/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@afx/ui/components/popover";
 import { ToggleGroup, ToggleGroupItem } from "@afx/ui/components/toggle-group";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 import { cn } from "@afx/ui/lib/utils";
 
 import { type OutlineItem, extractOutline } from "../lib/document-outline";
@@ -256,18 +257,22 @@ function ReaderOutlineControl({
 }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          aria-label="Open reader outline"
-          title="Open outline"
-        >
-          <ListTree size={13} aria-hidden />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Open reader outline"
+            >
+              <ListTree size={13} aria-hidden />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Open outline</TooltipContent>
+      </Tooltip>
       <PopoverContent
         align="end"
         sideOffset={6}
@@ -333,18 +338,22 @@ function ReaderOptions({
 }) {
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="text-muted-foreground hover:text-foreground"
-          aria-label="Reader options"
-          title="Reader options"
-        >
-          <SlidersHorizontal size={13} aria-hidden />
-        </Button>
-      </PopoverTrigger>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="text-muted-foreground hover:text-foreground"
+              aria-label="Reader options"
+            >
+              <SlidersHorizontal size={13} aria-hidden />
+            </Button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="bottom">Reader options</TooltipContent>
+      </Tooltip>
       <PopoverContent align="end" className="w-60 gap-3 rounded-md">
         <OptionRow label="Width">
           <ToggleGroup

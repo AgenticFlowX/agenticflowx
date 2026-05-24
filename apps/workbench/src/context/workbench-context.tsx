@@ -18,6 +18,7 @@ import type {
   WorkbenchInbound,
   WorkbenchOutbound,
 } from "@afx/shared";
+import { TooltipProvider } from "@afx/ui/components/tooltip";
 
 import { workbenchOn, workbenchSend } from "../lib/bridge";
 
@@ -128,7 +129,15 @@ export function WorkbenchProvider({ children, initialState }: ProviderProps) {
     [state],
   );
 
-  return <WorkbenchContext.Provider value={value}>{children}</WorkbenchContext.Provider>;
+  // TooltipProvider is mounted here so every consumer of WorkbenchProvider —
+  // production roots (`App`, `PreviewApp`) AND view tests that wrap directly —
+  // can use shadcn `<Tooltip>` without per-test setup. Tooltip delay is short
+  // to keep toolbar affordances discoverable in the VSCode webview.
+  return (
+    <WorkbenchContext.Provider value={value}>
+      <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+    </WorkbenchContext.Provider>
+  );
 }
 
 export function useWorkbench(): WorkbenchContextValue {

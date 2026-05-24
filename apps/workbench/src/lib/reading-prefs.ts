@@ -73,9 +73,23 @@ export function writeReadingPrefs(prefs: ReadingPrefs): void {
   }
 }
 
-/** Sheet reading-measure class for the document body. */
+/**
+ * Sheet reading-measure class for the document body. Comfortable caps at ~88ch
+ * (~700 px) to match VSCode's natural markdown preview width on a typical
+ * editor split — wide enough to feel like the native preview, narrow enough to
+ * be visibly distinct from `wide` when the surface has room. Wide fills the
+ * available width.
+ *
+ * Used by all reading surfaces:
+ *
+ * - Editor-area AFX Preview panel (full variant) — caps when the panel is
+ *   wide; never pinches inside a narrow side-by-side split.
+ * - Workbench Documents tab reader (full variant) — same.
+ * - Workbench feature thinking-desk column (column variant) — only kicks in at
+ *   zen / single-column expanded widths; invisible at the normal 3-column rail.
+ */
 export function readingWidthClass(width: ReadingWidth): string {
-  return width === "wide" ? "max-w-none" : "max-w-[70ch]";
+  return width === "wide" ? "max-w-none" : "max-w-[88ch]";
 }
 
 /** Title (DocumentStudio h1) size class per text-size step. */
