@@ -643,11 +643,11 @@
     "@types/vscode": "^1.120.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.0",
+    "@types/node": "^25.9.1",
     "@vscode/vsce": "^3.9.1",
     "esbuild": "^0.28.0",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.6",
-    "@vitest/coverage-v8": "^4.1.6"
+    "vitest": "^4.1.7",
+    "@vitest/coverage-v8": "^4.1.7"
   }
 }

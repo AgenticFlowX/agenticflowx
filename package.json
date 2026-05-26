@@ -86,7 +86,7 @@
     "@eslint/js": "^10.0.1",
     "@size-limit/file": "^12.1.0",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.7",
     "changelogen": "^0.6.2",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
@@ -102,7 +102,7 @@
     "eslint-plugin-vitest": "^0.5.4",
     "husky": "^9.1.7",
     "js-yaml": "^4.1.1",
-    "knip": "^6.14.1",
+    "knip": "^6.14.2",
     "license-checker-rseidelsohn": "4.4.2",
     "lint-staged": "^16.4.0",
     "markdownlint-cli2": "^0.22.1",
@@ -111,8 +111,8 @@
     "syncpack": "14.3.1",
     "turbo": "2.9.14",
     "typescript": "^5.7.2",
-    "typescript-eslint": "^8.59.4",
-    "vitest": "^4.1.6",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^4.1.7",
     "vitest-fail-on-console": "^0.10.1"
   }
 }
