@@ -8,11 +8,14 @@
  */
 import { useState } from "react";
 
+import { Info } from "lucide-react";
+
 import type { CustomProviderApiKind, CustomProviderModel } from "@afx/shared";
 import { Button } from "@afx/ui/components/button";
 import { Input } from "@afx/ui/components/input";
 import { Label } from "@afx/ui/components/label";
 import { NativeSelect, NativeSelectOption } from "@afx/ui/components/native-select";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@afx/ui/components/tooltip";
 
 const API_KINDS: CustomProviderApiKind[] = [
   "openai-completions",
@@ -20,6 +23,9 @@ const API_KINDS: CustomProviderApiKind[] = [
   "anthropic-messages",
   "google-generative-ai",
 ];
+
+const IMAGE_INPUT_READONLY_TOOLTIP =
+  "Image input metadata is read-only for now. Custom-provider image routing is not wired yet.";
 
 export interface CustomModelFormProps {
   initial?: Partial<CustomProviderModel>;
@@ -45,7 +51,7 @@ export function CustomModelForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [api, setApi] = useState<CustomProviderApiKind | "">(initial?.api ?? "");
   const [reasoning, setReasoning] = useState<boolean>(initial?.capabilities?.reasoning ?? false);
-  const [image, setImage] = useState<boolean>(initial?.capabilities?.image ?? false);
+  const image = initial?.capabilities?.image ?? false;
   const [contextWindow, setContextWindow] = useState<string>(
     initial?.contextWindow !== undefined ? String(initial.contextWindow) : "",
   );
@@ -149,14 +155,22 @@ export function CustomModelForm({
           />
           reasoning
         </label>
-        <label className="flex items-center gap-1">
-          <input
-            type="checkbox"
-            checked={image}
-            onChange={(e) => setImage(e.currentTarget.checked)}
-          />
-          image input
-        </label>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <label
+              className="flex cursor-help items-center gap-1 text-muted-foreground"
+              title={IMAGE_INPUT_READONLY_TOOLTIP}
+              tabIndex={0}
+            >
+              <input type="checkbox" checked={image} disabled readOnly />
+              image input
+              <Info size={11} aria-hidden="true" className="opacity-70" />
+            </label>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[220px] text-[11px] leading-snug">
+            {IMAGE_INPUT_READONLY_TOOLTIP}
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
