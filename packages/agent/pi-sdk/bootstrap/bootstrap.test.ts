@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { buildAfxCustomProvidersExtensionFactory, buildBootstrapArgs } from "./bootstrap";
+import {
+  buildAfxCustomProvidersExtensionFactory,
+  buildAfxProviderOverridesExtensionFactory,
+  buildBootstrapArgs,
+} from "./bootstrap";
 
 vi.mock("@earendil-works/pi-coding-agent", () => ({
   main: vi.fn(),
@@ -83,6 +87,21 @@ describe("buildAfxCustomProvidersExtensionFactory", () => {
             ],
           },
         },
+      }),
+    });
+    expect(typeof factory).toBe("function");
+  });
+});
+
+describe("buildAfxProviderOverridesExtensionFactory", () => {
+  it("returns undefined when AFX_PROVIDER_OVERRIDES_JSON is unset", () => {
+    expect(buildAfxProviderOverridesExtensionFactory({})).toBeUndefined();
+  });
+
+  it("returns a factory when AFX_PROVIDER_OVERRIDES_JSON is set", () => {
+    const factory = buildAfxProviderOverridesExtensionFactory({
+      AFX_PROVIDER_OVERRIDES_JSON: JSON.stringify({
+        overrides: { "github-copilot": { baseUrl: "https://api.corp.ghe.com" } },
       }),
     });
     expect(typeof factory).toBe("function");

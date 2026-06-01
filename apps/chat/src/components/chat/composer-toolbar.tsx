@@ -35,7 +35,7 @@ export interface ComposerToolbarProps {
   isSystemCommand: boolean;
   disabled: boolean;
   models: readonly AgentModel[];
-  selectedModel?: Pick<AgentModel, "provider" | "id" | "name" | "instanceId">;
+  selectedModel?: Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod">;
   thinkingLevel?: ThinkingLevel;
   workspaceMode: WorkspaceMode;
   includeActiveFileContext: boolean;

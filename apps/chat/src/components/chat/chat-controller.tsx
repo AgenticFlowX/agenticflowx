@@ -343,7 +343,9 @@ export interface ComposerSlice {
   models: readonly AgentModel[];
   commands: readonly AgentCommand[];
   files: readonly AgentFileView[];
-  selectedModel: Pick<AgentModel, "provider" | "id" | "name" | "instanceId"> | undefined;
+  selectedModel:
+    | Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod">
+    | undefined;
   thinkingLevel: ThinkingLevel | undefined;
   includeActiveFileContext: boolean;
   activeFileDisplayName: string;
@@ -865,7 +867,8 @@ export function useChatController({
               (m) =>
                 m.provider === msg.model.provider &&
                 m.id === msg.model.id &&
-                (m.instanceId ?? "default") === (msg.model.instanceId ?? "default"),
+                (m.instanceId ?? "default") === (msg.model.instanceId ?? "default") &&
+                (m.authMethod ?? "external") === (msg.model.authMethod ?? "external"),
             )
               ? prev
               : [...prev, msg.model],
@@ -880,6 +883,7 @@ export function useChatController({
               source: msg.model.source,
               instanceId: msg.model.instanceId,
               instanceLabel: msg.model.instanceLabel,
+              authMethod: msg.model.authMethod,
             },
           }));
         }),
@@ -1163,6 +1167,7 @@ export function useChatController({
       provider: model.provider,
       modelId: model.id,
       instanceId: model.instanceId,
+      authMethod: model.authMethod,
     });
     composer?.resetPromptHistoryCursor?.();
     composer?.focusComposer?.();

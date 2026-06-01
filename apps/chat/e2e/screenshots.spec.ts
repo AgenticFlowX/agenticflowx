@@ -76,8 +76,12 @@ test("captures primary chat surfaces", async ({ page }, testInfo) => {
   await page.waitForTimeout(150);
   await capture(page, testInfo, "intent-code-ask-preview");
   await page.keyboard.press("Escape");
+  await page.mouse.move(10, 10);
   await page.getByRole("button", { name: "Architect Intent" }).hover();
-  await expect(page.getByRole("tooltip")).toContainText("Short intent guidance - about 30 tokens");
+  const architectTooltip = page
+    .getByRole("tooltip")
+    .filter({ hasText: "Short intent guidance - about 30 tokens" });
+  await expect(architectTooltip).toBeVisible();
   await capture(page, testInfo, "intent-code-tooltip");
   await page.mouse.move(10, 10);
 

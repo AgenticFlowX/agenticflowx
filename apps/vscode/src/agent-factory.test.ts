@@ -22,6 +22,20 @@ let sdkAgentManager: MockAgentManager;
 let createPiAgentManager: ReturnType<typeof vi.fn>;
 let createPiSdkAgentManager: ReturnType<typeof vi.fn>;
 
+function createSecretStoreMock(
+  getApiKey: (provider: string) => Promise<string | undefined>,
+  oauthProviders: readonly string[] = [],
+  getProviderEnvVar: (envVar: string) => Promise<string | undefined> = async () => undefined,
+) {
+  return {
+    getApiKey: vi.fn(getApiKey),
+    getProviderEnvVar: vi.fn(getProviderEnvVar),
+    getOAuth: vi.fn(async () => undefined),
+    getAuthMethod: vi.fn(async () => undefined),
+    listOAuthProviders: vi.fn(async () => [...oauthProviders]),
+  };
+}
+
 beforeEach(async () => {
   const [mod, sdkMod] = await Promise.all([import("@afx/agent-pi"), import("@afx/agent-pi-sdk")]);
   agentManager = createMockAgentManager();
@@ -83,7 +97,7 @@ describe("agent-factory", () => {
   it("adds the API Providers runtime when bootstrap and secrets are configured", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
-    const secretStore = { getApiKey: vi.fn(async () => "secret") };
+    const secretStore = createSecretStoreMock(async () => "secret");
 
     const instances = await createConfiguredAgentInstances({
       logger,
@@ -119,7 +133,7 @@ describe("agent-factory", () => {
   it("passes host overlay system prompt paths to both configured runtimes", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
-    const secretStore = { getApiKey: vi.fn(async () => "secret") };
+    const secretStore = createSecretStoreMock(async () => "secret");
     const additionalSystemPromptPaths = [
       "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
     ];
@@ -146,7 +160,7 @@ describe("agent-factory", () => {
   it("keeps API Providers available when Pi RPC is disabled", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
-    const secretStore = { getApiKey: vi.fn(async () => "secret") };
+    const secretStore = createSecretStoreMock(async () => "secret");
 
     const instances = await createConfiguredAgentInstances({
       logger,
@@ -171,11 +185,9 @@ describe("agent-factory", () => {
   it("does not limit API Providers to the original small provider set", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
-    const secretStore = {
-      getApiKey: vi.fn(async (provider: string) =>
-        provider === "minimax" ? "minimax-secret" : undefined,
-      ),
-    };
+    const secretStore = createSecretStoreMock(async (provider: string) =>
+      provider === "minimax" ? "minimax-secret" : undefined,
+    );
 
     const instances = await createConfiguredAgentInstances({
       logger,
@@ -203,14 +215,69 @@ describe("agent-factory", () => {
     );
   });
 
+  it("does not configure Cloudflare providers until required account metadata is stored", async () => {
+    const { createConfiguredAgentInstances } = await import("./agent-factory");
+    const { logger } = createMockLogger();
+    const secretStore = createSecretStoreMock(async (provider: string) =>
+      provider === "cloudflare-ai-gateway" ? "cloudflare-secret" : undefined,
+    );
+
+    const instances = await createConfiguredAgentInstances({
+      logger,
+      ephemeral: false,
+      bootstrapPath: "/tmp/bootstrap.js",
+      sdkDefaultModel: "cloudflare-ai-gateway:workers-ai/@cf/moonshotai/kimi-k2.6",
+      piAvailable: false,
+      secretStore: secretStore as never,
+    });
+
+    expect(instances).toEqual([]);
+    expect(createPiSdkAgentManager).not.toHaveBeenCalled();
+  });
+
+  it("injects Cloudflare provider metadata into the bundled SDK spawn env", async () => {
+    const { createConfiguredAgentInstances } = await import("./agent-factory");
+    const { logger } = createMockLogger();
+    const secretStore = createSecretStoreMock(
+      async (provider: string) =>
+        provider === "cloudflare-ai-gateway" ? "cloudflare-secret" : undefined,
+      [],
+      async (envVar: string) =>
+        envVar === "CLOUDFLARE_ACCOUNT_ID"
+          ? "account-id"
+          : envVar === "CLOUDFLARE_GATEWAY_ID"
+            ? "gateway-id"
+            : undefined,
+    );
+
+    await createConfiguredAgentInstances({
+      logger,
+      ephemeral: false,
+      bootstrapPath: "/tmp/bootstrap.js",
+      sdkDefaultModel: "anthropic:claude-opus-4-5",
+      piAvailable: false,
+      secretStore: secretStore as never,
+    });
+
+    expect(createPiSdkAgentManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        provider: "cloudflare-ai-gateway",
+        modelId: "workers-ai/@cf/moonshotai/kimi-k2.6",
+        apiProviders: ["cloudflare-ai-gateway"],
+        extraEnv: expect.objectContaining({
+          CLOUDFLARE_ACCOUNT_ID: "account-id",
+          CLOUDFLARE_GATEWAY_ID: "gateway-id",
+        }),
+      }),
+    );
+  });
+
   it("starts a newly configured provider with its own default model", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
-    const secretStore = {
-      getApiKey: vi.fn(async (provider: string) =>
-        provider === "minimax" ? "minimax-secret" : undefined,
-      ),
-    };
+    const secretStore = createSecretStoreMock(async (provider: string) =>
+      provider === "minimax" ? "minimax-secret" : undefined,
+    );
 
     await createConfiguredAgentInstances({
       logger,
@@ -263,5 +330,46 @@ describe("agent-factory", () => {
 
     expect(instances).toEqual([]);
     expect(createPiAgentManager).not.toHaveBeenCalled();
+  });
+});
+
+describe("buildCopilotBaseUrlOverrideEnv (FR-19)", () => {
+  const makeStore = (record: unknown) => ({ getOAuth: vi.fn(async () => record) }) as never;
+
+  it("returns undefined when there is no github-copilot OAuth record", async () => {
+    const { buildCopilotBaseUrlOverrideEnv } = await import("./agent-factory");
+    expect(await buildCopilotBaseUrlOverrideEnv(makeStore(undefined))).toBeUndefined();
+  });
+
+  it("returns undefined when the record has no copilotBaseUrl meta", async () => {
+    const { buildCopilotBaseUrlOverrideEnv } = await import("./agent-factory");
+    const store = makeStore({ access: "a", refresh: "r", expires: 1, meta: {} });
+    expect(await buildCopilotBaseUrlOverrideEnv(store)).toBeUndefined();
+  });
+
+  it("returns undefined when the base URL equals the individual default", async () => {
+    const { buildCopilotBaseUrlOverrideEnv } = await import("./agent-factory");
+    const store = makeStore({
+      access: "a",
+      refresh: "r",
+      expires: 1,
+      meta: { copilotBaseUrl: "https://api.individual.githubcopilot.com" },
+    });
+    expect(await buildCopilotBaseUrlOverrideEnv(store)).toBeUndefined();
+  });
+
+  it("emits AFX_PROVIDER_OVERRIDES_JSON for a non-default (enterprise) base URL", async () => {
+    const { buildCopilotBaseUrlOverrideEnv } = await import("./agent-factory");
+    const store = makeStore({
+      access: "a",
+      refresh: "r",
+      expires: 1,
+      meta: { copilotBaseUrl: "https://api.corp.ghe.com" },
+    });
+    const env = await buildCopilotBaseUrlOverrideEnv(store);
+    expect(env).toBeDefined();
+    expect(JSON.parse(env!["AFX_PROVIDER_OVERRIDES_JSON"]!)).toEqual({
+      overrides: { "github-copilot": { baseUrl: "https://api.corp.ghe.com" } },
+    });
   });
 });

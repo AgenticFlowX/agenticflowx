@@ -1,11 +1,11 @@
 ---
 afx: true
 type: ADR
-status: Proposed
+status: Accepted
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-26T14:29:39.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-05-31T00:30:27.000Z"
 tags: ["adr", "architecture", "agent", "agent-adapter", "roadmap", "adapter"]
 ---
 
@@ -17,7 +17,7 @@ ADR-0002 shipped the runtime-agnostic `AgentManager` contract in `@afx/shared`, 
 
 A research doc (`docs/research/afx/res-afx-agent-adapter-rpc-substrate.md`) explored the broader question of unifying coding-agent integration around an adapter boundary. Most of that doc's architectural direction is already realised by ADR-0002. What remains is a roadmap question: when should AFX add a second runtime adapter, and which shared constraints must every adapter honor?
 
-This ADR is that roadmap. It does **not** decide adapter #2; it locks the vocabulary, records the evaluation criteria, and lists the abstractions we explicitly defer until adoption forces them.
+This ADR is that roadmap. It locks the vocabulary, records the evaluation criteria, and lists the abstractions we explicitly defer until adoption forces them. _(v1.0 deliberately left adapter #2 open; v1.1 — 2026-05-31 — now names it: see **Decision Update**.)_
 
 The goal is to keep the next adapter PR from re-litigating ground that ADR-0002 already settled, and to prevent speculative work (a shared transport core, a JSON-RPC 2.0 envelope refactor) from happening before there is concrete evidence that two adapters need it.
 
@@ -50,11 +50,25 @@ Concretely:
 
 4. **Defer the shared transport core.** A package such as `@afx/agent-rpc-core` (a generic JSON-RPC 2.0 client primitive composable by adapters) is not built today. Trigger condition: two shipped adapters share ≥30 % of subprocess-lifecycle, framing, or correlation code. Until then, each adapter owns its transport in full.
 
-5. **Defer adapter #2.** The choice is driven by user demand and integration quality, not by this ADR. The decision belongs to a separate ADR/spec cycle once a concrete user need exists.
+5. **Adapter #2 is now decided (v1.1, see Decision Update below): oh-my-pi (omp), RPC-first; OpenCode follows.** The shared-transport-core deferral (point 4) still holds — adapter #2 owns its transport until the ≥30% overlap trigger fires.
 
 6. **Defer WebSocket transport.** If a future adapter needs WebSocket, that adapter's ADR decides the transport. Stdio remains the default mental model because it matches the current Pi implementation.
 
 7. **Defer multi-agent UX.** Per-message `agentId`, UI selection, and routing rules belong to a UI design pass, not this roadmap.
+
+---
+
+## Decision Update (2026-05-31) — Adapter #2 selected
+
+This ADR moves **Proposed → Accepted**. The roadmap stands as written; one deferred item is now resolved.
+
+**Adapter #2 = oh-my-pi (`omp`), integrated RPC-first. OpenCode is adapter #3.** Order chosen for least code / fastest adoption.
+
+- **omp first** — its RPC is a **superset of Pi's JSONL protocol**, so it lands as a thin `packages/agent/omp/` adapter reusing the Pi RPC client (~50 LoC + factory wiring), no new transport. Transient OMP sprint notes must be promoted to a durable adapter spec before source traceability is added.
+- **OpenCode next** — a local **HTTP server** (not RPC-JSONL); a server-driven adapter, more work than omp — hence second.
+- **Auth posture for both:** RPC/external harnesses are **harness-owned auth** — they run their own login and self-refresh (`~/.pi/agent/auth.json` etc.). AFX **defers** to them (surfaces "run the harness login"); it does **not** inject credentials or run OAuth for them. AFX-host-owned OAuth (PKCE/loopback/SecretStorage) is scoped to the **bundled Pi-SDK** path only — see `docs/specs/352-agent-managed-oauth/design.md [DES-POLICY]` and `docs/specs/355-agent-sdk-credential-injection/design.md [DES-EXTERNAL]`. omp brings ~39 OAuth providers via its own `registerOAuthProvider`, so RPC-first yields broad subscription coverage cheaply.
+
+**Still deferred (unchanged):** the shared transport core / `@afx/agent-rpc-core` (point 4 — fires only at ≥30% overlap), WebSocket transport, multi-agent routing UX. A speculative cross-harness `HarnessCapabilities` descriptor was **considered and rejected** (it duplicates `AgentManager` and pre-empts the ≥30% trigger); extensibility rides the existing adapter pattern + per-provider `oauthCapable`/`oauthFlow` flags + `AgentModel.authMethod` tagging instead.
 
 ---
 
@@ -74,9 +88,9 @@ If Pi ever exposes a strict JSON-RPC 2.0 mode upstream, we revisit. Until then, 
 
 Premature abstraction in a transport core would force adapter #2 to fit a shape predicted from one example (Pi). The cheapest way to discover the right shared shape is to ship adapter #2 with its own transport, then extract the overlap. ADR-0002's Negative-consequences section already implicitly defers this; ADR-0004 makes it explicit and sets a concrete trigger (≥30 % shared code).
 
-### Why not pick adapter #2 here
+### Why adapter #2 is now named (was: "why not pick it here")
 
-This ADR is a roadmap, not a commitment. The right second adapter depends on which problem AFX is most often asked to solve. That signal is collected from users and product work, not from this document.
+The original v1.0 left adapter #2 open pending a concrete user signal. That signal arrived (2026-05-31): a confirmed product direction to support multiple harnesses RPC-first for adoption, with **omp** the cheapest integration (RPC superset of Pi's) and a clear user need (subscription/model breadth). Per the criteria-first shortlist (Decision §2), omp satisfies every bar, so the choice is recorded here rather than spun out to a fresh ADR. See **Decision Update (2026-05-31)**.
 
 ---
 
@@ -96,7 +110,7 @@ This ADR is a roadmap, not a commitment. The right second adapter depends on whi
 
 ### Not decided here
 
-- Which runtime is adapter #2.
+- ~~Which runtime is adapter #2.~~ **Decided 2026-05-31: omp (RPC-first), then OpenCode.** See Decision Update.
 - WebSocket transport adoption.
 - Whether `@afx/agent-rpc-core` ever exists (depends on observed code overlap once adapter #2 ships).
 - Per-spec engine selection UX, multi-agent session routing, and per-message `agentId`.

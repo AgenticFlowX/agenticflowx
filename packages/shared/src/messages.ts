@@ -9,6 +9,7 @@
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-API]
  */
 import type {
+  AgentAuthMethod,
   AgentCommand,
   AgentModel,
   AgentRuntimeStatus,
@@ -25,6 +26,8 @@ import type {
   HarnessId,
 } from "./custom-providers";
 import type { ComposerIntentState, IntentSlot } from "./intent";
+import type { OAuthProviderId, OAuthStatusSnapshot, ProviderAuthMethod } from "./oauth";
+import type { ProviderConfigField, ProviderOAuthFlow } from "./provider-catalog";
 import type { WorkspaceMode } from "./types";
 import type { FocusOption, PhaseRow, SignOffSummary } from "./workbench-types";
 
@@ -176,8 +179,16 @@ export type ProviderConnectionState = "empty" | "configured" | "invalid" | "no-k
 /**
  * API Provider settings snapshot for the Settings view.
  *
+ * The trailing OAuth fields are redacted, render-only state for the provider
+ * card's method chooser / connected surfaces — booleans, the active method, and
+ * static catalog flags only; NEVER `access`/`refresh` tokens. They are
+ * optional so non-OAuth providers and older transports/mocks omit them, in which
+ * case the card renders the API-key-only experience exactly as today.
+ *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA]
+ * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+ * @see docs/specs/218-app-chat-provider-settings/design.md [DES-DATA] [DES-UI]
  */
 export interface SettingsProviderSnapshot {
   id: string;
@@ -189,6 +200,47 @@ export interface SettingsProviderSnapshot {
   defaultModel?: string;
   models?: AgentModel[];
   helpUrl?: string;
+  /** Extra provider setup fields required before the bundled Pi SDK can use this provider. */
+  configFields?: ProviderConfigField[];
+  /** IDs of config fields already stored host-side. Values are never sent to the webview. */
+  configuredConfigFields?: string[];
+  /**
+   * True when this provider supports AFX-owned OAuth subscription sign-in.
+   * Mirrors {@link ProviderCatalogDetails.oauthCapable}.
+   */
+  oauthCapable?: boolean;
+  /**
+   * OAuth flow kind when `oauthCapable` — `pkce-loopback` (Anthropic / Codex) or
+   * `device-code` (Copilot). Drives which sign-in surface the card renders.
+   *
+   * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/354-agent-oauth-provider-flows/design.md [DES-PKCE] [DES-DEVICE] [DES-SEC]
+   */
+  oauthFlow?: ProviderOAuthFlow;
+  /**
+   * True only when a single provider id serves BOTH `subscription` and `api-key`
+   * (Anthropic) — the card shows a `Subscription` / `API key` method chooser.
+   * Subscription-only OAuth providers (`openai-codex`, `github-copilot`) are
+   * `false`/absent and render a single sign-in action.
+   */
+  dualMethod?: boolean;
+  /**
+   * Resolved active credential method for this provider, when one is persisted to
+   * `afx.authMethod.{provider}`. Lets the card highlight the selected method
+   * without the webview ever seeing tokens. Undefined in the browser
+   * mock and when no method record exists.
+   *
+   * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+   */
+  activeMethod?: ProviderAuthMethod;
+  /**
+   * True when an `afx.oauth.{provider}` record exists (subscription connected).
+   * Redacted presence flag only — never the record itself. Undefined in
+   * the browser mock, which has no SecretStorage access.
+   *
+   * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+   */
+  subscriptionConnected?: boolean;
 }
 
 /**
@@ -551,6 +603,7 @@ export type ChatToAgent =
       provider: string;
       modelId: string;
       instanceId?: string;
+      authMethod?: AgentAuthMethod;
     }
   /**
    * Workspace mode toggle from the chat composer or Settings surface.
@@ -622,7 +675,13 @@ export type ChatToAgent =
    * @see docs/specs/214-app-chat-settings/spec.md [FR-2]
    * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
    */
-  | { type: "provider/setApiKey"; requestId: string; provider: string; key: string }
+  | {
+      type: "provider/setApiKey";
+      requestId: string;
+      provider: string;
+      key?: string;
+      config?: Record<string, string>;
+    }
   /**
    * Settings panel clears a provider API key.
    *
@@ -681,6 +740,7 @@ export type ChatToAgent =
         | "afx.sessionDir"
         | "afx.sdk.enabled"
         | "afx.sdk.defaultModel"
+        | "afx.model.defaultSelection"
         | "afx.sdk.ollamaBaseUrl"
         | "afx.runtime.responseStartTimeoutMs"
         | "afx.debugPerf"
@@ -728,8 +788,8 @@ export type ChatToAgent =
    * User typed a system command prefixed with "!". Host executes it locally
    * and streams the output back as a system message. Not sent to the LLM.
    *
-   * @see docs/specs/210-app-chat/spec.md [FR-1]
-   * @see docs/specs/210-app-chat/design.md [DES-COMPOSER-FLOW]
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-9]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
    */
   | { type: "chat/runCommand"; requestId: string; command: string }
   /**
@@ -870,7 +930,64 @@ export type ChatToAgent =
    * @see docs/specs/214-app-chat-settings/spec.md [FR-9]
    * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
    */
-  | { type: "customModels/removeModel"; requestId: string; providerId: string; modelId: string };
+  | { type: "customModels/removeModel"; requestId: string; providerId: string; modelId: string }
+  /**
+   * Settings panel starts AFX-owned OAuth sign-in for a provider. For dual-method
+   * providers (Anthropic) the chooser must already be on `subscription`; for
+   * subscription-only providers (`openai-codex`, `github-copilot`) this is the
+   * single sign-in action. `enterpriseDomain` is the optional Copilot enterprise
+   * hostname (device-code flow only). No tokens cross the bridge.
+   *
+   * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+   */
+  | {
+      type: "oauth/signIn";
+      requestId: string;
+      provider: OAuthProviderId;
+      enterpriseDomain?: string;
+    }
+  /**
+   * Settings panel signs out of a provider's subscription. Deletes the
+   * `afx.oauth.{provider}` record host-side and reverts the active method.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+   */
+  | { type: "oauth/signOut"; requestId: string; provider: OAuthProviderId }
+  /**
+   * Settings panel explicitly switches the active credential method for a
+   * dual-method provider. Only `subscription` | `api-key` are ever persisted to
+   * `afx.authMethod.{provider}`.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+   */
+  | {
+      type: "oauth/setAuthMethod";
+      requestId: string;
+      provider: OAuthProviderId;
+      method: ProviderAuthMethod;
+    }
+  /**
+   * Paste-code fallback for PKCE providers when loopback completion is blocked
+   * or the host is remote/WSL.
+   * `code` is the user-pasted authorization code or full redirect URL — a
+   * single-use inbound code the host exchanges, never a stored `access`/`refresh`
+   * token. The host never logs the value.
+   *
+   * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/354-agent-oauth-provider-flows/design.md [DES-PKCE] [DES-DEVICE] [DES-SEC]
+   */
+  | { type: "oauth/submitCode"; requestId: string; provider: OAuthProviderId; code: string }
+  /**
+   * Cancel an in-flight sign-in (loopback wait, paste-code wait, or device-code
+   * poll). Correlated to the originating `oauth/signIn` `requestId`.
+   *
+   * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+   */
+  | { type: "oauth/cancel"; requestId: string; provider: OAuthProviderId };
 
 // ---------------------------------------------------------------------------
 // Agent → Chat (inbound: events from the engine to the chat UI)
@@ -1229,6 +1346,57 @@ export type AgentToChat =
       ok: boolean;
       rowsTicked?: number;
       newStatus?: string;
+      error?: string;
+    }
+  /**
+   * Streaming progress for an in-flight OAuth sign-in. Correlated to the
+   * originating `oauth/signIn`/`oauth/submitCode` `requestId`. Carries only
+   * presentational, non-secret fields — for device-code it surfaces the
+   * `userCode` + `verificationUri` (not secrets); for PKCE it drives the
+   * waiting/paste-code panels. NEVER carries `access`/`refresh`.
+   *
+   * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/354-agent-oauth-provider-flows/design.md [DES-PKCE] [DES-DEVICE] [DES-SEC]
+   */
+  | {
+      type: "oauth/progress";
+      requestId: string;
+      provider: OAuthProviderId;
+      /**
+       * Coarse sign-in phase. `paste-code` is surfaced when loopback is unavailable;
+       * `device-code` accompanies `userCode`/`verificationUri`.
+       */
+      phase:
+        | "starting"
+        | "awaiting-browser"
+        | "paste-code"
+        | "device-code"
+        | "exchanging"
+        | "done"
+        | "cancelled"
+        | "error";
+      /** Device-code user code to display (GitHub Copilot). Non-secret. */
+      userCode?: string;
+      /** Device-code verification URL to open. Non-secret. */
+      verificationUri?: string;
+      /** Short non-secret status/error message for the card. Never echoes tokens or URLs. */
+      message?: string;
+    }
+  /**
+   * Terminal OAuth status for a provider, broadcast after sign-in, sign-out,
+   * method switch, or refresh. The ONLY OAuth shape carrying credential state to
+   * the webview — a redacted {@link OAuthStatusSnapshot} (booleans/method/expiry
+   * delta/safe meta only). On failure, `ok === false` + a non-secret `error`.
+   *
+   * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+   */
+  | {
+      type: "oauth/status";
+      requestId: string;
+      ok: boolean;
+      status: OAuthStatusSnapshot;
+      /** When `ok === false`, a short non-secret error message. */
       error?: string;
     };
 

@@ -1,5 +1,7 @@
 import { dirname } from "node:path";
 
+import { getModels as getPiModels } from "@earendil-works/pi-ai";
+
 import { type PiClient, type PiEvent, createPiClient, normalizePiToolArgs } from "@afx/agent-pi";
 import { PROVIDER_API_KEY_ENV_ALIASES, getDefaultApiProviderModel } from "@afx/shared";
 import type {
@@ -14,6 +16,7 @@ import type {
   AgentUsageStats,
   CompactionResult,
   Disposable,
+  ProviderAuthMethod,
   QueueMode,
   ThinkingLevel,
 } from "@afx/shared";
@@ -30,6 +33,18 @@ const CONTEXT_OVERFLOW_PATTERNS: readonly RegExp[] = [
   /too many tokens/i,
   /token limit exceeded/i,
   /context[_ ]length[_ ]exceeded/i,
+];
+// Pi emits no structured auth error — a 401 / invalid_grant arrives as free-text
+// on a message_start/message_end event (stopReason "error", string errorMessage).
+// Classify it BEFORE retryable so an expired subscription token never looks like a
+// transient 5xx and instead drives the host's one-time refresh + restart + retry.
+// @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+// @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-FLOW] [DES-EXTERNAL]
+const AUTH_ERROR_PATTERNS: readonly RegExp[] = [
+  /\b401\b/,
+  /invalid_grant/i,
+  /invalid_token/i,
+  /unauthorized/i,
 ];
 const RETRYABLE_PROVIDER_ERROR_PATTERNS: readonly RegExp[] = [
   /overloaded/i,
@@ -53,6 +68,7 @@ const RETRYABLE_PROVIDER_ERROR_PATTERNS: readonly RegExp[] = [
   /timed? out|timeout/i,
   /terminated/i,
 ];
+const PROVIDER_OVERRIDES_ENV = "AFX_PROVIDER_OVERRIDES_JSON";
 
 export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager {
   const log = opts.logger.child("sdk-rpc-manager");
@@ -79,6 +95,10 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     if (retryError) throw retryError;
 
     const apiKeys = await getConfiguredApiKeys([...configuredProviders], opts.getApiKey);
+    const authMethods = await getConfiguredAuthMethods(
+      [...configuredProviders],
+      opts.getAuthMethod,
+    );
     const args = [
       ...(!opts.ephemeral && opts.sessionDir ? ["--session-dir", opts.sessionDir] : []),
       ...(opts.ephemeral ? ["--no-session"] : []),
@@ -90,6 +110,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       provider: providerId,
       modelId,
       apiKeys,
+      authMethods,
       packageDir: dirname(opts.bootstrapPath),
       sessionDir: opts.sessionDir,
       ollamaBaseUrl: opts.ollamaBaseUrl,
@@ -269,7 +290,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
         .filter((model: AgentModel | null): model is AgentModel => model !== null)
         .filter((model: AgentModel) => configuredProviders.has(normalizeProvider(model.provider)))
         .map(tagModel);
-      return filtered.length > 0 ? filtered : fallbackConfiguredModels();
+      return withConfiguredProviderFallbacks(filtered);
     } catch (err) {
       log.warn("getAvailableModels using configured provider fallback", {
         error: err instanceof Error ? err.message : String(err),
@@ -446,13 +467,30 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   }
 
   function fallbackConfiguredModels(): AgentModel[] {
-    return [...configuredProviders]
-      .map((provider) => {
-        const fallbackId =
-          provider === providerId && modelId ? modelId : getDefaultApiProviderModel(provider);
-        return fallbackId ? tagModel(minimalModel(provider, fallbackId)) : null;
-      })
-      .filter((model: AgentModel | null): model is AgentModel => model !== null);
+    return [...configuredProviders].flatMap(configuredProviderFallbackModels);
+  }
+
+  function withConfiguredProviderFallbacks(models: readonly AgentModel[]): AgentModel[] {
+    const next = [...models];
+    const seenKeys = new Set(next.map(modelIdentityKey));
+    for (const provider of configuredProviders) {
+      for (const fallback of configuredProviderFallbackModels(provider)) {
+        const key = modelIdentityKey(fallback);
+        if (seenKeys.has(key)) continue;
+        seenKeys.add(key);
+        next.push(fallback);
+      }
+    }
+    return next.length > 0 ? next : fallbackConfiguredModels();
+  }
+
+  function configuredProviderFallbackModels(provider: string): AgentModel[] {
+    const builtins = getBuiltinProviderModels(provider).map(tagModel);
+    if (builtins.length > 0) return builtins;
+
+    const fallbackId =
+      provider === providerId && modelId ? modelId : getDefaultApiProviderModel(provider);
+    return fallbackId ? [tagModel(minimalModel(provider, fallbackId))] : [];
   }
 
   function tagStatus(
@@ -521,6 +559,9 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
               : "The provider returned an error.";
           if (isContextOverflowError(messageText)) {
             return { type: "context_overflow", message: messageText };
+          }
+          if (isAuthError(messageText)) {
+            return { type: "auth_error", provider: providerId, message: messageText };
           }
           if (isRetryableProviderError(messageText)) {
             return { type: "retryable_error", message: messageText };
@@ -618,6 +659,9 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       if (isContextOverflowError(message.errorMessage)) {
         return { type: "context_overflow", message: message.errorMessage };
       }
+      if (isAuthError(message.errorMessage)) {
+        return { type: "auth_error", provider: providerId, message: message.errorMessage };
+      }
       if (isRetryableProviderError(message.errorMessage)) {
         return { type: "retryable_error", message: message.errorMessage };
       }
@@ -667,7 +711,13 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
 
   function isRetryableProviderError(message: string): boolean {
     if (isContextOverflowError(message)) return false;
+    if (isAuthError(message)) return false;
     return RETRYABLE_PROVIDER_ERROR_PATTERNS.some((pattern) => pattern.test(message));
+  }
+
+  function isAuthError(message: string): boolean {
+    if (isContextOverflowError(message)) return false;
+    return AUTH_ERROR_PATTERNS.some((pattern) => pattern.test(message));
   }
 
   function toFiniteNumber(value: unknown, fallback: number): number {
@@ -679,13 +729,22 @@ export function buildBootstrapEnv(input: {
   provider: string;
   modelId: string;
   apiKeys?: Record<string, string>;
+  /**
+   * Selected credential method per provider. Emitted as
+   * AFX_AUTH_METHOD_{PROVIDER} so bootstrap can deliver subscription tokens
+   * env-only (no --api-key CLI arg).
+   *
+   * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+   * @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-FLOW] [DES-EXTERNAL]
+   */
+  authMethods?: Record<string, "subscription" | "api-key">;
   packageDir?: string;
   sessionDir?: string;
   ollamaBaseUrl?: string;
   /** Extra env entries (e.g. AFX_CUSTOM_PROVIDERS_JSON, AFX_<ID>_KEY). */
   extraEnv?: Record<string, string>;
 }): Record<string, string> {
-  return {
+  const env: Record<string, string> = {
     AFX_PROVIDER: input.provider,
     AFX_MODEL_ID: input.modelId,
     ...Object.fromEntries(
@@ -693,12 +752,29 @@ export function buildBootstrapEnv(input: {
         providerApiKeyEnvEntries(provider, apiKey),
       ),
     ),
+    ...Object.fromEntries(
+      Object.entries(input.authMethods ?? {}).map(([provider, method]) => [
+        `AFX_AUTH_METHOD_${providerEnvKey(provider)}`,
+        method,
+      ]),
+    ),
     ...(input.packageDir ? { PI_PACKAGE_DIR: input.packageDir } : {}),
     ...(input.sessionDir ? { AFX_SESSION_DIR: input.sessionDir } : {}),
     ...(input.sessionDir ? { PI_CODING_AGENT_DIR: input.sessionDir } : {}),
     ...(input.ollamaBaseUrl ? { AFX_OLLAMA_BASE_URL: input.ollamaBaseUrl } : {}),
     ...(input.extraEnv ?? {}),
   };
+
+  const providerOverrides = withSubscriptionProviderOverrides(
+    env[PROVIDER_OVERRIDES_ENV],
+    input.apiKeys ?? {},
+    input.authMethods ?? {},
+  );
+  if (providerOverrides) {
+    env[PROVIDER_OVERRIDES_ENV] = providerOverrides;
+  }
+
+  return env;
 }
 
 export function providerEnvKey(provider: string): string {
@@ -714,6 +790,86 @@ function providerApiKeyEnvEntries(provider: string, apiKey: string): Array<[stri
   return [...new Set([`AFX_API_KEY_${providerKey}`, `${providerKey}_API_KEY`, ...aliases])].map(
     (key) => [key, apiKey],
   );
+}
+
+interface ProviderOverridesEnvelope {
+  overrides: Record<string, ProviderOverrideEntry>;
+}
+
+interface ProviderOverrideEntry {
+  baseUrl?: string;
+  apiKeyEnv?: string;
+}
+
+/**
+ * Merge AFX-owned subscription credentials into the provider override envelope as
+ * env-var references. Pi's registry does not know every subscription provider's
+ * env alias (notably `openai-codex`), but `registerProvider(id, { apiKey })`
+ * marks the built-in provider configured and resolves the env var at request time.
+ * The OAuth token stays in `AFX_API_KEY_{PROVIDER}` and out of CLI args / JSON.
+ *
+ * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+ * @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-FLOW] [DES-EXTERNAL]
+ */
+function withSubscriptionProviderOverrides(
+  existingJson: string | undefined,
+  apiKeys: Record<string, string>,
+  authMethods: Record<string, ProviderAuthMethod>,
+): string | undefined {
+  const subscriptionProviders = Object.entries(authMethods)
+    .filter(([provider, method]) => method === "subscription" && Boolean(apiKeys[provider]))
+    .map(([provider]) => provider);
+  if (subscriptionProviders.length === 0) return existingJson;
+
+  const envelope = parseProviderOverridesEnvelope(existingJson);
+  if (!envelope) return existingJson;
+
+  for (const provider of subscriptionProviders) {
+    const existing = envelope.overrides[provider] ?? {};
+    envelope.overrides[provider] = {
+      ...existing,
+      apiKeyEnv: `AFX_API_KEY_${providerEnvKey(provider)}`,
+    };
+  }
+  return JSON.stringify(envelope);
+}
+
+function parseProviderOverridesEnvelope(
+  text: string | undefined,
+): ProviderOverridesEnvelope | null {
+  if (!text) return { overrides: {} };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  const overridesRaw = (parsed as Record<string, unknown>)["overrides"];
+  if (overridesRaw === null || typeof overridesRaw !== "object" || Array.isArray(overridesRaw)) {
+    return null;
+  }
+
+  const overrides: Record<string, ProviderOverrideEntry> = {};
+  for (const [provider, entry] of Object.entries(overridesRaw as Record<string, unknown>)) {
+    if (entry === null || typeof entry !== "object" || Array.isArray(entry)) continue;
+    const raw = entry as Record<string, unknown>;
+    const baseUrl = raw["baseUrl"];
+    const apiKeyEnv = raw["apiKeyEnv"];
+    const override: ProviderOverrideEntry = {};
+    if (typeof baseUrl === "string" && baseUrl.length > 0) {
+      override.baseUrl = baseUrl;
+    }
+    if (typeof apiKeyEnv === "string" && apiKeyEnv.length > 0) {
+      override.apiKeyEnv = apiKeyEnv;
+    }
+    if (override.baseUrl || override.apiKeyEnv) {
+      overrides[provider] = override;
+    }
+  }
+  return { overrides };
 }
 
 export function rewriteAfxCommandPrompt(message: string): string {
@@ -885,6 +1041,10 @@ function summarizeAgentEvent(evt: AgentEvent | null): Record<string, unknown> {
       return summary;
     case "retryable_error":
       summary["error"] = evt.message;
+      return summary;
+    case "auth_error":
+      summary["error"] = evt.message;
+      addStringField(summary, "provider", evt.provider);
       return summary;
     case "compaction_start":
       summary["reason"] = evt.reason;
@@ -1119,6 +1279,22 @@ function normalizeModelCost(value: unknown): AgentModel["cost"] {
   };
 }
 
+/**
+ * Reads Pi's installed built-in model registry for provider fallback rows.
+ * This keeps AFX subscription selectors aligned with the bundled Pi version
+ * when RPC discovery is scoped, incomplete, or temporarily unavailable.
+ *
+ * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-4] [FR-6]
+ * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-FLOW]
+ * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+ */
+function getBuiltinProviderModels(provider: string): AgentModel[] {
+  const models = getPiModels(provider as Parameters<typeof getPiModels>[0]) as unknown[];
+  return models
+    .map(normalizeModel)
+    .filter((model: AgentModel | null): model is AgentModel => model !== null);
+}
+
 function normalizeCommand(value: unknown): AgentCommand | null {
   if (!value || typeof value !== "object") return null;
   const raw = value as { name?: unknown; description?: unknown; source?: unknown };
@@ -1161,6 +1337,26 @@ async function getConfiguredApiKeys(
     }),
   );
   return Object.fromEntries(entries.filter((entry): entry is readonly [string, string] => !!entry));
+}
+
+async function getConfiguredAuthMethods(
+  providers: readonly string[],
+  getAuthMethod: PiSdkManagerOptions["getAuthMethod"],
+): Promise<Record<string, ProviderAuthMethod>> {
+  if (!getAuthMethod) return {};
+  const entries = await Promise.all(
+    providers.map(async (provider) => {
+      const method = await getAuthMethod(provider);
+      return method ? ([provider, method] as const) : null;
+    }),
+  );
+  return Object.fromEntries(
+    entries.filter((entry): entry is readonly [string, ProviderAuthMethod] => !!entry),
+  );
+}
+
+function modelIdentityKey(model: Pick<AgentModel, "provider" | "id">): string {
+  return `${normalizeProvider(model.provider)}:${model.id}`;
 }
 
 function extractMessage(raw: PiEvent): string | undefined {

@@ -16,3 +16,4 @@ export * from "./provider-catalog";
 export * from "./workbench-types";
 export * from "./workbench-protocol";
 export * from "./custom-providers";
+export * from "./oauth";

@@ -95,6 +95,7 @@ export function createAgentRuntimeMonitor(
   let timer: NodeJS.Timeout | null = null;
   let started = false;
   let inFlight: Promise<AgentRuntimeStatus> | null = null;
+  let restartInFlight: Promise<AgentRuntimeStatus> | null = null;
 
   function emit(requestId?: string): void {
     for (const listener of listeners) {
@@ -184,28 +185,34 @@ export function createAgentRuntimeMonitor(
   }
 
   async function restart(requestId?: string): Promise<AgentRuntimeStatus> {
+    if (restartInFlight) return restartInFlight;
     clearPoll();
     snapshot = {
       ...createCheckingAgentRuntimeStatus(now()),
       info: "Restarting agent runtime.",
     };
     emit(requestId);
-    try {
-      await options.agentManager.stop();
-    } catch (err) {
-      snapshot = deriveAgentRuntimeStatus({
-        error: err,
-        previous: snapshot,
-        now: now(),
-        startedAt,
-        startupGraceMs: intervals.startupGraceMs,
-        failureThreshold: intervals.failureThreshold,
-      });
-      emit(requestId);
-      scheduleNext();
-      return snapshot;
-    }
-    return check(requestId);
+    restartInFlight = (async () => {
+      try {
+        await options.agentManager.stop();
+      } catch (err) {
+        snapshot = deriveAgentRuntimeStatus({
+          error: err,
+          previous: snapshot,
+          now: now(),
+          startedAt,
+          startupGraceMs: intervals.startupGraceMs,
+          failureThreshold: intervals.failureThreshold,
+        });
+        emit(requestId);
+        scheduleNext();
+        return snapshot;
+      }
+      return check(requestId);
+    })().finally(() => {
+      restartInFlight = null;
+    });
+    return restartInFlight;
   }
 
   return {

@@ -49,32 +49,69 @@ const MOCK_MODEL: AgentModel = {
   source: "api-provider",
   instanceId: "pi-sdk",
   instanceLabel: "API Providers",
+  authMethod: "api-key",
 };
 
-const MOCK_MODELS: AgentModel[] = [
-  MOCK_MODEL,
-  {
-    provider: "openai",
-    id: "gpt-5.2",
-    name: "GPT-5.2",
+const MOCK_ANTHROPIC_SUBSCRIPTION_MODEL: AgentModel = {
+  ...MOCK_MODEL,
+  authMethod: "subscription",
+};
+
+const MOCK_OPENAI_MODEL: AgentModel = {
+  provider: "openai",
+  id: "gpt-5.2",
+  name: "GPT-5.2",
+  reasoning: true,
+  contextWindow: 400_000,
+  maxTokens: 128_000,
+  source: "api-provider",
+  instanceId: "pi-sdk",
+  instanceLabel: "API Providers",
+  authMethod: "api-key",
+};
+
+const MOCK_OPENAI_CODEX_MODEL_DEFINITIONS = [
+  ["gpt-5.2", "GPT-5.2"],
+  ["gpt-5.3-codex", "GPT-5.3 Codex"],
+  ["gpt-5.3-codex-spark", "GPT-5.3 Codex Spark"],
+  ["gpt-5.4", "GPT-5.4"],
+  ["gpt-5.4-mini", "GPT-5.4 mini"],
+  ["gpt-5.5", "GPT-5.5"],
+] as const satisfies readonly (readonly [id: string, name: string])[];
+
+const MOCK_OPENAI_CODEX_MODELS: AgentModel[] = MOCK_OPENAI_CODEX_MODEL_DEFINITIONS.map(
+  ([id, name]) => ({
+    provider: "openai-codex",
+    id,
+    name,
     reasoning: true,
-    contextWindow: 400_000,
+    contextWindow: 272_000,
     maxTokens: 128_000,
     source: "api-provider",
     instanceId: "pi-sdk",
     instanceLabel: "API Providers",
-  },
-  {
-    provider: "anthropic",
-    id: "claude-opus-4",
-    name: "Claude Opus 4",
-    reasoning: true,
-    contextWindow: 200_000,
-    maxTokens: 32_000,
-    source: "external-agent",
-    instanceId: "pi",
-    instanceLabel: "Pi CLI",
-  },
+    authMethod: "subscription",
+  }),
+);
+
+const MOCK_EXTERNAL_MODEL: AgentModel = {
+  provider: "anthropic",
+  id: "claude-opus-4",
+  name: "Claude Opus 4",
+  reasoning: true,
+  contextWindow: 200_000,
+  maxTokens: 32_000,
+  source: "external-agent",
+  instanceId: "pi",
+  instanceLabel: "Pi CLI",
+};
+
+const MOCK_MODELS: AgentModel[] = [
+  MOCK_MODEL,
+  MOCK_ANTHROPIC_SUBSCRIPTION_MODEL,
+  MOCK_OPENAI_MODEL,
+  ...MOCK_OPENAI_CODEX_MODELS,
+  MOCK_EXTERNAL_MODEL,
 ];
 const DEFAULT_MOCK_MODELS = MOCK_MODELS.filter((model) => model.source !== "external-agent");
 
@@ -110,8 +147,9 @@ const MOCK_FILES: AgentFileView[] = [
 ];
 
 const MOCK_PROVIDER_MODELS: Record<string, AgentModel[]> = {
-  anthropic: [MOCK_MODEL],
-  openai: [MOCK_MODELS[1]!],
+  anthropic: [MOCK_MODEL, MOCK_ANTHROPIC_SUBSCRIPTION_MODEL],
+  openai: [MOCK_OPENAI_MODEL],
+  "openai-codex": MOCK_OPENAI_CODEX_MODELS,
 };
 
 function mockProviderSnapshot(provider: string): SettingsSnapshot["providers"][number] {
@@ -130,6 +168,21 @@ function mockProviderSnapshot(provider: string): SettingsSnapshot["providers"][n
     defaultModel: provider === "anthropic" ? "claude-opus-4" : undefined,
     models,
     helpUrl: details.helpUrl,
+    // Browser/dev Settings snapshots must mirror the real host's safe OAuth flags.
+    // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+    // @see docs/specs/218-app-chat-provider-settings/design.md [DES-DATA] [DES-UI]
+    // @see docs/specs/217-app-chat-model-selector/design.md [DES-TEST]
+    oauthCapable: details.oauthCapable,
+    oauthFlow: details.oauthFlow,
+    dualMethod: details.dualMethod,
+    activeMethod:
+      provider === "anthropic"
+        ? "api-key"
+        : provider === "openai-codex"
+          ? "subscription"
+          : undefined,
+    subscriptionConnected:
+      provider === "anthropic" || provider === "openai-codex" ? true : undefined,
   };
 }
 
@@ -1687,6 +1740,9 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
           modelCount: 0,
           state: provider.id === "ollama" ? "no-key-needed" : "empty",
           models: [],
+          configuredConfigFields: [],
+          activeMethod: undefined,
+          subscriptionConnected: false,
         })),
         externalAgents: [
           {
@@ -1885,7 +1941,8 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
             m.id === msg.modelId &&
             (msg.instanceId
               ? m.instanceId === msg.instanceId
-              : (m.instanceId ?? "default") === "default"),
+              : (m.instanceId ?? "default") === "default") &&
+            (msg.authMethod ? m.authMethod === msg.authMethod : true),
         ) ?? MOCK_MODELS[0]!;
       emit({ type: "agent/modelChanged", requestId: msg.requestId, model });
       emitAgentStatus({ running: true, isStreaming: false, model });

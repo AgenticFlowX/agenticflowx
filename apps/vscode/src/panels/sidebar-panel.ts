@@ -57,6 +57,7 @@ import type {
   IntentSlot,
   Logger,
   PhaseRow,
+  ProviderAuthMethod,
   RuntimeAppearanceSnapshot,
   SettingsSnapshot,
   SignOffSummary,
@@ -68,11 +69,22 @@ import {
   configurationTargetFor,
   updateAfxConfigurationWithWorkspaceFallback,
 } from "../configuration-target";
+import {
+  MODEL_DEFAULT_SELECTION_SETTING,
+  type ModelSelectionIdentityV2,
+  formatModelSelectionIdentity,
+  formatSdkDefaultModel,
+  identityMatchesModel,
+  parseLegacySdkDefaultModel,
+  parseModelSelectionIdentity,
+  toModelSelectionIdentity,
+} from "../model-default-selection";
 import type { SecretStore } from "../secret-store";
 import type {
   CustomProvidersMutation,
   CustomProvidersService,
 } from "../services/custom-providers-service";
+import type { OAuthService } from "../services/oauth/oauth-service";
 import { applyTasksSignOff } from "../services/tasks-signoff";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
 import {
@@ -97,6 +109,26 @@ export interface SidebarPanelDeps {
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
   secretStore?: SecretStore;
+  /**
+   * Shared AFX OAuth orchestrator. Drives the Settings `oauth/*` bridge commands
+   * (sign in/out, method switch, paste-code, cancel). Optional so older entry
+   * points compile; absent ⇒ oauth commands report unavailable.
+   *
+   * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+   * @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+   */
+  oauthService?: OAuthService;
+  /**
+   * Rebuild the host-owned runtime set after OAuth credentials change. A
+   * subscription-only provider (for example `openai-codex`) must create or refresh
+   * the Pi SDK runtime before Settings/model-picker snapshots can include it.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+   * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-4] [FR-6]
+   * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-FLOW]
+   */
+  reconfigureAgentRuntimes?: (reason: string) => Promise<void>;
   /** Open a markdown document in the standalone editor-area AFX preview. */
   openAfxPreview?: (uri: vscode.Uri) => void;
   /**
@@ -219,6 +251,8 @@ const RESPONSE_START_TIMEOUT_DEFAULT_MS = 60_000;
 const RESPONSE_START_TIMEOUT_MIN_MS = 5_000;
 const RESPONSE_START_TIMEOUT_MAX_MS = 600_000;
 const OVERFLOW_RECOVERY_GRACE_MS = 1_500;
+const OAUTH_PROACTIVE_REFRESH_LEAD_MS = 5 * 60 * 1000;
+const OAUTH_PROACTIVE_REFRESH_RETRY_MS = 30_000;
 const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
 const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
@@ -320,6 +354,8 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     runtimeMonitor: providedRuntimeMonitor,
     logger: parentLogger,
     secretStore,
+    oauthService,
+    reconfigureAgentRuntimes,
     openAfxPreview,
     customProvidersService,
   } = deps;
@@ -389,6 +425,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   let pendingContextOverflowError: string | null = null;
   let pendingRetryableError: string | null = null;
   let retryToastRequestId: string | null = null;
+  let modelRestoreAttempted = false;
+  let oauthRefreshTimer: NodeJS.Timeout | null = null;
+  let oauthRefreshInFlight = false;
 
   // Some adapters print fatal errors to stderr (e.g. provider 4xx) instead of
   // emitting a normalized `error` event. We line-buffer that stream so the user
@@ -396,6 +435,24 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   let stderrLineBuf = "";
   let errorPostedThisTurn = false;
   let postedRestartRequiredInfo: string | null = null;
+
+  /**
+   * Reactive auth-error recovery (one per turn). When the runtime reports a
+   * provider auth failure, the host restarts the runtime once — the respawn
+   * re-resolves credentials via getSelectedProviderKey (refresh-on-read), so no
+   * explicit refresh call is needed — then retries the failed turn exactly once.
+   * A second consecutive auth_error in the same turn fails closed (no silent
+   * cross-method fallback).
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+   */
+  let authRecoveryAttempted = false;
+  let lastTurnSend: {
+    content: string;
+    mentions: readonly string[];
+    intentSlot?: IntentSlot;
+  } | null = null;
 
   let webview: vscode.Webview | null = null;
   let chatReady = false;
@@ -409,6 +466,225 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   function post(msg: AgentToChat): void {
     webview?.postMessage(msg);
+  }
+
+  /**
+   * Drive the Settings `oauth/*` bridge commands through the shared OAuthService.
+   * Only redacted `oauth/progress` / `oauth/status` reach the webview — never a
+   * token, refresh value, or redirect URL. On any failure the card is
+   * told via `oauth/status { ok: false }` plus a non-secret message.
+   *
+   * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+   * @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+   */
+  async function handleOAuthCommand(
+    msg: Extract<ChatToAgent, { type: `oauth/${string}` }>,
+  ): Promise<void> {
+    const { provider, requestId } = msg;
+    if (!oauthService) {
+      post({
+        type: "oauth/status",
+        requestId,
+        ok: false,
+        status: { provider, connected: false },
+        error: "Sign-in is unavailable in this window.",
+      });
+      return;
+    }
+    try {
+      switch (msg.type) {
+        case "oauth/signIn": {
+          post({ type: "oauth/progress", requestId, provider, phase: "starting" });
+          const status = await oauthService.signIn(provider, {
+            onAuthUrl: ({ url, proactivePaste }) => {
+              void vscode.env.openExternal(vscode.Uri.parse(url));
+              post({
+                type: "oauth/progress",
+                requestId,
+                provider,
+                phase: proactivePaste ? "paste-code" : "awaiting-browser",
+              });
+            },
+            onUserCode: ({ userCode, verificationUri }) => {
+              post({
+                type: "oauth/progress",
+                requestId,
+                provider,
+                phase: "device-code",
+                userCode,
+                verificationUri,
+              });
+            },
+            onProgress: (message) => {
+              post({ type: "oauth/progress", requestId, provider, phase: "exchanging", message });
+            },
+            enterpriseInput: msg.enterpriseDomain,
+          });
+          post({ type: "oauth/progress", requestId, provider, phase: "done" });
+          post({ type: "oauth/status", requestId, ok: true, status });
+          void scheduleOAuthProactiveRefresh();
+          await refreshAfterOAuthCredentialChange(requestId, `OAuth sign-in for ${provider}`);
+          return;
+        }
+        case "oauth/signOut": {
+          const status = await oauthService.signOut(provider);
+          post({ type: "oauth/status", requestId, ok: true, status });
+          void scheduleOAuthProactiveRefresh();
+          await refreshAfterOAuthCredentialChange(requestId, `OAuth sign-out for ${provider}`);
+          return;
+        }
+        case "oauth/setAuthMethod": {
+          await oauthService.setAuthMethod(provider, msg.method);
+          const status = await oauthService.getStatus(provider);
+          post({ type: "oauth/status", requestId, ok: true, status });
+          void scheduleOAuthProactiveRefresh();
+          await refreshAfterOAuthCredentialChange(
+            requestId,
+            `OAuth active method changed for ${provider}`,
+          );
+          return;
+        }
+        case "oauth/submitCode": {
+          oauthService.submitCode(provider, msg.code);
+          return;
+        }
+        case "oauth/cancel": {
+          oauthService.cancel(provider);
+          post({ type: "oauth/progress", requestId, provider, phase: "cancelled" });
+          return;
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign-in failed.";
+      const status = await oauthService
+        .getStatus(provider)
+        .catch(() => ({ provider, connected: false }));
+      post({ type: "oauth/progress", requestId, provider, phase: "error", message });
+      post({ type: "oauth/status", requestId, ok: false, status, error: message });
+    }
+  }
+
+  async function refreshAfterOAuthCredentialChange(
+    requestId: string,
+    reason: string,
+  ): Promise<void> {
+    try {
+      await reconfigureAgentRuntimes?.(reason);
+    } catch (err) {
+      log.error("oauth runtime refresh failed", err instanceof Error ? err : undefined, {
+        reason,
+      });
+      postError(
+        requestId,
+        `Subscription was updated, but the agent runtime did not refresh: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+        "settings-toast",
+      );
+    }
+    await handleGetSettingsSnapshot(requestId);
+    await postAvailableModels(requestId, { reportErrors: false });
+  }
+
+  function clearOAuthRefreshTimer(): void {
+    if (!oauthRefreshTimer) return;
+    clearTimeout(oauthRefreshTimer);
+    oauthRefreshTimer = null;
+  }
+
+  function scheduleOAuthProactiveRefreshRetry(): void {
+    clearOAuthRefreshTimer();
+    oauthRefreshTimer = setTimeout(() => {
+      oauthRefreshTimer = null;
+      void performOAuthProactiveRefresh();
+    }, OAUTH_PROACTIVE_REFRESH_RETRY_MS);
+    oauthRefreshTimer.unref?.();
+  }
+
+  /**
+   * Schedules a pre-expiry refresh for AFX-owned SDK OAuth records. The timer
+   * only handles idle restarts; active streams still use the reactive auth-error
+   * recovery path so in-flight turns are not interrupted.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+   */
+  async function scheduleOAuthProactiveRefresh(): Promise<void> {
+    clearOAuthRefreshTimer();
+    if (!secretStore || !oauthService) return;
+    try {
+      const now = Date.now();
+      const providers = await secretStore.listOAuthProviders();
+      let nextDelay: number | undefined;
+      for (const provider of providers) {
+        const normalized = normalizeProviderId(provider);
+        const details = PROVIDER_DETAILS[normalized];
+        if (!details?.oauthCapable) continue;
+        const record = await secretStore.getOAuth(normalized);
+        if (!record) continue;
+        const activeMethod = await secretStore.getAuthMethod(normalized);
+        if (activeMethod && activeMethod !== "subscription") continue;
+        const delay = Math.max(0, record.expires - now - OAUTH_PROACTIVE_REFRESH_LEAD_MS);
+        nextDelay = nextDelay === undefined ? delay : Math.min(nextDelay, delay);
+      }
+      if (nextDelay === undefined) return;
+      oauthRefreshTimer = setTimeout(() => {
+        oauthRefreshTimer = null;
+        void performOAuthProactiveRefresh();
+      }, nextDelay);
+      oauthRefreshTimer.unref?.();
+    } catch (err) {
+      log.warn("oauth proactive refresh scheduling failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async function performOAuthProactiveRefresh(): Promise<void> {
+    if (!secretStore || !oauthService || oauthRefreshInFlight) return;
+    if (state.isStreaming) {
+      scheduleOAuthProactiveRefreshRetry();
+      return;
+    }
+
+    oauthRefreshInFlight = true;
+    let refreshedAny = false;
+    let refreshFailed = false;
+    try {
+      const now = Date.now();
+      const providers = await secretStore.listOAuthProviders();
+      for (const provider of providers) {
+        const normalized = normalizeProviderId(provider);
+        const details = PROVIDER_DETAILS[normalized];
+        if (!details?.oauthCapable) continue;
+        const record = await secretStore.getOAuth(normalized);
+        if (!record || record.expires - now > OAUTH_PROACTIVE_REFRESH_LEAD_MS) continue;
+        const activeMethod = await secretStore.getAuthMethod(normalized);
+        if (activeMethod && activeMethod !== "subscription") continue;
+        const token = await oauthService.refreshAccessToken(normalized);
+        if (token) {
+          refreshedAny = true;
+        } else {
+          refreshFailed = true;
+        }
+      }
+      if (refreshedAny && !state.isStreaming) {
+        postChatToast({
+          tone: "info",
+          message: "Refreshing provider sign-in",
+          description: "AFX is reconnecting the SDK runtime before the next turn.",
+          durationMs: 4_000,
+        });
+        await runtimeMonitor.restart("oauth-proactive-refresh");
+      }
+    } finally {
+      oauthRefreshInFlight = false;
+      if (refreshFailed) {
+        scheduleOAuthProactiveRefreshRetry();
+      } else {
+        void scheduleOAuthProactiveRefresh();
+      }
+    }
   }
 
   function includeActiveFileContext(): boolean {
@@ -572,6 +848,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     flushPendingDraftAppends();
     flushPendingToasts();
     postTelemetryState();
+    void scheduleOAuthProactiveRefresh();
   }
 
   function flushPendingDraftAppends(): void {
@@ -768,6 +1045,61 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
     clearStreamingState("error");
     recordRuntimeStatus({ running: true, isStreaming: false, model: currentModel }, requestId);
+  }
+
+  /**
+   * Reactive auth-error recovery. On the first provider auth
+   * failure in a turn, restart the runtime once through the single restart owner
+   * (`runtimeMonitor.restart`) — the respawn re-resolves credentials via
+   * getSelectedProviderKey (refresh-on-read), so no explicit refresh call is
+   * needed — then replay the failed prompt exactly once. A second consecutive
+   * auth_error, or a missing replayable prompt, fails the turn closed with no
+   * silent cross-method fallback.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+   */
+  function recoverFromAuthError(evt: Extract<AgentEvent, { type: "auth_error" }>): void {
+    const requestId = state.currentRequestId ?? undefined;
+    clearTurnStartTimeout();
+
+    // Second consecutive auth failure in the same turn, or nothing to replay:
+    // fail closed and prompt for the failing method rather than retry forever.
+    if (authRecoveryAttempted || !lastTurnSend) {
+      failActiveTurn(requestId, evt.message);
+      return;
+    }
+
+    authRecoveryAttempted = true;
+    const replay = lastTurnSend;
+    postChatToast({
+      tone: "info",
+      message: "Reconnecting your provider",
+      description: "Your sign-in expired. Refreshing access and retrying this message once.",
+      durationMs: 4_000,
+    });
+
+    void (async () => {
+      try {
+        // Clear the failed turn's streaming/lock state so the replay isn't
+        // rejected by the in-flight guard; preserves the transcript so far.
+        clearStreamingState("interrupt");
+        // Restart re-resolves credentials on the respawn (refresh-on-read).
+        await runtimeMonitor.restart(requestId);
+        // Replay the prompt without re-echoing the user message that is
+        // already in the transcript.
+        await handleSend(
+          requestId ?? cryptoRandom(),
+          replay.content,
+          replay.mentions,
+          replay.intentSlot,
+          { isAuthRetry: true },
+        );
+      } catch (err) {
+        eventLog.error("auth-error recovery failed", err instanceof Error ? err : undefined);
+        failActiveTurn(requestId, evt.message);
+      }
+    })();
   }
 
   /**
@@ -1136,6 +1468,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       case "ui_request":
       case "context_overflow":
       case "retryable_error":
+      case "auth_error":
       case "compaction_start":
       case "compaction_end":
       case "auto_retry_start":
@@ -1194,6 +1527,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       case "retryable_error": {
         pendingRetryableError = evt.message;
         clearTurnStartTimeout();
+        return;
+      }
+      case "auth_error": {
+        recoverFromAuthError(evt);
         return;
       }
       case "compaction_start": {
@@ -1610,7 +1947,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
       case "chat/setModel": {
-        void handleSetModel(msg.requestId, msg.provider, msg.modelId, msg.instanceId);
+        void handleSetModel(
+          msg.requestId,
+          msg.provider,
+          msg.modelId,
+          msg.instanceId,
+          msg.authMethod,
+        );
         return;
       }
       // @see docs/specs/201-app-vscode-panels/spec.md [FR-9] [FR-10] [FR-11]
@@ -1675,7 +2018,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
       case "provider/setApiKey": {
-        void handleSetProviderApiKey(msg.requestId, msg.provider, msg.key);
+        void handleSetProviderApiKey(msg.requestId, msg.provider, msg.key, msg.config);
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
@@ -1886,6 +2229,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         });
         return;
       }
+      // OAuth bridge commands -> shared OAuthService; only redacted oauth/status
+      // / oauth/progress ever reach the webview.
+      // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+      // @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+      case "oauth/signIn":
+      case "oauth/signOut":
+      case "oauth/setAuthMethod":
+      case "oauth/submitCode":
+      case "oauth/cancel": {
+        void handleOAuthCommand(msg);
+        return;
+      }
       default: {
         const _never: never = msg;
         inboundLog.warn("unknown inbound", { msg: _never });
@@ -1898,6 +2253,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     content: string,
     mentions: readonly string[] = [],
     intentSlot?: IntentSlot,
+    options?: { isAuthRetry?: boolean },
   ): Promise<void> {
     if (state.isCompacting) {
       postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
@@ -1908,11 +2264,24 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       return;
     }
 
-    const userId = cryptoRandom();
-    const createdAt = Date.now();
-    state.messages.push({ id: userId, role: "user", content, createdAt });
-    post({ type: "chat/messageStart", id: userId, role: "user", createdAt, content });
-    post({ type: "chat/messageEnd", id: userId });
+    // A fresh user turn (not an auth retry replay) resets the one-shot recovery
+    // budget and records the prompt so a later auth_error can replay it once.
+    // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+    if (!options?.isAuthRetry) {
+      authRecoveryAttempted = false;
+      lastTurnSend = { content, mentions, intentSlot };
+    }
+
+    // An auth retry replays a prompt already shown in the transcript; don't echo
+    // the user message a second time.
+    // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+    if (!options?.isAuthRetry) {
+      const userId = cryptoRandom();
+      const createdAt = Date.now();
+      state.messages.push({ id: userId, role: "user", content, createdAt });
+      post({ type: "chat/messageStart", id: userId, role: "user", createdAt, content });
+      post({ type: "chat/messageEnd", id: userId });
+    }
 
     state.currentRequestId = requestId;
     state.isStreaming = true;
@@ -2130,7 +2499,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     options: { reportErrors: boolean },
   ): Promise<void> {
     try {
-      post({ type: "agent/models", requestId, models: await agentManager.getAvailableModels() });
+      const models = await agentManager.getAvailableModels();
+      await maybeRestorePersistedModelSelection(requestId, models);
+      post({ type: "agent/models", requestId, models });
     } catch (err) {
       log.error("getAvailableModels failed", err instanceof Error ? err : undefined);
       if (options.reportErrors) {
@@ -2144,14 +2515,48 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     provider: string,
     modelId: string,
     instanceId?: string,
+    authMethod?: AgentRuntimeModel["authMethod"],
   ): Promise<void> {
     try {
+      const shouldRestartForMethodFlip = isSameProviderAuthMethodFlip(
+        currentModel,
+        provider,
+        instanceId,
+        authMethod,
+      );
+      if (state.isStreaming && shouldRestartForMethodFlip) {
+        postChatToast({
+          tone: "info",
+          message: "Finish the current response first",
+          description: "Switching credential methods reconnects the SDK runtime.",
+          durationMs: 4_000,
+        });
+        return;
+      }
       if (state.isStreaming) {
         clearStreamingState("model_switch");
         recordRuntimeStatus({ running: true, isStreaming: false, model: currentModel }, requestId);
       }
-      const model = await agentManager.setModel({ provider, modelId, instanceId });
-      const shouldRefreshSettings = await persistSelectedApiProviderModel(
+      await applySelectedProviderAuthMethod(provider, authMethod);
+      if (shouldRestartForMethodFlip) {
+        recordRuntimeStatus(
+          {
+            running: true,
+            isStreaming: false,
+            info: "Reconnecting SDK runtime for the selected credential method.",
+            model: currentModel,
+          },
+          requestId,
+        );
+        await runtimeMonitor.restart(requestId);
+      }
+      const model = await agentManager.setModel({
+        provider,
+        modelId,
+        ...(instanceId ? { instanceId } : {}),
+        ...(authMethod ? { authMethod } : {}),
+      });
+      const shouldRefreshSettings = await persistSelectedModelIdentity(
         requestId,
         model,
         instanceId,
@@ -2164,6 +2569,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         source: model.source,
         instanceId: model.instanceId,
         instanceLabel: model.instanceLabel,
+        authMethod: model.authMethod,
       };
       post({ type: "agent/modelChanged", requestId, model });
       appendInfoMessage(formatModelSwitchInfo(model));
@@ -2172,9 +2578,39 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         await handleGetSettingsSnapshot(requestId);
       }
     } catch (err) {
-      log.error("setModel failed", err instanceof Error ? err : undefined, { provider, modelId });
+      log.error("setModel failed", err instanceof Error ? err : undefined, {
+        provider,
+        modelId,
+        authMethod,
+      });
       postError(requestId, err instanceof Error ? err.message : String(err), "transcript");
     }
+  }
+
+  async function applySelectedProviderAuthMethod(
+    provider: string,
+    authMethod?: AgentRuntimeModel["authMethod"],
+  ): Promise<void> {
+    if (authMethod !== "subscription" && authMethod !== "api-key") return;
+    const details = PROVIDER_DETAILS[normalizeProviderId(provider)];
+    if (!details?.oauthCapable) {
+      if (authMethod === "subscription") {
+        throw new Error(`Subscription sign-in is not available for ${provider}.`);
+      }
+      return;
+    }
+    if (!oauthService) {
+      throw new Error("Subscription sign-in is unavailable in this window.");
+    }
+    if (authMethod === "subscription") {
+      const status = await oauthService.getStatus(provider);
+      if (!status.connected) {
+        throw new Error(`Subscription is not connected for ${provider}.`);
+      }
+    } else if (!(await secretStore?.getApiKey(provider))) {
+      throw new Error(`API key is not configured for ${provider}.`);
+    }
+    await oauthService.setAuthMethod(provider, authMethod);
   }
 
   /**
@@ -2225,29 +2661,152 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
   }
 
-  async function persistSelectedApiProviderModel(
+  async function persistSelectedModelIdentity(
     requestId: string,
     model: AgentModel,
     requestedInstanceId?: string,
   ): Promise<boolean> {
-    if (!isApiProviderModel(model, requestedInstanceId)) return false;
+    const identity = toModelSelectionIdentity(model, requestedInstanceId);
+    const isSdkModel = isApiProviderModel(model, requestedInstanceId);
     const defaultModel = formatSdkDefaultModel(model.provider, model.id);
     try {
-      await updateSdkDefaultModel(model.provider, model.id);
+      await updateAfxConfigurationWithWorkspaceFallback(
+        MODEL_DEFAULT_SELECTION_SETTING,
+        formatModelSelectionIdentity(identity),
+        configurationTargetFor(MODEL_DEFAULT_SELECTION_SETTING),
+        log,
+      );
+      if (isSdkModel) {
+        await updateSdkDefaultModel(model.provider, model.id);
+      }
       return true;
     } catch (err) {
-      log.error("persist selected provider model failed", err instanceof Error ? err : undefined, {
+      log.error("persist selected model identity failed", err instanceof Error ? err : undefined, {
         provider: model.provider,
         modelId: model.id,
+        instanceId: identity.instanceId,
+        authMethod: identity.authMethod,
       });
       const reason = err instanceof Error ? err.message : String(err);
+      const selectionLabel = isSdkModel ? defaultModel : `${identity.instanceId}:${model.id}`;
       postError(
         requestId,
-        `Model switched for this session, but AFX could not save ${defaultModel} as your default: ${reason}`,
+        `Model switched for this session, but AFX could not save ${selectionLabel} as your default: ${reason}`,
         "toast",
       );
       return false;
     }
+  }
+
+  async function maybeRestorePersistedModelSelection(
+    requestId: string,
+    models: readonly AgentModel[],
+  ): Promise<void> {
+    if (modelRestoreAttempted) return;
+    modelRestoreAttempted = true;
+    const requested = readConfiguredModelSelection();
+    if (!requested || models.length === 0) return;
+
+    const reconciled = await reconcileModelSelectionAuthMethod(requested);
+    const target =
+      findModelForSelection(models, reconciled) ?? chooseModelRestoreFallback(models, reconciled);
+    if (!target) return;
+
+    try {
+      await applySelectedProviderAuthMethod(target.provider, target.authMethod);
+      const selected = await agentManager.setModel({
+        provider: target.provider,
+        modelId: target.id,
+        ...(target.instanceId ? { instanceId: target.instanceId } : {}),
+        ...(target.authMethod ? { authMethod: target.authMethod } : {}),
+      });
+      await persistSelectedModelIdentity(requestId, selected, target.instanceId);
+      currentModel = {
+        provider: selected.provider,
+        id: selected.id,
+        name: selected.name,
+        reasoning: selected.reasoning,
+        source: selected.source,
+        instanceId: selected.instanceId,
+        instanceLabel: selected.instanceLabel,
+        authMethod: selected.authMethod,
+      };
+      post({ type: "agent/modelChanged", requestId, model: selected });
+      recordRuntimeStatus({ running: true, isStreaming: false, model: currentModel }, requestId);
+    } catch (err) {
+      log.warn("model selection restore failed", {
+        provider: target.provider,
+        modelId: target.id,
+        instanceId: target.instanceId,
+        authMethod: target.authMethod,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      const fallback = chooseModelRestoreFallback(
+        models.filter((model) => !identityMatchesModel(toModelSelectionIdentity(target), model)),
+        reconciled,
+      );
+      if (!fallback) return;
+      try {
+        const selected = await agentManager.setModel({
+          provider: fallback.provider,
+          modelId: fallback.id,
+          ...(fallback.instanceId ? { instanceId: fallback.instanceId } : {}),
+          ...(fallback.authMethod ? { authMethod: fallback.authMethod } : {}),
+        });
+        await persistSelectedModelIdentity(requestId, selected, fallback.instanceId);
+        currentModel = {
+          provider: selected.provider,
+          id: selected.id,
+          name: selected.name,
+          reasoning: selected.reasoning,
+          source: selected.source,
+          instanceId: selected.instanceId,
+          instanceLabel: selected.instanceLabel,
+          authMethod: selected.authMethod,
+        };
+        post({ type: "agent/modelChanged", requestId, model: selected });
+      } catch (fallbackErr) {
+        log.warn("model selection fallback failed", {
+          error: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr),
+        });
+      }
+    }
+  }
+
+  function readConfiguredModelSelection(): ModelSelectionIdentityV2 | undefined {
+    const cfg = vscode.workspace.getConfiguration("afx");
+    const full = parseModelSelectionIdentity(cfg.get<string>(MODEL_DEFAULT_SELECTION_SETTING, ""));
+    if (full) return full;
+    return parseLegacySdkDefaultModel(cfg.get<string>("sdk.defaultModel", ""));
+  }
+
+  async function reconcileModelSelectionAuthMethod(
+    selection: ModelSelectionIdentityV2,
+  ): Promise<ModelSelectionIdentityV2> {
+    if (selection.instanceId !== "pi-sdk") return selection;
+    const active = await secretStore?.getAuthMethod(selection.provider);
+    if (active && active !== selection.authMethod) {
+      return { ...selection, authMethod: active };
+    }
+    return selection;
+  }
+
+  function findModelForSelection(
+    models: readonly AgentModel[],
+    selection: ModelSelectionIdentityV2,
+  ): AgentModel | undefined {
+    return models.find((model) => identityMatchesModel(selection, model));
+  }
+
+  function chooseModelRestoreFallback(
+    models: readonly AgentModel[],
+    selection: ModelSelectionIdentityV2,
+  ): AgentModel | undefined {
+    return (
+      models.find((model) => (model.instanceId ?? "pi-sdk") === selection.instanceId) ??
+      models.find((model) => isApiProviderModel(model, model.instanceId)) ??
+      models.find((model) => model.source === "external-agent")
+    );
   }
 
   async function handleGetCommands(requestId: string): Promise<void> {
@@ -2390,10 +2949,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   async function handleSetProviderApiKey(
     requestId: string,
     provider: string,
-    key: string,
+    key: string | undefined,
+    config?: Record<string, string>,
   ): Promise<void> {
     try {
-      await vscode.commands.executeCommand("afx.setProviderApiKey", provider, key);
+      if (config) {
+        await vscode.commands.executeCommand("afx.setProviderApiKey", provider, key, config);
+      } else {
+        await vscode.commands.executeCommand("afx.setProviderApiKey", provider, key);
+      }
+      const normalizedProvider = normalizeProviderId(provider);
+      if (key?.trim() && PROVIDER_DETAILS[normalizedProvider]?.oauthCapable && oauthService) {
+        await oauthService.setAuthMethod(normalizedProvider, "api-key");
+        const status = await oauthService.getStatus(normalizedProvider);
+        post({ type: "oauth/status", requestId, ok: true, status });
+      }
       await handleGetSettingsSnapshot(requestId);
       await postAvailableModels(requestId, { reportErrors: false });
     } catch (err) {
@@ -3133,6 +3703,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         flushTimer = null;
       }
       clearTurnStartTimeout();
+      clearOAuthRefreshTimer();
       if (webview === view.webview) {
         webview = null;
         chatReady = false;
@@ -3302,7 +3873,7 @@ async function groupProviders(
   const providerIds = new Set<string>([...API_PROVIDER_IDS, ...byProvider.keys()]);
   if (ollamaBaseUrl || byProvider.has("ollama")) providerIds.add("ollama");
 
-  const configuredProviders = new Set(
+  const keyedProviders = new Set(
     (
       await Promise.all(
         [...providerIds].map(async (provider) =>
@@ -3311,29 +3882,129 @@ async function groupProviders(
       )
     ).filter((provider): provider is string => provider !== null),
   );
+  const configuredProviders = new Set(
+    (
+      await Promise.all(
+        [...providerIds].map(async (provider) => {
+          if (!secretStore || !keyedProviders.has(provider)) return null;
+          return (await providerHasRequiredConfig(secretStore, provider)) ? provider : null;
+        }),
+      )
+    ).filter((provider): provider is string => provider !== null),
+  );
+  const configuredConfigFields = new Map(
+    await Promise.all(
+      [...providerIds].map(
+        async (provider): Promise<[string, string[]]> => [
+          provider,
+          secretStore ? await getConfiguredProviderConfigFields(secretStore, provider) : [],
+        ],
+      ),
+    ),
+  );
+
+  // Redacted OAuth state per provider for the card method chooser / connected
+  // surfaces — presence booleans + active method only; never tokens.
+  // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [NFR-1]
+  // @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
+  const oauthState = new Map<
+    string,
+    { subscriptionConnected: boolean; activeMethod?: ProviderAuthMethod }
+  >(
+    await Promise.all(
+      [...providerIds].map(
+        async (
+          provider,
+        ): Promise<
+          [string, { subscriptionConnected: boolean; activeMethod?: ProviderAuthMethod }]
+        > => {
+          if (!secretStore) return [provider, { subscriptionConnected: false }];
+          const [record, activeMethod] = await Promise.all([
+            secretStore.getOAuth(provider),
+            secretStore.getAuthMethod(provider),
+          ]);
+          return [provider, { subscriptionConnected: record !== undefined, activeMethod }];
+        },
+      ),
+    ),
+  );
 
   return [...providerIds]
     .map((provider) => {
       const providerModels = byProvider.get(provider) ?? [];
-      const details = PROVIDER_DETAILS[provider] ?? {
+      // Read OAuth capability flags from the catalog entry directly (not the
+      // narrowed fallback) so the non-OAuth providers leave them undefined.
+      const catalogEntry = PROVIDER_DETAILS[provider];
+      const details = catalogEntry ?? {
         displayName: titleCase(provider),
         modelHint: "Models available from this provider",
       };
       const noKeyNeeded = provider === "ollama" && Boolean(ollamaBaseUrl);
-      const configured = configuredProviders.has(provider) || providerModels.length > 0;
+      const oauth = oauthState.get(provider) ?? { subscriptionConnected: false };
+      const configured =
+        configuredProviders.has(provider) ||
+        providerModels.length > 0 ||
+        oauth.subscriptionConnected;
+      const state: SettingsSnapshot["providers"][number]["state"] = noKeyNeeded
+        ? "no-key-needed"
+        : configured
+          ? "configured"
+          : keyedProviders.has(provider)
+            ? "invalid"
+            : "empty";
       return {
         id: provider,
         name: provider,
         displayName: details.displayName,
         modelCount: providerModels.length,
-        state: noKeyNeeded ? "no-key-needed" : configured ? "configured" : "empty",
+        state,
         modelHint: details.modelHint,
         defaultModel: provider === defaultProvider ? defaultModelId : undefined,
         models: providerModels,
         helpUrl: details.helpUrl,
+        configFields: catalogEntry?.configFields ? [...catalogEntry.configFields] : undefined,
+        configuredConfigFields: configuredConfigFields.get(provider),
+        oauthCapable: catalogEntry?.oauthCapable,
+        oauthFlow: catalogEntry?.oauthFlow,
+        dualMethod: catalogEntry?.dualMethod,
+        activeMethod: oauth.activeMethod,
+        subscriptionConnected: oauth.subscriptionConnected,
       } satisfies SettingsSnapshot["providers"][number];
     })
     .sort((a, b) => (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name));
+}
+
+async function providerHasRequiredConfig(
+  secretStore: SecretStore,
+  provider: string,
+): Promise<boolean> {
+  const fields = (PROVIDER_DETAILS[provider]?.configFields ?? []).filter(
+    (field) => field.required !== false,
+  );
+  if (fields.length === 0) return true;
+  for (const field of fields) {
+    if (!(await readProviderEnvVar(secretStore, field.envVar))) return false;
+  }
+  return true;
+}
+
+async function getConfiguredProviderConfigFields(
+  secretStore: SecretStore,
+  provider: string,
+): Promise<string[]> {
+  const fields = PROVIDER_DETAILS[provider]?.configFields ?? [];
+  const configured: string[] = [];
+  for (const field of fields) {
+    if (await readProviderEnvVar(secretStore, field.envVar)) configured.push(field.id);
+  }
+  return configured;
+}
+
+function readProviderEnvVar(secretStore: SecretStore, envVar: string): Promise<string | undefined> {
+  const store = secretStore as SecretStore & {
+    getProviderEnvVar?: (name: string) => Promise<string | undefined>;
+  };
+  return store.getProviderEnvVar?.(envVar) ?? Promise.resolve(undefined);
 }
 
 function groupExternalAgents(
@@ -3401,16 +4072,31 @@ function isApiProviderModel(model: AgentModel, requestedInstanceId?: string): bo
   );
 }
 
+function isSameProviderAuthMethodFlip(
+  previous: AgentRuntimeModel | undefined,
+  provider: string,
+  instanceId: string | undefined,
+  authMethod: AgentRuntimeModel["authMethod"] | undefined,
+): boolean {
+  if (authMethod !== "subscription" && authMethod !== "api-key") return false;
+  if (!previous || (previous.authMethod !== "subscription" && previous.authMethod !== "api-key")) {
+    return false;
+  }
+  const nextInstance = instanceId ?? previous.instanceId ?? "pi-sdk";
+  return (
+    nextInstance === "pi-sdk" &&
+    (previous.instanceId ?? "pi-sdk") === "pi-sdk" &&
+    normalizeProviderId(previous.provider) === normalizeProviderId(provider) &&
+    previous.authMethod !== authMethod
+  );
+}
+
 function isNoConfiguredRuntimeError(err: unknown): boolean {
   return (
     err instanceof Error &&
     (/no configured agent runtime/i.test(err.message) ||
       /no agent runtime configured/i.test(err.message))
   );
-}
-
-function formatSdkDefaultModel(provider: string, modelId: string): string {
-  return `${normalizeProviderId(provider)}:${modelId}`;
 }
 
 function formatModelSwitchInfo(model: AgentModel): string {

@@ -407,10 +407,19 @@ describe("createMockTransport", () => {
     expect(snapshots[0]?.providers).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "minimax", state: "empty" })]),
     );
+    expect(snapshots[0]?.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "openai-codex",
+          state: "empty",
+          subscriptionConnected: false,
+        }),
+      ]),
+    );
     expect(snapshots[2]?.providers).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: "ollama", state: "no-key-needed" })]),
     );
-    expect(modelCounts).toEqual([1, 3]);
+    expect(modelCounts).toEqual([1, 10]);
     t.dispose();
   });
 

@@ -19,6 +19,8 @@ import {
   type AgentCommand,
   type AgentEvent,
   type AgentModel,
+  type AgentRuntimeStatus,
+  type AgentStatus,
   type Logger,
   createLogger,
   memorySink,
@@ -121,6 +123,7 @@ describe("sidebar-panel host bridge", () => {
       logLevel: "info",
       "rpc.enabled": false,
       "sdk.defaultModel": "anthropic:claude-opus-4-5",
+      "model.defaultSelection": "",
       "sdk.enabled": true,
       "sdk.ollamaBaseUrl": "",
       "runtime.responseStartTimeoutMs": 60_000,
@@ -226,6 +229,48 @@ describe("sidebar-panel host bridge", () => {
   function firstAgentStderrListener(): ((chunk: string) => void) | undefined {
     const calls = (agent.onStderr as unknown as { mock: { calls: unknown[][] } }).mock.calls;
     return calls[0]?.[0] as ((chunk: string) => void) | undefined;
+  }
+
+  function makeRuntimeMonitorMock(): NonNullable<SidebarPanelDeps["runtimeMonitor"]> & {
+    restart: ReturnType<typeof vi.fn>;
+    record: ReturnType<typeof vi.fn>;
+  } {
+    const listeners = new Set<
+      (status: AgentRuntimeStatus, requestId: string | undefined) => void
+    >();
+    const snapshot = (): AgentRuntimeStatus => ({
+      phase: "ready",
+      running: true,
+      isStreaming: false,
+      checkedAt: Date.now(),
+      consecutiveFailures: 0,
+    });
+
+    return {
+      start: vi.fn(),
+      stop: vi.fn(),
+      check: vi.fn(async () => snapshot()),
+      restart: vi.fn(async () => snapshot()),
+      record: vi.fn((status: AgentStatus, requestId?: string) => {
+        const runtimeStatus: AgentRuntimeStatus = {
+          ...snapshot(),
+          phase: status.isStreaming ? "busy" : "ready",
+          running: status.running,
+          isStreaming: status.isStreaming,
+          model: status.model,
+          info: status.info,
+          restartRequired: status.restartRequired,
+        };
+        for (const listener of listeners) listener(runtimeStatus, requestId);
+        return runtimeStatus;
+      }),
+      getSnapshot: vi.fn(() => snapshot()),
+      onStatus: vi.fn((listener) => {
+        listeners.add(listener);
+        return { dispose: () => listeners.delete(listener) };
+      }),
+      dispose: vi.fn(),
+    };
   }
 
   it("chat/getModels delegates to agent.getAvailableModels", async () => {
@@ -370,6 +415,209 @@ describe("sidebar-panel host bridge", () => {
       requestId: "provider-save-1",
       models: [minimaxModel],
     });
+  });
+
+  it("provider/setApiKey selects api-key as the active method for OAuth-capable providers", async () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const oauthService = {
+      setAuthMethod: vi.fn(async () => {}),
+      getStatus: vi.fn(async () => ({
+        provider: "anthropic",
+        connected: true,
+        activeMethod: "api-key",
+      })),
+    };
+    const { inbound, postMessage } = setupWithView({ oauthService: oauthService as never });
+
+    inbound.fire({
+      type: "provider/setApiKey",
+      requestId: "provider-save-oauth",
+      provider: "Anthropic",
+      key: "secret",
+    });
+    await flushAsyncWork(3);
+
+    expect(executeCommand).toHaveBeenCalledWith("afx.setProviderApiKey", "Anthropic", "secret");
+    expect(oauthService.setAuthMethod).toHaveBeenCalledWith("anthropic", "api-key");
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "oauth/status",
+      requestId: "provider-save-oauth",
+      ok: true,
+      status: {
+        provider: "anthropic",
+        connected: true,
+        activeMethod: "api-key",
+      },
+    });
+  });
+
+  it("oauth/signIn rebuilds runtimes and reposts models for subscription-only providers", async () => {
+    const codexModel: AgentModel = {
+      provider: "openai-codex",
+      id: "gpt-5.4",
+      name: "GPT-5.4",
+      reasoning: true,
+      contextWindow: 400_000,
+      maxTokens: 128_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    };
+    agent.getAvailableModels.mockResolvedValue([codexModel]);
+    const reconfigureAgentRuntimes = vi.fn(async () => {});
+    const oauthService = {
+      signIn: vi.fn(async () => ({
+        provider: "openai-codex",
+        connected: true,
+        activeMethod: "subscription",
+      })),
+    };
+    const { inbound, postMessage } = setupWithView({
+      oauthService: oauthService as never,
+      reconfigureAgentRuntimes,
+    });
+
+    inbound.fire({
+      type: "oauth/signIn",
+      requestId: "codex-sign-in",
+      provider: "openai-codex",
+    });
+    await flushAsyncWork(4);
+
+    expect(reconfigureAgentRuntimes).toHaveBeenCalledWith("OAuth sign-in for openai-codex");
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "agent/models",
+      requestId: "codex-sign-in",
+      models: [codexModel],
+    });
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "codex-sign-in",
+      }),
+    );
+  });
+
+  it("proactively refreshes OAuth before expiry and restarts the idle SDK runtime", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-31T10:00:00.000Z"));
+    let expires = Date.now() + 300_001;
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const secretStore = {
+      listOAuthProviders: vi.fn(async () => ["anthropic"]),
+      getOAuth: vi.fn(async () => ({
+        access: "old-access",
+        refresh: "refresh-token",
+        expires,
+      })),
+      getAuthMethod: vi.fn(async () => "subscription" as const),
+    };
+    const oauthService = {
+      getAccessToken: vi.fn(),
+      refreshAccessToken: vi.fn(async () => {
+        expires = Date.now() + 900_000;
+        return "fresh-access";
+      }),
+    };
+    const { inbound } = setupWithView({
+      runtimeMonitor,
+      secretStore: secretStore as never,
+      oauthService: oauthService as never,
+    });
+
+    inbound.fire({ type: "chat/ready" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
+
+    expect(oauthService.getAccessToken).not.toHaveBeenCalled();
+    expect(oauthService.refreshAccessToken).toHaveBeenCalledWith("anthropic");
+    expect(runtimeMonitor.restart).toHaveBeenCalledWith("oauth-proactive-refresh");
+  });
+
+  it("defers proactive OAuth refresh restarts while a turn is streaming", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-31T10:00:00.000Z"));
+    let expires = Date.now() + 300_001;
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const secretStore = {
+      listOAuthProviders: vi.fn(async () => ["anthropic"]),
+      getOAuth: vi.fn(async () => ({
+        access: "old-access",
+        refresh: "refresh-token",
+        expires,
+      })),
+      getAuthMethod: vi.fn(async () => "subscription" as const),
+    };
+    const oauthService = {
+      getAccessToken: vi.fn(),
+      refreshAccessToken: vi.fn(async () => {
+        expires = Date.now() + 900_000;
+        return "fresh-access";
+      }),
+    };
+    const { inbound } = setupWithView({
+      runtimeMonitor,
+      secretStore: secretStore as never,
+      oauthService: oauthService as never,
+    });
+
+    inbound.fire({ type: "chat/ready" });
+    inbound.fire({ type: "chat/send", requestId: "streaming-turn", content: "hold" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(oauthService.refreshAccessToken).not.toHaveBeenCalled();
+    expect(runtimeMonitor.restart).not.toHaveBeenCalled();
+
+    firstAgentEventListener()?.({ type: "agent_end" });
+    await vi.advanceTimersByTimeAsync(30_000);
+    await Promise.resolve();
+
+    expect(oauthService.getAccessToken).not.toHaveBeenCalled();
+    expect(oauthService.refreshAccessToken).toHaveBeenCalledWith("anthropic");
+    expect(runtimeMonitor.restart).toHaveBeenCalledWith("oauth-proactive-refresh");
+  });
+
+  it("backs off proactive OAuth refresh when the provider cannot rotate", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-31T10:00:00.000Z"));
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const expires = Date.now() + 300_001;
+    const secretStore = {
+      listOAuthProviders: vi.fn(async () => ["anthropic"]),
+      getOAuth: vi.fn(async () => ({
+        access: "old-access",
+        refresh: "refresh-token",
+        expires,
+      })),
+      getAuthMethod: vi.fn(async () => "subscription" as const),
+    };
+    const oauthService = {
+      refreshAccessToken: vi.fn(async () => undefined),
+    };
+    const { inbound } = setupWithView({
+      runtimeMonitor,
+      secretStore: secretStore as never,
+      oauthService: oauthService as never,
+    });
+
+    inbound.fire({ type: "chat/ready" });
+    await Promise.resolve();
+    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(1);
+    await Promise.resolve();
+
+    expect(oauthService.refreshAccessToken).toHaveBeenCalledTimes(1);
+    expect(runtimeMonitor.restart).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(29_999);
+    expect(oauthService.refreshAccessToken).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(oauthService.refreshAccessToken).toHaveBeenCalledTimes(2);
   });
 
   it("telemetry/setEnabled persists the opt-out setting and refreshes Clarity state", async () => {
@@ -844,6 +1092,173 @@ describe("sidebar-panel host bridge", () => {
     });
   });
 
+  it("writes subscription auth method before a Pi SDK model switch", async () => {
+    const model: AgentModel = {
+      provider: "anthropic",
+      id: "claude-opus-4-7",
+      name: "Claude Opus 4.7",
+      reasoning: true,
+      contextWindow: 200_000,
+      maxTokens: 64_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    };
+    agent.setModel.mockResolvedValue(model);
+    const oauthService = {
+      getStatus: vi.fn(async () => ({ provider: "anthropic", connected: true })),
+      setAuthMethod: vi.fn(async () => {}),
+    };
+    const { inbound } = setupWithView({ oauthService: oauthService as never });
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "subscription-model-switch",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    });
+    await flushAsyncWork(2);
+
+    expect(oauthService.setAuthMethod).toHaveBeenCalledWith("anthropic", "subscription");
+    expect(agent.setModel).toHaveBeenCalledWith({
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    });
+    expect(oauthService.setAuthMethod.mock.invocationCallOrder[0]!).toBeLessThan(
+      agent.setModel.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("restarts Pi SDK before switching the same provider to another auth method", async () => {
+    const subscriptionModel: AgentModel = {
+      provider: "anthropic",
+      id: "claude-opus-4-7",
+      name: "Claude Opus 4.7",
+      reasoning: true,
+      contextWindow: 200_000,
+      maxTokens: 64_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    };
+    const apiKeyModel: AgentModel = {
+      ...subscriptionModel,
+      authMethod: "api-key",
+    };
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const secretStore = {
+      getApiKey: vi.fn(async () => "api-key"),
+      listOAuthProviders: vi.fn(async () => []),
+    };
+    const oauthService = {
+      getStatus: vi.fn(async () => ({ provider: "anthropic", connected: true })),
+      setAuthMethod: vi.fn(async () => {}),
+    };
+    agent.setModel.mockResolvedValueOnce(subscriptionModel).mockResolvedValueOnce(apiKeyModel);
+    const { inbound } = setupWithView({
+      runtimeMonitor,
+      secretStore: secretStore as never,
+      oauthService: oauthService as never,
+    });
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "subscription-model-switch",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    });
+    await flushAsyncWork(3);
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "api-model-switch",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    await flushAsyncWork(4);
+
+    expect(runtimeMonitor.restart).toHaveBeenCalledWith("api-model-switch");
+    expect(oauthService.setAuthMethod).toHaveBeenNthCalledWith(2, "anthropic", "api-key");
+    expect(agent.setModel).toHaveBeenNthCalledWith(2, {
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    expect(runtimeMonitor.restart.mock.invocationCallOrder[0]!).toBeLessThan(
+      agent.setModel.mock.invocationCallOrder[1]!,
+    );
+  });
+
+  it("defers same-provider auth-method restart requests while streaming", async () => {
+    const subscriptionModel: AgentModel = {
+      provider: "anthropic",
+      id: "claude-opus-4-7",
+      name: "Claude Opus 4.7",
+      reasoning: true,
+      contextWindow: 200_000,
+      maxTokens: 64_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    };
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const secretStore = {
+      getApiKey: vi.fn(async () => "api-key"),
+      listOAuthProviders: vi.fn(async () => []),
+    };
+    const oauthService = {
+      getStatus: vi.fn(async () => ({ provider: "anthropic", connected: true })),
+      setAuthMethod: vi.fn(async () => {}),
+    };
+    agent.setModel.mockResolvedValue(subscriptionModel);
+    const { inbound, postMessage } = setupWithView({
+      runtimeMonitor,
+      secretStore: secretStore as never,
+      oauthService: oauthService as never,
+    });
+
+    inbound.fire({ type: "chat/ready" });
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "subscription-model-switch",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    });
+    await flushAsyncWork(3);
+
+    inbound.fire({ type: "chat/send", requestId: "streaming-turn", content: "hold" });
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "api-model-switch-streaming",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    await flushAsyncWork(2);
+
+    expect(runtimeMonitor.restart).not.toHaveBeenCalled();
+    expect(agent.setModel).toHaveBeenCalledTimes(1);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Finish the current response first",
+        description: expect.stringContaining("reconnects the SDK runtime"),
+      }),
+    );
+  });
+
   it("persists chat API-provider model switches as the SDK default model", async () => {
     const { update, values } = mockAfxConfiguration();
     const model: AgentModel = {
@@ -871,9 +1286,27 @@ describe("sidebar-panel host bridge", () => {
     await flushAsyncWork(3);
 
     expect(update).toHaveBeenCalledWith(
+      "model.defaultSelection",
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "anthropic",
+        modelId: "claude-sonnet-4-5",
+      }),
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
       "sdk.defaultModel",
       "anthropic:claude-sonnet-4-5",
       vscode.ConfigurationTarget.Global,
+    );
+    expect(values.get("model.defaultSelection")).toBe(
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "anthropic",
+        modelId: "claude-sonnet-4-5",
+      }),
     );
     expect(values.get("sdk.defaultModel")).toBe("anthropic:claude-sonnet-4-5");
     expect(postMessage).toHaveBeenCalledWith({
@@ -926,15 +1359,33 @@ describe("sidebar-panel host bridge", () => {
     await flushAsyncWork(3);
 
     expect(update).toHaveBeenCalledWith(
+      "model.defaultSelection",
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "llama.cpp",
+        modelId: "qwen2.5-coder:7b",
+      }),
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
       "sdk.defaultModel",
       "llama.cpp:qwen2.5-coder:7b",
       vscode.ConfigurationTarget.Global,
     );
+    expect(values.get("model.defaultSelection")).toBe(
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "llama.cpp",
+        modelId: "qwen2.5-coder:7b",
+      }),
+    );
     expect(values.get("sdk.defaultModel")).toBe("llama.cpp:qwen2.5-coder:7b");
   });
 
-  it("keeps external-agent model switches scoped to the active session", async () => {
-    const { update } = mockAfxConfiguration();
+  it("persists external-agent model switches with the runtime instance id", async () => {
+    const { update, values } = mockAfxConfiguration();
     const model: AgentModel = {
       provider: "pi",
       id: "default",
@@ -958,7 +1409,172 @@ describe("sidebar-panel host bridge", () => {
     });
     await flushAsyncWork();
 
-    expect(update).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+      "model.defaultSelection",
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi",
+        provider: "pi",
+        modelId: "default",
+      }),
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(values.get("model.defaultSelection")).toBe(
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi",
+        provider: "pi",
+        modelId: "default",
+      }),
+    );
+    expect(values.get("sdk.defaultModel")).toBe("anthropic:claude-opus-4-5");
+  });
+
+  it("restores an exact persisted model identity before posting the model list", async () => {
+    const model: AgentModel = {
+      provider: "minimax",
+      id: "minimax-text-01",
+      name: "MiniMax Text 01",
+      reasoning: false,
+      contextWindow: 1_000_000,
+      maxTokens: 32_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      instanceLabel: "API Providers",
+      authMethod: "api-key",
+    };
+    mockAfxConfiguration({
+      "model.defaultSelection": JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "minimax",
+        modelId: "minimax-text-01",
+        authMethod: "api-key",
+      }),
+    });
+    agent.getAvailableModels.mockResolvedValue([model]);
+    agent.setModel.mockResolvedValue(model);
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/getModels", requestId: "restore-exact" });
+    await flushAsyncWork(3);
+
+    expect(agent.setModel).toHaveBeenCalledWith({
+      provider: "minimax",
+      modelId: "minimax-text-01",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "agent/modelChanged",
+      requestId: "restore-exact",
+      model,
+    });
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "agent/models",
+      requestId: "restore-exact",
+      models: [model],
+    });
+  });
+
+  it("falls back to an SDK model when a saved external runtime is unavailable", async () => {
+    const { values } = mockAfxConfiguration({
+      "model.defaultSelection": JSON.stringify({
+        v: 2,
+        instanceId: "pi",
+        provider: "pi",
+        modelId: "default",
+      }),
+    });
+    const sdkModel: AgentModel = {
+      provider: "anthropic",
+      id: "claude-opus-4-7",
+      name: "Claude Opus 4.7",
+      reasoning: true,
+      contextWindow: 200_000,
+      maxTokens: 64_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      instanceLabel: "API Providers",
+    };
+    agent.getAvailableModels.mockResolvedValue([sdkModel]);
+    agent.setModel.mockResolvedValue(sdkModel);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/getModels", requestId: "restore-external-disabled" });
+    await flushAsyncWork(3);
+
+    expect(agent.setModel).toHaveBeenCalledWith({
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+    });
+    expect(values.get("model.defaultSelection")).toBe(
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "anthropic",
+        modelId: "claude-opus-4-7",
+      }),
+    );
+  });
+
+  it("catches stale SDK restore errors and persists a fallback identity", async () => {
+    const { values } = mockAfxConfiguration({
+      "model.defaultSelection": JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "minimax",
+        modelId: "missing-model",
+        authMethod: "api-key",
+      }),
+    });
+    const staleModel: AgentModel = {
+      provider: "minimax",
+      id: "missing-model",
+      name: "Missing Model",
+      reasoning: false,
+      contextWindow: 1_000_000,
+      maxTokens: 32_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    };
+    const fallbackModel: AgentModel = {
+      ...staleModel,
+      id: "minimax-text-01",
+      name: "MiniMax Text 01",
+    };
+    agent.getAvailableModels.mockResolvedValue([staleModel, fallbackModel]);
+    agent.setModel
+      .mockRejectedValueOnce(new Error("stale model"))
+      .mockResolvedValueOnce(fallbackModel);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/getModels", requestId: "restore-stale-sdk" });
+    await flushAsyncWork(4);
+
+    expect(agent.setModel).toHaveBeenNthCalledWith(1, {
+      provider: "minimax",
+      modelId: "missing-model",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    expect(agent.setModel).toHaveBeenNthCalledWith(2, {
+      provider: "minimax",
+      modelId: "minimax-text-01",
+      instanceId: "pi-sdk",
+      authMethod: "api-key",
+    });
+    expect(values.get("model.defaultSelection")).toBe(
+      JSON.stringify({
+        v: 2,
+        instanceId: "pi-sdk",
+        provider: "minimax",
+        modelId: "minimax-text-01",
+        authMethod: "api-key",
+      }),
+    );
   });
 
   it("persists model switch errors into the chat transcript", async () => {

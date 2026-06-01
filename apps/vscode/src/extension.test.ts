@@ -484,6 +484,42 @@ describe("extension.activate", () => {
     expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(1);
   });
 
+  it("uses the full model-selection identity as the SDK startup default", async () => {
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "model.defaultSelection") {
+          return JSON.stringify({
+            v: 2,
+            instanceId: "pi-sdk",
+            provider: "openai",
+            modelId: "gpt-5.4",
+            authMethod: "api-key",
+          }) as T;
+        }
+        if (key === "sdk.defaultModel") return "anthropic:claude-opus-4-5" as T;
+        if (key === "sdk.enabled") return true as T;
+        if (key === "rpc.enabled") return false as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: <T>(section: string) => ({
+        key: section,
+        workspaceValue: undefined as T | undefined,
+      }),
+      update: vi.fn(async () => {}),
+    });
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    expect(createConfiguredAgentInstances).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sdkDefaultModel: "openai:gpt-5.4",
+      }),
+    );
+  });
+
   it("rebuilds runtimes when Pi RPC is toggled", async () => {
     let configListener:
       | ((event: { affectsConfiguration: (key: string) => boolean }) => void)

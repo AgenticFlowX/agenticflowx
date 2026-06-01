@@ -3,8 +3,8 @@
  * tooltip text shown in the Settings view.
  *
  * Pi-runtime values (Thinking enum, retryBackoff, compaction thresholds) are
- * verified against pi-mono/packages/coding-agent/src/core/settings-manager.ts
- * and pi-mono/packages/ai/src/types.ts. Do not modify without re-verifying.
+ * verified against the bundled SDK/runtime settings schema. Do not modify
+ * without re-verifying the runtime contract.
  *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-12] [FR-13] [NFR-3]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COPY] [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-ONBOARDING]
@@ -92,6 +92,8 @@ export const RUNTIMES = {
   rpcEphemeralDescription: "Don't persist conversation to disk. Default: off.",
   rpcEphemeralTooltip:
     "When on, Pi runs with --no-session and skips writing JSONL to ~/.pi/sessions/. Useful for sensitive sessions or one-off questions. Restart required to take effect.",
+  rpcLoginGuidance:
+    "External Pi uses its own credentials. To sign in or switch accounts, run pi /login in the Pi terminal.",
 
   // Behaviour card — applies to active instance only
   behaviourCardTitle: "Behaviour",
@@ -110,7 +112,7 @@ export const RUNTIMES = {
   thinkingTooltip:
     "Maps to provider-side extended thinking (Anthropic extended_thinking, Google thinking content, OpenAI o-series reasoning). Higher levels = more deliberation, slower, more tokens. Default: off. Two-way sync: changing Thinking in the composer model picker also updates this value.",
 
-  // Thinking options — verified against pi-mono/packages/ai/src/types.ts:53
+  // Thinking options — verified against the bundled SDK model-option schema.
   thinkingOff: {
     value: "off" as const,
     label: "off",
@@ -134,7 +136,7 @@ export const RUNTIMES = {
   },
   thinkingXhigh: { value: "xhigh" as const, label: "xhigh", description: "Same as high (alias)." },
 
-  // Steering — verified against pi-mono/packages/agent/src/agent.ts:55,200
+  // Steering — verified against the bundled runtime steering schema.
   steeringLabel: "Steering mode",
   steeringSublabel: "(settings only)",
   steeringDescription: "How mid-loop steering messages are processed.",
@@ -151,7 +153,7 @@ export const RUNTIMES = {
     description: "One per yield, wait for reply. (default)",
   },
 
-  // Follow-up — verified against pi-mono/packages/agent/src/agent.ts:162,201
+  // Follow-up — verified against the bundled runtime follow-up schema.
   followUpLabel: "Follow-up mode",
   followUpSublabel: "(settings only)",
   followUpDescription: "How messages sent after the agent finishes are processed.",
@@ -168,14 +170,14 @@ export const RUNTIMES = {
     description: "One, wait, next. (default)",
   },
 
-  // Auto-compaction — verified against pi-mono/packages/coding-agent/src/core/settings-manager.ts:8-12
+  // Auto-compaction — verified against the bundled runtime settings schema.
   compactionLabel: "Auto-compaction",
   compactionSublabel: "(settings only)",
   compactionDescription: "Summarise older messages when context fills up. Default: on.",
   compactionTooltip:
     "Triggered when context exceeds reserveTokens (16384) + keepRecentTokens (20000). Pi summarises the oldest messages with the LLM and prunes them. Recent messages are kept verbatim.",
 
-  // Auto-retry — verified against pi-mono/packages/coding-agent/src/core/settings-manager.ts:19-30
+  // Auto-retry — verified against the bundled runtime settings schema.
   retryLabel: "Auto-retry",
   retrySublabel: "(settings only)",
   retryDescription:
@@ -206,11 +208,22 @@ export const MODELS = {
   searchPlaceholder: "Find provider or model…",
   searchLabel: "Find provider or model",
 
+  subscriptionGroupTitle: "Subscription accounts",
+  subscriptionGroupDescription: "ChatGPT, Claude, and Copilot sign-ins.",
+  apiKeyGroupTitle: "API key providers",
+  apiKeyGroupDescription: "Metered hosted providers and OpenAI-compatible APIs.",
+
   providerActiveTooltip:
     "API key configured and currently active for new chats (the composer's selected model lives in this provider).",
   providerReadyTooltip: "API key configured. Available to switch to from the composer.",
+  providerSubscriptionReadyTooltip:
+    "Subscription connected. Available to switch to from the composer.",
   providerNeedsKeyTooltip: "API key not set. Click to configure.",
+  providerNeedsSetupTooltip: "Provider setup is incomplete. Add the required provider details.",
+  providerNeedsSignInTooltip: "Subscription not signed in. Click to connect.",
   providerPasteKeyLabel: "Paste key",
+  providerSignInLabel: "Sign in",
+  providerSetupLabel: "Set up",
   providerManageLabel: "Manage",
 
   apiKeyLabel: "API key",

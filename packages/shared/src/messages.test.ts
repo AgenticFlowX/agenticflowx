@@ -13,10 +13,11 @@ describe("chat-foundation shared protocol", () => {
     const status: AgentStatus = {
       running: true,
       isStreaming: false,
-      model: { provider: "openai", id: "gpt-5.2", name: "GPT-5.2" },
+      model: { provider: "openai", id: "gpt-5.2", name: "GPT-5.2", authMethod: "api-key" },
       pendingMessageCount: 0,
     };
     expect(status.model?.provider).toBe("openai");
+    expect(status.model?.authMethod).toBe("api-key");
   });
 
   it("supports chat/send mentions", () => {
@@ -41,6 +42,33 @@ describe("chat-foundation shared protocol", () => {
       commands: [command],
     };
     expect(message.commands[0]?.source).toBe("skill");
+  });
+
+  it("carries auth method on existing model-selection messages", () => {
+    const select: ChatToAgent = {
+      type: "chat/setModel",
+      requestId: "set-model-1",
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      instanceId: "pi-sdk",
+      authMethod: "subscription",
+    };
+    const changed: AgentToChat = {
+      type: "agent/modelChanged",
+      requestId: "set-model-1",
+      model: {
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        name: "Claude Opus 4.7",
+        reasoning: true,
+        contextWindow: 200_000,
+        maxTokens: 32_000,
+        authMethod: "subscription",
+      },
+    };
+
+    expect(select.authMethod).toBe("subscription");
+    expect(changed.model.authMethod).toBe("subscription");
   });
 
   it("supports generic runtime status and recovery commands", () => {

@@ -15,6 +15,16 @@ export type { Logger } from "./logger";
 
 export type AgentSource = "api-provider" | "external-agent";
 
+/**
+ * Host-assigned model routing classification for the composer picker.
+ * `local` is display-only; only `subscription` / `api-key` are persisted to
+ * `afx.authMethod.{provider}` by the OAuth sprint.
+ *
+ * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-6] [NFR-3]
+ * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-DATA] [DES-API]
+ */
+export type AgentAuthMethod = "subscription" | "api-key" | "local";
+
 export interface AgentModel {
   provider: string;
   id: string;
@@ -34,6 +44,21 @@ export interface AgentModel {
   instanceId?: string;
   /** Human-readable runtime label for grouped model pickers. */
   instanceLabel?: string;
+  /** Host-assigned credential/source method for picker segmentation. */
+  authMethod?: AgentAuthMethod;
+}
+
+/**
+ * Full model-selection identity sent from the composer to the host.
+ *
+ * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-6] [NFR-3]
+ * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-DATA] [DES-API]
+ */
+export interface AgentModelSelectionTarget {
+  provider: string;
+  modelId: string;
+  instanceId?: string;
+  authMethod?: AgentAuthMethod;
 }
 
 /**
@@ -44,7 +69,7 @@ export interface AgentModel {
  */
 export type AgentRuntimeModel = Pick<
   AgentModel,
-  "provider" | "id" | "name" | "source" | "instanceId" | "instanceLabel"
+  "provider" | "id" | "name" | "source" | "instanceId" | "instanceLabel" | "authMethod"
 > &
   Partial<Pick<AgentModel, "reasoning">>;
 
@@ -374,6 +399,16 @@ export type AgentEvent =
   | { type: "agent_end" }
   | { type: "context_overflow"; message: string }
   | { type: "retryable_error"; message: string }
+  /**
+   * Provider authentication failure (HTTP 401 / OAuth `invalid_grant` /
+   * `invalid_token` / unauthorized). Pi surfaces no structured auth error — the
+   * adapter classifies the free-text `message.errorMessage` and emits this so the
+   * host can run one reactive refresh + restart + retry per turn, then fail closed.
+   *
+   * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+   * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+   */
+  | { type: "auth_error"; provider?: string; message: string }
   | { type: "compaction_start"; reason: CompactionReason }
   | {
       type: "compaction_end";
@@ -429,7 +464,7 @@ export interface AgentManager {
   getStatus(): Promise<AgentStatus>;
   getUsage(): Promise<AgentUsageStats | null>;
   getAvailableModels(): Promise<AgentModel[]>;
-  setModel(target: { provider: string; modelId: string; instanceId?: string }): Promise<AgentModel>;
+  setModel(target: AgentModelSelectionTarget): Promise<AgentModel>;
   switchSession?(sessionPath: string): Promise<{ cancelled: boolean }>;
   getCommands(): Promise<AgentCommand[]>;
   getStderr(): string;

@@ -5,11 +5,13 @@
  * @see docs/specs/350-agent-manager/design.md [DES-AGENT-MULTIPLEX-FLOW] [DES-AGENT-LIFECYCLE]
  */
 import type {
+  AgentAuthMethod,
   AgentCommand,
   AgentEvent,
   AgentEventListener,
   AgentManager,
   AgentModel,
+  AgentModelSelectionTarget,
   AgentStatus,
   AgentStderrListener,
   AgentUiResponse,
@@ -22,6 +24,16 @@ import type {
 
 import type { AgentInstance } from "./agent-factory";
 
+export interface ModelAuthClassification {
+  methods: readonly AgentAuthMethod[];
+  activeMethod?: AgentAuthMethod;
+}
+
+export type ModelAuthClassifier = (input: {
+  instance: AgentInstance;
+  provider: string;
+}) => Promise<ModelAuthClassification>;
+
 export interface MultiplexedAgentManagerOptions {
   instanceId?: string;
   /**
@@ -29,6 +41,14 @@ export interface MultiplexedAgentManagerOptions {
    * every AgentStatus so chat can decide whether to surface Pi affordances.
    */
   rpcEnabledGetter?: () => boolean;
+  /**
+   * Host-owned classifier for composer segmentation. Only the bundled Pi SDK
+   * runtime receives `authMethod` rows; external agents remain unclassified.
+   *
+   * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-4] [FR-6]
+   * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-FLOW]
+   */
+  modelAuthClassifier?: ModelAuthClassifier;
 }
 
 /**
@@ -41,6 +61,7 @@ export class MultiplexedAgentManager implements AgentManager {
   private active: AgentInstance | null;
   private readonly modelCache = new Map<string, AgentModel[]>();
   private readonly rpcEnabledGetter?: () => boolean;
+  private readonly modelAuthClassifier?: ModelAuthClassifier;
   /**
    * External listeners survive `replaceInstances`. Per-instance forwarders
    * (the maps below) are rebuilt against the new instance set so events from
@@ -57,6 +78,7 @@ export class MultiplexedAgentManager implements AgentManager {
   ) {
     this.active = instances.find((i) => i.id === initial?.instanceId) ?? instances[0] ?? null;
     this.rpcEnabledGetter = initial?.rpcEnabledGetter;
+    this.modelAuthClassifier = initial?.modelAuthClassifier;
     this.attachInstanceForwarders(this.instances);
   }
 
@@ -129,7 +151,8 @@ export class MultiplexedAgentManager implements AgentManager {
       };
     }
     const status = await active.manager.getStatus();
-    return { ...this.tagStatus(active, status), rpcEnabled, runtimeConfigured: true };
+    const taggedStatus = await this.tagStatus(active, status);
+    return { ...taggedStatus, rpcEnabled, runtimeConfigured: true };
   }
 
   getUsage(): Promise<AgentUsageStats | null> {
@@ -146,7 +169,7 @@ export class MultiplexedAgentManager implements AgentManager {
           this.modelCache.set(instance.id, []);
           return [];
         }
-        const tagged = models.map((model) => this.tagModel(instance, model));
+        const tagged = await this.tagAvailableModels(instance, models);
         this.modelCache.set(instance.id, tagged);
         return tagged;
       }),
@@ -154,11 +177,7 @@ export class MultiplexedAgentManager implements AgentManager {
     return grouped.flat();
   }
 
-  async setModel(target: {
-    provider: string;
-    modelId: string;
-    instanceId?: string;
-  }): Promise<AgentModel> {
+  async setModel(target: AgentModelSelectionTarget): Promise<AgentModel> {
     const next = target.instanceId
       ? this.instances.find((instance) => instance.id === target.instanceId)
       : await this.findInstanceForModel(target);
@@ -178,7 +197,7 @@ export class MultiplexedAgentManager implements AgentManager {
 
     const selected = await next.manager.setModel(target);
     this.active = next;
-    return this.tagModel(next, selected);
+    return this.tagModel(next, selected, target.authMethod);
   }
 
   async switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
@@ -271,6 +290,7 @@ export class MultiplexedAgentManager implements AgentManager {
   private async findInstanceForModel(target: {
     provider: string;
     modelId: string;
+    authMethod?: AgentAuthMethod;
   }): Promise<AgentInstance | undefined> {
     if (this.modelCache.size === 0) {
       await this.getAvailableModels();
@@ -278,7 +298,12 @@ export class MultiplexedAgentManager implements AgentManager {
     return this.instances.find((instance) =>
       this.modelCache
         .get(instance.id)
-        ?.some((model) => model.provider === target.provider && model.id === target.modelId),
+        ?.some(
+          (model) =>
+            model.provider === target.provider &&
+            model.id === target.modelId &&
+            (target.authMethod === undefined || model.authMethod === target.authMethod),
+        ),
     );
   }
 
@@ -297,17 +322,54 @@ export class MultiplexedAgentManager implements AgentManager {
     }
   }
 
-  private tagModel(instance: AgentInstance, model: AgentModel): AgentModel {
-    return {
+  private async tagAvailableModels(
+    instance: AgentInstance,
+    models: readonly AgentModel[],
+  ): Promise<AgentModel[]> {
+    const tagged: AgentModel[] = [];
+    for (const model of models) {
+      const base = this.tagModel(instance, model);
+      if (instance.runtime !== "pi-sdk") {
+        tagged.push(base);
+        continue;
+      }
+      const classification = await this.classifyProvider(instance, model.provider);
+      const methods: readonly AgentAuthMethod[] =
+        classification.methods.length > 0 ? classification.methods : ["api-key"];
+      for (const method of methods) {
+        tagged.push({ ...base, authMethod: method });
+      }
+    }
+    return tagged;
+  }
+
+  private tagModel(
+    instance: AgentInstance,
+    model: AgentModel,
+    authMethod?: AgentAuthMethod,
+  ): AgentModel {
+    const tagged: AgentModel = {
       ...model,
       source: instance.runtime === "pi" ? "external-agent" : "api-provider",
       instanceId: instance.id,
       instanceLabel: instance.label,
     };
+    if (instance.runtime === "pi-sdk") {
+      const method = authMethod ?? model.authMethod;
+      if (method) tagged.authMethod = method;
+    } else {
+      delete tagged.authMethod;
+    }
+    return tagged;
   }
 
-  private tagStatus(instance: AgentInstance, status: AgentStatus): AgentStatus {
+  private async tagStatus(instance: AgentInstance, status: AgentStatus): Promise<AgentStatus> {
     if (!status.model) return status;
+    const authMethod =
+      instance.runtime === "pi-sdk"
+        ? (status.model.authMethod ??
+          (await this.getActiveAuthMethod(instance, status.model.provider)))
+        : undefined;
     return {
       ...status,
       model: {
@@ -315,7 +377,37 @@ export class MultiplexedAgentManager implements AgentManager {
         source: instance.runtime === "pi" ? "external-agent" : "api-provider",
         instanceId: instance.id,
         instanceLabel: instance.label,
+        ...(authMethod ? { authMethod } : {}),
       },
+    };
+  }
+
+  private async getActiveAuthMethod(
+    instance: AgentInstance,
+    provider: string,
+  ): Promise<AgentAuthMethod | undefined> {
+    const classification = await this.classifyProvider(instance, provider);
+    if (classification.activeMethod) return classification.activeMethod;
+    return classification.methods.length === 1 ? classification.methods[0] : undefined;
+  }
+
+  private async classifyProvider(
+    instance: AgentInstance,
+    provider: string,
+  ): Promise<ModelAuthClassification> {
+    if (instance.runtime !== "pi-sdk") {
+      return { methods: [] };
+    }
+    const fallback: AgentAuthMethod = provider === "ollama" ? "local" : "api-key";
+    const raw = this.modelAuthClassifier
+      ? await this.modelAuthClassifier({ instance, provider })
+      : { methods: [fallback], activeMethod: fallback };
+    const methods = dedupeAuthMethods(raw.methods);
+    const activeMethod =
+      raw.activeMethod && methods.includes(raw.activeMethod) ? raw.activeMethod : undefined;
+    return {
+      methods: methods.length > 0 ? methods : [fallback],
+      activeMethod: activeMethod ?? (methods.length === 1 ? methods[0] : undefined),
     };
   }
 
@@ -323,4 +415,12 @@ export class MultiplexedAgentManager implements AgentManager {
     if (!this.active) throw new Error("No configured agent runtime");
     return this.active;
   }
+}
+
+function dedupeAuthMethods(methods: readonly AgentAuthMethod[]): AgentAuthMethod[] {
+  const ordered: AgentAuthMethod[] = [];
+  for (const method of methods) {
+    if (!ordered.includes(method)) ordered.push(method);
+  }
+  return ordered;
 }

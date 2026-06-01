@@ -36,6 +36,7 @@ import {
   Server,
   Settings2,
   SlidersHorizontal,
+  Sparkles,
   SwatchBook,
   Zap,
 } from "lucide-react";
@@ -46,7 +47,12 @@ import type {
   AgentCommand,
   AgentRuntimeStatus,
   AgentStatus,
+  AgentToChat,
   IntentSlot,
+  MessageOf,
+  OAuthProviderId,
+  OAuthStatusSnapshot,
+  ProviderAuthMethod,
   QueueMode,
   SettingsSnapshot,
   ThinkingLevel,
@@ -135,6 +141,17 @@ const SETTINGS_SECTIONS = [
 type SectionId = (typeof SETTINGS_SECTIONS)[number]["id"];
 
 type ProviderFilter = "all" | "ready" | "needs-key";
+type SettingsProvider = SettingsSnapshot["providers"][number];
+
+/**
+ * In-flight OAuth sign-in progress for one provider, mirrored from the redacted
+ * `oauth/progress` event. Presentational only — no `access`/`refresh` ever reach
+ * the webview; device-code `userCode`/`verificationUri` are non-secret.
+ *
+ * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+ * @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+ */
+type OAuthProgressView = Omit<MessageOf<AgentToChat, "oauth/progress">, "type">;
 
 const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> = [
   { value: "all", label: "All" },
@@ -142,7 +159,22 @@ const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> 
   { value: "needs-key", label: "Needs key" },
 ];
 
-const QUICK_HOSTED_PROVIDER_IDS = ["anthropic", "openai", "google", "deepseek", "openrouter"];
+const SUBSCRIPTION_PROVIDER_IDS = ["anthropic", "openai-codex", "github-copilot"] as const;
+const SUBSCRIPTION_PROVIDER_ID_SET = new Set<string>(SUBSCRIPTION_PROVIDER_IDS);
+const QUICK_SUBSCRIPTION_PROVIDER_IDS = SUBSCRIPTION_PROVIDER_IDS;
+const QUICK_HOSTED_PROVIDER_IDS = ["openai", "google", "deepseek", "openrouter"];
+
+function isProviderReady(provider: SettingsProvider): boolean {
+  return (
+    provider.state === "configured" ||
+    provider.state === "no-key-needed" ||
+    provider.subscriptionConnected === true
+  );
+}
+
+function isSubscriptionAccountProvider(provider: SettingsProvider): boolean {
+  return provider.oauthCapable === true || SUBSCRIPTION_PROVIDER_ID_SET.has(provider.id);
+}
 
 const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
   enabled: true,
@@ -206,6 +238,17 @@ export default function Settings({
   const [customSdkBusy, setCustomSdkBusy] = useState(false);
   const [customSdkError, setCustomSdkError] = useState<string | null>(null);
 
+  // ─── OAuth provider state (redacted, render-only) ─────────────────────────
+  // Local per-provider OAuth state keyed by provider id. `oauthStatus` holds the
+  // terminal redacted snapshot from `oauth/status`; `oauthProgress` holds the
+  // in-flight phase from `oauth/progress` (cleared on terminal status). Only
+  // booleans/method/expiry-delta/safe-meta cross the bridge — never tokens.
+  // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+  // @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+  const [oauthStatus, setOauthStatus] = useState<Record<string, OAuthStatusSnapshot>>({});
+  const [oauthProgress, setOauthProgress] = useState<Record<string, OAuthProgressView>>({});
+  const [oauthError, setOauthError] = useState<Record<string, string>>({});
+
   const pendingRuntimeMutations = useRef<Map<string, string>>(new Map());
   const pendingModeMutations = useRef<Map<string, string>>(new Map());
   const pendingIntentMutations = useRef<Map<string, string>>(new Map());
@@ -242,6 +285,52 @@ export default function Settings({
         if (telemetryLabel) {
           pendingTelemetryMutations.current.delete(msg.requestId);
           toast.success(telemetryLabel);
+        }
+      }),
+      // Terminal redacted OAuth status — drives the provider card's connected /
+      // active-method state and clears any in-flight progress for that provider.
+      // The snapshot carries booleans/method/expiry/safe-meta only.
+      // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+      bridgeOn("oauth/status", (msg) => {
+        const provider = msg.status.provider;
+        setOauthStatus((prev) => ({ ...prev, [provider]: msg.status }));
+        setOauthProgress((prev) => {
+          if (!(provider in prev)) return prev;
+          const next = { ...prev };
+          delete next[provider];
+          return next;
+        });
+        setOauthError((prev) => {
+          const hadError = provider in prev;
+          if (msg.ok) {
+            if (!hadError) return prev;
+            const next = { ...prev };
+            delete next[provider];
+            return next;
+          }
+          return { ...prev, [provider]: msg.error ?? "Sign-in failed" };
+        });
+      }),
+      // In-flight sign-in progress (waiting/paste-code/device-code/exchanging).
+      // Terminal phases are cleared so only the `oauth/status` result persists.
+      // Carries non-secret userCode/verificationUri/message only.
+      // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+      bridgeOn("oauth/progress", (msg) => {
+        const { type: _type, ...view } = msg;
+        void _type;
+        const provider = msg.provider;
+        if (msg.phase === "done" || msg.phase === "cancelled") {
+          setOauthProgress((prev) => {
+            if (!(provider in prev)) return prev;
+            const next = { ...prev };
+            delete next[provider];
+            return next;
+          });
+          return;
+        }
+        setOauthProgress((prev) => ({ ...prev, [provider]: view }));
+        if (msg.phase === "error") {
+          setOauthError((prev) => ({ ...prev, [provider]: msg.message ?? "Sign-in failed" }));
         }
       }),
       bridgeOn("agent/appearanceUpdated", (msg) => {
@@ -320,7 +409,7 @@ export default function Settings({
   const providerStats = useMemo(() => {
     return providers.reduce(
       (stats, provider) => {
-        const ready = provider.state === "configured" || provider.state === "no-key-needed";
+        const ready = isProviderReady(provider);
         return {
           total: stats.total + 1,
           ready: stats.ready + (ready ? 1 : 0),
@@ -332,19 +421,25 @@ export default function Settings({
     );
   }, [providers]);
 
-  // Sort: active/configured first, then needs-key
+  // Sort: connected/configured first, subscription accounts next, then the rest.
   const sortedProviders = useMemo(() => {
     return [...providers].sort((a, b) => {
-      const aReady = a.state === "configured" || a.state === "no-key-needed" ? 0 : 1;
-      const bReady = b.state === "configured" || b.state === "no-key-needed" ? 0 : 1;
-      return aReady - bReady;
+      const aReady = isProviderReady(a) ? 0 : 1;
+      const bReady = isProviderReady(b) ? 0 : 1;
+      const aSubscription = isSubscriptionAccountProvider(a) ? 0 : 1;
+      const bSubscription = isSubscriptionAccountProvider(b) ? 0 : 1;
+      return (
+        aReady - bReady ||
+        aSubscription - bSubscription ||
+        (a.displayName ?? a.name).localeCompare(b.displayName ?? b.name)
+      );
     });
   }, [providers]);
 
   const visibleProviders = useMemo(() => {
     const search = providerSearch.trim().toLowerCase();
     return sortedProviders.filter((provider) => {
-      const ready = provider.state === "configured" || provider.state === "no-key-needed";
+      const ready = isProviderReady(provider);
       if (providerFilter === "ready" && !ready) return false;
       if (providerFilter === "needs-key" && ready) return false;
       if (!search) return true;
@@ -353,6 +448,9 @@ export default function Settings({
         provider.name,
         provider.displayName,
         provider.modelHint,
+        isSubscriptionAccountProvider(provider)
+          ? "subscription account chatgpt codex claude copilot"
+          : "",
         ...(provider.models ?? []).map((model) => `${model.name ?? ""} ${model.id}`),
       ]
         .filter(Boolean)
@@ -362,13 +460,34 @@ export default function Settings({
     });
   }, [providerFilter, providerSearch, sortedProviders]);
 
+  const visibleProviderGroups = useMemo(() => {
+    const subscriptionProviders = visibleProviders.filter(isSubscriptionAccountProvider);
+    const apiKeyProviders = visibleProviders.filter(
+      (provider) => !isSubscriptionAccountProvider(provider),
+    );
+    return [
+      {
+        id: "subscription",
+        title: MODELS.subscriptionGroupTitle,
+        description: MODELS.subscriptionGroupDescription,
+        icon: Sparkles,
+        providers: subscriptionProviders,
+      },
+      {
+        id: "api-key",
+        title: MODELS.apiKeyGroupTitle,
+        description: MODELS.apiKeyGroupDescription,
+        icon: KeyRound,
+        providers: apiKeyProviders,
+      },
+    ].filter((group) => group.providers.length > 0);
+  }, [visibleProviders]);
+
   const sdkEnabled = snapshot?.sdk?.enabled !== false;
   const rpcEnabled = snapshot?.engine.rpcEnabled ?? agentStatus.rpcEnabled === true;
   const piAgent = snapshot?.externalAgents?.find((agent) => agent.id === "pi");
   const rpcStatus = piAgent?.status ?? (rpcEnabled ? "unavailable" : "disabled");
-  const configuredHostedCount = providers.filter(
-    (provider) => provider.state === "configured" && provider.modelCount > 0,
-  ).length;
+  const configuredHostedCount = providers.filter(isProviderReady).length;
   const hasUsableRuntime =
     !runtimeUnconfigured &&
     (configuredHostedCount > 0 || customProviderCount > 0 || rpcStatus === "connected");
@@ -673,12 +792,17 @@ export default function Settings({
       style,
     });
   }
-  function saveProviderKey(provider: string, key: string): Promise<void> {
+  function saveProviderKey(
+    provider: string,
+    key: string | undefined,
+    config?: Record<string, string>,
+  ): Promise<void> {
     bridgeSend({
       type: "provider/setApiKey",
       requestId: trackProviderMutation(`${providerLabel(provider)} key saved`),
       provider,
-      key,
+      ...(key ? { key } : {}),
+      ...(config ? { config } : {}),
     });
     return Promise.resolve();
   }
@@ -698,6 +822,60 @@ export default function Settings({
       modelId,
     });
     return Promise.resolve();
+  }
+
+  // ─── OAuth send helpers ───────────────────────────────────────────────────
+  // Each dispatches a typed `oauth/*` command with a fresh requestId. The host
+  // replies asynchronously via `oauth/progress` (in-flight) and `oauth/status`
+  // (terminal), wired in the effect above. We optimistically seed a `starting`
+  // progress entry so the card flips to its waiting state immediately. No tokens
+  // are sent or returned here — `code` in submitCode is a single-use
+  // inbound authorization code/redirect URL, never a stored token.
+  // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+  // @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+  function oauthSignIn(provider: OAuthProviderId, enterpriseDomain?: string): void {
+    setOauthError((prev) => {
+      if (!(provider in prev)) return prev;
+      const next = { ...prev };
+      delete next[provider];
+      return next;
+    });
+    setOauthProgress((prev) => ({
+      ...prev,
+      [provider]: { requestId: uid(), provider, phase: "starting" },
+    }));
+    bridgeSend({
+      type: "oauth/signIn",
+      requestId: uid(),
+      provider,
+      ...(enterpriseDomain ? { enterpriseDomain } : {}),
+    });
+  }
+  function oauthSignOut(provider: OAuthProviderId): void {
+    bridgeSend({ type: "oauth/signOut", requestId: uid(), provider });
+  }
+  // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+  function oauthSetAuthMethod(provider: OAuthProviderId, method: ProviderAuthMethod): void {
+    bridgeSend({ type: "oauth/setAuthMethod", requestId: uid(), provider, method });
+  }
+  // Paste-code fallback (PKCE / remote-WSL). `code` is a single-use inbound code
+  // or redirect URL — never a stored access/refresh token; host never logs it.
+  // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+  function oauthSubmitCode(provider: OAuthProviderId, code: string): void {
+    setOauthProgress((prev) => ({
+      ...prev,
+      [provider]: { requestId: uid(), provider, phase: "exchanging" },
+    }));
+    bridgeSend({ type: "oauth/submitCode", requestId: uid(), provider, code });
+  }
+  function oauthCancel(provider: OAuthProviderId): void {
+    setOauthProgress((prev) => {
+      if (!(provider in prev)) return prev;
+      const next = { ...prev };
+      delete next[provider];
+      return next;
+    });
+    bridgeSend({ type: "oauth/cancel", requestId: uid(), provider });
   }
 
   // ─── Custom Models · Pi SDK track ─────────────────────────────────────────
@@ -848,8 +1026,7 @@ export default function Settings({
           ...(summary.authHeader !== undefined ? { authHeader: summary.authHeader } : {}),
           ...(summary.compatFlags ? { compatFlags: summary.compatFlags } : {}),
           // Models[] is hydrated from the redacted summary — id/name/contextWindow
-          // only. Cost/headers/per-model compat are not echoed via the snapshot
-          // (per NFR-1). The user can re-enter them on edit if they need to.
+          // only. Cost/headers/per-model compat are not echoed via the snapshot.
           // @see docs/specs/214-app-chat-settings/spec.md [NFR-1]
           models: summary.models.map((m) => {
             const entry: {
@@ -1392,6 +1569,9 @@ export default function Settings({
                 />
                 {rpcEnabled && (
                   <>
+                    <p className="rounded-sm border border-border/60 bg-muted/10 px-2 py-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                      {RUNTIMES.rpcLoginGuidance}
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
                       <Button
                         type="button"
@@ -1604,8 +1784,28 @@ export default function Settings({
                     {CONNECT.hostedDescription}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
+                      <Sparkles size={10} />
+                      {MODELS.subscriptionGroupTitle}
+                    </span>
+                    {QUICK_SUBSCRIPTION_PROVIDER_IDS.map((id) => {
+                      const provider = providers.find((entry) => entry.id === id);
+                      if (!provider) return null;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          className="rounded-sm border border-border/70 bg-card/35 px-1.5 py-0.5 text-[10px] text-foreground transition-colors hover:border-afx-brand/40 hover:bg-afx-brand/10"
+                          onClick={() => openHostedKeySetup(id)}
+                        >
+                          {provider.displayName ?? providerLabel(provider.id)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span className="font-mono text-[9px] uppercase tracking-[0.1em] text-muted-foreground">
-                      {CONNECT.quickProviderLabel}
+                      {MODELS.apiKeyGroupTitle}
                     </span>
                     {QUICK_HOSTED_PROVIDER_IDS.map((id) => {
                       const provider = providers.find((entry) => entry.id === id);
@@ -1654,28 +1854,71 @@ export default function Settings({
                     ))}
                   </div>
                 </div>
-                {/* Provider tile grid — single-active accordion, no 52vh cap */}
-                <div className="grid gap-2 @[380px]:grid-cols-2">
-                  {visibleProviders.map((provider) => (
-                    <ProviderCard
-                      key={provider.id}
-                      provider={provider.id}
-                      displayName={provider.displayName ?? providerLabel(provider.id)}
-                      modelHint={provider.modelHint ?? "Models available from this provider"}
-                      state={provider.state}
-                      configuredModelCount={provider.modelCount}
-                      defaultModel={provider.defaultModel}
-                      modelOptions={provider.models}
-                      helpUrl={provider.helpUrl}
-                      compact={expandedProvider !== provider.id}
-                      focusKeyInput={focusProviderKey === provider.id}
-                      onExpand={() =>
-                        setExpandedProvider(expandedProvider === provider.id ? null : provider.id)
-                      }
-                      onSaveKey={(key) => saveProviderKey(provider.id, key)}
-                      onClearKey={() => clearProviderKey(provider.id)}
-                      onChangeDefault={(modelId) => setProviderDefaultModel(provider.id, modelId)}
-                    />
+                {/* Provider tile grid — grouped by auth family, single-active accordion */}
+                <div className="flex flex-col gap-3">
+                  {visibleProviderGroups.map((group) => (
+                    <section key={group.id} className="flex flex-col gap-1.5">
+                      <div className="flex min-w-0 items-center gap-1.5 px-0.5">
+                        <group.icon size={12} className="shrink-0 text-afx-brand-soft" />
+                        <h4 className="font-mono text-[10px] uppercase tracking-[0.1em] text-foreground">
+                          {group.title}
+                        </h4>
+                        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
+                          {group.description}
+                        </span>
+                      </div>
+                      <div className="grid gap-2 @[380px]:grid-cols-2">
+                        {group.providers.map((provider) => (
+                          <ProviderCard
+                            key={provider.id}
+                            provider={provider.id}
+                            displayName={provider.displayName ?? providerLabel(provider.id)}
+                            modelHint={provider.modelHint ?? "Models available from this provider"}
+                            state={provider.state}
+                            configuredModelCount={provider.modelCount}
+                            defaultModel={provider.defaultModel}
+                            modelOptions={provider.models}
+                            helpUrl={provider.helpUrl}
+                            configFields={provider.configFields}
+                            configuredConfigFields={provider.configuredConfigFields}
+                            compact={expandedProvider !== provider.id}
+                            focusKeyInput={focusProviderKey === provider.id}
+                            oauthCapable={provider.oauthCapable}
+                            oauthFlow={provider.oauthFlow}
+                            dualMethod={provider.dualMethod}
+                            activeMethod={
+                              oauthStatus[provider.id]?.activeMethod ?? provider.activeMethod
+                            }
+                            subscriptionConnected={
+                              oauthStatus[provider.id]?.connected ?? provider.subscriptionConnected
+                            }
+                            oauthPhase={oauthProgress[provider.id]?.phase}
+                            oauthUserCode={oauthProgress[provider.id]?.userCode}
+                            oauthVerificationUri={oauthProgress[provider.id]?.verificationUri}
+                            oauthMessage={
+                              oauthProgress[provider.id]?.message ?? oauthError[provider.id]
+                            }
+                            onExpand={() =>
+                              setExpandedProvider(
+                                expandedProvider === provider.id ? null : provider.id,
+                              )
+                            }
+                            onSaveKey={(key, config) => saveProviderKey(provider.id, key, config)}
+                            onClearKey={() => clearProviderKey(provider.id)}
+                            onChangeDefault={(modelId) =>
+                              setProviderDefaultModel(provider.id, modelId)
+                            }
+                            onOAuthSignIn={(enterpriseDomain) =>
+                              oauthSignIn(provider.id, enterpriseDomain)
+                            }
+                            onOAuthSignOut={() => oauthSignOut(provider.id)}
+                            onOAuthSetMethod={(method) => oauthSetAuthMethod(provider.id, method)}
+                            onOAuthSubmitCode={(code) => oauthSubmitCode(provider.id, code)}
+                            onOAuthCancel={() => oauthCancel(provider.id)}
+                          />
+                        ))}
+                      </div>
+                    </section>
                   ))}
                   {providers.length === 0 ? (
                     <p className="col-span-2 rounded-sm border bg-muted/30 px-2 py-2 text-[11px] text-muted-foreground">
@@ -2415,6 +2658,7 @@ function ConfigField({
     | "afx.sessionDir"
     | "afx.sdk.enabled"
     | "afx.sdk.defaultModel"
+    | "afx.model.defaultSelection"
     | "afx.sdk.ollamaBaseUrl"
     | "afx.runtime.responseStartTimeoutMs"
     | "afx.debugPerf"

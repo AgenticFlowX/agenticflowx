@@ -20,6 +20,7 @@ import { delimiter, extname, isAbsolute, join } from "node:path";
 import * as vscode from "vscode";
 
 import {
+  type AgentAuthMethod,
   type AgentCommand,
   type AgentEventListener,
   type AgentStatus,
@@ -27,6 +28,7 @@ import {
   type IntentSlot,
   type LogLevel,
   type Logger,
+  PROVIDER_DETAILS,
   type WorkspaceMode,
   createLogger,
   formatIntentTokenEstimate,
@@ -45,7 +47,14 @@ import {
   configurationTargetFor,
   updateAfxConfigurationWithWorkspaceFallback,
 } from "./configuration-target";
-import { MultiplexedAgentManager } from "./multiplex-agent-manager";
+import {
+  MODEL_DEFAULT_SELECTION_SETTING,
+  type ModelSelectionIdentityV2,
+  formatSdkDefaultModel,
+  parseLegacySdkDefaultModel,
+  parseModelSelectionIdentity,
+} from "./model-default-selection";
+import { type ModelAuthClassifier, MultiplexedAgentManager } from "./multiplex-agent-manager";
 import { type AfxPreviewDeps, openAfxPreview } from "./panels/afx-preview-panel";
 import {
   SIDEBAR_VIEW_TYPE,
@@ -64,6 +73,7 @@ import { createSpecDefinitionProvider } from "./providers/spec-definition";
 import { createSpecHoverProvider } from "./providers/spec-hover";
 import { SecretStore } from "./secret-store";
 import { createCustomProvidersService } from "./services/custom-providers-service";
+import { createOAuthService } from "./services/oauth/oauth-service";
 import { createSpecsDataProvider } from "./services/specs-data";
 import { createSprintContextSync } from "./services/sprint-context";
 import { resolveAfxSessionDir } from "./session-dir";
@@ -93,7 +103,10 @@ const RUNTIME_CONFIGURATION_KEYS = [
   "afx.sdk.enabled",
   "afx.sdk.ollamaBaseUrl",
 ] as const;
-const SETTINGS_SNAPSHOT_CONFIGURATION_KEYS = ["afx.runtime.responseStartTimeoutMs"] as const;
+const SETTINGS_SNAPSHOT_CONFIGURATION_KEYS = [
+  "afx.runtime.responseStartTimeoutMs",
+  "afx.model.defaultSelection",
+] as const;
 
 let agentInstances: AgentInstance[] = [];
 let agentManager: MultiplexedAgentManager | null = null;
@@ -139,6 +152,34 @@ export async function activate(
 
   const packageJSON = context.extension.packageJSON as { version?: string };
   const secretStore = new SecretStore(context);
+  // One AFX-owned OAuth orchestrator, shared by the Pi-SDK credential seam
+  // (agent-factory) and the Settings OAuth bridge handlers (sidebar-panel) so
+  // in-flight sign-in/refresh state is stable across agent rebuilds (FR-6, NFR-4).
+  // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+  // @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+  const oauthService = createOAuthService({
+    secretStore,
+    logger: logger.child("oauth"),
+    globalStorageUri: context.globalStorageUri,
+  });
+  const modelAuthClassifier: ModelAuthClassifier = async ({ instance, provider }) => {
+    if (instance.runtime !== "pi-sdk") return { methods: [] };
+    if (provider === "ollama") return { methods: ["local"], activeMethod: "local" };
+
+    const methods: AgentAuthMethod[] = [];
+    if (await secretStore.getOAuth(provider)) methods.push("subscription");
+    if (await secretStore.getApiKey(provider)) methods.push("api-key");
+
+    const availableMethods =
+      methods.length > 0 ? methods : (["api-key"] satisfies AgentAuthMethod[]);
+    const active = await secretStore.getAuthMethod(provider);
+    const activeMethod = active && availableMethods.includes(active) ? active : undefined;
+    return {
+      methods: availableMethods,
+      activeMethod:
+        activeMethod ?? (availableMethods.length === 1 ? availableMethods[0] : undefined),
+    };
+  };
   // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-9] [FR-10]
   // @see docs/specs/351-agent-pi/spec.md [FR-5] [FR-6]
   const customProvidersAdapter = createCustomProvidersAdapter();
@@ -196,6 +237,14 @@ export async function activate(
     );
   }
 
+  function configuredModelSelection(
+    cfg = vscode.workspace.getConfiguration("afx"),
+  ): ModelSelectionIdentityV2 | undefined {
+    const full = parseModelSelectionIdentity(cfg.get<string>(MODEL_DEFAULT_SELECTION_SETTING, ""));
+    if (full) return full;
+    return parseLegacySdkDefaultModel(cfg.get<string>("sdk.defaultModel", ""));
+  }
+
   async function buildAgentInstances(): Promise<AgentInstance[]> {
     const cfg = vscode.workspace.getConfiguration("afx");
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -204,7 +253,12 @@ export async function activate(
     const piBinaryPath = rpcEnabled
       ? resolvePiBinaryPath(configuredPiBinary, workspaceRoot)
       : undefined;
-    const sdkDefaultModel = cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5");
+    const legacySdkDefaultModel = cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5");
+    const selected = configuredModelSelection(cfg);
+    const sdkDefaultModel =
+      selected?.instanceId === "pi-sdk"
+        ? formatSdkDefaultModel(selected.provider, selected.modelId)
+        : legacySdkDefaultModel;
     const [piSdkExtraEnv, customDescriptor] = await Promise.all([
       customProvidersService.buildEnvForPiSdkSpawn(),
       customProvidersService.describeForSpawn(sdkDefaultModel),
@@ -221,6 +275,11 @@ export async function activate(
       additionalSkillPaths,
       defaultConfigPath,
       secretStore,
+      // Shared OAuth orchestrator (active-method resolver for the bundled Pi SDK seam).
+      // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
+      // @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-API] [DES-LOCK]
+      oauthService,
+      globalStorageUri: context.globalStorageUri,
       bootstrapPath: bundledPiSdkBootstrapPath,
       sdkEnabled: cfg.get<boolean>("sdk.enabled", true),
       sdkDefaultModel,
@@ -233,8 +292,10 @@ export async function activate(
 
   agentInstances = await buildAgentInstances();
   agentManager = new MultiplexedAgentManager(agentInstances, {
+    instanceId: configuredModelSelection()?.instanceId,
     rpcEnabledGetter: () =>
       vscode.workspace.getConfiguration("afx").get<boolean>("rpc.enabled", false),
+    modelAuthClassifier,
   });
   const runtimeMonitor = createAgentRuntimeMonitor({
     agentManager,
@@ -321,8 +382,12 @@ export async function activate(
       }
     }),
     secretStore.onDidChange((e) => {
-      if (!e.key.startsWith("afx.apiKey.")) return;
-      if (consumeCommandOwnedProviderCredentialChange(e.key)) return;
+      const providerCredentialChanged =
+        e.key.startsWith("afx.apiKey.") || SecretStore.isProviderEnvKey(e.key);
+      if (!providerCredentialChanged) return;
+      if (e.key.startsWith("afx.apiKey.") && consumeCommandOwnedProviderCredentialChange(e.key)) {
+        return;
+      }
       void scheduleAgentRuntimeRebuild("provider credential changed");
     }),
     // @see docs/specs/214-app-chat-settings/spec.md [FR-10]
@@ -362,6 +427,11 @@ export async function activate(
     runtimeMonitor,
     logger,
     secretStore,
+    // Shared OAuth orchestrator for the Settings oauth/* bridge handlers (FR-1/9).
+    // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-2] [FR-4] [FR-6] [NFR-1] [NFR-2]
+    // @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
+    oauthService,
+    reconfigureAgentRuntimes: scheduleAgentRuntimeRebuild,
     openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     workspaceState: context.workspaceState,
@@ -462,7 +532,7 @@ export async function activate(
     // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
     vscode.commands.registerCommand(
       "afx.setProviderApiKey",
-      async (provider?: string, key?: string) => {
+      async (provider?: string, key?: string, config?: Record<string, string>) => {
         const providerId =
           provider?.trim() ||
           (await vscode.window.showInputBox({
@@ -472,25 +542,54 @@ export async function activate(
           }));
         if (!providerId) return;
         const normalizedProviderId = normalizeProviderId(providerId);
+        const suppliedConfig = config ?? {};
+        const hasSuppliedConfig = Object.values(suppliedConfig).some((value) => value.trim());
         const apiKey =
           key?.trim() ||
-          (await vscode.window.showInputBox({
-            prompt: `API key for ${normalizedProviderId}`,
-            password: true,
+          (hasSuppliedConfig
+            ? undefined
+            : await vscode.window.showInputBox({
+                prompt: `API key for ${normalizedProviderId}`,
+                password: true,
+                ignoreFocusOut: true,
+              }));
+        if (!apiKey && !hasSuppliedConfig) return;
+
+        const configToStore: Record<string, string> = {};
+        for (const field of PROVIDER_DETAILS[normalizedProviderId]?.configFields ?? []) {
+          const supplied = suppliedConfig[field.envVar]?.trim();
+          if (supplied) {
+            configToStore[field.envVar] = supplied;
+            continue;
+          }
+          const existing = await secretStore.getProviderEnvVar(field.envVar);
+          if (existing || field.required === false || hasSuppliedConfig) continue;
+          const value = await vscode.window.showInputBox({
+            prompt: `${field.label} for ${normalizedProviderId}`,
+            placeHolder: field.placeholder,
+            password: field.secret === true,
             ignoreFocusOut: true,
-          }));
-        if (!apiKey) return;
-        const secretKey = providerApiKeySecretKey(normalizedProviderId);
-        rememberCommandOwnedProviderCredentialChange(secretKey);
-        try {
-          await secretStore.setApiKey(normalizedProviderId, apiKey);
-        } catch (err) {
-          consumeCommandOwnedProviderCredentialChange(secretKey);
-          throw err;
+          });
+          if (!value?.trim()) return;
+          configToStore[field.envVar] = value.trim();
         }
-        await scheduleAgentRuntimeRebuild(`API key saved for ${normalizedProviderId}`);
+
+        if (apiKey) {
+          const secretKey = providerApiKeySecretKey(normalizedProviderId);
+          rememberCommandOwnedProviderCredentialChange(secretKey);
+          try {
+            await secretStore.setApiKey(normalizedProviderId, apiKey);
+          } catch (err) {
+            consumeCommandOwnedProviderCredentialChange(secretKey);
+            throw err;
+          }
+        }
+        for (const [envVar, value] of Object.entries(configToStore)) {
+          await secretStore.setProviderEnvVar(envVar, value);
+        }
+        await scheduleAgentRuntimeRebuild(`provider setup saved for ${normalizedProviderId}`);
         vscode.window.showInformationMessage(
-          `AgenticFlowX: saved API key for ${normalizedProviderId}`,
+          `AgenticFlowX: saved provider setup for ${normalizedProviderId}`,
         );
       },
     ),

@@ -2,6 +2,8 @@
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
+ * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+ * @see docs/specs/218-app-chat-provider-settings/design.md [DES-DATA] [DES-UI]
  */
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
 import type { AgentModel, SettingsSnapshot, WorkspaceMode } from "@afx/shared";
@@ -127,7 +129,10 @@ function providerSnapshot(
   models: readonly AgentModel[],
   defaultModel: string | undefined,
 ): SettingsSnapshot["providers"][number] {
-  const details = PROVIDER_DETAILS[id] ?? {
+  // Read OAuth capability flags from the catalog entry directly (not the
+  // narrowed fallback) so non-OAuth providers leave them undefined.
+  const catalogEntry = PROVIDER_DETAILS[id];
+  const details = catalogEntry ?? {
     displayName: titleCase(id),
     modelHint: "Models available from this provider",
   };
@@ -142,6 +147,15 @@ function providerSnapshot(
     defaultModel,
     models: [...models],
     helpUrl: details.helpUrl,
+    configFields: catalogEntry?.configFields ? [...catalogEntry.configFields] : undefined,
+    configuredConfigFields: [],
+    // Static catalog flags mirror the host; the browser mock has no
+    // SecretStorage, so `activeMethod` / `subscriptionConnected` stay undefined.
+    // @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
+    // @see docs/specs/218-app-chat-provider-settings/design.md [DES-DATA] [DES-UI]
+    oauthCapable: catalogEntry?.oauthCapable,
+    oauthFlow: catalogEntry?.oauthFlow,
+    dualMethod: catalogEntry?.dualMethod,
   };
 }
 

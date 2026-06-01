@@ -65,6 +65,74 @@ describe("MultiplexedAgentManager", () => {
     ]);
   });
 
+  it("duplicates Pi SDK models for every available auth method", async () => {
+    const sdk = instance("pi-sdk", "pi-sdk");
+    vi.mocked(sdk.manager.getAvailableModels).mockResolvedValueOnce([
+      model("anthropic", "claude-opus-4-7"),
+    ]);
+
+    const manager = new MultiplexedAgentManager([sdk], {
+      modelAuthClassifier: async () => ({
+        methods: ["subscription", "api-key"],
+        activeMethod: "subscription",
+      }),
+    });
+
+    await expect(manager.getAvailableModels()).resolves.toEqual([
+      expect.objectContaining({
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        authMethod: "subscription",
+        source: "api-provider",
+      }),
+      expect.objectContaining({
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        authMethod: "api-key",
+        source: "api-provider",
+      }),
+    ]);
+  });
+
+  it("classifies Ollama Pi SDK models as local by default", async () => {
+    const sdk = instance("pi-sdk", "pi-sdk");
+    vi.mocked(sdk.manager.getAvailableModels).mockResolvedValueOnce([model("ollama", "llama3")]);
+
+    const manager = new MultiplexedAgentManager([sdk]);
+
+    await expect(manager.getAvailableModels()).resolves.toEqual([
+      expect.objectContaining({
+        provider: "ollama",
+        id: "llama3",
+        authMethod: "local",
+      }),
+    ]);
+  });
+
+  it("keeps external models unclassified for auth segmentation", async () => {
+    const pi = instance("pi", "pi");
+    vi.mocked(pi.manager.getAvailableModels).mockResolvedValueOnce([
+      { ...model("anthropic", "claude-opus-4-7"), authMethod: "subscription" },
+    ]);
+
+    const manager = new MultiplexedAgentManager([pi], {
+      modelAuthClassifier: async () => ({
+        methods: ["subscription", "api-key"],
+        activeMethod: "subscription",
+      }),
+    });
+
+    const models = await manager.getAvailableModels();
+    expect(models).toEqual([
+      expect.objectContaining({
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        source: "external-agent",
+      }),
+    ]);
+    expect(models[0]).not.toHaveProperty("authMethod");
+  });
+
   it("reports opt-in and configuration state when no runtime instances exist", async () => {
     const manager = new MultiplexedAgentManager([], {
       rpcEnabledGetter: () => false,
@@ -105,6 +173,64 @@ describe("MultiplexedAgentManager", () => {
       instanceId: "pi-sdk",
     });
     expect(selected.instanceId).toBe("pi-sdk");
+  });
+
+  it("routes by auth method and returns the selected method in the tagged model", async () => {
+    const sdk = instance("pi-sdk", "pi-sdk");
+    vi.mocked(sdk.manager.getAvailableModels).mockResolvedValueOnce([
+      model("anthropic", "claude-opus-4-7"),
+    ]);
+    vi.mocked(sdk.manager.setModel).mockResolvedValueOnce(model("anthropic", "claude-opus-4-7"));
+    const manager = new MultiplexedAgentManager([sdk], {
+      modelAuthClassifier: async () => ({
+        methods: ["subscription", "api-key"],
+        activeMethod: "subscription",
+      }),
+    });
+
+    await manager.getAvailableModels();
+    const selected = await manager.setModel({
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      authMethod: "api-key",
+    });
+
+    expect(sdk.manager.setModel).toHaveBeenCalledWith({
+      provider: "anthropic",
+      modelId: "claude-opus-4-7",
+      authMethod: "api-key",
+    });
+    expect(selected).toEqual(
+      expect.objectContaining({
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        authMethod: "api-key",
+      }),
+    );
+  });
+
+  it("tags Pi SDK status models with the active auth method", async () => {
+    const sdk = instance("pi-sdk", "pi-sdk");
+    vi.mocked(sdk.manager.getStatus).mockResolvedValueOnce({
+      running: true,
+      isStreaming: false,
+      model: { provider: "anthropic", id: "claude-opus-4-7", name: "Claude Opus" },
+    });
+    const manager = new MultiplexedAgentManager([sdk], {
+      modelAuthClassifier: async () => ({
+        methods: ["subscription", "api-key"],
+        activeMethod: "subscription",
+      }),
+    });
+
+    await expect(manager.getStatus()).resolves.toMatchObject({
+      model: {
+        provider: "anthropic",
+        id: "claude-opus-4-7",
+        authMethod: "subscription",
+        instanceId: "pi-sdk",
+      },
+    });
   });
 
   it("still switches model when cross-runtime session handoff fails", async () => {

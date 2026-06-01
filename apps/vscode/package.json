@@ -112,6 +112,11 @@
           "default": "anthropic:claude-opus-4-5",
           "description": "Default model for API Providers. Format: <provider>:<modelId>."
         },
+        "afx.model.defaultSelection": {
+          "type": "string",
+          "default": "",
+          "description": "Last selected AFX model identity as versioned JSON. Managed by AgenticFlowX."
+        },
         "afx.sdk.ollamaBaseUrl": {
           "type": "string",
           "default": "",

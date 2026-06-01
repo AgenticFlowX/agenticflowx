@@ -8,9 +8,14 @@
 import { describe, expect, it, vi } from "vitest";
 import type * as vscode from "vscode";
 
-import type { CustomProviderRecord } from "@afx/shared";
+import type { CustomProviderRecord, OAuthRecord } from "@afx/shared";
 
-import { CUSTOM_PROVIDERS_INDEX_KEY, SecretStore } from "./secret-store";
+import {
+  AUTH_METHOD_INDEX_KEY,
+  CUSTOM_PROVIDERS_INDEX_KEY,
+  OAUTH_INDEX_KEY,
+  SecretStore,
+} from "./secret-store";
 
 function createMockContext(): {
   context: vscode.ExtensionContext;
@@ -62,6 +67,82 @@ describe("SecretStore — provider API keys", () => {
     expect(context.secrets.store).toHaveBeenCalledWith("afx.apiKey.anthropic", "sk-test");
     expect(context.secrets.delete).toHaveBeenCalledWith("afx.apiKey.anthropic");
     expect(values.size).toBe(0);
+  });
+
+  it("stores provider setup values by env-var name", async () => {
+    const { context } = createMockContext();
+    const store = new SecretStore(context);
+
+    await store.setProviderEnvVar("CLOUDFLARE_ACCOUNT_ID", "account-id");
+    await expect(store.getProviderEnvVar("CLOUDFLARE_ACCOUNT_ID")).resolves.toBe("account-id");
+    await store.clearProviderEnvVar("CLOUDFLARE_ACCOUNT_ID");
+    await expect(store.getProviderEnvVar("CLOUDFLARE_ACCOUNT_ID")).resolves.toBeUndefined();
+
+    expect(context.secrets.store).toHaveBeenCalledWith(
+      "afx.providerEnv.CLOUDFLARE_ACCOUNT_ID",
+      "account-id",
+    );
+    expect(SecretStore.isProviderEnvKey("afx.providerEnv.CLOUDFLARE_ACCOUNT_ID")).toBe(true);
+  });
+});
+
+describe("SecretStore — OAuth records and auth methods", () => {
+  const OAUTH_RECORD: OAuthRecord = {
+    access: "access-token",
+    refresh: "refresh-token",
+    expires: 1_900_000_000_000,
+    meta: { planLabel: "Pro" },
+  };
+
+  it("stores, lists, reads, and clears OAuth records", async () => {
+    const { context, values } = createMockContext();
+    const store = new SecretStore(context);
+
+    await store.setOAuth("anthropic", OAUTH_RECORD);
+    await store.setOAuth("anthropic", { ...OAUTH_RECORD, access: "rotated" });
+
+    await expect(store.listOAuthProviders()).resolves.toEqual(["anthropic"]);
+    await expect(store.getOAuth("anthropic")).resolves.toEqual({
+      ...OAUTH_RECORD,
+      access: "rotated",
+    });
+    expect(values.get(OAUTH_INDEX_KEY)).toBe(JSON.stringify(["anthropic"]));
+
+    await store.clearOAuth("anthropic");
+    await expect(store.listOAuthProviders()).resolves.toEqual([]);
+    await expect(store.getOAuth("anthropic")).resolves.toBeUndefined();
+  });
+
+  it("returns undefined for corrupt OAuth records", async () => {
+    const { context, values } = createMockContext();
+    values.set("afx.oauth.anthropic", "not-json");
+    const store = new SecretStore(context);
+
+    await expect(store.getOAuth("anthropic")).resolves.toBeUndefined();
+  });
+
+  it("stores, lists, reads, and clears active auth methods", async () => {
+    const { context, values } = createMockContext();
+    const store = new SecretStore(context);
+
+    await store.setAuthMethod("anthropic", "subscription");
+    await store.setAuthMethod("anthropic", "api-key");
+
+    await expect(store.listAuthMethodProviders()).resolves.toEqual(["anthropic"]);
+    await expect(store.getAuthMethod("anthropic")).resolves.toBe("api-key");
+    expect(values.get(AUTH_METHOD_INDEX_KEY)).toBe(JSON.stringify(["anthropic"]));
+
+    await store.clearAuthMethod("anthropic");
+    await expect(store.listAuthMethodProviders()).resolves.toEqual([]);
+    await expect(store.getAuthMethod("anthropic")).resolves.toBeUndefined();
+  });
+
+  it("returns undefined for unknown active auth method values", async () => {
+    const { context, values } = createMockContext();
+    values.set("afx.authMethod.anthropic", "local");
+    const store = new SecretStore(context);
+
+    await expect(store.getAuthMethod("anthropic")).resolves.toBeUndefined();
   });
 });
 

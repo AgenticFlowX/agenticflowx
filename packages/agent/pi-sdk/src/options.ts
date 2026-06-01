@@ -1,4 +1,4 @@
-import type { Logger } from "@afx/shared";
+import type { Logger, ProviderAuthMethod } from "@afx/shared";
 
 export interface PiSdkManagerOptions {
   /** Caller-supplied logger. The manager scopes its own child as `{parent}:sdk-rpc-manager`. */
@@ -13,6 +13,18 @@ export interface PiSdkManagerOptions {
   apiProviders?: readonly string[];
   /** API-key lookup supplied by the host secret store. */
   getApiKey: (provider: string) => string | Promise<string | undefined> | undefined;
+  /**
+   * Active credential-method lookup supplied by the host secret store. When a
+   * provider is using a subscription token, the bootstrap gets
+   * `AFX_AUTH_METHOD_{PROVIDER}=subscription` so the token stays env-only and
+   * never becomes a `--api-key` process arg.
+   *
+   * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+   * @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-FLOW] [DES-EXTERNAL]
+   */
+  getAuthMethod?: (
+    provider: string,
+  ) => ProviderAuthMethod | Promise<ProviderAuthMethod | undefined> | undefined;
   /** From the caller's agent ephemeral-session setting. */
   ephemeral?: boolean;
   /** Shared Pi session directory used for cross-runtime continuity. */

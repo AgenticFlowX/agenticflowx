@@ -150,6 +150,34 @@ describe("createPiSdkAgentManager", () => {
     });
   });
 
+  it("marks subscription credentials in bootstrap env so tokens stay off CLI args", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai-codex",
+      modelId: "gpt-5.4",
+      apiProviders: ["openai-codex"],
+      getApiKey: () => "oauth-access-token",
+      getAuthMethod: () => "subscription",
+    });
+
+    await manager.getStatus();
+
+    expect(mocks.clients[0]!.options).toMatchObject({
+      env: {
+        AFX_PROVIDER: "openai-codex",
+        AFX_MODEL_ID: "gpt-5.4",
+        AFX_AUTH_METHOD_OPENAI_CODEX: "subscription",
+        AFX_API_KEY_OPENAI_CODEX: "oauth-access-token",
+        OPENAI_API_KEY: "oauth-access-token",
+      },
+    });
+    const spawnedEnv = (mocks.clients[0]!.options as { env: Record<string, string> }).env;
+    expect(JSON.parse(spawnedEnv["AFX_PROVIDER_OVERRIDES_JSON"]!)).toEqual({
+      overrides: { "openai-codex": { apiKeyEnv: "AFX_API_KEY_OPENAI_CODEX" } },
+    });
+  });
+
   it("passes host overlay system prompt paths to the Pi SDK RPC client without extension loading", async () => {
     const manager = createPiSdkAgentManager({
       logger,
@@ -504,18 +532,77 @@ describe("createPiSdkAgentManager", () => {
       getApiKey: () => undefined,
     });
 
+    await expect(manager.getAvailableModels()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "anthropic",
+          id: "claude-opus-4-5",
+          source: "api-provider",
+          instanceLabel: "anthropic",
+        }),
+        expect.objectContaining({
+          provider: "openai",
+          id: "gpt-5.2",
+          source: "api-provider",
+          instanceLabel: "anthropic",
+        }),
+      ]),
+    );
+    const models = await manager.getAvailableModels();
+    expect(new Set(models.map((model) => model.provider))).toEqual(
+      new Set(["anthropic", "openai"]),
+    );
+  });
+
+  it("fills configured providers from Pi's built-in registry when discovery is incomplete", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      apiProviders: ["anthropic", "openai-codex"],
+      getApiKey: () => undefined,
+    });
+
+    const models = await manager.getAvailableModels();
+    const codexIds = models
+      .filter((model) => model.provider === "openai-codex")
+      .map((model) => model.id);
+
+    expect(codexIds).toEqual([
+      "gpt-5.2",
+      "gpt-5.3-codex",
+      "gpt-5.3-codex-spark",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.5",
+    ]);
+    expect(models).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "anthropic",
+          id: "claude-opus-4-5",
+          source: "api-provider",
+        }),
+      ]),
+    );
+  });
+
+  it("falls back to the configured/default model when Pi has no registry entry", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/bootstrap.js",
+      provider: "faux-provider",
+      modelId: "faux-model",
+      apiProviders: ["faux-provider"],
+      getApiKey: () => undefined,
+    });
+
     await expect(manager.getAvailableModels()).resolves.toEqual([
       expect.objectContaining({
-        provider: "anthropic",
-        id: "claude-opus-4-5",
+        provider: "faux-provider",
+        id: "faux-model",
         source: "api-provider",
-        instanceLabel: "anthropic",
-      }),
-      expect.objectContaining({
-        provider: "openai",
-        id: "gpt-5.2",
-        source: "api-provider",
-        instanceLabel: "anthropic",
       }),
     ]);
   });
@@ -542,13 +629,15 @@ describe("createPiSdkAgentManager", () => {
       getApiKey: () => "not-a-real-key",
     });
 
-    await expect(manager.getAvailableModels()).resolves.toEqual([
-      expect.objectContaining({
-        provider: "anthropic",
-        id: "claude-opus-4-5",
-        source: "api-provider",
-      }),
-    ]);
+    await expect(manager.getAvailableModels()).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: "anthropic",
+          id: "claude-opus-4-5",
+          source: "api-provider",
+        }),
+      ]),
+    );
   });
 
   it("forwards switchSession through the Pi RPC protocol", async () => {
@@ -732,6 +821,44 @@ describe("buildBootstrapEnv", () => {
       MINIMAX_API_KEY: "minimax-key",
       AFX_API_KEY_KIMI_CODING: "kimi-key",
       KIMI_API_KEY: "kimi-key",
+    });
+  });
+
+  it("marks subscription providers configured through provider override env references", () => {
+    const env = buildBootstrapEnv({
+      provider: "openai-codex",
+      modelId: "gpt-5.5",
+      apiKeys: { "openai-codex": "oauth-access-token" },
+      authMethods: { "openai-codex": "subscription" },
+    });
+
+    expect(JSON.parse(env["AFX_PROVIDER_OVERRIDES_JSON"]!)).toEqual({
+      overrides: { "openai-codex": { apiKeyEnv: "AFX_API_KEY_OPENAI_CODEX" } },
+    });
+  });
+
+  it("merges subscription credential references with existing provider overrides", () => {
+    const env = buildBootstrapEnv({
+      provider: "github-copilot",
+      modelId: "gpt-5.4",
+      apiKeys: { "github-copilot": "copilot-token" },
+      authMethods: { "github-copilot": "subscription" },
+      extraEnv: {
+        AFX_PROVIDER_OVERRIDES_JSON: JSON.stringify({
+          overrides: {
+            "github-copilot": { baseUrl: "https://api.corp.ghe.com" },
+          },
+        }),
+      },
+    });
+
+    expect(JSON.parse(env["AFX_PROVIDER_OVERRIDES_JSON"]!)).toEqual({
+      overrides: {
+        "github-copilot": {
+          baseUrl: "https://api.corp.ghe.com",
+          apiKeyEnv: "AFX_API_KEY_GITHUB_COPILOT",
+        },
+      },
     });
   });
 });

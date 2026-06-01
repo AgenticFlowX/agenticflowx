@@ -34,6 +34,20 @@ function readManifest(): ExtensionManifest {
 }
 
 describe("extension configuration manifest", () => {
+  it("contributes the full model-selection identity setting", () => {
+    const setting =
+      readManifest().contributes.configuration.properties["afx.model.defaultSelection"];
+
+    expect(setting, "afx.model.defaultSelection must be contributed").toBeDefined();
+    if (!setting) return;
+
+    expect(setting).toMatchObject({
+      type: "string",
+      default: "",
+    });
+    expect(setting.description).toContain("versioned JSON");
+  });
+
   it("contributes the model warm-up timeout opened from Chat settings", () => {
     const setting =
       readManifest().contributes.configuration.properties["afx.runtime.responseStartTimeoutMs"];

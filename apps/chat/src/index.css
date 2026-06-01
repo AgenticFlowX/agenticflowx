@@ -103,7 +103,7 @@ body,
 /* Composer Intent consumes semantic mode variables here so the component does
  * not need raw palette classes for Code vs Explore styling.
  *
- * @see docs/specs/900-fleet/09-intent/09-intent.md [DES-TOKENS] */
+ * @see docs/specs/131-package-ui-design-system/design.md [DES-TOKENS] */
 .afx-intent-strip {
   --intent-accent-border: color-mix(in srgb, var(--afx-brand-soft) 50%, transparent);
   --intent-accent-bg: color-mix(in srgb, var(--afx-brand-soft) 15%, transparent);

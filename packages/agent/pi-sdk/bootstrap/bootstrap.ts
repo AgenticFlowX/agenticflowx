@@ -6,17 +6,20 @@
  *
  * @see docs/specs/351-agent-pi/spec.md [FR-2] [FR-5] [FR-6]
  * @see docs/specs/351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]
+ * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-4] [FR-5] [NFR-1]
+ * @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-OVERRIDES]
  */
 import { fileURLToPath } from "node:url";
 
 import type { ExtensionAPI, ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { main } from "@earendil-works/pi-coding-agent";
 
-import { applyProviderEnv, getApiKey } from "./auth";
+import { applyProviderEnv, getApiKey, providerEnvKey } from "./auth";
 import {
   type PiExtensionApiLike,
   createCustomProvidersExtensionFactory,
 } from "./custom-providers-bootstrap";
+import { createProviderOverridesExtensionFactory } from "./provider-overrides-bootstrap";
 
 export function buildBootstrapArgs(
   args: readonly string[],
@@ -35,9 +38,15 @@ export function buildBootstrapArgs(
   if (provider) {
     const apiKey = getApiKey(provider, env);
     if (apiKey) {
+      // Subscription (OAuth) tokens are delivered env-only and must never reach
+      // a --api-key CLI arg (process-list exposure). applyProviderEnv still runs
+      // so Pi sees the provider env aliases; only the CLI arg is gated off.
+      // @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
+      // @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-FLOW] [DES-EXTERNAL]
       applyProviderEnv(provider, apiKey, env);
+      const isSubscription = env[`AFX_AUTH_METHOD_${providerEnvKey(provider)}`] === "subscription";
       const hasModelScope = hasOption(nextArgs, "--model") || hasOption(nextArgs, "--models");
-      if (hasModelScope && !hasOption(nextArgs, "--api-key")) {
+      if (!isSubscription && hasModelScope && !hasOption(nextArgs, "--api-key")) {
         nextArgs.push("--api-key", apiKey);
       }
     }
@@ -81,13 +90,37 @@ export function buildAfxCustomProvidersExtensionFactory(
   };
 }
 
+/**
+ * Build the pi `extensionFactory` that applies existing-provider overrides from
+ * `AFX_PROVIDER_OVERRIDES_JSON` (e.g. Copilot Enterprise base URLs and env-key
+ * credential references for subscription providers). Returns `undefined` when
+ * there's nothing to override so we don't add a no-op extension.
+ *
+ * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-4] [FR-5] [NFR-1]
+ * @see docs/specs/355-agent-sdk-credential-injection/design.md [DES-OVERRIDES]
+ */
+export function buildAfxProviderOverridesExtensionFactory(
+  env: NodeJS.ProcessEnv = process.env,
+  onDiagnostic?: (message: string) => void,
+): ExtensionFactory | undefined {
+  if (!env["AFX_PROVIDER_OVERRIDES_JSON"]) return undefined;
+  const innerFactory = createProviderOverridesExtensionFactory(env, onDiagnostic);
+  return (pi: ExtensionAPI) => {
+    innerFactory(pi as unknown as PiExtensionApiLike);
+  };
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const customProvidersFactory = buildAfxCustomProvidersExtensionFactory(process.env, (msg) =>
-    process.stderr.write(`${msg}\n`),
-  );
-  const mainOptions = customProvidersFactory
-    ? { extensionFactories: [customProvidersFactory] }
-    : undefined;
+  const onDiagnostic = (msg: string): void => {
+    process.stderr.write(`${msg}\n`);
+  };
+  const extensionFactories = [
+    buildAfxCustomProvidersExtensionFactory(process.env, onDiagnostic),
+    // Base-URL overrides run after provider registration so a Copilot Enterprise
+    // base URL is applied to the built-in github-copilot models.
+    buildAfxProviderOverridesExtensionFactory(process.env, onDiagnostic),
+  ].filter((factory): factory is ExtensionFactory => factory !== undefined);
+  const mainOptions = extensionFactories.length > 0 ? { extensionFactories } : undefined;
   main(buildBootstrapArgs(process.argv.slice(2)), mainOptions).catch((err: unknown) => {
     const message = err instanceof Error ? (err.stack ?? err.message) : String(err);
     console.error(message);

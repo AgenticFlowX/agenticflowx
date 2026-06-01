@@ -172,13 +172,17 @@ function createProviderSnapshot(
   const displayName =
     id === "openai"
       ? "OpenAI"
-      : id === "anthropic"
-        ? "Anthropic"
-        : id.replace(
-            /(^|[-_\s])([a-z])/g,
-            (_match, prefix: string, char: string) =>
-              `${prefix === "-" || prefix === "_" ? " " : prefix}${char.toUpperCase()}`,
-          );
+      : id === "openai-codex"
+        ? "ChatGPT (Codex)"
+        : id === "github-copilot"
+          ? "GitHub Copilot"
+          : id === "anthropic"
+            ? "Anthropic"
+            : id.replace(
+                /(^|[-_\s])([a-z])/g,
+                (_match, prefix: string, char: string) =>
+                  `${prefix === "-" || prefix === "_" ? " " : prefix}${char.toUpperCase()}`,
+              );
   const snapshot: SettingsSnapshot["providers"][number] = {
     id,
     name: id,
@@ -320,11 +324,15 @@ describe("chat App", () => {
       expect(screen.getByText(/Chat-first by default/i)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "/afx-scaffold" })).toBeInTheDocument();
       expect(
-        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+        screen.getByRole("button", {
+          name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+        }),
       ).toHaveClass("min-w-7");
       expect(
-        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
-      ).toHaveTextContent("Model - Medium");
+        screen.getByRole("button", {
+          name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+        }),
+      ).toHaveTextContent("GPT-5.4 - Medium");
       expect(screen.getByRole("button", { name: "Mention file" })).toBeInTheDocument();
       expect(screen.getByRole("switch", { name: "journal.md" })).toBeChecked();
       expect(screen.getByText("journal.md")).toHaveClass("hidden", "@[260px]:inline");
@@ -417,7 +425,9 @@ describe("chat App", () => {
 
     try {
       await user.hover(
-        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+        screen.getByRole("button", {
+          name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+        }),
       );
       const tooltip = await waitFor(() => {
         const content = document.querySelector('[data-slot="tooltip-content"]');
@@ -500,14 +510,16 @@ describe("chat App", () => {
 
     try {
       await user.click(
-        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+        screen.getByRole("button", {
+          name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+        }),
       );
       expect(screen.getByText("Thinking Level")).toBeInTheDocument();
-      expect(screen.getByText("Model")).toBeInTheDocument();
+      expect(screen.getByText("API key")).toBeInTheDocument();
 
       const send = transport.send as ReturnType<typeof vi.fn>;
       send.mockClear();
-      await user.click(screen.getByRole("menuitemradio", { name: "Low" }));
+      await user.click(screen.getByRole("button", { name: "Low" }));
       expect(send).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "chat/setThinkingLevel",
@@ -516,7 +528,9 @@ describe("chat App", () => {
       );
       await waitFor(() =>
         expect(
-          screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Low" }),
+          screen.getByRole("button", {
+            name: "Model: GPT-5.4. Method: API. Thinking level: Low",
+          }),
         ).toBeInTheDocument(),
       );
     } finally {
@@ -826,21 +840,23 @@ describe("chat App", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+        screen.getByRole("button", {
+          name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+        }),
       ).toBeInTheDocument(),
     );
     await user.click(
-      screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      screen.getByRole("button", {
+        name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+      }),
     );
-    await waitFor(() => expect(screen.getByText("Provider")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("API key")).toBeInTheDocument());
     expect(screen.getAllByText("External Agents").length).toBeGreaterThan(0);
-    expect(screen.getByText("Openai")).toBeInTheDocument();
-    expect(screen.getByText("Anthropic")).toBeInTheDocument();
     expect(screen.getAllByText("Pi RPC").length).toBeGreaterThan(0);
 
     const send = transport.send as ReturnType<typeof vi.fn>;
     send.mockClear();
-    fireEvent.click(screen.getByRole("menuitemradio", { name: /Claude Opus 4\.7/i }));
+    fireEvent.click(screen.getByText("Claude Opus 4.7"));
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "chat/setModel",
@@ -851,21 +867,21 @@ describe("chat App", () => {
     );
 
     await user.click(
-      screen.getByRole("button", { name: "Model: GPT-5.4. Thinking level: Medium" }),
+      screen.getByRole("button", {
+        name: "Model: GPT-5.4. Method: API. Thinking level: Medium",
+      }),
     );
-    await waitFor(() =>
-      expect(screen.getByRole("menuitem", { name: "Manage providers and agents…" })).toBeVisible(),
-    );
+    await waitFor(() => expect(screen.getByText("Manage providers and agents...")).toBeVisible());
 
     send.mockClear();
-    fireEvent.click(screen.getByRole("menuitem", { name: "Manage providers and agents…" }));
+    fireEvent.click(screen.getByText("Manage providers and agents..."));
     await waitFor(() =>
       expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute(
         "aria-selected",
         "true",
       ),
     );
-    expect(screen.queryByRole("menuitem", { name: "Manage providers and agents…" })).toBeNull();
+    expect(screen.queryByText("Manage providers and agents...")).toBeNull();
   }, 10_000);
 
   it("restores an unsent draft after the sidebar webview remounts", async () => {
@@ -1228,6 +1244,59 @@ describe("chat App", () => {
     await waitFor(() => expect(apiKeyInput).toHaveFocus());
     expect(screen.getByRole("button", { name: "Save key" })).toBeDisabled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("groups subscription accounts and keeps connected Codex visible in Ready", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    const codexProvider: SettingsSnapshot["providers"][number] = {
+      ...createProviderSnapshot("openai-codex", "configured", 1),
+      oauthCapable: true,
+      oauthFlow: "pkce-loopback",
+      dualMethod: false,
+      activeMethod: "subscription",
+      subscriptionConnected: true,
+    };
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport, undefined, null, "code", {
+        providers: [
+          createProviderSnapshot("openai"),
+          codexProvider,
+          {
+            ...createProviderSnapshot("github-copilot"),
+            oauthCapable: true,
+            oauthFlow: "device-code",
+            dualMethod: false,
+          },
+        ],
+      });
+    });
+
+    await user.click(screen.getByRole("tab", { name: "Settings" }));
+    await user.click(screen.getByRole("button", { name: "Models" }));
+
+    expect(screen.getAllByText("Subscription accounts").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /ChatGPT \(Codex\) — Manage/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /GitHub Copilot — Sign in/i })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Ready/ }));
+
+    expect(screen.getByRole("button", { name: /ChatGPT \(Codex\) — Manage/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /OpenAI — Paste key/i })).not.toBeInTheDocument();
   });
 
   it("opens the custom endpoint form directly while preserving existing custom providers", async () => {
@@ -1973,7 +2042,9 @@ describe("chat App", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Model: Llama 4 Scout. Thinking level: Medium" }),
+      screen.getByRole("button", {
+        name: "Model: Llama 4 Scout. Method: API. Thinking level: Medium",
+      }),
     ).toBeEnabled();
     expect(screen.getByText("thinking")).toBeInTheDocument();
     expect(screen.queryByText("reasoning unavailable for this model")).not.toBeInTheDocument();
@@ -2024,7 +2095,9 @@ describe("chat App", () => {
     });
 
     expect(
-      screen.getByRole("button", { name: "Model: Claude Opus 4.7. Thinking level: Medium" }),
+      screen.getByRole("button", {
+        name: "Model: Claude Opus 4.7. Method: API. Thinking level: Medium",
+      }),
     ).toBeEnabled();
   });
 

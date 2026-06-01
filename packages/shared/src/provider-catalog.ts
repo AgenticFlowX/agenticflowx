@@ -9,7 +9,8 @@
 /**
  * OAuth flow kind a provider uses to obtain a subscription credential.
  *
- * @see docs/specs/900-fleet/10-oauth/10-oauth.md [FR-12] [FR-15] [DES-FLOW]
+ * @see docs/specs/141-package-provider-catalog/spec.md [FR-1] [FR-4] [FR-5] [FR-6]
+ * @see docs/specs/141-package-provider-catalog/design.md [DES-DATA]
  */
 export type ProviderOAuthFlow = "pkce-loopback" | "device-code";
 
@@ -17,7 +18,7 @@ export type ProviderOAuthFlow = "pkce-loopback" | "device-code";
  * Extra provider setup values that Pi requires in addition to the API key.
  * These are stored host-side and injected as env vars for the bundled Pi SDK.
  *
- * @see docs/specs/900-fleet/11-model-selector/11-model-selector.md [DES-PROVIDER-CATALOG]
+ * @see docs/specs/141-package-provider-catalog/design.md [DES-DATA]
  */
 export interface ProviderConfigField {
   id: string;
@@ -35,7 +36,11 @@ export interface ProviderCatalogDetails {
   helpUrl?: string;
   noKeyNeeded?: boolean;
   configFields?: readonly ProviderConfigField[];
-  /** True when this provider supports AFX-owned OAuth subscription sign-in (FR-1, FR-12, FR-13). */
+  /**
+   * True when this provider supports AFX-owned OAuth subscription sign-in.
+   *
+   * @see docs/specs/141-package-provider-catalog/spec.md [FR-1] [FR-4] [FR-5] [FR-6]
+   */
   oauthCapable?: boolean;
   /** OAuth flow used when `oauthCapable` (PKCE loopback for Anthropic/Codex, device-code for Copilot). */
   oauthFlow?: ProviderOAuthFlow;
@@ -44,7 +49,8 @@ export interface ProviderCatalogDetails {
    * (Anthropic) — the card shows a method chooser. Subscription-only OAuth providers
    * (`openai-codex`, `github-copilot`) are false and render a single sign-in action.
    *
-   * @see docs/specs/900-fleet/10-oauth/10-oauth.md [FR-1] [FR-9] [DES-UI]
+   * @see docs/specs/141-package-provider-catalog/spec.md [FR-1] [FR-4] [FR-5] [FR-6]
+   * @see docs/specs/141-package-provider-catalog/design.md [DES-DATA]
    */
   dualMethod?: boolean;
 }
@@ -73,7 +79,8 @@ export const PROVIDER_API_KEY_ENV_ALIASES = {
   // Subscription-only OAuth sibling of `openai` (ChatGPT Codex). The metered API-key
   // path remains the `openai` provider; this id carries the OAuth access token via an
   // AFX-owned env key and a Pi SDK provider override, not a metered API-key record.
-  // @see docs/specs/900-fleet/10-oauth/10-oauth.md [FR-12] [FR-20] [DES-DEC]
+  // @see docs/specs/141-package-provider-catalog/spec.md [FR-1] [FR-4] [FR-5] [FR-6]
+  // @see docs/specs/141-package-provider-catalog/design.md [DES-DATA]
   "openai-codex": ["OPENAI_API_KEY"],
   opencode: ["OPENCODE_API_KEY"],
   "opencode-go": ["OPENCODE_API_KEY"],
@@ -95,7 +102,7 @@ export const API_PROVIDER_IDS = Object.keys(
 ) as readonly ApiProviderId[];
 
 /**
- * Pi's provider-default model ids used when AFX creates an API-provider runtime
+ * Bundled SDK provider-default model ids used when AFX creates an API-provider runtime
  * for a provider that differs from the currently configured global default.
  *
  * @see docs/specs/350-agent-manager/spec.md [FR-1]
