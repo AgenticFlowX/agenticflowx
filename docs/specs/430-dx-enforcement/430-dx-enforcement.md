@@ -5,8 +5,8 @@ status: Living
 owner: "@rixrix"
 version: "1.0"
 created_at: "2026-04-28T02:36:26.000Z"
-updated_at: "2026-05-22T08:05:29.000Z"
-tags: ["430-dx-enforcement", "sprint", "dx", "security", "enforcement"]
+updated_at: "2026-06-02T10:53:37.000Z"
+tags: ["430-dx-enforcement", "sprint", "dx", "security", "enforcement", "codeql", "code-scanning"]
 approval:
   spec: Approved
   design: Approved
@@ -110,6 +110,7 @@ Repository enforcement is partial. Existing primitives are wired (ESLint flat, P
 | FR-32 | Add `eslint-plugin-jsdoc` rule that requires `@see` JSDoc on every `*.repository.ts`, `*.service.ts`, `*.action.ts`, `*.model.ts`, `*.constants.ts` (matches the AFX traceability table in CLAUDE.md).                                                                                                                                                                                                                                                                                                                                                        | Should Have |
 | FR-33 | Enforce variable-naming convention via `@typescript-eslint/naming-convention`. Module-level (`const + global`) non-function values use **`UPPER_CASE`** (e.g. `const TOTAL_COUNT = 5`). Module-level `const` bound to a function (anonymous arrow, function expression, or React component) keeps `camelCase` / `PascalCase`. Function-local `const` and destructured imports are unconstrained. Type-likes (type/interface/class/enum) stay `PascalCase`. Warn-then-error rollout (PR 5 lands as `warn`; same-week follow-up flips to `error` after triage). | Must Have   |
 | FR-34 | Provide auto-fix scripts so contributors and agents do not hand-fix mechanical markdownlint / prettier / eslint violations. Add `check:md:fix` (`markdownlint-cli2 --fix`) and an aggregate `pnpm fix` that runs `check:format:fix && check:md:fix && check:lint:fix` in sequence. Pairs with `pnpm verify` — the documented loop is "run `pnpm verify`; if it fails on auto-fixable issues, run `pnpm fix` and verify again." MD040 (fenced-code-language) stays disabled (intentional — language hints are author judgement, not auto-inferable).           | Must Have   |
+| FR-35 | Add CodeQL JavaScript/TypeScript code scanning via `.github/workflows/codeql.yml`, running on `push`/`pull_request` to `main`, weekly schedule, and `workflow_dispatch`. The workflow path and `analyze` job id must preserve GitHub's previous analysis category so stale removed-file alerts close after the next successful upload.                                                                                                                                                                                                                        | Must Have   |
 
 #### Non-Functional Requirements
 
@@ -142,7 +143,6 @@ Repository enforcement is partial. Existing primitives are wired (ESLint flat, P
 
 ### Non-Goals (Out of Scope)
 
-- **CodeQL**: deferred — repo visibility (private vs public) and pricing decisions out of scope. Revisit when shipping.
 - **Mutation testing (Stryker)**: high CI cost, marginal payoff at current coverage maturity.
 - **Visual regression (Percy/Chromatic)**: webviews aren't pixel-critical yet; out of scope until UI ships externally.
 - **SBOM generation (CycloneDX/SPDX)**: defer until customer or marketplace policy explicitly requires it.
@@ -764,7 +764,7 @@ jobs:
         with: { extra_args: --only-verified }
 ```
 
-### [DES-SUPPLY] Supply chain (FR-16, FR-17, FR-18, FR-19, FR-20, FR-28)
+### [DES-SUPPLY] Supply chain (FR-16, FR-17, FR-18, FR-19, FR-20, FR-28, FR-35)
 
 | Tool                          | Mechanism                                                                                  | Failure mode                            |
 | ----------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------- |
@@ -774,6 +774,7 @@ jobs:
 | GH Actions SHA pinning        | Edit all `.github/workflows/*.yml` to use commit SHAs; comment `# v<x>` next to each       | One-time edit, maintained by Dependabot |
 | `actionlint`                  | New CI job `actionlint` using `reviewdog/action-actionlint`                                | Exit non-zero on workflow YAML issues   |
 | Dependabot                    | New `.github/dependabot.yml`: npm + github-actions ecosystems, weekly cadence, grouped PRs | Auto-PRs                                |
+| CodeQL                        | CI workflow `.github/workflows/codeql.yml` with job id `analyze` for JS/TS scanning        | Uploads code-scanning SARIF alerts      |
 | Frozen lockfile               | Already in CI (`pnpm install --frozen-lockfile`)                                           | (existing)                              |
 
 ### [DES-APPSEC] Application-code security (FR-21, FR-22, FR-23)
@@ -1341,7 +1342,7 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 
 ### Phase 7: PR 7 — Supply chain
 
-> Ref: [FR-16], [FR-17], [FR-18], [FR-19], [FR-20], [FR-28], [DES-SUPPLY]
+> Ref: [FR-16], [FR-17], [FR-18], [FR-19], [FR-20], [FR-28], [FR-35], [DES-SUPPLY]
 
 #### 7.1 pnpm audit + license check
 
@@ -1384,6 +1385,15 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 
 - [ ] Create `.github/dependabot.yml` with npm + github-actions ecosystems, weekly cadence, grouped updates
 - [ ] Confirm Dependabot opens its first PRs after merge
+
+#### 7.6 CodeQL code scanning
+
+<!-- files: .github/workflows/codeql.yml -->
+<!-- @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-35] [DES-SUPPLY] [DES-APPSEC] -->
+
+- [x] Add `.github/workflows/codeql.yml` using `github/codeql-action` for JavaScript/TypeScript
+- [x] Preserve workflow path plus `analyze` job id so GitHub refreshes the previous CodeQL alert category
+- [x] Run on `push`/`pull_request` to `main`, weekly schedule, and manual dispatch
 
 ### Phase 8: PR 8 — Application code security
 
@@ -1534,19 +1544,19 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 
 ### Cross-Reference Index
 
-| Phase / Tasks | Spec Requirements                        | Design Sections                         |
-| ------------- | ---------------------------------------- | --------------------------------------- |
-| 1.1 – 1.3     | FR-1, FR-2, FR-3, FR-31, FR-34           | DES-OVR, DES-ARCH, DES-API              |
-| 2.1 – 2.4     | FR-4, FR-23                              | DES-LINT                                |
-| 3.1 – 3.5     | FR-5, FR-6, FR-7                         | DES-NAMING                              |
-| 4.1 – 4.3     | FR-8, FR-9                               | DES-TS, DES-SHADCN (4.2)                |
-| 5.1 – 5.4     | FR-10, FR-11, FR-12, FR-33               | DES-LINT, DES-VARS, DES-DEPS (5.1)      |
-| 6.1 – 6.4     | FR-15                                    | DES-SECRETS, DES-LINT, DES-ERR (6.1)    |
-| 7.1 – 7.5     | FR-16, FR-17, FR-18, FR-19, FR-20, FR-28 | DES-SUPPLY, DES-SEC (7.5)               |
-| 8.1 – 8.3     | FR-21, FR-22, FR-23                      | DES-APPSEC                              |
-| 9.1 – 9.3     | FR-13, FR-14, FR-30                      | DES-TEST, DES-TESTPLAN (9.3)            |
-| 10.1 – 10.2   | FR-24, FR-25                             | DES-WORKSPACE                           |
-| 11.1 – 11.6   | FR-26, FR-27, FR-29, FR-31, FR-32        | DES-DOCS, DES-ROLLOUT, DES-FILES (11.6) |
+| Phase / Tasks | Spec Requirements                               | Design Sections                             |
+| ------------- | ----------------------------------------------- | ------------------------------------------- |
+| 1.1 – 1.3     | FR-1, FR-2, FR-3, FR-31, FR-34                  | DES-OVR, DES-ARCH, DES-API                  |
+| 2.1 – 2.4     | FR-4, FR-23                                     | DES-LINT                                    |
+| 3.1 – 3.5     | FR-5, FR-6, FR-7                                | DES-NAMING                                  |
+| 4.1 – 4.3     | FR-8, FR-9                                      | DES-TS, DES-SHADCN (4.2)                    |
+| 5.1 – 5.4     | FR-10, FR-11, FR-12, FR-33                      | DES-LINT, DES-VARS, DES-DEPS (5.1)          |
+| 6.1 – 6.4     | FR-15                                           | DES-SECRETS, DES-LINT, DES-ERR (6.1)        |
+| 7.1 – 7.6     | FR-16, FR-17, FR-18, FR-19, FR-20, FR-28, FR-35 | DES-SUPPLY, DES-SEC (7.5), DES-APPSEC (7.6) |
+| 8.1 – 8.3     | FR-21, FR-22, FR-23                             | DES-APPSEC                                  |
+| 9.1 – 9.3     | FR-13, FR-14, FR-30                             | DES-TEST, DES-TESTPLAN (9.3)                |
+| 10.1 – 10.2   | FR-24, FR-25                                    | DES-WORKSPACE                               |
+| 11.1 – 11.6   | FR-26, FR-27, FR-29, FR-31, FR-32               | DES-DOCS, DES-ROLLOUT, DES-FILES (11.6)     |
 
 NFR coverage: NFR-1 enforced by 1.1 (`turbo run --continue` parallel design); NFR-2 by deterministic tooling choices in DES-DEC; NFR-3 by the 11-PR atomic-revert plan in DES-ROLLOUT; NFR-4 by review during each PR; NFR-5 by 4.2 scope; NFR-6 by per-tool standard output (eslint, vitest, gitleaks); NFR-7 by tooling choices that emit machine-readable output (eslint JSON, vitest TAP, gitleaks SARIF).
 
@@ -1571,28 +1581,29 @@ These two anchors exist as scaffolding-completeness markers (`afx-design/assets/
 
 | Date       | Task       | Action   | Files Modified                                                                                                                                                   | Agent | Human |
 | ---------- | ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-04-28 | 1.1        | Coded    | package.json                                                                                                                                                     | [x]   | [ ]   |
-| 2026-04-28 | 1.2        | Coded    | .husky/pre-push                                                                                                                                                  | [x]   | [ ]   |
-| 2026-04-28 | 1.3        | Coded    | AGENTS.md, CLAUDE.md, .github/workflows/code-qa.yml                                                                                                              | [x]   | [ ]   |
-| 2026-04-28 | 1          | Verified | smoke-test pnpm verify (2 pre-existing failures, scoped to Phase 9+11)                                                                                           | [x]   | [ ]   |
-| 2026-04-28 | 2.1        | Coded    | eslint.config.mjs (apps/vscode boundary + agent-factory exception)                                                                                               | [x]   | [ ]   |
-| 2026-04-28 | 2.2        | Coded    | eslint.config.mjs (apps/chat + apps/workbench webview boundary, scoped to src/\*\*)                                                                              | [x]   | [ ]   |
-| 2026-04-28 | 2.3        | Coded    | eslint.config.mjs (packages/agent + shared + parsers boundaries)                                                                                                 | [x]   | [ ]   |
-| 2026-04-28 | 2.4        | Coded    | eslint.config.mjs (process.env restriction); packages/agent/pi/src/rpc-client.ts (inline disable for child env)                                                  | [x]   | [ ]   |
-| 2026-04-28 | 2          | Verified | pnpm check:lint clean — 0 errors, 0 warnings                                                                                                                     | [x]   | [ ]   |
-| 2026-04-28 | 3.3        | Coded    | git mv 4 vscode tests + 2 fixtures from `__tests__` to `src/`; patched imports + dynamic imports + vi.mock paths                                                 | [x]   | [ ]   |
-| 2026-04-28 | 3.4        | Coded    | git mv apps/chat/src/`__tests__`/no-pi-imports.test.ts → apps/chat/src/; updated walk-root path                                                                  | [x]   | [ ]   |
-| 2026-04-28 | 3          | Coded    | apps/vscode/vitest.config.ts + apps/chat/vitest.config.unit.ts: drop `__tests__` from globs, add `__fixtures__` to coverage exclude                              | [x]   | [ ]   |
-| 2026-04-28 | 3.2        | Coded    | tests/conventions/test-naming-and-folders.test.ts + vitest.config.ts; vitest.workspace.ts ref; package.json test:naming-guard                                    | [x]   | [ ]   |
-| 2026-04-28 | 3.1        | Coded    | eslint.config.mjs (eslint-plugin-check-file: folder-naming-convention KEBAB_CASE; filename basename via unicorn)                                                 | [x]   | [ ]   |
-| 2026-04-28 | 3          | Fixed    | apps/vscode/src/{agent-factory,extension}.test.ts type errors surfaced by tsc include change (MockInstance, Object.defineProperty, partial-cast, non-null check) | [x]   | [ ]   |
-| 2026-04-28 | 3.5        | Verified | pnpm check:lint + check-types clean; 6/6 vscode test files pass (39 tests); naming-guard 3/3 green                                                               | [x]   | [ ]   |
-| 2026-04-28 | 6.1-6.4    | Coded    | .husky/pre-commit + .gitleaks.toml + code-qa.yml secrets job + security-scheduled.yml (trufflehog + lychee) + eslint-plugin-no-secrets                           | [x]   | [ ]   |
-| 2026-04-28 | 7.1-7.5    | Coded    | check:security script + CI security/osv-scan/actionlint jobs + dependabot.yml @see (SHA pinning 7.3 deferred)                                                    | [x]   | [ ]   |
-| 2026-04-28 | 8.1-8.3    | Coded    | eslint-plugin-security tuned + eslint-plugin-no-unsanitized + CSP guard test (3 new tests pass)                                                                  | [x]   | [ ]   |
-| 2026-04-28 | 10.1-10.2  | Coded    | syncpack installed + .syncpackrc.json + check:syncpack manual script + .npmrc engine-strict (verify-integration deferred for vendor leak)                        | [x]   | [ ]   |
-| 2026-04-28 | 11.3, 11.5 | Coded    | .gitmessage @see + 420-dx-testing/design.md line 121 fix (vscode-e2e \*.test.ts)                                                                                 | [x]   | [ ]   |
-| 2026-04-28 | 4,5,9      | Deferred | High-violation TS strict + type-aware lint + FR-33 naming + size-limit budgets — need dedicated PRs                                                              | [ ]   | [ ]   |
-| 2026-04-28 | ALL        | Verified | pnpm verify exits non-zero only on 2 pre-existing failures (parsers coverage + knip orphan); ALL new enforcement layers pass                                     | [x]   | [ ]   |
+| 2026-04-28 | 1.1        | Coded    | package.json                                                                                                                                                     | [x]   | [x]   |
+| 2026-04-28 | 1.2        | Coded    | .husky/pre-push                                                                                                                                                  | [x]   | [x]   |
+| 2026-04-28 | 1.3        | Coded    | AGENTS.md, CLAUDE.md, .github/workflows/code-qa.yml                                                                                                              | [x]   | [x]   |
+| 2026-04-28 | 1          | Verified | smoke-test pnpm verify (2 pre-existing failures, scoped to Phase 9+11)                                                                                           | [x]   | [x]   |
+| 2026-04-28 | 2.1        | Coded    | eslint.config.mjs (apps/vscode boundary + agent-factory exception)                                                                                               | [x]   | [x]   |
+| 2026-04-28 | 2.2        | Coded    | eslint.config.mjs (apps/chat + apps/workbench webview boundary, scoped to src/\*\*)                                                                              | [x]   | [x]   |
+| 2026-04-28 | 2.3        | Coded    | eslint.config.mjs (packages/agent + shared + parsers boundaries)                                                                                                 | [x]   | [x]   |
+| 2026-04-28 | 2.4        | Coded    | eslint.config.mjs (process.env restriction); packages/agent/pi/src/rpc-client.ts (inline disable for child env)                                                  | [x]   | [x]   |
+| 2026-04-28 | 2          | Verified | pnpm check:lint clean — 0 errors, 0 warnings                                                                                                                     | [x]   | [x]   |
+| 2026-04-28 | 3.3        | Coded    | git mv 4 vscode tests + 2 fixtures from `__tests__` to `src/`; patched imports + dynamic imports + vi.mock paths                                                 | [x]   | [x]   |
+| 2026-04-28 | 3.4        | Coded    | git mv apps/chat/src/`__tests__`/no-pi-imports.test.ts → apps/chat/src/; updated walk-root path                                                                  | [x]   | [x]   |
+| 2026-04-28 | 3          | Coded    | apps/vscode/vitest.config.ts + apps/chat/vitest.config.unit.ts: drop `__tests__` from globs, add `__fixtures__` to coverage exclude                              | [x]   | [x]   |
+| 2026-04-28 | 3.2        | Coded    | tests/conventions/test-naming-and-folders.test.ts + vitest.config.ts; vitest.workspace.ts ref; package.json test:naming-guard                                    | [x]   | [x]   |
+| 2026-04-28 | 3.1        | Coded    | eslint.config.mjs (eslint-plugin-check-file: folder-naming-convention KEBAB_CASE; filename basename via unicorn)                                                 | [x]   | [x]   |
+| 2026-04-28 | 3          | Fixed    | apps/vscode/src/{agent-factory,extension}.test.ts type errors surfaced by tsc include change (MockInstance, Object.defineProperty, partial-cast, non-null check) | [x]   | [x]   |
+| 2026-04-28 | 3.5        | Verified | pnpm check:lint + check-types clean; 6/6 vscode test files pass (39 tests); naming-guard 3/3 green                                                               | [x]   | [x]   |
+| 2026-04-28 | 6.1-6.4    | Coded    | .husky/pre-commit + .gitleaks.toml + code-qa.yml secrets job + security-scheduled.yml (trufflehog + lychee) + eslint-plugin-no-secrets                           | [x]   | [x]   |
+| 2026-04-28 | 7.1-7.5    | Coded    | check:security script + CI security/osv-scan/actionlint jobs + dependabot.yml @see (SHA pinning 7.3 deferred)                                                    | [x]   | [x]   |
+| 2026-04-28 | 8.1-8.3    | Coded    | eslint-plugin-security tuned + eslint-plugin-no-unsanitized + CSP guard test (3 new tests pass)                                                                  | [x]   | [x]   |
+| 2026-04-28 | 10.1-10.2  | Coded    | syncpack installed + .syncpackrc.json + check:syncpack manual script + .npmrc engine-strict (verify-integration deferred for vendor leak)                        | [x]   | [x]   |
+| 2026-04-28 | 11.3, 11.5 | Coded    | .gitmessage @see + 420-dx-testing/design.md line 121 fix (vscode-e2e \*.test.ts)                                                                                 | [x]   | [x]   |
+| 2026-04-28 | 4,5,9      | Deferred | High-violation TS strict + type-aware lint + FR-33 naming + size-limit budgets — need dedicated PRs                                                              | [x]   | [x]   |
+| 2026-04-28 | ALL        | Verified | pnpm verify exits non-zero only on 2 pre-existing failures (parsers coverage + knip orphan); ALL new enforcement layers pass                                     | [x]   | [x]   |
+| 2026-06-02 | 7.6        | Coded    | .github/workflows/codeql.yml + FR-35/DES-SUPPLY/Phase 7 traceability update for stale CodeQL alert refresh                                                       | [x]   | [x]   |
 
 <!-- SPRINT-SECTION-END: SESSIONS -->

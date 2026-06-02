@@ -4,8 +4,8 @@ type: JOURNAL
 status: Living
 owner: "@rixrix"
 created_at: "2026-04-28T02:36:26.000Z"
-updated_at: "2026-04-28T05:17:39.000Z"
-tags: ["430-dx-enforcement", "journal"]
+updated_at: "2026-06-02T10:53:37.000Z"
+tags: ["430-dx-enforcement", "journal", "codeql"]
 ---
 
 # Journal - Repo Enforcement Hardening
@@ -55,7 +55,7 @@ tags: ["430-dx-enforcement", "journal"]
 - TS strict in `packages/ui` recovered via `// @ts-nocheck` headers on shadcn-generated files (option A) — `scripts/shadcn-postadd.mjs` re-applies on regeneration
 - `eslint-plugin-security` and `eslint-plugin-jsdoc` rolled out as `warn`-then-`error` to avoid blocking PR on heuristic / latent violations
 - GitHub Actions pinned to commit SHAs (supply-chain hardening, mitigates 2025 `tj-actions/changed-files` class of attack); maintained by Dependabot
-- Skipped: CodeQL (deferred), Stryker (overkill), Percy/Chromatic (premature), SBOM (no customer ask), Semgrep (overlaps), `exactOptionalPropertyTypes` (pain ≫ gain), zod webview message validation (separate sprint)
+- Skipped at sprint start: CodeQL (revived later in DXE-P002), Stryker (overkill), Percy/Chromatic (premature), SBOM (no customer ask), Semgrep (overlaps), `exactOptionalPropertyTypes` (pain ≫ gain), zod webview message validation (separate sprint)
 
 **Tips/Ideas**:
 
@@ -117,6 +117,30 @@ tags: ["430-dx-enforcement", "journal"]
 - 14 new FRs added covering security (FR-15 through FR-23, FR-26 through FR-29, FR-32)
 - Sprint structured as 11 sequential PRs to keep each revertable
 - Created `docs/specs/430-dx-enforcement/430-dx-enforcement.md` (sprint brief) and this journal
+
+---
+
+### DXE-P002 — CodeQL revived for stale release-blocking alerts
+
+- `type:prompt-capture` `2026-06-02T10:53:37.000Z` `[codeql, code-scanning, release-security]`
+- trigger: missed-req
+- triggered-change: FR-35, 7.6
+- agent: codex
+- model: gpt-5
+
+**User prompt** (excerpt):
+
+> here are the codeql warnings
+
+**Agent reply** (excerpt):
+
+> The metadata confirms all 26 alerts are from one old CodeQL analysis category, commit `5efe06a...`, not from current `main`.
+
+**Outcome**:
+
+- CodeQL moved from deferred/non-goal to active release hardening because GitHub had stale open alerts from a previous `codeql.yml:analyze` stream.
+- Added FR-35 and task 7.6 to preserve `.github/workflows/codeql.yml:analyze`, allowing the next successful upload to refresh or close removed-file alerts.
+- Added `.github/workflows/codeql.yml` with JavaScript/TypeScript `security-extended` scanning on main push, main PR, weekly schedule, and manual dispatch.
 
 ---
 

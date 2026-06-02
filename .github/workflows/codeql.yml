@@ -1,0 +1,37 @@
+# CodeQL code scanning — keeps GitHub code-scanning alerts fresh for main.
+#
+# The file path and job id intentionally match the previous analysis category
+# `.github/workflows/codeql.yml:analyze` so stale removed-file alerts auto-close
+# after the next successful analysis upload.
+#
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-35] [DES-SUPPLY] [DES-APPSEC]
+
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "20 5 * * 1" # Mondays 05:20 UTC, before weekly supply-chain scans
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: CodeQL (JavaScript/TypeScript)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v4
