@@ -12,8 +12,10 @@ import type {
   AgentManager,
   AgentModel,
   AgentModelSelectionTarget,
+  AgentSessionInfo,
   AgentStatus,
   AgentStderrListener,
+  AgentTranscriptEntry,
   AgentUiResponse,
   AgentUsageStats,
   CompactionResult,
@@ -206,6 +208,41 @@ export class MultiplexedAgentManager implements AgentManager {
       throw new Error(`Runtime ${active.label} does not support session switching`);
     }
     return active.manager.switchSession(sessionPath);
+  }
+
+  // History — delegate to the active runtime; throw when it lacks the method.
+  // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [NFR-6] [NFR-9]
+  // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-API] [DES-PERSISTENT-BRIDGE]
+  async listSessions(opts?: { allWorkspaces?: boolean }): Promise<AgentSessionInfo[]> {
+    const active = this.requireActive();
+    if (!active.manager.listSessions) {
+      throw new Error(`Runtime ${active.label} does not support session history`);
+    }
+    return active.manager.listSessions(opts);
+  }
+
+  async getTranscript(sessionPath: string): Promise<AgentTranscriptEntry[]> {
+    const active = this.requireActive();
+    if (!active.manager.getTranscript) {
+      throw new Error(`Runtime ${active.label} does not support session history`);
+    }
+    return active.manager.getTranscript(sessionPath);
+  }
+
+  async setSessionName(name: string): Promise<void> {
+    const active = this.requireActive();
+    if (!active.manager.setSessionName) {
+      throw new Error(`Runtime ${active.label} does not support renaming sessions`);
+    }
+    return active.manager.setSessionName(name);
+  }
+
+  async deleteSession(sessionPath: string): Promise<void> {
+    const active = this.requireActive();
+    if (!active.manager.deleteSession) {
+      throw new Error(`Runtime ${active.label} does not support deleting sessions`);
+    }
+    return active.manager.deleteSession(sessionPath);
   }
 
   getCommands(): Promise<AgentCommand[]> {

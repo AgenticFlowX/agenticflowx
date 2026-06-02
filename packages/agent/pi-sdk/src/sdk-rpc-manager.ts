@@ -1,6 +1,16 @@
+import { unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { type PiClient, type PiEvent, createPiClient, normalizePiToolArgs } from "@afx/agent-pi";
+import {
+  type PiClient,
+  type PiEvent,
+  assertSessionPathAllowed,
+  createPiClient,
+  listSessionsFromDisk,
+  normalizePiToolArgs,
+  piSessionRoots,
+  readTranscriptFromDisk,
+} from "@afx/agent-pi";
 import { PROVIDER_API_KEY_ENV_ALIASES, getDefaultApiProviderModel } from "@afx/shared";
 import type {
   AgentCommand,
@@ -8,8 +18,10 @@ import type {
   AgentEventListener,
   AgentManager,
   AgentModel,
+  AgentSessionInfo,
   AgentStatus,
   AgentStderrListener,
+  AgentTranscriptEntry,
   AgentUiResponse,
   AgentUsageStats,
   CompactionResult,
@@ -319,12 +331,38 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   }
 
   async function switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(opts.sessionDir, opts.agentDir));
     const client = await ensureStarted();
     const result = await request<{ cancelled?: unknown } | null>(client, {
       type: "switch_session",
       sessionPath,
     });
     return { cancelled: result?.cancelled === true };
+  }
+
+  // History — list past sessions, read a transcript, rename, delete.
+  // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-19]
+  // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-STORE] [DES-PERSISTENT-FLOW] [DES-PERSISTENT-API]
+  async function listSessions(): Promise<AgentSessionInfo[]> {
+    const roots = piSessionRoots(opts.sessionDir, opts.agentDir);
+    const sessions = await listSessionsFromDisk(roots);
+    log.info("listSessions", { rootCount: roots.length, count: sessions.length });
+    return sessions;
+  }
+
+  async function getTranscript(sessionPath: string): Promise<AgentTranscriptEntry[]> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(opts.sessionDir, opts.agentDir));
+    return readTranscriptFromDisk(sessionPath);
+  }
+
+  async function setSessionName(name: string): Promise<void> {
+    const client = await ensureStarted();
+    await request(client, { type: "set_session_name", name });
+  }
+
+  async function deleteSession(sessionPath: string): Promise<void> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(opts.sessionDir, opts.agentDir));
+    await unlink(sessionPath);
   }
 
   async function getCommands(): Promise<AgentCommand[]> {
@@ -525,6 +563,10 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     getAvailableModels,
     setModel,
     switchSession,
+    listSessions,
+    getTranscript,
+    setSessionName,
+    deleteSession,
     getCommands,
     getStderr: () => rpcClient?.getStderr() ?? "",
     compact,

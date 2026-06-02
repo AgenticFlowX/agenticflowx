@@ -14,7 +14,9 @@ import {
   type AgentModel,
   type AgentRuntimePhase,
   type AgentRuntimeStatus,
+  type AgentSessionInfo,
   type AgentToChat,
+  type AgentTranscriptEntry,
   type ChatMessageView,
   type ChatTimelineItem,
   type ChatToAgent,
@@ -317,6 +319,78 @@ export function createMockTransport(): MockTransport {
   // the actual conversation history instead of wiping it on every chat-view
   // remount (e.g. tab switch).
   const trackedMessages: ChatTimelineItem[] = [];
+
+  // History — mock persisted sessions + transcript for the SessionBrowser.
+  // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-16]
+  // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-TEST]
+  const HOUR = 3_600_000;
+  let mockHistorySupported = true;
+  let mockSessions: AgentSessionInfo[] = [
+    {
+      id: "sess-oauth",
+      path: "/sessions/sess-oauth.jsonl",
+      label: "Wire OAuth refresh logging",
+      firstMessage: "Add timing + log lines to the OAuth refresh path",
+      messageCount: 18,
+      createdAt: Date.now() - 2 * HOUR,
+      updatedAt: Date.now() - 2 * HOUR,
+      cwd: "/workspace/afx-workflow",
+    },
+    {
+      id: "sess-picker",
+      path: "/sessions/sess-picker.jsonl",
+      label: "Segment model picker",
+      firstMessage: "Make the model picker segment API vs subscription",
+      messageCount: 42,
+      createdAt: Date.now() - 5 * HOUR,
+      updatedAt: Date.now() - 5 * HOUR,
+      forkedFrom: "/sessions/sess-old.jsonl",
+      cwd: "/workspace/afx-vscode-v2",
+    },
+    {
+      id: "sess-cloudflare",
+      path: "/sessions/sess-cloudflare.jsonl",
+      label: "Fix cloudflare provider",
+      firstMessage: "The cloudflare provider 500s on first call",
+      messageCount: 7,
+      createdAt: Date.now() - 26 * HOUR,
+      updatedAt: Date.now() - 26 * HOUR,
+      cwd: "/workspace/afx-vscode-v2",
+    },
+  ];
+  const MOCK_TRANSCRIPT: AgentTranscriptEntry[] = [
+    {
+      role: "user",
+      text: "Make the model picker segment API vs subscription",
+      createdAt: Date.now() - 5 * HOUR,
+    },
+    {
+      role: "assistant",
+      text: "I'll split the list into two groups and add a search box.",
+      createdAt: Date.now() - 5 * HOUR + 1000,
+      toolCalls: [{ id: "tc1", name: "edit", args: { path: "model-combobox.tsx" } }],
+    },
+    {
+      role: "tool",
+      createdAt: Date.now() - 5 * HOUR + 2000,
+      toolResult: { toolCallId: "tc1", toolName: "edit", ok: true, summary: "model-combobox.tsx" },
+    },
+    {
+      role: "bash",
+      createdAt: Date.now() - 5 * HOUR + 3000,
+      bash: { command: "pnpm verify", exitCode: 0 },
+    },
+    {
+      role: "user",
+      text: "add a search box",
+      createdAt: Date.now() - 5 * HOUR + 4000,
+    },
+    {
+      role: "assistant",
+      text: "Added a filter input above the groups.",
+      createdAt: Date.now() - 5 * HOUR + 5000,
+    },
+  ];
 
   // ── internal emit ──────────────────────────────────────────────────────────
 
@@ -1897,6 +1971,55 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       emitRuntimeSettings();
       return;
     }
+    // History — respond to the SessionBrowser's requests.
+    // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-16] [FR-19]
+    // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-TEST]
+    if (msg.type === "session/list") {
+      emit({
+        type: "session/list",
+        ...(msg.requestId ? { requestId: msg.requestId } : {}),
+        supported: mockHistorySupported,
+        sessions: mockSessions.slice(),
+      });
+      return;
+    }
+    if (msg.type === "history/load") {
+      emit({
+        type: "history/loaded",
+        ...(msg.requestId ? { requestId: msg.requestId } : {}),
+        sessionPath: msg.sessionPath,
+        entries: MOCK_TRANSCRIPT.slice(),
+      });
+      return;
+    }
+    if (msg.type === "history/reopen") {
+      const reopened: ChatTimelineItem[] = MOCK_TRANSCRIPT.filter(
+        (e) => e.role === "user" || e.role === "assistant",
+      ).map((e, i) => ({
+        id: `reopen-${i}`,
+        role: e.role === "user" ? "user" : "assistant",
+        content: e.text ?? "",
+        createdAt: e.createdAt,
+      }));
+      trackedMessages.length = 0;
+      trackedMessages.push(...reopened);
+      emit({ type: "chat/state", isStreaming: false, messages: reopened, tools: [] });
+      emitRuntimeSettings();
+      return;
+    }
+    if (msg.type === "session/delete") {
+      mockSessions = mockSessions.filter((s) => s.path !== msg.sessionPath);
+      emit({
+        type: "session/list",
+        supported: mockHistorySupported,
+        sessions: mockSessions.slice(),
+      });
+      return;
+    }
+    if (msg.type === "session/revealCwd") {
+      // No OS file manager in the browser mock; reveal is a host-only side effect.
+      return;
+    }
     if (msg.type === "agent/checkStatus") {
       emitAgentStatus(
         runtimeStatus.phase === "disconnected" || runtimeStatus.phase === "error"
@@ -2299,6 +2422,14 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     externalAgentOnly: () => runExternalAgentOnly(),
     bothConfigured: () => runBothConfigured(),
     appearancePreview: () => runAppearancePreview(),
+    historyEmpty: () => {
+      mockSessions = [];
+      emit({ type: "session/list", supported: mockHistorySupported, sessions: [] });
+    },
+    historyExternal: () => {
+      mockHistorySupported = false;
+      emit({ type: "session/list", supported: false, sessions: [] });
+    },
   };
 
   return { send, on, getState, setState, dispose, scenarios, onLog, getLog, setStreamSpeed };

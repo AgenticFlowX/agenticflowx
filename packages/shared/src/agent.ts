@@ -163,6 +163,67 @@ export interface AgentStatus {
 }
 
 /**
+ * A persisted conversation as listed in History. Runtime-agnostic; normalized
+ * from the engine's native session metadata (e.g. Pi `SessionInfo`). All
+ * timestamps are epoch milliseconds so the shape survives the webview
+ * postMessage boundary (engine `Date` fields are converted at the adapter).
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-14]
+ * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-DATA]
+ */
+export interface AgentSessionInfo {
+  /** Stable session id (engine-assigned, e.g. uuidv7). */
+  id: string;
+  /** Session file path — the handle for open/switch/delete. */
+  path: string;
+  /** Display label (engine session name, else first-message snippet). */
+  label?: string;
+  /** First user message, used as a preview snippet. */
+  firstMessage?: string;
+  /** Total messages in the session. */
+  messageCount: number;
+  /** Creation time, epoch ms. */
+  createdAt: number;
+  /** Last-modified time, epoch ms. */
+  updatedAt: number;
+  /** Workspace directory the session ran in (header cwd) — for project grouping + reveal. */
+  cwd?: string;
+  /** Path of the session this one was forked from, if any. */
+  forkedFrom?: string;
+  /** True when the session tree has more than one branch (display marker). */
+  hasBranches?: boolean;
+}
+
+/**
+ * One entry in a loaded transcript, normalized from the engine's native message
+ * shape so the host can render history without importing engine types.
+ *
+ * @see docs/specs/213-app-chat-history/spec.md [FR-15]
+ * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-DATA]
+ */
+export interface AgentTranscriptEntry {
+  /** Source role of this entry. */
+  role: "user" | "assistant" | "tool" | "bash" | "compaction";
+  /** User content / joined assistant text blocks / summary text. */
+  text?: string;
+  /** Assistant reasoning content, when present. */
+  thinking?: string;
+  /** Tool calls requested in an assistant turn. */
+  toolCalls?: { id: string; name: string; args: Record<string, unknown> }[];
+  /** Result of a tool call (`ok` = `!isError`). */
+  toolResult?: {
+    toolCallId: string;
+    toolName: string;
+    ok: boolean;
+    summary?: string;
+  };
+  /** Bash execution detail, for bash entries. */
+  bash?: { command: string; exitCode?: number };
+  /** Entry timestamp, epoch ms. */
+  createdAt: number;
+}
+
+/**
  * Runtime health phase shared by every chat host shell.
  *
  * @see docs/specs/350-agent-manager/spec.md [FR-1]
@@ -466,6 +527,37 @@ export interface AgentManager {
   getAvailableModels(): Promise<AgentModel[]>;
   setModel(target: AgentModelSelectionTarget): Promise<AgentModel>;
   switchSession?(sessionPath: string): Promise<{ cancelled: boolean }>;
+  /**
+   * List persisted past sessions for the active workspace (newest-first).
+   * Optional — adapters without a session store omit it; callers must
+   * feature-detect (the multiplexer throws for unsupported runtimes).
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-14]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-API]
+   */
+  listSessions?(opts?: { allWorkspaces?: boolean }): Promise<AgentSessionInfo[]>;
+  /**
+   * Load a past session's transcript (active leaf branch) for read-only
+   * display, without disturbing the live session.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-15]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-API]
+   */
+  getTranscript?(sessionPath: string): Promise<AgentTranscriptEntry[]>;
+  /**
+   * Rename the currently-loaded session.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-15]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-API]
+   */
+  setSessionName?(name: string): Promise<void>;
+  /**
+   * Delete a persisted session by path.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-19]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-API]
+   */
+  deleteSession?(sessionPath: string): Promise<void>;
   getCommands(): Promise<AgentCommand[]>;
   getStderr(): string;
   /** Compact the active session's history. Adapters that don't support it should reject. */

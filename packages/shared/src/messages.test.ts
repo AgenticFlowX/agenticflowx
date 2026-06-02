@@ -112,6 +112,59 @@ describe("chat-foundation shared protocol", () => {
     expect(message.enabled).toBe(true);
   });
 
+  it("supports persistent history protocol variants", () => {
+    const list: ChatToAgent = { type: "session/list", requestId: "history-list" };
+    const load: ChatToAgent = {
+      type: "history/load",
+      requestId: "history-load",
+      sessionPath: "/workspace/.afx/sessions/session.jsonl",
+    };
+    const reopen: ChatToAgent = {
+      type: "history/reopen",
+      requestId: "history-reopen",
+      sessionPath: load.sessionPath,
+    };
+    const remove: ChatToAgent = {
+      type: "session/delete",
+      requestId: "history-delete",
+      sessionPath: load.sessionPath,
+    };
+    const reveal: ChatToAgent = {
+      type: "session/revealCwd",
+      requestId: "history-reveal",
+      cwd: "/workspace/project",
+    };
+    const listed: AgentToChat = {
+      type: "session/list",
+      requestId: "history-list",
+      supported: true,
+      sessions: [
+        {
+          id: "s1",
+          path: load.sessionPath,
+          label: "Review history",
+          messageCount: 2,
+          createdAt: 1,
+          updatedAt: 2,
+          cwd: reveal.cwd,
+        },
+      ],
+    };
+    const loaded: AgentToChat = {
+      type: "history/loaded",
+      requestId: "history-load",
+      sessionPath: load.sessionPath,
+      entries: [{ role: "user", text: "hello", createdAt: 1 }],
+    };
+
+    expect(list.type).toBe("session/list");
+    expect(load.sessionPath).toBe(reopen.sessionPath);
+    expect(remove.sessionPath).toBe(load.sessionPath);
+    expect(reveal.cwd).toBe("/workspace/project");
+    expect(listed.sessions[0]?.cwd).toBe(reveal.cwd);
+    expect(loaded.entries[0]?.role).toBe("user");
+  });
+
   it("supports workspace mode toggles", () => {
     const message: ChatToAgent = {
       type: "chat/setMode",

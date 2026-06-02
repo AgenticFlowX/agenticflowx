@@ -13,7 +13,9 @@ import type {
   AgentCommand,
   AgentModel,
   AgentRuntimeStatus,
+  AgentSessionInfo,
   AgentStatus,
+  AgentTranscriptEntry,
   CompactionResult,
   QueueMode,
   ThinkingLevel,
@@ -987,7 +989,42 @@ export type ChatToAgent =
    * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-2] [FR-3] [FR-6] [FR-7] [NFR-1]
    * @see docs/specs/353-agent-oauth-credential-store/design.md [DES-DATA] [DES-SEC]
    */
-  | { type: "oauth/cancel"; requestId: string; provider: OAuthProviderId };
+  | { type: "oauth/cancel"; requestId: string; provider: OAuthProviderId }
+  /**
+   * History — list persisted past sessions from known Pi session roots.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-14]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | { type: "session/list"; requestId?: string; allWorkspaces?: boolean }
+  /**
+   * History — load a past session's transcript for read-only display.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-15]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | { type: "history/load"; requestId?: string; sessionPath: string }
+  /**
+   * History — reopen a past session as the active session and continue it.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-16]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | { type: "history/reopen"; requestId?: string; sessionPath: string }
+  /**
+   * History — delete a persisted session by path.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-19]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | { type: "session/delete"; requestId?: string; sessionPath: string }
+  /**
+   * History — reveal a session's workspace folder in the OS file manager.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-20]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | { type: "session/revealCwd"; requestId?: string; cwd: string };
 
 // ---------------------------------------------------------------------------
 // Agent → Chat (inbound: events from the engine to the chat UI)
@@ -1398,6 +1435,32 @@ export type AgentToChat =
       status: OAuthStatusSnapshot;
       /** When `ok === false`, a short non-secret error message. */
       error?: string;
+    }
+  /**
+   * History — persisted session list from known Pi session roots. `supported:
+   * false` means the active runtime has no AFX-readable session store (external
+   * harness).
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-14]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | {
+      type: "session/list";
+      requestId?: string;
+      supported: boolean;
+      sessions: AgentSessionInfo[];
+    }
+  /**
+   * History — a loaded read-only transcript for the requested session.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-15]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+   */
+  | {
+      type: "history/loaded";
+      requestId?: string;
+      sessionPath: string;
+      entries: AgentTranscriptEntry[];
     };
 
 // ---------------------------------------------------------------------------

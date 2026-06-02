@@ -349,7 +349,7 @@ describe("chat App", () => {
       );
 
       fireEvent.click(screen.getByRole("tab", { name: "History" }));
-      expect(screen.getByRole("heading", { name: /history/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Past sessions" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Refresh history" })).toBeEnabled();
       expect(screen.getByPlaceholderText("Search work log…")).toBeInTheDocument();
 
@@ -970,9 +970,9 @@ describe("chat App", () => {
     expect(screen.getAllByText("Troubleshoot ▾").length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole("tab", { name: "History" }));
-    // The History view always renders an "History" heading; the subtitle
-    // ("Active session work log") only appears once a session is reported.
-    expect(screen.getByRole("heading", { name: /history/i })).toBeInTheDocument();
+    // History exposes the past-sessions browser plus the live work log (under the
+    // "Current session" sub-tab); the work-log refresh stays disabled until ready.
+    expect(screen.getByRole("button", { name: "Past sessions" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh history" })).toBeDisabled();
     expect(screen.getByPlaceholderText("Work log loads when the runtime is ready…")).toBeDisabled();
 

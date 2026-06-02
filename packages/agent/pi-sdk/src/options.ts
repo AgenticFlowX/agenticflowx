@@ -29,6 +29,8 @@ export interface PiSdkManagerOptions {
   ephemeral?: boolean;
   /** Shared Pi session directory used for cross-runtime continuity. */
   sessionDir?: string;
+  /** Resolved Pi agent dir (`$PI_CODING_AGENT_DIR` or `~/.pi/agent`); a history read root. */
+  agentDir?: string;
   /** From vscode.workspace.workspaceFolders[0]. */
   cwd?: string;
   /** Additional host prompt files appended as repeated `--append-system-prompt <path>` CLI args. */

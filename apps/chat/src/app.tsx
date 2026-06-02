@@ -8,6 +8,8 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { History as HistoryIcon } from "lucide-react";
+
 import { type AgentRuntimeStatus, createCheckingAgentRuntimeStatus } from "@afx/shared";
 import type { MockTransport, Transport } from "@afx/transport";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@afx/ui/components/tabs";
@@ -21,6 +23,7 @@ import { setClarityEnabled } from "./lib/clarity";
 import type { SettingsOpenTarget } from "./lib/settings-navigation";
 import Chat from "./views/chat";
 import History from "./views/history";
+import { SessionBrowser } from "./views/session-browser";
 import Settings from "./views/settings";
 
 const TABS = [
@@ -53,6 +56,7 @@ function formatIncomingDraftInsertion(content: string): string {
 export default function App({ transport }: AppProps) {
   const showDebugPanel = import.meta.env.DEV && isMockTransport(transport);
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["value"]>("chat");
+  const [historyTab, setHistoryTab] = useState<"past" | "current">("past");
   const [settingsOpenTarget, setSettingsOpenTarget] = useState<SettingsOpenTarget | null>(null);
   const [insertCommand, setInsertCommand] = useState<string | null>(null);
   /** Draft message text — lifted here so it persists across tab switches and view remounts. */
@@ -212,12 +216,68 @@ export default function App({ transport }: AppProps) {
           value="history"
           className={cn("flex-1 min-h-0 overflow-hidden", activeTab !== "history" && "hidden")}
         >
-          <History
-            agentStatus={agentStatus}
-            recoveryActions={recoveryActions}
-            isCheckingAgent={isCheckingAgent}
-            onInsertCommand={handleInsertCommand}
-          />
+          {/* @see docs/specs/213-app-chat-history/spec.md [FR-13] | docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-UI] [DES-HISTORY-MOCKUPS] */}
+          <div className="afx-surface-subtle @container flex h-full min-h-0 flex-col overflow-hidden">
+            <div className="shrink-0 border-b bg-background/95 px-2 py-3">
+              <h2 className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+                <span className="afx-surface-card flex h-7 w-7 shrink-0 items-center justify-center rounded-md border text-afx-brand-soft">
+                  <HistoryIcon size={15} />
+                </span>
+                History
+              </h2>
+              <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                Browse and reopen past conversations.
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-1 @[280px]:flex @[280px]:flex-wrap">
+                {(
+                  [
+                    { id: "past", label: "Past sessions", shortLabel: "Past" },
+                    { id: "current", label: "Current session", shortLabel: "Current" },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    aria-label={t.label}
+                    className={cn(
+                      "h-6 min-w-0 shrink-0 whitespace-nowrap rounded-sm border border-transparent px-1 font-mono text-[9px] uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground",
+                      historyTab === t.id &&
+                        "border-border bg-muted text-foreground shadow-sm ring-1 ring-foreground/10",
+                    )}
+                    onClick={() => setHistoryTab(t.id)}
+                  >
+                    <span aria-hidden="true" className="hidden @[250px]:inline">
+                      {t.label}
+                    </span>
+                    <span aria-hidden="true" className="@[250px]:hidden">
+                      {t.shortLabel}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div
+              className={cn(
+                "@container min-h-0 flex-1 overflow-y-auto px-2 py-3",
+                historyTab !== "past" && "hidden",
+              )}
+            >
+              <SessionBrowser
+                active={activeTab === "history" && historyTab === "past"}
+                onReopened={() => setActiveTab("chat")}
+              />
+            </div>
+            <div
+              className={cn("min-h-0 flex-1 overflow-hidden", historyTab !== "current" && "hidden")}
+            >
+              <History
+                agentStatus={agentStatus}
+                recoveryActions={recoveryActions}
+                isCheckingAgent={isCheckingAgent}
+                onInsertCommand={handleInsertCommand}
+              />
+            </div>
+          </div>
         </TabsContent>
         <TabsContent
           forceMount

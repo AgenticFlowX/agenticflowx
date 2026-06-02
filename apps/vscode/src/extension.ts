@@ -245,6 +245,11 @@ export async function activate(
     return parseLegacySdkDefaultModel(cfg.get<string>("sdk.defaultModel", ""));
   }
 
+  // Resolved Pi agent dir: `$PI_CODING_AGENT_DIR` when set, else `~/.pi/agent`.
+  // The host owns env resolution and injects this into the agent factory and
+  // sidebar so adapters never read `process.env` themselves.
+  const piAgentDir = process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
+
   async function buildAgentInstances(): Promise<AgentInstance[]> {
     const cfg = vscode.workspace.getConfiguration("afx");
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -270,6 +275,7 @@ export async function activate(
       rpcEnabled,
       ephemeral: cfg.get<boolean>("agentEphemeralSession", false),
       sessionDir: resolveAfxSessionDir(context),
+      agentDir: piAgentDir,
       cwd: workspaceRoot,
       additionalSystemPromptPaths,
       additionalSkillPaths,
@@ -422,7 +428,7 @@ export async function activate(
     extensionMode: context.extensionMode,
     extensionVersion: packageJSON.version ?? "?",
     bundledSkillsPath,
-    piAgentDir: process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent"),
+    piAgentDir,
     agentManager,
     runtimeMonitor,
     logger,

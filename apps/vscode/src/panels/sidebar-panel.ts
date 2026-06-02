@@ -84,6 +84,8 @@ import type {
   CustomProvidersMutation,
   CustomProvidersService,
 } from "../services/custom-providers-service";
+import { HistoryService } from "../services/history/history-service";
+import { transcriptToTimeline } from "../services/history/transcript-to-timeline";
 import type { OAuthService } from "../services/oauth/oauth-service";
 import { applyTasksSignOff } from "../services/tasks-signoff";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
@@ -365,6 +367,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   const log = parentLogger.child("sidebar");
   const runtimeMonitor =
     providedRuntimeMonitor ?? createAgentRuntimeMonitor({ agentManager, logger: parentLogger });
+  // History — persistent sessions + read-only transcript + reopen.
+  // @see docs/specs/213-app-chat-history/spec.md [FR-13] [FR-14] [FR-15] [FR-16]
+  // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-STORE]
+  const historyService = new HistoryService(agentManager, parentLogger);
 
   const state: SidebarState = {
     isStreaming: false,
@@ -2244,6 +2250,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleOAuthCommand(msg);
         return;
       }
+      // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-16] [FR-19]
+      // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE]
+      case "session/list":
+      case "history/load":
+      case "history/reopen":
+      case "session/delete":
+      case "session/revealCwd": {
+        void handleHistoryCommand(msg);
+        return;
+      }
       default: {
         const _never: never = msg;
         inboundLog.warn("unknown inbound", { msg: _never });
@@ -3212,6 +3228,90 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     post({ type: "chat/aborted" });
     recordRuntimeStatus({ running: true, isStreaming: false, model: currentModel });
     void fetchAndEmitUsage(finishedId ?? undefined);
+  }
+
+  /**
+   * History — list/load/reopen/delete persisted sessions. Listing and reading are
+   * out-of-band (the runtime stays untouched); reopen repoints the live runtime via
+   * `switchSession` and rehydrates the Chat view through the standard `chat/state`
+   * snapshot.
+   *
+   * @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-16] [FR-19]
+   * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-BRIDGE] [DES-PERSISTENT-FLOW]
+   */
+  async function handleHistoryCommand(
+    msg:
+      | { type: "session/list"; requestId?: string; allWorkspaces?: boolean }
+      | { type: "history/load"; requestId?: string; sessionPath: string }
+      | { type: "history/reopen"; requestId?: string; sessionPath: string }
+      | { type: "session/delete"; requestId?: string; sessionPath: string }
+      | { type: "session/revealCwd"; requestId?: string; cwd: string },
+  ): Promise<void> {
+    switch (msg.type) {
+      case "session/list": {
+        const result = await historyService.listSessions(
+          msg.allWorkspaces ? { allWorkspaces: true } : undefined,
+        );
+        post({
+          type: "session/list",
+          ...(msg.requestId ? { requestId: msg.requestId } : {}),
+          supported: result.supported,
+          sessions: result.sessions,
+        });
+        return;
+      }
+      case "history/load": {
+        const entries = await historyService.getTranscript(msg.sessionPath);
+        post({
+          type: "history/loaded",
+          ...(msg.requestId ? { requestId: msg.requestId } : {}),
+          sessionPath: msg.sessionPath,
+          entries,
+        });
+        return;
+      }
+      case "history/reopen": {
+        try {
+          const switched = agentManager.switchSession
+            ? await agentManager.switchSession(msg.sessionPath)
+            : { cancelled: true };
+          if (switched.cancelled) return;
+        } catch (err) {
+          log.error("history reopen failed", err instanceof Error ? err : undefined);
+          return;
+        }
+        const entries = await historyService.getTranscript(msg.sessionPath);
+        const { messages, tools } = transcriptToTimeline(entries);
+        state.messages = messages;
+        state.tools = tools;
+        state.isStreaming = false;
+        state.lastUsageTotals = null;
+        postSnapshot();
+        void broadcastRuntimeSettings();
+        return;
+      }
+      case "session/delete": {
+        try {
+          await historyService.deleteSession(msg.sessionPath);
+        } catch (err) {
+          log.error("history delete failed", err instanceof Error ? err : undefined);
+        }
+        const result = await historyService.listSessions();
+        post({ type: "session/list", supported: result.supported, sessions: result.sessions });
+        return;
+      }
+      case "session/revealCwd": {
+        // Open only cwd values discovered from persisted sessions, never an arbitrary
+        // webview-supplied path.
+        const cwd = msg.cwd.trim();
+        if (!cwd) return;
+        const result = await historyService.listSessions({ allWorkspaces: true });
+        if (result.sessions.some((session) => session.cwd === cwd)) {
+          void vscode.env.openExternal(vscode.Uri.file(cwd));
+        }
+        return;
+      }
+    }
   }
 
   async function handleNewSession(): Promise<void> {

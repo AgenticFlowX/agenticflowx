@@ -523,3 +523,76 @@ function isRole(value: unknown, role: string): boolean {
     (value as { role?: unknown }).role === role
   );
 }
+
+describe("createMockTransport — history (12-history)", () => {
+  it("session/list emits the populated session list", () => {
+    const t = createMockTransport();
+    let supported: boolean | null = null;
+    let count = -1;
+    t.on("session/list", (msg) => {
+      supported = msg.supported;
+      count = msg.sessions.length;
+    });
+    t.send({ type: "session/list" });
+    expect(supported).toBe(true);
+    expect(count).toBeGreaterThan(0);
+  });
+
+  it("history/load emits a transcript for the requested path", () => {
+    const t = createMockTransport();
+    let path = "";
+    let entries = 0;
+    t.on("history/loaded", (msg) => {
+      path = msg.sessionPath;
+      entries = msg.entries.length;
+    });
+    t.send({ type: "history/load", sessionPath: "/sessions/sess-picker.jsonl" });
+    expect(path).toBe("/sessions/sess-picker.jsonl");
+    expect(entries).toBeGreaterThan(0);
+  });
+
+  it("history/reopen emits a chat/state snapshot", () => {
+    const t = createMockTransport();
+    let got = false;
+    t.on("chat/state", () => {
+      got = true;
+    });
+    t.send({ type: "history/reopen", sessionPath: "/sessions/sess-picker.jsonl" });
+    expect(got).toBe(true);
+  });
+
+  it("session/delete removes the row and re-lists", () => {
+    const t = createMockTransport();
+    let count = 0;
+    t.on("session/list", (msg) => {
+      count = msg.sessions.length;
+    });
+    t.send({ type: "session/list" });
+    const before = count;
+    t.send({ type: "session/delete", sessionPath: "/sessions/sess-cloudflare.jsonl" });
+    expect(count).toBe(before - 1);
+  });
+
+  it("historyEmpty scenario clears the list (supported)", () => {
+    const t = createMockTransport();
+    let supported = false;
+    let count = -1;
+    t.on("session/list", (msg) => {
+      supported = msg.supported;
+      count = msg.sessions.length;
+    });
+    t.scenarios["historyEmpty"]?.();
+    expect(supported).toBe(true);
+    expect(count).toBe(0);
+  });
+
+  it("historyExternal scenario reports unsupported", () => {
+    const t = createMockTransport();
+    let supported = true;
+    t.on("session/list", (msg) => {
+      supported = msg.supported;
+    });
+    t.scenarios["historyExternal"]?.();
+    expect(supported).toBe(false);
+  });
+});

@@ -6,4 +6,5 @@
  */
 export * from "./rpc-client";
 export * from "./rpc-manager";
+export * from "./session-store";
 export * from "./tool-args";

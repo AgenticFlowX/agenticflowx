@@ -62,6 +62,7 @@ export interface AgentFactoryOptions {
   binaryPath?: string;
   ephemeral: boolean;
   sessionDir?: string;
+  agentDir?: string;
   cwd?: string;
   additionalSystemPromptPaths?: readonly string[];
   additionalSkillPaths?: readonly string[];
@@ -231,6 +232,7 @@ export async function createConfiguredAgentInstances(
         getAuthMethod: (providerId) => opts.secretStore?.getAuthMethod(providerId),
         ephemeral: opts.ephemeral,
         sessionDir: opts.sessionDir,
+        agentDir: opts.agentDir,
         cwd: opts.cwd,
         additionalSystemPromptPaths: opts.additionalSystemPromptPaths,
         additionalSkillPaths: opts.additionalSkillPaths,

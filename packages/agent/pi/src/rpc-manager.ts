@@ -6,14 +6,18 @@
  * @see docs/specs/351-agent-pi/spec.md [FR-1] [FR-4]
  * @see docs/specs/351-agent-pi/design.md [DES-PI-RPC-FLOW] [DES-API]
  */
+import { unlink } from "node:fs/promises";
+
 import type {
   AgentCommand,
   AgentEvent,
   AgentEventListener,
   AgentManager,
   AgentModel,
+  AgentSessionInfo,
   AgentStatus,
   AgentStderrListener,
+  AgentTranscriptEntry,
   AgentUiResponse,
   AgentUsageStats,
   CompactionResult,
@@ -24,6 +28,12 @@ import type {
 } from "@afx/shared";
 
 import { type PiClient, type PiEvent, createPiClient } from "./rpc-client";
+import {
+  assertSessionPathAllowed,
+  listSessionsFromDisk,
+  piSessionRoots,
+  readTranscriptFromDisk,
+} from "./session-store";
 import { normalizePiToolArgs } from "./tool-args";
 
 const START_RETRY_COOLDOWN_MS = 10_000;
@@ -73,6 +83,8 @@ export interface PiRpcManagerOptions {
   ephemeral: boolean;
   /** Shared Pi session directory used for cross-runtime continuity. */
   sessionDir?: string;
+  /** Resolved Pi agent dir (`$PI_CODING_AGENT_DIR` or `~/.pi/agent`); a history read root. */
+  agentDir?: string;
   /** From vscode.workspace.workspaceFolders[0]. */
   cwd?: string;
   /** Additional host prompt files appended as repeated `--append-system-prompt <path>` CLI args. */
@@ -99,6 +111,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     binaryPath,
     ephemeral,
     sessionDir,
+    agentDir,
     cwd,
     additionalSystemPromptPaths = [],
     additionalSkillPaths = [],
@@ -614,12 +627,38 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   }
 
   async function switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(sessionDir, agentDir));
     const c = await ensureStarted();
     const result = await c.request<{ cancelled?: unknown } | null>({
       type: "switch_session",
       sessionPath,
     });
     return { cancelled: result?.cancelled === true };
+  }
+
+  // History — list past sessions, read a transcript, rename, delete.
+  // @see docs/specs/213-app-chat-history/spec.md [FR-14] [FR-15] [FR-19]
+  // @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-STORE] [DES-PERSISTENT-FLOW] [DES-PERSISTENT-API]
+  async function listSessions(): Promise<AgentSessionInfo[]> {
+    const roots = piSessionRoots(sessionDir, agentDir);
+    const sessions = await listSessionsFromDisk(roots);
+    log.info("listSessions", { rootCount: roots.length, count: sessions.length });
+    return sessions;
+  }
+
+  async function getTranscript(sessionPath: string): Promise<AgentTranscriptEntry[]> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(sessionDir, agentDir));
+    return readTranscriptFromDisk(sessionPath);
+  }
+
+  async function setSessionName(name: string): Promise<void> {
+    const c = await ensureStarted();
+    await c.request({ type: "set_session_name", name });
+  }
+
+  async function deleteSession(sessionPath: string): Promise<void> {
+    await assertSessionPathAllowed(sessionPath, piSessionRoots(sessionDir, agentDir));
+    await unlink(sessionPath);
   }
 
   async function getCommands(): Promise<AgentCommand[]> {
@@ -795,6 +834,10 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     getAvailableModels,
     setModel,
     switchSession,
+    listSessions,
+    getTranscript,
+    setSessionName,
+    deleteSession,
     getCommands,
     getStderr,
     compact,
