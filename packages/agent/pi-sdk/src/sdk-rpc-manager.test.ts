@@ -15,11 +15,21 @@ const mocks = vi.hoisted(() => {
     clients.push(client);
     return client;
   });
-  return { clients, createPiClient };
+  const assertSessionPathAllowed = vi.fn(async () => undefined);
+  const piSessionRoots = vi.fn((sessionDir?: string, agentDir?: string) =>
+    [
+      sessionDir,
+      agentDir ? `${agentDir}/sessions` : undefined,
+      "/home/test/.pi/agent/sessions",
+    ].filter((root): root is string => typeof root === "string"),
+  );
+  return { clients, createPiClient, assertSessionPathAllowed, piSessionRoots };
 });
 
 vi.mock("@afx/agent-pi", () => ({
+  assertSessionPathAllowed: mocks.assertSessionPathAllowed,
   createPiClient: mocks.createPiClient,
+  piSessionRoots: mocks.piSessionRoots,
 }));
 
 interface FakeClient {
@@ -104,6 +114,8 @@ describe("createPiSdkAgentManager", () => {
   beforeEach(() => {
     mocks.clients.length = 0;
     mocks.createPiClient.mockClear();
+    mocks.assertSessionPathAllowed.mockClear();
+    mocks.piSessionRoots.mockClear();
     vi.mocked(logger.info).mockClear();
     vi.mocked(logger.warn).mockClear();
     vi.mocked(logger.error).mockClear();
@@ -639,12 +651,17 @@ describe("createPiSdkAgentManager", () => {
       bootstrapPath: "/bootstrap.js",
       provider: "anthropic",
       modelId: "claude-opus-4-5",
+      sessionDir: "/sessions",
       getApiKey: () => undefined,
     });
 
     await expect(manager.switchSession?.("/sessions/a.jsonl")).resolves.toEqual({
       cancelled: false,
     });
+    expect(mocks.assertSessionPathAllowed).toHaveBeenCalledWith("/sessions/a.jsonl", [
+      "/sessions",
+      "/home/test/.pi/agent/sessions",
+    ]);
     expect(mocks.clients[0]!.requests.at(-1)).toEqual({
       type: "switch_session",
       sessionPath: "/sessions/a.jsonl",

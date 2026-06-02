@@ -1,3 +1,7 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 /**
  * @see docs/specs/351-agent-pi/spec.md [FR-1]
  * @see docs/specs/351-agent-pi/design.md [DES-TEST]
@@ -201,18 +205,26 @@ describe("PiRpcManager send rewrite", () => {
 
   it("switches sessions through Pi RPC", async () => {
     const { createAgentManager } = await import("./rpc-manager");
+    const sessionDir = await mkdtemp(join(tmpdir(), "agenticflowx-sessions-"));
+    const sessionPath = join(sessionDir, "session.jsonl");
+    await writeFile(sessionPath, "");
     const manager = createAgentManager({
       logger: createLogger(),
       ephemeral: false,
+      sessionDir,
       cwd: "/tmp/workspace",
     });
 
-    await manager.switchSession?.("/tmp/agenticflowx-sessions/session.jsonl");
+    try {
+      await manager.switchSession?.(sessionPath);
 
-    expect(requests.at(-1)).toEqual({
-      type: "switch_session",
-      sessionPath: "/tmp/agenticflowx-sessions/session.jsonl",
-    });
+      expect(requests.at(-1)).toEqual({
+        type: "switch_session",
+        sessionPath,
+      });
+    } finally {
+      await rm(sessionDir, { recursive: true, force: true });
+    }
   });
 
   it("normalizes Pi queue updates and assistant message boundaries", async () => {
