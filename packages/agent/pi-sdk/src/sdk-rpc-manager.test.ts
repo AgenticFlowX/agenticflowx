@@ -554,7 +554,7 @@ describe("createPiSdkAgentManager", () => {
     );
   });
 
-  it("fills configured providers from Pi's built-in registry when discovery is incomplete", async () => {
+  it("fills missing configured providers with lightweight default models when discovery is incomplete", async () => {
     const manager = createPiSdkAgentManager({
       logger,
       bootstrapPath: "/bootstrap.js",
@@ -569,14 +569,7 @@ describe("createPiSdkAgentManager", () => {
       .filter((model) => model.provider === "openai-codex")
       .map((model) => model.id);
 
-    expect(codexIds).toEqual([
-      "gpt-5.2",
-      "gpt-5.3-codex",
-      "gpt-5.3-codex-spark",
-      "gpt-5.4",
-      "gpt-5.4-mini",
-      "gpt-5.5",
-    ]);
+    expect(codexIds).toEqual(["gpt-5.5"]);
     expect(models).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

@@ -1,7 +1,5 @@
 import { dirname } from "node:path";
 
-import { getModels as getPiModels } from "@earendil-works/pi-ai";
-
 import { type PiClient, type PiEvent, createPiClient, normalizePiToolArgs } from "@afx/agent-pi";
 import { PROVIDER_API_KEY_ENV_ALIASES, getDefaultApiProviderModel } from "@afx/shared";
 import type {
@@ -467,30 +465,42 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   }
 
   function fallbackConfiguredModels(): AgentModel[] {
-    return [...configuredProviders].flatMap(configuredProviderFallbackModels);
+    return [...configuredProviders].flatMap((provider) => {
+      const model = configuredProviderFallbackModel(provider);
+      return model ? [model] : [];
+    });
   }
 
   function withConfiguredProviderFallbacks(models: readonly AgentModel[]): AgentModel[] {
     const next = [...models];
     const seenKeys = new Set(next.map(modelIdentityKey));
+    const providersWithModels = new Set(next.map((model) => normalizeProvider(model.provider)));
     for (const provider of configuredProviders) {
-      for (const fallback of configuredProviderFallbackModels(provider)) {
-        const key = modelIdentityKey(fallback);
-        if (seenKeys.has(key)) continue;
-        seenKeys.add(key);
-        next.push(fallback);
-      }
+      const fallback = configuredProviderFallbackModel(provider);
+      if (!fallback) continue;
+      const key = modelIdentityKey(fallback);
+      if (seenKeys.has(key)) continue;
+      if (provider !== providerId && providersWithModels.has(provider)) continue;
+      seenKeys.add(key);
+      providersWithModels.add(normalizeProvider(fallback.provider));
+      next.push(fallback);
     }
     return next.length > 0 ? next : fallbackConfiguredModels();
   }
 
-  function configuredProviderFallbackModels(provider: string): AgentModel[] {
-    const builtins = getBuiltinProviderModels(provider).map(tagModel);
-    if (builtins.length > 0) return builtins;
-
+  /**
+   * Keeps configured providers visible with a host-light selected/default row.
+   * The full model catalog stays owned by the Pi SDK runtime's
+   * `get_available_models` RPC so the extension host bundle does not load Pi's
+   * provider SDK registry.
+   *
+   * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-4] [FR-6]
+   * @see docs/specs/351-agent-pi/design.md [DES-PI-RPC-FLOW]
+   */
+  function configuredProviderFallbackModel(provider: string): AgentModel | null {
     const fallbackId =
       provider === providerId && modelId ? modelId : getDefaultApiProviderModel(provider);
-    return fallbackId ? [tagModel(minimalModel(provider, fallbackId))] : [];
+    return fallbackId ? tagModel(minimalModel(provider, fallbackId)) : null;
   }
 
   function tagStatus(
@@ -1277,22 +1287,6 @@ function normalizeModelCost(value: unknown): AgentModel["cost"] {
     cacheRead: typeof raw.cacheRead === "number" ? raw.cacheRead : 0,
     cacheWrite: typeof raw.cacheWrite === "number" ? raw.cacheWrite : 0,
   };
-}
-
-/**
- * Reads Pi's installed built-in model registry for provider fallback rows.
- * This keeps AFX subscription selectors aligned with the bundled Pi version
- * when RPC discovery is scoped, incomplete, or temporarily unavailable.
- *
- * @see docs/specs/205-app-vscode-model-selection-state/spec.md [FR-1] [FR-3] [FR-4] [FR-6]
- * @see docs/specs/205-app-vscode-model-selection-state/design.md [DES-FLOW]
- * @see docs/specs/355-agent-sdk-credential-injection/spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1] [NFR-3]
- */
-function getBuiltinProviderModels(provider: string): AgentModel[] {
-  const models = getPiModels(provider as Parameters<typeof getPiModels>[0]) as unknown[];
-  return models
-    .map(normalizeModel)
-    .filter((model: AgentModel | null): model is AgentModel => model !== null);
 }
 
 function normalizeCommand(value: unknown): AgentCommand | null {

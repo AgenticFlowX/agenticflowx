@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T06:20:53.000Z"
+updated_at: 2026-06-02T04:31:08.544Z
 tags: ["agent", "pi", "rpc", "sdk", "custom-providers"]
 spec: spec.md
 design: design.md
@@ -116,5 +116,6 @@ Pi SDK Custom Providers adapter + bootstrap branch
 | 2026-05-02               | 1.1  | Scaffolded | docs/specs/351-agent-pi/                                                                                                                                 | [x]   | [x]   |
 | 2026-05-03               | 1.2  | Coded      | design.md, Pi adapter source comments                                                                                                                    | [x]   | [x]   |
 | 2026-05-08T12:18:59.000Z | 4.x  | Scaffolded | docs/specs/351-agent-pi/{spec,design,tasks}.md, docs/adr/ADR-0008-afx-custom-providers-adapter-pattern.md (planned)                                      | [x]   | [x]   |
-| 2026-05-22T05:56:29.000Z | FR-2 | Tested     | packages/agent/pi-sdk/src/sdk-rpc-manager.test.ts, docs/specs/351-agent-pi/tasks.md                                                                      | [x]   | [ ]   |
-| 2026-05-22T06:20:53.000Z | FR-5 | Fixed      | apps/vscode/src/{extension.ts,services/custom-providers-service.ts,services/custom-providers-service.test.ts}, docs/specs/351-agent-pi/{design,tasks}.md | [x]   | [ ]   |
+| 2026-05-22T05:56:29.000Z | FR-2 | Tested     | packages/agent/pi-sdk/src/sdk-rpc-manager.test.ts, docs/specs/351-agent-pi/tasks.md                                                                      | [x]   | [x]   |
+| 2026-05-22T06:20:53.000Z | FR-5 | Fixed      | apps/vscode/src/{extension.ts,services/custom-providers-service.ts,services/custom-providers-service.test.ts}, docs/specs/351-agent-pi/{design,tasks}.md | [x]   | [x]   |
+| 2026-06-01T21:10:52.000Z | 2.1  | Optimized  | packages/agent/pi-sdk/src/{sdk-rpc-manager.ts,sdk-rpc-manager.test.ts}, docs/specs/351-agent-pi/tasks.md                                                 | [x]   | [x]   |
