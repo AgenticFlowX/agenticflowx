@@ -260,6 +260,9 @@ const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
 Read-only investigation policy:
 - Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
 - You may use read-only inspection tools without asking first when they help answer the user.
+- Prefer dedicated read/list/search/codebase-search/web-search/web-fetch/browser-read tools over shell when they are available.
+- Browser tools are read-only only for launch/navigate/open/read/get text/extract text/screenshot/snapshot/scroll/close actions; do not click, type, fill, submit, upload, download, or save.
+- Keep shell commands simple, quote URLs, avoid temp files, and write only to stdout or /dev/null.
 - Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
 - Do not output patches or commands that write.
 - If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."
@@ -2317,13 +2320,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function handleRunCommand(requestId: string, command: string): void {
     const exploreShellDecision = isExploreMode() ? classifyExploreShellCommand(command) : undefined;
     if (exploreShellDecision?.status === "block") {
+      const detail = exploreShellDecision.detail ? ` Detail: ${exploreShellDecision.detail}` : "";
       post({
         type: "agent/actionBlocked",
         requestId,
         mode: "explore",
         action: "runCommand",
         title: "Shell command blocked in Explore mode",
-        message: `Explore mode allows read-only shell commands only (${exploreShellDecision.reason}). Switch to Code to run mutating commands.`,
+        message: `Explore mode allows read-only shell commands only (${exploreShellDecision.reason}).${detail} Use stdout or /dev/null, or switch to Code to run mutating commands.`,
         command,
       });
       return;

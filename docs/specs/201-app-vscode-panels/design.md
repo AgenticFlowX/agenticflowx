@@ -87,8 +87,10 @@ The sidebar panel uses the VS Code setting as the mode source of truth.
 Explore classifier contract:
 
 - Runtime tool names: allow read/view/open, list/glob, source search, browser/web read, URL
-  fetch, weather, finance, sports, and time tools; block write/edit/delete/upload/click/type,
-  git mutation, build, test, install, database, and runtime mutator tools.
+  fetch, `read_file`, `list_files`, `search_files`, `codebase_search`, `access_mcp_resource`,
+  read-only nested `use_mcp_tool` / `mcp_tool` calls, weather, finance, sports, and time tools;
+  block write/edit/delete/upload/click/type, browser mutator actions, git mutation, build, test,
+  install, database, and runtime mutator tools.
 - Runtime request args: allow HTTP GET-style reads with no body, upload, form, output file, or
   mutating method; block POST, PUT, PATCH, DELETE, request bodies, form data, upload, save-to-file,
   and output targets.
@@ -116,6 +118,9 @@ turn while `afx.mode.active === "explore"`:
 Read-only investigation policy:
 - Runtime tools are allowed only for read-only inspection: read files, list folders, search source, read pages or websites, and run simple read-only shell commands for those actions.
 - You may use read-only inspection tools without asking first when they help answer the user.
+- Prefer dedicated read/list/search/codebase-search/web-search/web-fetch/browser-read tools over shell when they are available.
+- Browser tools are read-only only for launch/navigate/open/read/get text/extract text/screenshot/snapshot/scroll/close actions; do not click, type, fill, submit, upload, download, or save.
+- Keep shell commands simple, quote URLs, avoid temp files, and write only to stdout or /dev/null.
 - Do not edit, create, delete, rename, move, patch, save, upload, submit forms, run mutating shell/git/test/build/install commands, or change host/external state.
 - Do not output patches or commands that write.
 - If the next step needs a write, mutating shell command, test run, install, git operation, or other mutation, stop and say: "This requires Code mode."

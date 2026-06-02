@@ -24,12 +24,20 @@ export interface ShellCommandSubstitutions {
   commands: readonly string[];
 }
 
+export interface ShellSyntaxIssue {
+  reason: string;
+  detail?: string;
+}
+
 export function normalizeShellCommand(command: string): string {
   return command.replace(/\\\r?\n/g, " ").trim();
 }
 
 export function stripHarmlessShellRedirects(command: string): string {
   return command
+    .replace(/(^|\s)&>\s*\/dev\/null(?=\s|$|[;&|])/g, " ")
+    .replace(/(^|\s)1?>\s*\/dev\/null(?=\s|$|[;&|])/g, " ")
+    .replace(/(^|\s)2>\s*\/dev\/null(?=\s|$|[;&|])/g, " ")
     .replace(/(^|\s)2\s*>\s*\/dev\/null(?=\s|$|[;&|])/g, " ")
     .replace(/(^|\s)2>&1(?=\s|$|[;&|])/g, " ")
     .trim();
@@ -52,10 +60,10 @@ export function extractShellWrapperCommandFromArgv(argv: readonly string[]): str
   return argv.slice(commandIndex + 1).join(" ");
 }
 
-export function hasForbiddenShellSyntax(
+export function explainForbiddenShellSyntax(
   command: string,
   options: ShellSyntaxOptions = {},
-): boolean {
+): ShellSyntaxIssue | null {
   const allowedVariables = new Set(options.allowedVariables ?? []);
   let quote: "'" | '"' | null = null;
 
@@ -79,9 +87,9 @@ export function hasForbiddenShellSyntax(
           index = variableEnd - 1;
           continue;
         }
-        return true;
+        return forbiddenShellExpansionIssue(command, index);
       }
-      if (quote === '"' && char === "`") return true;
+      if (quote === '"' && char === "`") return forbiddenBacktickIssue(command, index);
       continue;
     }
     if (char === "$" && command.charAt(index + 1) === "'") {
@@ -95,7 +103,7 @@ export function hasForbiddenShellSyntax(
         index = variableEnd - 1;
         continue;
       }
-      return true;
+      return forbiddenShellExpansionIssue(command, index);
     }
     if (char === "'" || char === '"') {
       quote = char;
@@ -109,10 +117,81 @@ export function hasForbiddenShellSyntax(
       index += 1;
       continue;
     }
-    if (/[<>`$(){}]/.test(char)) return true;
+    if (char === "`") return forbiddenBacktickIssue(command, index);
+    if (char === "<" || char === ">") return forbiddenRedirectionIssue(command, index);
+    if (char === "(" || char === ")") {
+      return {
+        reason: "shell grouping or subshell syntax is not read-only",
+        detail: syntaxDetail(command, index),
+      };
+    }
+    if (char === "{" || char === "}") {
+      return { reason: "brace expansion is not read-only", detail: syntaxDetail(command, index) };
+    }
   }
 
-  return false;
+  return null;
+}
+
+function forbiddenShellExpansionIssue(command: string, index: number): ShellSyntaxIssue {
+  const next = command.charAt(index + 1);
+  if (next === "(" || next === "`") {
+    return {
+      reason: "unsupported shell command substitution syntax",
+      detail: syntaxDetail(command, index),
+    };
+  }
+  if (next === "<" || next === ">") {
+    return {
+      reason: "process substitution is not read-only",
+      detail: syntaxDetail(command, index),
+    };
+  }
+  if (next === "[") {
+    return {
+      reason: "arithmetic shell expansion is not read-only",
+      detail: syntaxDetail(command, index),
+    };
+  }
+  return {
+    reason: "shell variable expansion is not allowlisted",
+    detail: syntaxDetail(command, index),
+  };
+}
+
+function forbiddenBacktickIssue(command: string, index: number): ShellSyntaxIssue {
+  return {
+    reason: "backtick shell substitution is not read-only",
+    detail: syntaxDetail(command, index),
+  };
+}
+
+function forbiddenRedirectionIssue(command: string, index: number): ShellSyntaxIssue {
+  const pair = command.slice(index, index + 2);
+  if (pair === "<<" || pair === "<&") {
+    return { reason: "input redirection is not read-only", detail: syntaxDetail(command, index) };
+  }
+  if (pair === ">>" || pair === ">&" || pair === ">|") {
+    return {
+      reason: "file-writing redirection is not read-only",
+      detail: syntaxDetail(command, index),
+    };
+  }
+  if (command.charAt(index) === "<") {
+    return { reason: "input redirection is not read-only", detail: syntaxDetail(command, index) };
+  }
+  return {
+    reason: "stdout redirection is only allowed to /dev/null",
+    detail: syntaxDetail(command, index),
+  };
+}
+
+function syntaxDetail(command: string, index: number): string {
+  const start = Math.max(0, index - 40);
+  const end = Math.min(command.length, index + 80);
+  const prefix = start > 0 ? "..." : "";
+  const suffix = end < command.length ? "..." : "";
+  return `${prefix}${command.slice(start, end)}${suffix}`;
 }
 
 export function extractShellCommandSubstitutions(

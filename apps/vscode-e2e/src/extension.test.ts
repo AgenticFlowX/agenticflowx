@@ -147,6 +147,16 @@ suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
     const value = vscode.workspace.getConfiguration("afx").get<string>("mode.active");
     assert.strictEqual(value, "explore");
   });
+
+  test("Explore mode opens the real sidebar without reverting the mode setting", async () => {
+    await vscode.commands.executeCommand("afx.setMode", "explore");
+    await vscode.commands.executeCommand("afx.openSidebar");
+
+    await waitFor(
+      () => vscode.workspace.getConfiguration("afx").get<string>("mode.active") === "explore",
+      "Expected Explore mode to remain active after opening the sidebar",
+    );
+  });
 });
 
 suite("AFX Extension — markdown preview active document context", () => {

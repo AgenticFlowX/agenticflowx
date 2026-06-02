@@ -12,6 +12,7 @@ describe("read-only command classifier", () => {
   it("allows common repo inspection command families", () => {
     const allowed = [
       "cd docs && find . -type f | wc -l && du -sh .",
+      'cd apps/vscode && ls -la && rg "EXPLORE_GUARDRAIL_PROMPT" src/panels/sidebar-panel.ts',
       "find . -type f -not -path './.git/*' -not -path './node_modules/*' | wc -l",
       'echo "=== TOP-LEVEL ===" && ls -1 && echo && echo "=== DIRECTORY COUNTS ===" && find . \\( -path \'./.git\' -o -path \'./node_modules\' \\) -prune -o -type f -print | wc -l && echo && echo "=== SIZES ===" && du -sh ./* 2>/dev/null | sort -h',
       "du -sh . --exclude='.git' --exclude='node_modules' 2>/dev/null || true",
@@ -40,6 +41,11 @@ describe("read-only command classifier", () => {
       "whereis node",
       "time find . -maxdepth 1 -type f | wc -l",
       "timeout 10s curl -s https://example.com",
+      'curl -s "https://example.com/search?a=1&b=2" >/dev/null',
+      'curl -s "https://example.com/search?a=1&b=2" 1>/dev/null',
+      'curl -s "https://example.com/search?a=1&b=2" 2>/dev/null',
+      'curl -s "https://example.com/search?a=1&b=2" &>/dev/null',
+      'curl -s "https://example.com/search?a=1&b=2" >/dev/null 2>&1',
       "git -C /tmp/repo status --short",
       "git show HEAD:package.json | head -20",
       "git diff --stat",
@@ -115,6 +121,9 @@ describe("read-only command classifier", () => {
       "npm run build",
       "yarn add react",
       "bun add react",
+      "curl -s https://example.com > /tmp/out.html",
+      "rg EXPLORE . | tee /tmp/explore.txt",
+      "cat <<EOF\nhello\nEOF",
     ];
 
     for (const command of blocked) {
@@ -143,6 +152,13 @@ describe("read-only command classifier", () => {
   });
 
   it("applies deny-first checks to every shell segment", () => {
+    expect(classifyReadOnlyShellCommand("curl -s https://example.com > /tmp/out.html")).toEqual(
+      expect.objectContaining({
+        status: "block",
+        reason: "stdout redirection is only allowed to /dev/null",
+        detail: expect.stringContaining("/tmp/out.html"),
+      }),
+    );
     expect(classifyReadOnlyShellCommand("cd docs && pnpm install")).toMatchObject({
       status: "block",
     });

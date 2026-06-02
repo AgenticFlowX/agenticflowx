@@ -116,4 +116,98 @@ describe("explore guardrail", () => {
       status: "allow",
     });
   });
+
+  it("allows mature-agent read-only browser and page aliases", () => {
+    const allowed = [
+      ["browser_navigate", { url: "https://example.com" }],
+      ["browser_get_text", { refId: "page-1" }],
+      ["browser_extract_text", { refId: "page-1" }],
+      ["browser_snapshot", { refId: "page-1" }],
+      ["browser_action", { action: "launch", url: "https://example.com" }],
+      ["browser_action", { action: "scroll_down" }],
+      ["browserAction", { action: "scrollDown" }],
+      ["browser_action", { action: "screenshot" }],
+      ["browser_action", { action: "close" }],
+      ["web_get", { url: "https://example.com" }],
+      ["web_extract", { url: "https://example.com" }],
+      ["page_read", { url: "https://example.com" }],
+      ["page_fetch", { url: "https://example.com" }],
+      ["read_file", { path: "package.json" }],
+      ["search_files", { path: "src", regex: "Explore" }],
+      ["codebase_search", { query: "Explore guardrail" }],
+      ["access_mcp_resource", { server: "docs", uri: "file://readme" }],
+      ["use_mcp_tool", { serverName: "filesystem", toolName: "read_file", arguments: {} }],
+      ["mcp_tool", { server: "workspace", tool_name: "search_files", arguments: {} }],
+    ] as const;
+
+    for (const [toolName, args] of allowed) {
+      expect(classifyExploreRuntimeTool(toolName, args), toolName).toMatchObject({
+        status: "allow",
+      });
+    }
+  });
+
+  it("keeps browser and web mutation aliases blocked", () => {
+    const blocked = [
+      ["browser_click", { refId: "button" }],
+      ["browser_type", { refId: "input", text: "hello" }],
+      ["browser_fill", { refId: "input", value: "hello" }],
+      ["browser_submit", { refId: "form" }],
+      ["browser_action", { action: "click", coordinate: "10,10" }],
+      ["browser_action", { action: "type", text: "hello" }],
+      ["browser_action", { action: "screenshot", path: "/tmp/page.png" }],
+      ["use_mcp_tool", { serverName: "filesystem", toolName: "write_file", arguments: {} }],
+      ["web_upload", { url: "https://example.com", file: "report.txt" }],
+      ["web_download", { url: "https://example.com/file.zip", outputPath: "/tmp/file.zip" }],
+      ["page_save", { path: "/tmp/page.html" }],
+    ] as const;
+
+    for (const [toolName, args] of blocked) {
+      expect(classifyExploreRuntimeTool(toolName, args), toolName).toMatchObject({
+        status: "block",
+      });
+    }
+  });
+
+  it("returns actionable detail for blocked shell syntax", () => {
+    expect(classifyExploreShellCommand("curl -s https://example.com > /tmp/out.html")).toEqual(
+      expect.objectContaining({
+        status: "block",
+        reason: "stdout redirection is only allowed to /dev/null",
+        detail: expect.stringContaining("/tmp/out.html"),
+      }),
+    );
+  });
+
+  it("returns actionable detail for blocked runtime arguments", () => {
+    expect(
+      classifyExploreRuntimeTool("fetch", {
+        url: "https://example.com/api",
+        requestMethod: "POST",
+      }),
+    ).toMatchObject({
+      status: "block",
+      detail: 'argument "requestMethod" uses POST',
+    });
+    expect(
+      classifyExploreRuntimeTool("browser_action", {
+        action: "screenshot",
+        outputPath: "/tmp/page.png",
+      }),
+    ).toMatchObject({
+      status: "block",
+      detail: 'argument "outputPath" targets "/tmp/page.png"',
+    });
+  });
+
+  it("keeps browser_action pending until action args arrive", () => {
+    expect(classifyExploreRuntimeTool("browser_action")).toMatchObject({
+      status: "pending",
+      reason: "browser action start did not include action text yet",
+    });
+    expect(classifyExploreRuntimeTool("use_mcp_tool")).toMatchObject({
+      status: "pending",
+      reason: "MCP tool start did not include nested tool name yet",
+    });
+  });
 });

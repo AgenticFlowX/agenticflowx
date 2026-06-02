@@ -6,12 +6,12 @@
  */
 import {
   SHELL_WRAPPER_PATTERN,
+  explainForbiddenShellSyntax,
   extractShellCommandSubstitutions,
   extractShellWrapperCommand,
   extractShellWrapperCommandFromArgv,
   firstNonOption,
   firstNonOptionWithIndex,
-  hasForbiddenShellSyntax,
   normalizeShellCommand,
   parseSimpleShellForLoop,
   shellCommandName,
@@ -153,8 +153,9 @@ function classifyReadOnlyShellCommandInternal(
   if (substitutionDecision.decision.status === "block") return substitutionDecision.decision;
   const classifiableCommand = substitutionDecision.command;
 
-  if (hasForbiddenShellSyntax(classifiableCommand, context)) {
-    return block("shell command contains forbidden expansion or redirection syntax");
+  const syntaxIssue = explainForbiddenShellSyntax(classifiableCommand, context);
+  if (syntaxIssue) {
+    return block(syntaxIssue.reason, syntaxIssue.detail);
   }
   if (/\b(?:sudo|su)\b/i.test(trimmed)) {
     return block("privileged shell helpers are not read-only");
@@ -169,7 +170,7 @@ function classifyReadOnlyShellCommandInternal(
     const argv = tokenizeShellCommand(segment);
     if (!argv) return block("shell command could not be tokenized safely", segment);
     const decision = classifyReadOnlyShellArgv(argv);
-    if (decision.status === "block") return decision;
+    if (decision.status === "block") return block(decision.reason, decision.detail ?? segment);
   }
 
   return allow("read-only shell command");
@@ -397,8 +398,9 @@ function classifyForLoopIterableExpression(expression: string): ReadOnlyCommandD
   }
   const classifiableExpression = substitutionDecision.command;
 
-  if (hasForbiddenShellSyntax(classifiableExpression)) {
-    return block("for loop iterable contains forbidden shell syntax");
+  const syntaxIssue = explainForbiddenShellSyntax(classifiableExpression);
+  if (syntaxIssue) {
+    return block(`for loop iterable ${syntaxIssue.reason}`, syntaxIssue.detail);
   }
 
   const tokens = tokenizeShellCommand(classifiableExpression);
@@ -508,8 +510,9 @@ function classifyReadOnlyAssignment(
   if (substitutionDecision.decision.status === "block") {
     return { decision: block(`assignment ${substitutionDecision.decision.reason}`) };
   }
-  if (hasForbiddenShellSyntax(substitutionDecision.command, context)) {
-    return { decision: block("assignment contains forbidden shell syntax") };
+  const syntaxIssue = explainForbiddenShellSyntax(substitutionDecision.command, context);
+  if (syntaxIssue) {
+    return { decision: block(`assignment ${syntaxIssue.reason}`, syntaxIssue.detail) };
   }
 
   return { variableName, decision: allow("read-only shell assignment") };
