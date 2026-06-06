@@ -2,7 +2,7 @@
 
 > Low-barrier spec-driven AI coding for VS Code. Chat first, switch to Spec mode when the work needs traceability.
 
-AgenticFlowX is a VS Code workflow layer for AI coding. Backed by [pi.dev](https://pi.dev) today, it gives you a normal coding chat plus an optional spec-driven path for requirements, designs, tasks, journals, and reviewable project memory.
+AgenticFlowX is a VS Code workflow layer for AI coding. It gives you chat-first coding, Code / Explore / Spec modes, actionable markdown previews, an experimental project canvas, and repo-owned project memory for requirements, designs, tasks, journals, ADRs, notes, and traceability.
 
 <p align="center">
   <img src="https://agenticflowx.github.io/assets/vscode/product/sdd-demo.gif" alt="AgenticFlowX SDD walkthrough in VS Code" width="100%">
@@ -11,9 +11,17 @@ AgenticFlowX is a VS Code workflow layer for AI coding. Backed by [pi.dev](https
 [![code-qa](https://github.com/AgenticFlowX/agenticflowx/actions/workflows/code-qa.yml/badge.svg)](https://github.com/AgenticFlowX/agenticflowx/actions/workflows/code-qa.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
 
-[Website](https://agenticflowx.github.io) · [Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx) · [GitHub](https://github.com/AgenticFlowX/agenticflowx)
+[Website](https://agenticflowx.github.io) · [Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx) · [Open VSX](https://open-vsx.org/extension/agenticflowx/agenticflowx) · [Changelog](./CHANGELOG.md) · [r/agenticflowx](https://www.reddit.com/r/agenticflowx/) · [GitHub](https://github.com/AgenticFlowX/agenticflowx)
 
 ---
+
+## What you get
+
+- **Chat first:** use AFX as a normal coding assistant for everyday implementation, debugging, edits, and follow-up.
+- **Code / Explore / Spec modes:** choose full-access coding, read-only inspection, or a planning-first workflow with requirements, design, tasks, validation, review, and approval.
+- **Markdown you can act on:** open rendered specs, designs, tasks, ADRs, notes, and journals with section-level workflow commands.
+- **Experimental Canvas:** map specs, markdown files, notes, labels, architecture ideas, and code context visually while keeping the canvas file in your repo.
+- **Flexible provider access:** use subscription-backed sign-ins, API keys, Pi, Ollama, llama.cpp-style runtimes, or any OpenAI-compatible endpoint.
 
 ## Chat first
 
@@ -45,6 +53,16 @@ The action row maps to the workflow: Refine, Author, Validate, Review, Approve, 
   <img src="https://agenticflowx.github.io/assets/vscode/product/spec-mode-actions.webp" alt="Spec mode active on spec.md with Refine, Validate, and workflow stepper actions" width="560">
 </p>
 
+## AFX Viewer: markdown you can act on
+
+AFX Viewer turns repo markdown into an interactive work surface. Open a spec, design, task list, ADR, journal, or note; inspect the rendered document; then run commands from the document or a specific section.
+
+Use it to refine, author, validate, review, approve, execute a task, or send a section back to chat without losing the source markdown.
+
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/viewer-2.webp" alt="AFX Viewer rendering a design document with workflow actions and section commands" width="100%">
+</p>
+
 ## The workflow stays in your repo
 
 AFX writes plain markdown to your workspace. Diff-able, PR-able, grep-able, and easy to move between humans and agents.
@@ -57,6 +75,7 @@ AFX writes plain markdown to your workspace. Diff-able, PR-able, grep-able, and 
 | `docs/specs/<feature>/journal.md` | Memory: session logs, decisions, discussion captures     |
 | `.afx/notes.md`                   | Quick notes for the Notes tab                            |
 | `.afx/kanban/*.md`                | Markdown-backed kanban for the Board tab                 |
+| `.afx/project.canvas`             | Experimental JSON Canvas for project maps and ideation   |
 
 <p align="center">
   <img src="https://agenticflowx.github.io/assets/vscode/product/repo-documents.webp" alt="AgenticFlowX Documents panel showing workflow markdown files" width="100%">
@@ -70,6 +89,16 @@ Use it to see what has been decided, what is next, and which pieces still need a
 
 <p align="center">
   <img src="https://agenticflowx.github.io/assets/vscode/product/workbench.webp" alt="AgenticFlowX Workbench panel showing spec, design, and tasks side-by-side" width="100%">
+</p>
+
+## Experimental Canvas
+
+Canvas is a workbench tab backed by `.afx/project.canvas`. Use it for architecture sketches, spec maps, impact views, markdown references, notes, labels, and early planning before the work becomes a formal spec.
+
+The file stays plain JSON Canvas, so the map is portable and reviewable. Enable it from VS Code settings with `afx.experimental.canvas`.
+
+<p align="center">
+  <img src="https://agenticflowx.github.io/assets/canvas-1.webp" alt="AgenticFlowX experimental Canvas tab with connected markdown, notes, labels, and planning cards" width="100%">
 </p>
 
 ## Trace intent back to code
@@ -86,7 +115,7 @@ The files stay plain markdown; the editor just knows how to move through them.
 
 ## Install
 
-Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx). On first launch, open **Settings -> Provider**, add your API keys, and pick a model.
+Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx) or [Open VSX](https://open-vsx.org/extension/agenticflowx/agenticflowx). On first launch, open **Settings -> Provider**, connect a provider or add your keys, and pick a model.
 
 ### 60-second quickstart: chat-first
 
@@ -103,10 +132,13 @@ Grab it from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 
 ## Runtime and providers
 
-AgenticFlowX is backed by Pi today. Whether or not you have Pi installed, AFX uses Pi to reach the providers below.
+AgenticFlowX supports three provider paths from Settings:
 
-- **Already use Pi:** AFX detects your Pi CLI and routes calls through Pi RPC. Your config and keys stay where they are.
-- **New to Pi:** The Pi SDK ships inside the extension. Provider keys are stored in VS Code SecretStorage. No Pi install required.
+- **Subscription-backed accounts:** sign in with supported providers such as Claude/Anthropic, ChatGPT/Codex, and GitHub Copilot.
+- **Bring your own keys:** store hosted provider keys in VS Code SecretStorage and choose defaults from the model picker.
+- **Local-compatible runtimes:** use Ollama, llama.cpp-style servers, LM Studio, vLLM, or any OpenAI-compatible endpoint.
+
+Already use [pi.dev](https://pi.dev)? AFX can detect your Pi CLI and route calls through Pi RPC. New to Pi? The Pi SDK ships inside the extension, so no separate Pi install is required for API Providers.
 
 **Built-in providers:** OpenAI · Anthropic · Google Gemini · Google Vertex · GitHub Copilot · OpenRouter · Amazon Bedrock · Azure OpenAI · Groq · DeepSeek · Mistral · MiniMax · Kimi · Fireworks · Cerebras · Hugging Face · Vercel AI Gateway · xAI · Z.ai
 
@@ -118,9 +150,9 @@ No VS Code? The AFX workflow also runs headless via the [AFX CLI and skill pack]
 
 Tested with Claude Code, Codex, Gemini CLI, and GitHub Copilot.
 
-## Early access
+## Status
 
-Public alpha. Useful today; settings, modes, and examples are still moving.
+AgenticFlowX is open source under Apache 2.0. The extension is moving quickly; Canvas is experimental, and provider/settings surfaces continue to evolve.
 
 - [Report an issue](https://github.com/AgenticFlowX/agenticflowx/issues)
 - [Start a discussion](https://github.com/AgenticFlowX/agenticflowx/discussions)
