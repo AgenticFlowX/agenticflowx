@@ -47,6 +47,7 @@ const handMaintained = [
   "chat/settings",
   "workbench/analytics",
   "workbench/board",
+  "workbench/canvas",
   "workbench/documents",
   "workbench/impact-lens",
   "workbench/journal",

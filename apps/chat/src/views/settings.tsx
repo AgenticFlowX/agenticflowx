@@ -1,10 +1,12 @@
 /**
- * Settings view — 5-group layout: Workspace, Runtimes, Models, Look, Support.
+ * Settings view — 6-group layout: Workspace, Runtimes, Models, Look, Experimental, Support.
  *
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [FR-12] [FR-13] [NFR-3]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-3] [FR-5] [FR-6] [FR-12] [FR-13] [FR-14] [NFR-3]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-MAP] [DES-SETTINGS-FLOW] [DES-SETTINGS-INSTANCE-CARDS]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-RUNTIME] [DES-SETTINGS-COPY] [DES-SETTINGS-ONBOARDING]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-22]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-SETTINGS]
  */
 import {
   type ReactElement,
@@ -94,7 +96,16 @@ import { displayCommandName } from "../components/slash-popup";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
 import { formatIntentPromptBadge, formatIntentPromptTitle } from "../lib/intent-copy";
-import { CONNECT, HEADER, LOOK, MODELS, RUNTIMES, SUPPORT, WORKSPACE } from "../lib/settings-copy";
+import {
+  CONNECT,
+  EXPERIMENTAL,
+  HEADER,
+  LOOK,
+  MODELS,
+  RUNTIMES,
+  SUPPORT,
+  WORKSPACE,
+} from "../lib/settings-copy";
 import type { SettingsOpenTarget } from "../lib/settings-navigation";
 import { applyRuntimeAppearance } from "../lib/theme-preview";
 
@@ -129,12 +140,13 @@ const QUEUE_MODES: ReadonlyArray<{ value: QueueMode; label: string }> = [
   { value: "one-at-a-time", label: RUNTIMES.steeringOne.label },
 ];
 
-/** 5-group navigation — replaces the previous 9-section nav. */
+/** 6-group navigation — replaces the previous 9-section nav. */
 const SETTINGS_SECTIONS = [
   { id: "workspace", label: "Workspace", shortLabel: "Work" },
   { id: "runtimes", label: "Runtimes", shortLabel: "Run" },
   { id: "models", label: "Models", shortLabel: "Mdl" },
   { id: "look", label: "Look", shortLabel: "Look" },
+  { id: "experimental", label: "Experimental", shortLabel: "Exp" },
   { id: "support", label: "Support", shortLabel: "Help" },
 ] as const;
 
@@ -180,6 +192,11 @@ const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
   enabled: true,
   effectiveEnabled: true,
   vscodeTelemetryEnabled: true,
+};
+
+const DEFAULT_EXPERIMENTAL_SETTINGS: NonNullable<SettingsSnapshot["experimental"]> = {
+  canvasEnabled: false,
+  canvasPath: ".afx/project.canvas",
 };
 
 const DEFAULT_CONTEXT_SETTINGS: SettingsSnapshot["context"] = {
@@ -256,6 +273,7 @@ export default function Settings({
   const pendingProviderMutations = useRef<Map<string, string>>(new Map());
   const pendingContextMutations = useRef<Map<string, string>>(new Map());
   const pendingTelemetryMutations = useRef<Map<string, string>>(new Map());
+  const pendingExperimentalMutations = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
     const offs = [
@@ -285,6 +303,11 @@ export default function Settings({
         if (telemetryLabel) {
           pendingTelemetryMutations.current.delete(msg.requestId);
           toast.success(telemetryLabel);
+        }
+        const experimentalLabel = pendingExperimentalMutations.current.get(msg.requestId);
+        if (experimentalLabel) {
+          pendingExperimentalMutations.current.delete(msg.requestId);
+          toast.success(experimentalLabel);
         }
       }),
       // Terminal redacted OAuth status — drives the provider card's connected /
@@ -361,6 +384,7 @@ export default function Settings({
         const modeLabel = pendingModeMutations.current.get(msg.requestId);
         const intentLabel = pendingIntentMutations.current.get(msg.requestId);
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
+        const experimentalLabel = pendingExperimentalMutations.current.get(msg.requestId);
         const label =
           runtimeLabel ??
           appearanceLabel ??
@@ -368,7 +392,8 @@ export default function Settings({
           contextLabel ??
           intentLabel ??
           modeLabel ??
-          telemetryLabel;
+          telemetryLabel ??
+          experimentalLabel;
         if (!label) return;
         pendingRuntimeMutations.current.delete(msg.requestId);
         pendingAppearanceMutations.current.delete(msg.requestId);
@@ -377,6 +402,7 @@ export default function Settings({
         pendingIntentMutations.current.delete(msg.requestId);
         pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
+        pendingExperimentalMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
       }),
     ];
@@ -394,6 +420,7 @@ export default function Settings({
   const runtimeControlsDisabled = isCheckingAgent || runtimeUnavailable || runtimeUnconfigured;
   const snapshotProviders = snapshot?.providers;
   const telemetrySettings = snapshot?.telemetry ?? DEFAULT_TELEMETRY_SETTINGS;
+  const experimentalSettings = snapshot?.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS;
   const contextSettings = snapshot?.context ?? DEFAULT_CONTEXT_SETTINGS;
   const activeMode = snapshot?.mode?.active ?? "code";
   const activeIntentParent = activeMode === "explore" ? "explore" : "code";
@@ -525,6 +552,11 @@ export default function Settings({
   function trackTelemetryMutation(label: string): string {
     const requestId = uid();
     pendingTelemetryMutations.current.set(requestId, label);
+    return requestId;
+  }
+  function trackExperimentalMutation(label: string): string {
+    const requestId = uid();
+    pendingExperimentalMutations.current.set(requestId, label);
     return requestId;
   }
 
@@ -1092,6 +1124,24 @@ export default function Settings({
       enabled,
     });
   }
+  function setExperimentalCanvasEnabled(enabled: boolean): void {
+    setSnapshot((prev) =>
+      prev
+        ? {
+            ...prev,
+            experimental: {
+              ...(prev.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS),
+              canvasEnabled: enabled,
+            },
+          }
+        : prev,
+    );
+    bridgeSend({
+      type: "experimental/setCanvasEnabled",
+      requestId: trackExperimentalMutation(`Canvas ${enabled ? "enabled" : "disabled"}`),
+      enabled,
+    });
+  }
   function openOutputLogs(): void {
     bridgeSend({ type: "chat/showLogs", requestId: uid() });
   }
@@ -1179,8 +1229,8 @@ export default function Settings({
               </div>
             </div>
 
-            {/* 5-group nav */}
-            <div className="grid grid-cols-5 gap-1">
+            {/* 6-group nav */}
+            <div className="grid grid-cols-6 gap-1">
               {SETTINGS_SECTIONS.map((section) => (
                 <button
                   key={section.id}
@@ -2091,6 +2141,43 @@ export default function Settings({
           </SettingsCard>
 
           {/* ────────────────────────────────────────────────────────────────── */}
+          {/* Surface: [ChatSettings.Experimental]                              */}
+          {/* ────────────────────────────────────────────────────────────────── */}
+          <SettingsCard
+            id="experimental"
+            icon={Sparkles}
+            title={EXPERIMENTAL.groupTitle}
+            description={EXPERIMENTAL.groupDescription}
+          >
+            <SwitchRow
+              id="experimental-canvas"
+              label={EXPERIMENTAL.canvasLabel}
+              description={EXPERIMENTAL.canvasDescription}
+              tooltip={EXPERIMENTAL.canvasTooltip}
+              checked={experimentalSettings.canvasEnabled}
+              onCheckedChange={setExperimentalCanvasEnabled}
+              disabled={!snapshot}
+            />
+            <ConfigField
+              label={EXPERIMENTAL.canvasPathLabel}
+              value={experimentalSettings.canvasPath}
+              settingKey="afx.experimental.canvas"
+              hint={EXPERIMENTAL.canvasPathHint}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                onClick={() => bridgeSend({ type: "chat/openWorkbench", requestId: uid() })}
+              >
+                <ExternalLink size={12} />
+                {EXPERIMENTAL.openWorkbenchLabel}
+              </Button>
+            </div>
+          </SettingsCard>
+
+          {/* ────────────────────────────────────────────────────────────────── */}
           {/* Surface: [ChatSettings.Support]                                    */}
           {/* ────────────────────────────────────────────────────────────────── */}
           <SettingsCard
@@ -2665,6 +2752,7 @@ function ConfigField({
     | "afx.logLevel"
     | "afx.theme"
     | "afx.style"
+    | "afx.experimental.canvas"
     | "afx.telemetry.enabled";
 }) {
   return (

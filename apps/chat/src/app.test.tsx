@@ -151,6 +151,10 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
         ephemeral: false,
       },
     ],
+    experimental: {
+      canvasEnabled: false,
+      canvasPath: ".afx/project.canvas",
+    },
     diagnostics: { logLevel: "info" },
     telemetry: {
       enabled: true,
@@ -1643,6 +1647,9 @@ describe("chat App", () => {
     expect(screen.queryByRole("button", { name: "View logs" })).not.toBeInTheDocument();
   });
 
+  /**
+   * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1]
+   */
   it("groups SDK and Pi RPC settings with clear help text", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();
@@ -1669,9 +1676,10 @@ describe("chat App", () => {
 
     await user.click(screen.getByRole("tab", { name: "Settings" }));
 
-    // Workspace group: 5-group nav with Workspace, Runtimes, Models, Look, Support
+    // Workspace group: 6-group nav with Workspace, Runtimes, Models, Look, Experimental, Support
     expect(screen.getByRole("button", { name: "Workspace" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Runtimes" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Experimental" })).toBeInTheDocument();
     // Mode card: Code / Explore with new copy from settings-copy.ts
     expect(
       screen.getByText(/Full access\. Runtimes can read, write, run shells, and edit\./),
@@ -1779,6 +1787,27 @@ describe("chat App", () => {
       expect.objectContaining({
         type: "chat/openSettings",
         key: "afx.runtime.responseStartTimeoutMs",
+      }),
+    );
+    // Experimental group: Workbench Canvas toggle and raw setting affordance.
+    await user.click(screen.getByRole("button", { name: "Experimental" }));
+    expect(screen.getByText("Workbench Canvas")).toBeInTheDocument();
+    const canvasSwitch = screen.getByRole("switch", { name: "Workbench Canvas" });
+    expect(canvasSwitch).not.toBeChecked();
+    send.mockClear();
+    await user.click(canvasSwitch);
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "experimental/setCanvasEnabled",
+        enabled: true,
+      }),
+    );
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: "Open afx.experimental.canvas setting" }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/openSettings",
+        key: "afx.experimental.canvas",
       }),
     );
     // Support group: About + telemetry toggle

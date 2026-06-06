@@ -1,9 +1,11 @@
 /**
- * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-14]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
  * @see docs/specs/218-app-chat-provider-settings/spec.md [FR-1] [FR-5] [FR-6] [NFR-1]
  * @see docs/specs/218-app-chat-provider-settings/design.md [DES-DATA] [DES-UI]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-22]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-SETTINGS] [DES-DATA]
  */
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
 import type { AgentModel, SettingsSnapshot, WorkspaceMode } from "@afx/shared";
@@ -32,6 +34,7 @@ export interface SettingsSnapshotInput {
   includeActiveFileContext?: boolean;
   intentSlot?: 1 | 2 | 3 | 4;
   intentMinimized?: boolean;
+  canvasEnabled?: boolean;
   telemetryEnabled?: boolean;
   vscodeTelemetryEnabled?: boolean;
 }
@@ -91,6 +94,10 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
     },
     providers: groupProviders(availableModels, input.sdkDefaultModel),
     externalAgents: groupExternalAgents(availableModels, input),
+    experimental: {
+      canvasEnabled: input.canvasEnabled ?? false,
+      canvasPath: ".afx/project.canvas",
+    },
     diagnostics: { logLevel: input.logLevel?.trim() || "info" },
     telemetry: {
       enabled: input.telemetryEnabled ?? true,

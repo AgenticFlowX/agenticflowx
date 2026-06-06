@@ -437,9 +437,21 @@ export interface SettingsCustomModelsSnapshot {
 }
 
 /**
+ * Experimental feature flags surfaced in Settings.
+ *
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-2] [FR-14]
+ */
+export interface SettingsExperimentalSnapshot {
+  canvasEnabled: boolean;
+  canvasPath: string;
+}
+
+/**
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6] [FR-8] [FR-13]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-API] [DES-SETTINGS-SURFACE-CONTEXT] [DES-SETTINGS-CUSTOM-MODELS]
  * @see docs/specs/100-package-shared/spec.md [FR-7] [FR-9]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-2]
  */
 export interface SettingsSnapshot {
   appearance: RuntimeAppearanceSnapshot;
@@ -476,6 +488,7 @@ export interface SettingsSnapshot {
    * @see docs/specs/214-app-chat-settings/spec.md [FR-8]
    */
   customModels?: SettingsCustomModelsSnapshot;
+  experimental?: SettingsExperimentalSnapshot;
   diagnostics: { logLevel: string };
   telemetry: {
     enabled: boolean;
@@ -672,6 +685,13 @@ export type ChatToAgent =
    */
   | { type: "chat/setIncludeActiveFileContext"; requestId: string; enabled: boolean }
   /**
+   * Settings panel toggles the experimental Workbench canvas tab.
+   *
+   * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2]
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-2] [FR-14]
+   */
+  | { type: "experimental/setCanvasEnabled"; requestId: string; enabled: boolean }
+  /**
    * Settings panel sets a provider API key.
    *
    * @see docs/specs/214-app-chat-settings/spec.md [FR-2]
@@ -749,6 +769,7 @@ export type ChatToAgent =
         | "afx.logLevel"
         | "afx.theme"
         | "afx.style"
+        | "afx.experimental.canvas"
         | "afx.telemetry.enabled"
         | "afx.composer.intent.slot"
         | "afx.composer.intent.minimized";

@@ -8,6 +8,8 @@
  * @see docs/specs/220-app-workbench/design.md [DES-WORKBENCH-HOST-PANEL] [DES-WORKBENCH-PROTOCOL]
  * @see docs/specs/227-app-workbench-shell/spec.md [FR-9] [FR-10]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-LAUNCHPAD] [DES-API]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-3] [FR-12] [FR-19] [NFR-2] [NFR-5]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-HOST] [DES-ARCH] [DES-FILES]
  */
 import * as path from "node:path";
 
@@ -15,6 +17,7 @@ import * as vscode from "vscode";
 
 import { type Logger, type WorkbenchInbound, type WorkbenchOutbound } from "@afx/shared";
 
+import { PROJECT_CANVAS_PATH, createCanvasDataProvider } from "../services/canvas-data";
 import { type SpecsDataProvider } from "../services/specs-data";
 import { parseSprintPath, sliceSprintSection } from "../services/sprint";
 import { appendNoteToWorkspace } from "../utils/notes-utils";
@@ -71,10 +74,27 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         return enabledBySetting && vscode.env.isTelemetryEnabled;
       }
 
+      function computeCanvasEnabled(): boolean {
+        return vscode.workspace.getConfiguration("afx").get<boolean>("experimental.canvas", false);
+      }
+
+      const canvasData = createCanvasDataProvider({
+        getWorkspaceRoot: () => vscode.workspace.workspaceFolders?.[0]?.uri,
+        isEnabled: computeCanvasEnabled,
+        logger: log,
+      });
+
       async function pushUpdate(): Promise<void> {
         if (!specsData) return;
         const data = await specsData.getPanelData();
-        post({ type: "afxUpdate", ...data });
+        const canvasFields = await canvasData.getCanvasUpdateFields();
+        post({ type: "afxUpdate", ...data, ...canvasFields });
+      }
+
+      async function refreshAndPost(): Promise<void> {
+        if (!specsData) return;
+        specsData.refresh();
+        await pushUpdate();
       }
 
       const previewDeps: AfxPreviewDeps = { extensionUri, extensionMode, logger };
@@ -90,6 +110,9 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           computeTelemetryEnabled,
           openChatCommand,
           previewDeps,
+          pushUpdate,
+          refreshAndPost,
+          (content) => canvasData.markSavedContent(content),
         );
       });
 
@@ -100,12 +123,12 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
 
       let refreshTimer: ReturnType<typeof setTimeout> | undefined;
       let watchers: vscode.FileSystemWatcher[] = [];
+      let canvasWatcher: vscode.Disposable | undefined;
       const refresh = (): void => {
         if (refreshTimer) clearTimeout(refreshTimer);
         refreshTimer = setTimeout(() => {
           refreshTimer = undefined;
-          specsData?.refresh();
-          void pushUpdate();
+          void refreshAndPost();
         }, WORKBENCH_REFRESH_DEBOUNCE_MS);
       };
 
@@ -118,10 +141,14 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           watcher.onDidDelete(refresh);
           return watcher;
         });
+        canvasWatcher = canvasData.onDidChange(refresh);
       };
       const stopWatchers = (): void => {
         for (const watcher of watchers) watcher.dispose();
         watchers = [];
+        canvasWatcher?.dispose();
+        canvasWatcher = undefined;
+        canvasData.dispose();
       };
       if (view.visible) {
         startWatchers();
@@ -131,8 +158,9 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         const appearanceChanged =
           event.affectsConfiguration("afx.theme") || event.affectsConfiguration("afx.style");
         const telemetryChanged = event.affectsConfiguration("afx.telemetry.enabled");
+        const canvasChanged = event.affectsConfiguration("afx.experimental.canvas");
 
-        if (!appearanceChanged && !telemetryChanged) {
+        if (!appearanceChanged && !telemetryChanged && !canvasChanged) {
           return;
         }
         if (appearanceChanged) {
@@ -140,6 +168,11 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         }
         if (telemetryChanged) {
           post({ type: "afxTelemetryUpdated", enabled: computeTelemetryEnabled() });
+        }
+        if (canvasChanged) {
+          stopWatchers();
+          if (view.visible) startWatchers();
+          void pushUpdate();
         }
       });
       const telemetrySubscription = vscode.env.onDidChangeTelemetryEnabled(() => {
@@ -159,8 +192,7 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           return;
         }
         startWatchers();
-        specsData?.refresh();
-        void pushUpdate();
+        void refreshAndPost();
       });
     },
   };
@@ -174,6 +206,9 @@ async function handleMessage(
   computeTelemetryEnabled: () => boolean,
   openChatCommand?: (command: string, mode: "insert" | "send") => Promise<void>,
   previewDeps?: AfxPreviewDeps,
+  pushPanelUpdate?: () => Promise<void>,
+  refreshPanelData?: () => Promise<void>,
+  markCanvasSaved?: (content: string) => void,
 ): Promise<void> {
   if (msg.type === "afxCopyMarkdown") {
     await vscode.env.clipboard.writeText(msg.content);
@@ -286,6 +321,10 @@ async function handleMessage(
   }
 
   async function refreshAndPost(): Promise<void> {
+    if (refreshPanelData) {
+      await refreshPanelData();
+      return;
+    }
     if (!specsData) return;
     specsData.refresh();
     const data = await specsData.getPanelData();
@@ -296,8 +335,12 @@ async function handleMessage(
     switch (msg.type) {
       case "afxReady": {
         if (!specsData) return;
-        const data = await specsData.getPanelData();
-        post({ type: "afxUpdate", ...data });
+        if (pushPanelUpdate) {
+          await pushPanelUpdate();
+        } else {
+          const data = await specsData.getPanelData();
+          post({ type: "afxUpdate", ...data });
+        }
         post({ type: "afxTelemetryUpdated", enabled: computeTelemetryEnabled() });
         return;
       }
@@ -356,6 +399,23 @@ async function handleMessage(
         await openChatCommand(msg.command, msg.mode);
         return;
       }
+      case "afxPickMarkdownFile": {
+        const picked = await vscode.window.showOpenDialog({
+          title: "Add markdown to AFX Canvas",
+          defaultUri: rootUri,
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          filters: { Markdown: ["md", "markdown"] },
+        });
+        const uri = picked?.[0];
+        if (!uri) return;
+        post({
+          type: "afxMarkdownFilePicked",
+          filePath: formatPickedMarkdownPath(uri, workspaceFolders),
+        });
+        return;
+      }
       case "afxFetchDocContent": {
         const { path: realPath, section } = parseSprintPath(msg.filePath);
         const uri = await resolvePath(realPath, true);
@@ -397,7 +457,13 @@ async function handleMessage(
           return;
         }
         const uri = await resolvePath(realPath);
+        if (realPath.replace(/\\/g, "/") === PROJECT_CANVAS_PATH) {
+          await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(rootUri, ".afx"));
+        }
         await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.content, "utf8"));
+        if (realPath.replace(/\\/g, "/") === PROJECT_CANVAS_PATH) {
+          markCanvasSaved?.(msg.content);
+        }
         await refreshAndPost();
         return;
       }
@@ -550,6 +616,23 @@ async function handleMessage(
   } catch (err) {
     log?.error("handleMessage threw", err instanceof Error ? err : undefined);
   }
+}
+
+function formatPickedMarkdownPath(
+  uri: vscode.Uri,
+  workspaceFolders: readonly vscode.WorkspaceFolder[],
+): string {
+  const pickedPath = path.normalize(uri.fsPath);
+  let shortestRelative: string | undefined;
+  for (const folder of workspaceFolders) {
+    const rootPath = path.normalize(folder.uri.fsPath);
+    const relative = path.relative(rootPath, pickedPath);
+    if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) continue;
+    if (!shortestRelative || relative.length < shortestRelative.length) {
+      shortestRelative = relative;
+    }
+  }
+  return (shortestRelative ?? pickedPath).replace(/\\/g, "/");
 }
 
 async function createSampleDocs(rootUri: vscode.Uri, kind: "full-spec" | "sprint"): Promise<void> {

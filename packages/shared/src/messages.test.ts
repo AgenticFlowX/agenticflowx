@@ -1,11 +1,13 @@
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-2] [FR-4]
  * @see docs/specs/100-package-shared/design.md [DES-TEST]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-20]
  */
 import { describe, expect, it } from "vitest";
 
 import type { AgentCommand, AgentStatus } from "./agent";
 import type { AgentToChat, ChatToAgent, MessageOf } from "./messages";
+import type { WorkbenchInbound, WorkbenchOutbound } from "./workbench-protocol";
 import type { FocusGroup, FocusOption, SignOffSummary } from "./workbench-types";
 
 describe("chat-foundation shared protocol", () => {
@@ -110,6 +112,27 @@ describe("chat-foundation shared protocol", () => {
     };
 
     expect(message.enabled).toBe(true);
+  });
+
+  it("supports experimental canvas settings messages", () => {
+    const message: ChatToAgent = {
+      type: "experimental/setCanvasEnabled",
+      requestId: "canvas-enabled",
+      enabled: true,
+    };
+
+    expect(message.enabled).toBe(true);
+  });
+
+  it("supports canvas markdown picker protocol messages", () => {
+    const outbound = { type: "afxPickMarkdownFile" } satisfies WorkbenchOutbound;
+    const inbound = {
+      type: "afxMarkdownFilePicked",
+      filePath: "/Users/rix/notes/idea.md",
+    } satisfies WorkbenchInbound;
+
+    expect(outbound.type).toBe("afxPickMarkdownFile");
+    expect(inbound.filePath).toContain("idea.md");
   });
 
   it("supports persistent history protocol variants", () => {

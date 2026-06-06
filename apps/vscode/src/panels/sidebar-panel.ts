@@ -2065,6 +2065,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void vscode.commands.executeCommand("workbench.action.openSettings", msg.key);
         return;
       }
+      // @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2]
+      case "experimental/setCanvasEnabled": {
+        void handleSetExperimentalCanvasEnabled(msg.requestId, msg.enabled);
+        return;
+      }
       // @see docs/specs/212-app-chat-messages/spec.md [FR-10]
       // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
       case "chat/openWorkbench": {
@@ -2900,6 +2905,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const sessionDir = cfg.get<string>("sessionDir", "").trim();
       const includeActiveFileContext = cfg.get<boolean>("context.includeActiveFileContext", true);
       const mode = workspaceMode();
+      const canvasEnabled = cfg.get<boolean>("experimental.canvas", false);
       const telemetryEnabled = cfg.get<boolean>("telemetry.enabled", true);
       const snapshot: SettingsSnapshot = {
         appearance: appearanceSnapshotFromConfig(cfg),
@@ -2940,6 +2946,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           secretStore,
         ),
         externalAgents: groupExternalAgents(models, { agentBinary, rpcEnabled, ephemeral }),
+        experimental: {
+          canvasEnabled,
+          canvasPath: ".afx/project.canvas",
+        },
         // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
         // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
         ...(customProvidersService
@@ -3062,6 +3072,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set telemetry enabled failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetExperimentalCanvasEnabled(
+    requestId: string,
+    enabled: boolean,
+  ): Promise<void> {
+    try {
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("experimental.canvas", enabled, vscode.ConfigurationTarget.Global);
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set experimental canvas failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
     }
   }

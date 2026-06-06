@@ -4,6 +4,8 @@
  * @see docs/specs/201-app-vscode-panels/spec.md [FR-2] [FR-8]
  * @see docs/specs/220-app-workbench/spec.md [FR-3]
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-3] [FR-6] [FR-19] [FR-20]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-TEST]
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
@@ -110,6 +112,19 @@ function mockFileWatchers(): MockWatcher[] {
   return watchers;
 }
 
+function mockAfxConfiguration(canvasEnabled = false): void {
+  vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+    get: vi.fn((key: string, defaultValue?: unknown) => {
+      if (key === "experimental.canvas") return canvasEnabled;
+      if (key === "telemetry.enabled") return true;
+      return defaultValue;
+    }),
+    has: vi.fn(() => false),
+    inspect: vi.fn(() => undefined),
+    update: vi.fn(async () => {}),
+  });
+}
+
 describe("createWorkbenchPanel", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -141,6 +156,25 @@ describe("createWorkbenchPanel", () => {
       expect(watcher.onDidCreate).toHaveBeenCalledOnce();
       expect(watcher.onDidDelete).toHaveBeenCalledOnce();
     }
+  });
+
+  it("adds the project canvas watcher only while the experiment is enabled", () => {
+    mockAfxConfiguration(true);
+    const watchers = mockFileWatchers();
+    const { view } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData: makeSpecsData(),
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    expect(watchers.map((watcher) => watcher.pattern)).toEqual([
+      "docs/**/*.md",
+      ".afx/notes.md",
+      ".afx/kanban/*.md",
+      ".afx/project.canvas",
+    ]);
   });
 
   it("does not start file watchers while the Workbench view is hidden", () => {
@@ -232,6 +266,86 @@ describe("createWorkbenchPanel", () => {
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("# Copied\n");
     });
+  });
+
+  it("picks markdown files for canvas nodes and posts workspace-relative paths", async () => {
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
+    ]);
+    vi.spyOn(vscode.window, "showOpenDialog").mockResolvedValue([
+      vscode.Uri.file("/repo/docs/ideas.md"),
+    ]);
+    const { view, fireMessage } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData: makeSpecsData(),
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxPickMarkdownFile" });
+
+    await vi.waitFor(() => {
+      expect(view.webview.postMessage).toHaveBeenCalledWith({
+        type: "afxMarkdownFilePicked",
+        filePath: "docs/ideas.md",
+      });
+    });
+  });
+
+  it("posts canvasEnabled:false without reading project.canvas when the flag is disabled", async () => {
+    mockAfxConfiguration(false);
+    const readFile = vi.spyOn(vscode.workspace.fs, "readFile");
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
+    ]);
+    const { view, fireMessage } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData: makeSpecsData(),
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxReady" });
+
+    await vi.waitFor(() => {
+      expect(view.webview.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "afxUpdate", canvasEnabled: false }),
+      );
+    });
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
+  it("creates .afx before saving project.canvas through the existing save bridge", async () => {
+    mockAfxConfiguration(false);
+    const specsData = makeSpecsData();
+    const created: string[] = [];
+    const writes: string[] = [];
+    const { view, fireMessage } = makeView(true);
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "createDirectory").mockImplementation(async (uri) => {
+      created.push(uri.fsPath);
+    });
+    vi.spyOn(vscode.workspace.fs, "writeFile").mockImplementation(async (uri) => {
+      writes.push(uri.fsPath);
+    });
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({ type: "afxSaveFile", path: ".afx/project.canvas", content: '{"nodes":[]}' });
+
+    await vi.waitFor(() => {
+      expect(created).toEqual(["/repo/.afx"]);
+      expect(writes).toEqual(["/repo/.afx/project.canvas"]);
+    });
+    expect(specsData.refresh).toHaveBeenCalled();
   });
 
   it("creates sample docs through the host bridge and refreshes data", async () => {

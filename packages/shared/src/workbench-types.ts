@@ -173,6 +173,78 @@ export interface WorkSessionRow {
 }
 
 /**
+ * JSON Canvas 1.0 bridge types used by the experimental Workbench canvas.
+ *
+ * The shape mirrors https://jsoncanvas.org/spec/1.0/ and intentionally keeps
+ * unknown fields so AFX can round-trip canvases authored elsewhere.
+ *
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-4] [FR-13] [FR-18]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-DATA]
+ */
+export type CanvasColor = string;
+
+export type CanvasExtensionFields = Record<string, unknown>;
+
+export interface CanvasGenericNode extends CanvasExtensionFields {
+  id: string;
+  type: "text" | "file" | "link" | "group";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: CanvasColor;
+}
+
+export interface CanvasTextNode extends CanvasGenericNode {
+  type: "text";
+  text: string;
+  afxNodeKind?: "note" | "label";
+}
+
+export interface CanvasFileNode extends CanvasGenericNode {
+  type: "file";
+  file: string;
+  subpath?: string;
+}
+
+export interface CanvasLinkNode extends CanvasGenericNode {
+  type: "link";
+  url: string;
+}
+
+export interface CanvasGroupNode extends CanvasGenericNode {
+  type: "group";
+  label?: string;
+  background?: string;
+  backgroundStyle?: "cover" | "ratio" | "repeat";
+}
+
+export type CanvasNode = CanvasTextNode | CanvasFileNode | CanvasLinkNode | CanvasGroupNode;
+
+export interface CanvasEdge extends CanvasExtensionFields {
+  id: string;
+  fromNode: string;
+  fromSide?: "top" | "right" | "bottom" | "left";
+  fromEnd?: "none" | "arrow";
+  toNode: string;
+  toSide?: "top" | "right" | "bottom" | "left";
+  toEnd?: "none" | "arrow";
+  color?: CanvasColor;
+  label?: string;
+}
+
+export interface JSONCanvas extends CanvasExtensionFields {
+  nodes?: CanvasNode[];
+  edges?: CanvasEdge[];
+}
+
+export interface CanvasFilePayload {
+  path: string;
+  content: string;
+  exists: boolean;
+}
+
+/**
  * Full task tree for a feature (phases + flat tasks + stats + work sessions).
  *
  * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-DATA]

@@ -102,6 +102,22 @@ This paragraph includes \`packages/configs/src/edge/marketplace/themes/super-lon
     expect(screen.queryByText(/The WHAT/i)?.closest("aside")).not.toBeInTheDocument();
   });
 
+  it("honors single newlines as hard line breaks when breaks is set (free-form surfaces)", () => {
+    const { container } = render(<MinimalMarkdown content={"asdfsadf\nasdf"} breaks />);
+    const paragraph = container.querySelector("p");
+
+    // a <br> splits the two lines instead of a soft-break space joining them
+    expect(paragraph?.querySelector("br")).toBeInTheDocument();
+    expect(paragraph?.textContent).not.toContain("asdfsadf asdf");
+  });
+
+  it("collapses single newlines to a space by default (CommonMark soft break)", () => {
+    const { container } = render(<MinimalMarkdown content={"asdfsadf\nasdf"} />);
+
+    expect(container.querySelector("br")).not.toBeInTheDocument();
+    expect(screen.getByText("asdfsadf asdf")).toBeInTheDocument();
+  });
+
   it("repairs loose table rows so work-session bodies stay inside the table", () => {
     render(
       <MinimalMarkdown

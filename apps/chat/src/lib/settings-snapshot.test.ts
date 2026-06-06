@@ -25,6 +25,7 @@ describe("composeSettingsSnapshot", () => {
         expect.objectContaining({ id: "openai", state: "empty" }),
       ]),
       externalAgents: [expect.objectContaining({ id: "pi", status: "disabled" })],
+      experimental: { canvasEnabled: false, canvasPath: ".afx/project.canvas" },
       diagnostics: { logLevel: "info" },
       telemetry: { enabled: true, vscodeTelemetryEnabled: true, effectiveEnabled: true },
       about: { extensionVersion: "?", bundledPiNpmVersion: "?" },
@@ -99,6 +100,13 @@ describe("composeSettingsSnapshot", () => {
   it("respects the active-file context preference input", () => {
     expect(composeSettingsSnapshot({ includeActiveFileContext: false }).context).toEqual({
       includeActiveFileContext: false,
+    });
+  });
+
+  it("surfaces experimental canvas settings", () => {
+    expect(composeSettingsSnapshot({ canvasEnabled: true }).experimental).toEqual({
+      canvasEnabled: true,
+      canvasPath: ".afx/project.canvas",
     });
   });
 

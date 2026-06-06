@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.8"
+version: "1.9"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T06:20:53.000Z"
+updated_at: "2026-06-05T15:53:53.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models", "intent"]
 depends_on:
@@ -70,6 +70,7 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-11 | Own the Composer Intent settings surface in the Workspace group: expose the current four-slot default, remap slot 4 by active parent mode (`Code` or `PRD`), persist `afx.composer.intent.slot`, persist the `afx.composer.intent.minimized` default, and expose global-default vs workspace-override scope as an either/or radio choice without changing Spec mode behavior                                                                                                                                                                                                                                                                                                                                                                              | Must Have   |
 | FR-12 | Surface a first-run "Connect a model" path at the top of Settings. It guides users to hosted API keys, custom endpoints, or Pi RPC in one or two clicks, focuses the first credential field when possible, and remains navigation-only until Save. Existing provider keys, custom-provider records, bridge payloads, and SecretStorage keys must not change. Skills and command catalogues live in Support inside a collapsed disclosure by default, and include every bundled AFX skill even when the active runtime reports only a partial command list.                                                                                                                                                                                                | Must Have   |
 | FR-13 | Surface the host slow-start threshold in Settings → Runtimes as "Model warm-up timeout" with the effective value, provider/proxy/local first-token copy, and a Configure action for `afx.runtime.responseStartTimeoutMs`. This setting controls the AFX host warning only; it must not change provider keys, custom providers, Ollama URL, or Pi session settings.                                                                                                                                                                                                                                                                                                                                                                                        | Must Have   |
+| FR-14 | Own the **Experimental** settings group — a feature-flag surface for in-progress AFX surfaces. v1 surfaces the Workbench Canvas toggle: a switch bound to `SettingsSnapshot.experimental.canvasEnabled` that sends `experimental/setCanvasEnabled { requestId, enabled }` (optimistic local patch + pending-mutation success/error toast), a read-only canvas-file path field that deep-links the `afx.experimental.canvas` VS Code setting, and an "Open Workbench" action (`chat/openWorkbench`). The canvas feature itself is owned by `229-app-workbench-canvas` [FR-22]; this spec owns only its Settings presentation.                                                                                                                              | Should Have |
 
 ### Non-Functional Requirements
 
@@ -103,6 +104,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Support shows Diagnostics, Privacy, and About before a collapsed Skills & commands disclosure
 - [ ] Skills & commands lists every bundled `afx-*` skill plus runtime-only commands after expansion
 - [ ] Runtimes shows the model warm-up timeout row with a Configure action that opens `afx.runtime.responseStartTimeoutMs`
+- [x] An Experimental group surfaces the Workbench Canvas toggle; flipping it sends `experimental/setCanvasEnabled` and the path field deep-links `afx.experimental.canvas` (canvas feature owned by `229-app-workbench-canvas`)
 
 ---
 

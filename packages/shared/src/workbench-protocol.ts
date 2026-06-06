@@ -9,8 +9,11 @@
  * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-PANEL]
  * @see docs/specs/221-app-workbench-board/spec.md [FR-2]
  * @see docs/specs/224-app-workbench-notes/spec.md [FR-6]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-19]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-API]
  */
 import type {
+  CanvasFilePayload,
   DocumentRow,
   FeatureTasksData,
   GhostTaskResult,
@@ -33,8 +36,11 @@ export type WorkbenchInbound =
       notesRaw?: string;
       notesFilePath?: string;
       ghostTasks?: GhostTaskResult;
+      canvasEnabled?: boolean;
+      canvas?: CanvasFilePayload;
     }
   | { type: "afxDocContent"; filePath: string; content: string }
+  | { type: "afxMarkdownFilePicked"; filePath: string }
   | { type: "afxPreviewShow"; filePath: string; content: string; isAfxHint?: boolean }
   | { type: "afxAppearanceUpdated"; appearanceClass: string }
   | { type: "afxTelemetryUpdated"; enabled: boolean };
@@ -46,6 +52,7 @@ export type WorkbenchOutbound =
   | { type: "afxOpenChatCommand"; command: string; mode: "insert" | "send" }
   | { type: "afxCopyMarkdown"; content: string; label?: string }
   | { type: "afxFetchDocContent"; filePath: string }
+  | { type: "afxPickMarkdownFile" }
   | { type: "afxSelectFeature"; name: string }
   | { type: "afxChangeStatus"; filePath: string; status: string }
   | { type: "afxToggleTask"; path: string; line: number; completed: boolean }

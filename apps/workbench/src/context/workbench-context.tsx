@@ -8,6 +8,7 @@
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useReducer } from "react";
 
 import type {
+  CanvasFilePayload,
   DocumentRow,
   FeatureTasksData,
   GhostTaskResult,
@@ -32,6 +33,8 @@ export interface WorkbenchState {
   notesRaw: string;
   notesFilePath: string;
   ghostTasks: GhostTaskResult;
+  canvasEnabled: boolean;
+  canvas?: CanvasFilePayload;
   selectedFeature: string | null;
   isLoading: boolean;
 }
@@ -48,6 +51,8 @@ const INITIAL_STATE: WorkbenchState = {
   notesRaw: "",
   notesFilePath: "",
   ghostTasks: EMPTY_GHOST,
+  canvasEnabled: false,
+  canvas: undefined,
   selectedFeature: null,
   isLoading: true,
 };
@@ -81,6 +86,12 @@ function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         notesRaw: p.notesRaw ?? state.notesRaw,
         notesFilePath: p.notesFilePath ?? state.notesFilePath,
         ghostTasks: p.ghostTasks ?? state.ghostTasks,
+        // Canvas experiment fields: flag gate + raw .afx/project.canvas payload.
+        // canvas is cleared when the host reports the flag off.
+        // @see docs/specs/229-app-workbench-canvas/spec.md [FR-12] [FR-19]
+        // @see docs/specs/229-app-workbench-canvas/design.md [DES-DATA] [DES-API]
+        canvasEnabled: p.canvasEnabled ?? state.canvasEnabled,
+        canvas: p.canvasEnabled === false ? undefined : (p.canvas ?? state.canvas),
         selectedFeature,
         isLoading: false,
       };

@@ -158,6 +158,11 @@
           "default": false,
           "description": "Show streaming performance diagnostics in the chat status bar."
         },
+        "afx.experimental.canvas": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable the experimental Workbench JSON Canvas tab backed by .afx/project.canvas."
+        },
         "afx.theme": {
           "type": "string",
           "enum": [

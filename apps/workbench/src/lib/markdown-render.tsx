@@ -20,6 +20,7 @@ import {
 } from "react";
 
 import ReactMarkdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
 import { slugify } from "./document-outline";
@@ -890,6 +891,7 @@ function createComponents(
 export function MinimalMarkdown({
   content,
   hideTitle = false,
+  breaks = false,
   density = "default",
   scale,
   sourceLineOffset = 0,
@@ -898,6 +900,13 @@ export function MinimalMarkdown({
 }: {
   content: string;
   hideTitle?: boolean;
+  /**
+   * Treat a single newline as a hard line break (remark-breaks), instead of the
+   * CommonMark soft break that collapses to a space. Opt-in for free-form surfaces
+   * like canvas text/notes; leave off for real markdown docs where authors rely on
+   * paragraph spacing and hard-wrapped lines flowing together.
+   */
+  breaks?: boolean;
   /** `"relaxed"` gives a warmer, paper-like reading rhythm (looser leading). */
   density?: "default" | "relaxed";
   /** Body text size step (reading preview only). Overrides the density base size. */
@@ -940,7 +949,11 @@ export function MinimalMarkdown({
       className={`min-w-0 max-w-full overflow-hidden text-foreground [overflow-wrap:anywhere] ${sizeClass} ${leadingClass}`}
     >
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkTidyThematicBreaks]}
+        remarkPlugins={
+          breaks
+            ? [remarkGfm, remarkBreaks, remarkTidyThematicBreaks]
+            : [remarkGfm, remarkTidyThematicBreaks]
+        }
         components={markdownComponents}
       >
         {cleaned}

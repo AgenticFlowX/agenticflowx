@@ -24,6 +24,7 @@ import { isInVsCodeWebview } from "./lib/bridge";
 import { MOCK_WORKBENCH_STATE } from "./lib/mock-data";
 import Analytics from "./views/analytics";
 import Board from "./views/board";
+import Canvas from "./views/canvas";
 import Documents from "./views/documents";
 import Journal from "./views/journal";
 import Notes from "./views/notes";
@@ -57,7 +58,7 @@ export default function App() {
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-MOCKUP] [DES-SHELL-TABS]
  */
 function WorkbenchShell() {
-  const { isLoading } = useWorkbench();
+  const { canvasEnabled, isLoading } = useWorkbench();
 
   if (isLoading) {
     return (
@@ -93,6 +94,14 @@ function WorkbenchShell() {
           <WorkbenchTabTrigger value="journal" icon={BookOpen} label="Journal" />
           <WorkbenchTabTrigger value="board" icon={LayoutDashboard} label="Board" />
           <WorkbenchTabTrigger value="notes" icon={NotepadText} label="Notes" />
+          {/*
+            Canvas tab is gated behind afx.experimental.canvas (canvasEnabled).
+            @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2]
+            @see docs/specs/229-app-workbench-canvas/design.md [DES-UI]
+          */}
+          {canvasEnabled ? (
+            <WorkbenchTabTrigger value="canvas" icon={LayoutDashboard} label="Canvas" />
+          ) : null}
         </TabsList>
         {/* @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS] */}
         <TabsContent value="workbench" className="flex-1 overflow-hidden">
@@ -122,6 +131,11 @@ function WorkbenchShell() {
         <TabsContent value="notes" className="flex-1 overflow-hidden">
           <Notes />
         </TabsContent>
+        {canvasEnabled ? (
+          <TabsContent value="canvas" className="flex-1 overflow-hidden">
+            <Canvas />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

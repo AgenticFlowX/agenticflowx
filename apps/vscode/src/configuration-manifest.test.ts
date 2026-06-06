@@ -5,6 +5,7 @@
  * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  * @see docs/specs/214-app-chat-settings/spec.md [FR-13]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1]
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -62,5 +63,18 @@ describe("extension configuration manifest", () => {
       maximum: 600_000,
     });
     expect(setting.description).toContain("first model response");
+  });
+
+  it("contributes the experimental canvas setting disabled by default", () => {
+    const setting = readManifest().contributes.configuration.properties["afx.experimental.canvas"];
+
+    expect(setting, "afx.experimental.canvas must be contributed").toBeDefined();
+    if (!setting) return;
+
+    expect(setting).toMatchObject({
+      type: "boolean",
+      default: false,
+    });
+    expect(setting.description).toContain("JSON Canvas");
   });
 });

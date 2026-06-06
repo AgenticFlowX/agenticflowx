@@ -336,6 +336,29 @@ export const LOOK = {
     "VS Code chrome colors come from your editor theme. These controls only affect the chat panel surfaces.",
 } as const;
 
+// ─── Experimental group ─────────────────────────────────────────────────────
+
+/**
+ * Experimental-group copy (Workbench Canvas toggle, path field, Open Workbench).
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-22]
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-SETTINGS]
+ * @see docs/specs/214-app-chat-settings/spec.md [FR-14]
+ */
+export const EXPERIMENTAL = {
+  groupTitle: "Experimental",
+  groupDescription: "Feature flags for in-progress AFX surfaces.",
+
+  canvasLabel: "Workbench Canvas",
+  canvasDescription:
+    "Show the Canvas tab in Workbench. Stores a JSON Canvas file at .afx/project.canvas.",
+  canvasTooltip:
+    "Experimental JSON Canvas workspace map for specs, notes, ADRs, markdown files, and architecture thinking. Setting key: afx.experimental.canvas.",
+  canvasPathLabel: "Canvas file",
+  canvasPathHint:
+    "Created on first save. The file stays plain JSON Canvas so other tools can read it.",
+  openWorkbenchLabel: "Open Workbench",
+} as const;
+
 // ─── Support group ────────────────────────────────────────────────────────────
 
 export const SUPPORT = {

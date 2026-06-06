@@ -132,6 +132,7 @@ describe("sidebar-panel host bridge", () => {
       "mode.active": "code",
       "composer.intent.slot": 1,
       "composer.intent.minimized": false,
+      "experimental.canvas": false,
       style: "lyra",
       "telemetry.enabled": true,
       theme: "meridian",
@@ -652,6 +653,33 @@ describe("sidebar-panel host bridge", () => {
         requestId: "telemetry-off",
         snapshot: expect.objectContaining({
           telemetry: expect.objectContaining({ enabled: false, effectiveEnabled: false }),
+        }),
+      }),
+    );
+  });
+
+  it("experimental/setCanvasEnabled persists the Workbench canvas setting", async () => {
+    const { update } = mockAfxConfiguration({ "experimental.canvas": false });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({
+      type: "experimental/setCanvasEnabled",
+      requestId: "canvas-on",
+      enabled: true,
+    });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "experimental.canvas",
+      true,
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "canvas-on",
+        snapshot: expect.objectContaining({
+          experimental: { canvasEnabled: true, canvasPath: ".afx/project.canvas" },
         }),
       }),
     );
@@ -2268,7 +2296,7 @@ describe("sidebar-panel host bridge", () => {
     let prompt = (vi.mocked(agent.send).mock.calls[0] as [string] | undefined)?.[0] ?? "";
     expect(prompt).toBe("hello");
 
-    mockAfxConfiguration({ "mode.active": "spec" });
+    mockAfxConfiguration({ "mode.active": "spec", "experimental.canvas": true });
     const { inbound: specInbound } = setupWithView();
     specInbound.fire({
       type: "chat/send",
@@ -2882,7 +2910,7 @@ describe("sidebar-panel host bridge", () => {
   });
 
   it("includes onboarding flags in the settings snapshot from workspaceState", async () => {
-    mockAfxConfiguration({ "mode.active": "spec" });
+    mockAfxConfiguration({ "mode.active": "spec", "experimental.canvas": true });
     const stored = new Map<string, unknown>([
       ["afx.specModeOfferDismissed", true],
       ["afx.specModeTooltipSeen", false],
@@ -2914,12 +2942,22 @@ describe("sidebar-panel host bridge", () => {
 
     const postMessage = view.webview.postMessage as ReturnType<typeof vi.fn>;
     const snapshotCall = postMessage.mock.calls
-      .map(([m]) => m as { type?: string; snapshot?: { onboarding?: unknown } })
+      .map(
+        ([m]) =>
+          m as {
+            type?: string;
+            snapshot?: { experimental?: unknown; onboarding?: unknown };
+          },
+      )
       .find((m) => m.type === "agent/settingsSnapshot");
     expect(snapshotCall?.snapshot?.onboarding).toEqual({
       specModeOfferDismissed: true,
       specModeTooltipSeen: false,
       docActionsTooltipSeen: true,
+    });
+    expect(snapshotCall?.snapshot?.experimental).toEqual({
+      canvasEnabled: true,
+      canvasPath: ".afx/project.canvas",
     });
   });
 

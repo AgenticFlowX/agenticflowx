@@ -5,6 +5,7 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-4] [FR-6]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1]
  */
 import * as assert from "node:assert";
 import * as fs from "node:fs";
@@ -66,6 +67,27 @@ suite("AFX Extension — activation", () => {
     const config = vscode.workspace.getConfiguration("afx");
     assert.strictEqual(config.get("theme"), config.get("theme")); // accessor works
     assert.ok(["meridian", "lyra"].includes(config.get<string>("theme") ?? "meridian"));
+  });
+
+  test("afx.experimental.canvas defaults false and can be updated", async () => {
+    const config = vscode.workspace.getConfiguration("afx");
+    const originalWorkspaceValue = config.inspect<boolean>("experimental.canvas")?.workspaceValue;
+    const readCanvasEnabled = () =>
+      vscode.workspace.getConfiguration("afx").get<boolean>("experimental.canvas");
+
+    try {
+      await config.update("experimental.canvas", undefined, vscode.ConfigurationTarget.Workspace);
+      assert.strictEqual(readCanvasEnabled(), false);
+
+      await config.update("experimental.canvas", true, vscode.ConfigurationTarget.Workspace);
+      assert.strictEqual(readCanvasEnabled(), true);
+    } finally {
+      await config.update(
+        "experimental.canvas",
+        originalWorkspaceValue,
+        vscode.ConfigurationTarget.Workspace,
+      );
+    }
   });
 });
 
