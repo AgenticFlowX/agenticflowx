@@ -2,6 +2,25 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.3.0] - 2026-06-06
+
+### Added
+
+- **Workbench Canvas (experimental)** — a new freeform JSON Canvas ideation tab in the Workbench, off by default behind the `afx.experimental.canvas` setting. Drop text/note/label/group/file nodes, link and arrange them, render inline markdown, and send a card to chat; state persists as a single portable `.afx/project.canvas` file that round-trips with other JSON Canvas tools.
+- **Chat history** — persistent chat session history, so previous conversations are saved and can be reopened.
+- **Subscription sign-in and model picker** — added subscription sign-in and a segmented model picker for selecting models.
+
+### Changed
+
+- **Security gates** — refreshed CodeQL scanning and dependency-review gates.
+- **Provider catalog** — aligned the provider and model catalog with Pi runtime defaults.
+- **Extension bundle** — removed the Pi registry from the shipped extension bundle for a smaller package.
+
+### Fixed
+
+- **Explore mode** — relaxed read-only guardrails so repo and web inspection work more reliably, while writes and mutating commands stay blocked.
+- **Custom model image input** — made the custom-model image input read-only.
+
 ## [2.2.1] - 2026-05-24
 
 ### Changed
