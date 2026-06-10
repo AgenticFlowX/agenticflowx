@@ -171,7 +171,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # full history for diff scan
-      - uses: gitleaks/gitleaks-action@v2
+      - uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # GITLEAKS_LICENSE only required for org-owned private repos with > $25/seat plan.
