@@ -113,7 +113,7 @@
     "markdownlint-cli2": "^0.22.1",
     "prettier": "^3.5.3",
     "size-limit": "^12.1.0",
-    "syncpack": "14.3.1",
+    "syncpack": "15.3.2",
     "turbo": "2.9.16",
     "typescript": "^5.7.2",
     "typescript-eslint": "^8.60.1",
