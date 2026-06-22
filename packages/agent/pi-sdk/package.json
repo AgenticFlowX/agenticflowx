@@ -18,15 +18,15 @@
   "dependencies": {
     "@afx/agent-pi": "workspace:*",
     "@afx/shared": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.78.1",
-    "@earendil-works/pi-ai": "0.78.1",
-    "@earendil-works/pi-coding-agent": "0.78.1",
-    "@earendil-works/pi-tui": "0.78.1"
+    "@earendil-works/pi-agent-core": "0.79.10",
+    "@earendil-works/pi-ai": "0.79.10",
+    "@earendil-works/pi-coding-agent": "0.79.10",
+    "@earendil-works/pi-tui": "0.79.10"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "typescript": "^5.7.2",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
