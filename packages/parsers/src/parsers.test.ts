@@ -26,6 +26,31 @@ describe("parseFrontmatter", () => {
     expect(result.content).toBe("No frontmatter here.");
   });
 
+  it("extracts nested YAML frontmatter", () => {
+    const raw = [
+      "---",
+      "type: SPRINT",
+      "approval:",
+      "  state: approved",
+      "  approvers:",
+      "    - '@rixrix'",
+      "---",
+      "",
+      "Body text.",
+    ].join("\n");
+
+    const result = parseFrontmatter(raw);
+
+    expect(result.data).toMatchObject({
+      type: "SPRINT",
+      approval: {
+        state: "approved",
+        approvers: ["@rixrix"],
+      },
+    });
+    expect(result.content.trim()).toBe("Body text.");
+  });
+
   it("recovers simple malformed frontmatter and body content", () => {
     const raw = `---
 afx: true

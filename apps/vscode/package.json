@@ -677,18 +677,18 @@
     "package": "pnpm vsce package --out ../../bin/ --no-dependencies"
   },
   "dependencies": {
-    "@afx/shared": "workspace:*",
-    "@afx/parsers": "workspace:*",
     "@afx/agent-pi": "workspace:*",
     "@afx/agent-pi-sdk": "workspace:*",
-    "@types/vscode": "^1.120.0"
+    "@afx/parsers": "workspace:*",
+    "@afx/shared": "workspace:*",
+    "@types/vscode": "^1.125.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.2",
+    "@types/node": "^25.9.4",
+    "@vitest/coverage-v8": "^4.1.9",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.28.0",
-    "typescript": "^5.7.2",
-    "vitest": "^4.1.8",
-    "@vitest/coverage-v8": "^4.1.8"
+    "esbuild": "^0.28.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.9"
   }
 }

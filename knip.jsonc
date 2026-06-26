@@ -1,0 +1,32 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "ignore": [
+    "apps/workbench/src/components/coming-soon.tsx",
+    "apps/workbench/src/lib/documents.ts",
+    "apps/workbench/src/lib/pipeline.ts",
+  ],
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    "apps/chat": {
+      "ignoreDependencies": ["tailwindcss"],
+    },
+    "apps/workbench": {
+      "ignoreDependencies": ["tailwindcss", "react-resizable-panels"],
+    },
+    "apps/vscode-e2e": {
+      "entry": [".vscode-test.mjs", "src/**/*.test.ts"],
+      // This ignores only the imported module named `vscode`, not the apps/vscode workspace.
+      // The module is provided by the VS Code extension host during @vscode/test-electron runs.
+      "ignoreDependencies": ["@vscode/test-electron", "vscode"],
+    },
+    "packages/ui": {
+      "ignoreDependencies": [],
+    },
+    "packages/transport": {
+      "ignoreDependencies": [],
+    },
+    "packages/agent/pi-sdk": {
+      "ignoreDependencies": ["@earendil-works/pi-agent-core", "@earendil-works/pi-tui"],
+    },
+  },
+}

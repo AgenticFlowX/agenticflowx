@@ -1,10 +1,10 @@
 /**
- * Generic frontmatter parser using gray-matter.
+ * Generic frontmatter parser using js-yaml.
  *
  * @see docs/specs/120-package-parsers/spec.md [FR-1]
  * @see docs/specs/120-package-parsers/design.md [DES-PARSERS-FRONTMATTER]
  */
-import matter from "gray-matter";
+import { load } from "js-yaml";
 
 export interface FrontmatterResult<T = Record<string, unknown>> {
   data: T;
@@ -12,13 +12,23 @@ export interface FrontmatterResult<T = Record<string, unknown>> {
 }
 
 export function parseFrontmatter<T = Record<string, unknown>>(raw: string): FrontmatterResult<T> {
+  const parsed = readOpeningFrontmatter(raw);
+  if (!parsed) return { data: {} as T, content: raw };
+
   try {
-    const { data, content } = matter(raw);
-    return { data: data as T, content };
+    return {
+      data: normalizeFrontmatterData(load(parsed.frontmatter)) as T,
+      content: parsed.content,
+    };
   } catch {
     const fallback = parseFallbackFrontmatter(raw);
     return { data: fallback.data as T, content: fallback.content };
   }
+}
+
+function normalizeFrontmatterData(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Record<string, unknown>;
 }
 
 function parseFallbackFrontmatter(raw: string): FrontmatterResult {
