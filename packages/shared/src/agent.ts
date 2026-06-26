@@ -77,6 +77,15 @@ export interface AgentCommand {
   name: string;
   description?: string;
   source: "extension" | "prompt" | "skill";
+  sourceInfo?: AgentCommandSourceInfo;
+}
+
+export interface AgentCommandSourceInfo {
+  path: string;
+  source: string;
+  scope: "user" | "project" | "temporary" | (string & {});
+  origin: "package" | "top-level" | (string & {});
+  baseDir?: string;
 }
 
 export interface AgentAction {
@@ -113,6 +122,7 @@ export interface CompactionResult {
   summary: string;
   firstKeptEntryId: string;
   tokensBefore: number;
+  estimatedTokensAfter?: number;
 }
 
 export type CompactionReason = "manual" | "overflow" | "threshold" | (string & {});

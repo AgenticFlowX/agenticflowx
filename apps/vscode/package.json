@@ -102,6 +102,37 @@
           "default": "",
           "description": "Directory for persisted agent sessions. Leave empty to use extension-managed storage."
         },
+        "afx.skills.extraPaths": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional Pi Agent Skills files or directories to load. Paths may be absolute, ~/ based, or workspace-relative."
+        },
+        "afx.pi.projectTrust": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "trust",
+            "ignore"
+          ],
+          "default": "ask",
+          "description": "AFX-owned project trust decision for Pi project-local settings, skills, extensions, and packages. Ask ignores project resources until trusted from the AFX UI."
+        },
+        "afx.pi.excludedTools": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Comma-free list of Pi tool names to disable via --exclude-tools."
+        },
+        "afx.network.httpProxy": {
+          "type": "string",
+          "default": "",
+          "description": "HTTP proxy URL passed as HTTP_PROXY and HTTPS_PROXY to AFX-spawned Pi runtimes."
+        },
         "afx.sdk.enabled": {
           "type": "boolean",
           "default": true,

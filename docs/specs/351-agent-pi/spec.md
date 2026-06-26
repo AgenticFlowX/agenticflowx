@@ -3,10 +3,10 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.1"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T08:05:29.000Z"
-tags: ["agent", "pi", "rpc", "sdk", "custom-providers"]
+updated_at: "2026-06-26T12:50:19.000Z"
+tags: ["agent", "pi", "rpc", "sdk", "custom-providers", "skills", "project-trust"]
 depends_on: ["100-package-shared", "300-infra-pi", "350-agent-manager"]
 ---
 
@@ -47,14 +47,17 @@ Developers maintaining the Pi adapter and host runtime integration.
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                                                                                                                                                                                                                                                                                           | Priority    |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
-| FR-1 | Own Pi RPC client/manager behavior, JSONL framing, subprocess lifecycle, and lazy startup                                                                                                                                                                                                                                                             | Must Have   |
-| FR-2 | Own Pi SDK bundle/bootstrap behavior and config injection from the VSCode host                                                                                                                                                                                                                                                                        | Must Have   |
-| FR-3 | Own Pi skills sync and adapter-specific capability/model behavior                                                                                                                                                                                                                                                                                     | Must Have   |
-| FR-4 | Implement the `350-agent-manager` contract without importing VSCode APIs from adapter packages                                                                                                                                                                                                                                                        | Must Have   |
-| FR-5 | When the host sets `AFX_CUSTOM_PROVIDERS_JSON`, the Pi SDK bootstrap parses the envelope, builds an empty `ModelRegistry`, calls `registerProvider(...)` for each AFX-managed canonical record, and starts the runtime via `createAgentSessionRuntime({ modelRegistry })` followed by `runRpcMode(runtime)` — bypassing the default `main(args)` path | Should Have |
-| FR-6 | When `AFX_CUSTOM_PROVIDERS_JSON` is unset, the Pi SDK bootstrap falls through to `main(args)` with current behaviour. AFX never overrides `PI_CODING_AGENT_DIR` for custom-providers purposes; existing session-dir handling stays put                                                                                                                | Must Have   |
+| ID   | Requirement                                                                                                                                                                                                                                                                                                                                                         | Priority    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1 | Own Pi RPC client/manager behavior, JSONL framing, subprocess lifecycle, and lazy startup                                                                                                                                                                                                                                                                           | Must Have   |
+| FR-2 | Own Pi SDK bundle/bootstrap behavior, Pi 0.80.x entrypoint compatibility, and config injection from the VSCode host                                                                                                                                                                                                                                                 | Must Have   |
+| FR-3 | Own Pi skills sync, bundled AFX skill loading, custom skill path loading, and adapter-specific capability/model behavior                                                                                                                                                                                                                                            | Must Have   |
+| FR-4 | Implement the `350-agent-manager` contract without importing VSCode APIs from adapter packages                                                                                                                                                                                                                                                                      | Must Have   |
+| FR-5 | When the host sets `AFX_CUSTOM_PROVIDERS_JSON`, the Pi SDK bootstrap installs an extension factory that calls `pi.registerProvider(...)` for each AFX-managed canonical record before delegating to Pi `main(...)`; provider override factories apply env-key/base-URL overrides for built-in subscription providers without exposing secret values in process args | Should Have |
+| FR-6 | When `AFX_CUSTOM_PROVIDERS_JSON` and `AFX_PROVIDER_OVERRIDES_JSON` are unset, the Pi SDK bootstrap delegates to `main(args)` with current behaviour. AFX never writes Pi's global `auth.json`, `trust.json`, or `models.json` from the SDK path; existing session-dir handling stays put                                                                            | Must Have   |
+| FR-7 | Own Pi 0.80.2 compatibility surfaces: package pins, Node `>=22.19.0` runtime floor, `@earendil-works/pi-ai/api/*` bootstrap assets, provider-scoped auth/env compatibility, command `sourceInfo`, and compaction `estimatedTokensAfter` / `reason` / `willRetry` metadata normalization for both external Pi RPC and bundled SDK runtimes                           | Must Have   |
+| FR-8 | Own Pi project-local resource controls from the AFX host: `afx.pi.projectTrust` maps to `--approve` / `--no-approve`, unresolved `ask` starts with project resources ignored when workspace Pi resources exist, and AFX persists only its workspace setting rather than Pi global trust state                                                                       | Must Have   |
+| FR-9 | Own Pi runtime knobs that are surfaced by Settings but consumed by Pi startup: `afx.skills.extraPaths` becomes additional `--skill` args, `afx.pi.excludedTools` becomes `--exclude-tools`, and `afx.network.httpProxy` becomes `HTTP_PROXY` / `HTTPS_PROXY` in spawned runtime env                                                                                 | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -73,10 +76,13 @@ Developers maintaining the Pi adapter and host runtime integration.
 
 - [ ] Pi adapter and SDK files route to this spec
 - [ ] Runtime manager files route to `350-agent-manager`
-- [ ] `300-infra-pi` content is treated as migration source until fully superseded
-- [ ] Pi SDK bootstrap branches on `AFX_CUSTOM_PROVIDERS_JSON` env var: with envelope present, runs through the SDK API; without envelope, runs through `main(args)` unchanged
+- [ ] `300-infra-pi` remains reference material for shared Pi context while this spec owns Pi adapter behavior
+- [ ] Pi SDK bootstrap reads `AFX_CUSTOM_PROVIDERS_JSON`: with an envelope present, installs a provider extension factory before delegating to Pi `main(...)`; without an envelope, delegates to `main(args)` with no custom-provider factory
 - [ ] The Pi SDK custom-providers adapter (`packages/agent/pi-sdk/src/custom-providers-adapter.ts`) implements the harness-agnostic `HarnessAdapter` contract from `100-package-shared` per `[ADR-0008]`
 - [ ] `~/.pi/agent/models.json` is read only for the Pi RPC track read-only display in `214-app-chat-settings`; AFX never writes it from any code path
+- [ ] Pi RPC and Pi SDK startup args include bundled AFX skills, configured custom skill paths, project trust choice, excluded tools, proxy env, and only the host overlay markdown as an appended system prompt
+- [ ] Pi SDK bundled assets include the Pi 0.80 Bedrock API implementation under `resources/pi-sdk/api/bedrock-converse-stream.js`
+- [ ] Pi command provenance (`sourceInfo`) and compaction metadata (`estimatedTokensAfter`, `reason`, `willRetry`) survive adapter normalization into shared contracts
 
 ---
 
@@ -85,6 +91,8 @@ Developers maintaining the Pi adapter and host runtime integration.
 - Generic runtime selection policy
 - Chat/webview settings UI
 - Non-Pi agent adapters
+- Writing Pi global `trust.json`, `auth.json`, or `~/.pi/agent/models.json`
+- Exposing Pi CLI `--session-id` or `--name` as first-class AFX controls
 
 ---
 
@@ -100,7 +108,7 @@ Developers maintaining the Pi adapter and host runtime integration.
 
 - `350-agent-manager`
 - `100-package-shared`
-- `300-infra-pi` during migration
+- `300-infra-pi`
 
 ---
 
@@ -110,11 +118,11 @@ Developers maintaining the Pi adapter and host runtime integration.
 
 | Field           | Values                                                                                                                                                                                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Pi adapter, RPC transport, SDK bundle/bootstrap, Pi skills sync                                                                                                                                             |
+| Owned surface   | Pi adapter, RPC transport, SDK bundle/bootstrap, Pi skills sync, Pi 0.80 runtime startup args                                                                                                               |
 | Owned files     | `packages/agent/pi/src/`, `packages/agent/pi-sdk/src/`, `apps/vscode/src/pi-sdk-bundle.test.ts`, `apps/vscode/src/session-dir.ts`, `apps/vscode/src/secret-store.ts`, `apps/vscode/scripts/sync-skills.mjs` |
 | Local anchors   | RPC client/manager factories, JSONL frame handlers, SDK path/bootstrap helpers, skills sync functions, secret/session helpers                                                                               |
 | Bridge messages | Pi/runtime status payloads via `350-agent-manager`                                                                                                                                                          |
-| Settings keys   | Pi SDK/runtime/provider/secret settings injected by host                                                                                                                                                    |
+| Settings keys   | `afx.skills.extraPaths`, `afx.pi.projectTrust`, `afx.pi.excludedTools`, `afx.network.httpProxy`, Pi SDK/runtime/provider/secret settings injected by host                                                   |
 | Commands        | Pi runtime bootstrap/sync commands if introduced                                                                                                                                                            |
 | Tests           | Pi RPC manager/client tests, SDK bundle tests, secret/session tests                                                                                                                                         |
 | Dependencies    | `350-agent-manager`, `214-app-chat-settings`                                                                                                                                                                |

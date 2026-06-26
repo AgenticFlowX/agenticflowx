@@ -112,8 +112,15 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     const args = [
       ...(!opts.ephemeral && opts.sessionDir ? ["--session-dir", opts.sessionDir] : []),
       ...(opts.ephemeral ? ["--no-session"] : []),
+      ...(opts.projectTrust === "trust"
+        ? ["--approve"]
+        : opts.projectTrust === "ignore"
+          ? ["--no-approve"]
+          : []),
+      ...(opts.excludedTools && opts.excludedTools.length > 0
+        ? ["--exclude-tools", opts.excludedTools.join(",")]
+        : []),
       ...(opts.additionalSkillPaths?.flatMap((p) => ["--skill", p]) ?? []),
-      ...(opts.defaultConfigPath ? ["--append-system-prompt", opts.defaultConfigPath] : []),
       ...(opts.additionalSystemPromptPaths?.flatMap((p) => ["--append-system-prompt", p]) ?? []),
     ];
     const env = buildBootstrapEnv({
@@ -417,6 +424,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       summary?: unknown;
       firstKeptEntryId?: unknown;
       tokensBefore?: unknown;
+      estimatedTokensAfter?: unknown;
     } | null>(client, {
       type: "compact",
       ...(customInstructions ? { customInstructions } : {}),
@@ -426,6 +434,10 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       firstKeptEntryId:
         typeof response?.firstKeptEntryId === "string" ? response.firstKeptEntryId : "",
       tokensBefore: typeof response?.tokensBefore === "number" ? response.tokensBefore : 0,
+      estimatedTokensAfter:
+        typeof response?.estimatedTokensAfter === "number"
+          ? response.estimatedTokensAfter
+          : undefined,
     };
   }
 
@@ -749,11 +761,14 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       summary?: unknown;
       firstKeptEntryId?: unknown;
       tokensBefore?: unknown;
+      estimatedTokensAfter?: unknown;
     };
     return {
       summary: typeof raw.summary === "string" ? raw.summary : "",
       firstKeptEntryId: typeof raw.firstKeptEntryId === "string" ? raw.firstKeptEntryId : "",
       tokensBefore: typeof raw.tokensBefore === "number" ? raw.tokensBefore : 0,
+      estimatedTokensAfter:
+        typeof raw.estimatedTokensAfter === "number" ? raw.estimatedTokensAfter : undefined,
     };
   }
 
@@ -1333,13 +1348,45 @@ function normalizeModelCost(value: unknown): AgentModel["cost"] {
 
 function normalizeCommand(value: unknown): AgentCommand | null {
   if (!value || typeof value !== "object") return null;
-  const raw = value as { name?: unknown; description?: unknown; source?: unknown };
+  const raw = value as {
+    name?: unknown;
+    description?: unknown;
+    source?: unknown;
+    sourceInfo?: unknown;
+  };
   if (typeof raw.name !== "string") return null;
   if (raw.source !== "extension" && raw.source !== "prompt" && raw.source !== "skill") return null;
   return {
     name: raw.name,
     description: typeof raw.description === "string" ? raw.description : undefined,
     source: raw.source,
+    sourceInfo: normalizeCommandSourceInfo(raw.sourceInfo),
+  };
+}
+
+function normalizeCommandSourceInfo(value: unknown): AgentCommand["sourceInfo"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as {
+    path?: unknown;
+    source?: unknown;
+    scope?: unknown;
+    origin?: unknown;
+    baseDir?: unknown;
+  };
+  if (
+    typeof raw.path !== "string" ||
+    typeof raw.source !== "string" ||
+    typeof raw.scope !== "string" ||
+    typeof raw.origin !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    path: raw.path,
+    source: raw.source,
+    scope: raw.scope,
+    origin: raw.origin,
+    baseDir: typeof raw.baseDir === "string" ? raw.baseDir : undefined,
   };
 }
 

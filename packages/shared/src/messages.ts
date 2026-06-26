@@ -133,6 +133,8 @@ export interface ChatCompactionView {
   summary: string;
   /** Token count of the messages that were removed. */
   tokensBefore: number;
+  /** Pi 0.80+ approximate token count after compaction. */
+  estimatedTokensAfter?: number;
   createdAt: number;
 }
 
@@ -447,6 +449,34 @@ export interface SettingsExperimentalSnapshot {
   canvasPath: string;
 }
 
+export type SettingsProjectTrust = "ask" | "trust" | "ignore";
+export type SettingsOpenTarget =
+  | "connect"
+  | "hosted-key"
+  | "custom-provider"
+  | "runtimes"
+  | "skills";
+
+export interface SettingsSkillPathSnapshot {
+  kind: "afx" | "global" | "workspace" | "custom";
+  label: string;
+  path: string;
+  exists: boolean;
+  trusted?: boolean;
+}
+
+export interface SettingsSkillsSnapshot {
+  bundledSkillsPath: string;
+  bundledSkillCount: number;
+  globalPaths: SettingsSkillPathSnapshot[];
+  workspacePaths: SettingsSkillPathSnapshot[];
+  customPaths: SettingsSkillPathSnapshot[];
+  projectTrust: SettingsProjectTrust;
+  effectiveProjectTrust: "trust" | "ignore" | "none";
+  excludedTools: string[];
+  httpProxy: string;
+}
+
 /**
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-2] [FR-5] [FR-6] [FR-8] [FR-13]
  * @see docs/specs/214-app-chat-settings/design.md [DES-DATA] [DES-API] [DES-SETTINGS-SURFACE-CONTEXT] [DES-SETTINGS-CUSTOM-MODELS]
@@ -489,6 +519,7 @@ export interface SettingsSnapshot {
    */
   customModels?: SettingsCustomModelsSnapshot;
   experimental?: SettingsExperimentalSnapshot;
+  skills?: SettingsSkillsSnapshot;
   diagnostics: { logLevel: string };
   telemetry: {
     enabled: boolean;
@@ -676,6 +707,16 @@ export type ChatToAgent =
    */
   | { type: "chat/getSettingsSnapshot"; requestId: string }
   /**
+   * Settings Skills surface host actions.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
+   */
+  | { type: "skills/openPath"; requestId: string; path: string }
+  | { type: "skills/revealPath"; requestId: string; path: string }
+  | { type: "skills/create"; requestId: string }
+  | { type: "skills/setProjectTrust"; requestId: string; value: SettingsProjectTrust }
+  /**
    * Composer and Settings mirror the active-file context default through the host.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-11]
@@ -764,6 +805,10 @@ export type ChatToAgent =
         | "afx.sdk.defaultModel"
         | "afx.model.defaultSelection"
         | "afx.sdk.ollamaBaseUrl"
+        | "afx.skills.extraPaths"
+        | "afx.pi.projectTrust"
+        | "afx.pi.excludedTools"
+        | "afx.network.httpProxy"
         | "afx.runtime.responseStartTimeoutMs"
         | "afx.debugPerf"
         | "afx.logLevel"
@@ -1072,6 +1117,13 @@ export type AgentToChat =
       messages: ChatTimelineItem[];
       tools: ChatToolView[];
     }
+  /**
+   * Ask the app shell to focus Settings and scroll to a specific setup surface.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [FR-12]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-ONBOARDING] [DES-SETTINGS-SURFACE-SKILLS]
+   */
+  | { type: "settings/openTarget"; target: SettingsOpenTarget }
   /**
    * Append text into the chat composer draft (no send).
    * Used by host-side editor actions such as "Add to Context".

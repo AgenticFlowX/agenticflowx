@@ -61,7 +61,14 @@ type TimelineEvent =
   | { id: string; kind: "error"; message: ChatMessageView }
   | { id: string; kind: "info"; message: ChatMessageView }
   | { id: string; kind: "tool"; tool: ChatToolView; createdAt: number }
-  | { id: string; kind: "compaction"; summary: string; tokensBefore: number; createdAt: number }
+  | {
+      id: string;
+      kind: "compaction";
+      summary: string;
+      tokensBefore: number;
+      estimatedTokensAfter?: number;
+      createdAt: number;
+    }
   | { id: string; kind: "note"; content: string; savedAt: number }
   | {
       id: string;
@@ -149,6 +156,7 @@ export const ConversationTimeline = memo(function ConversationTimeline({
         id: string;
         summary: string;
         tokensBefore: number;
+        estimatedTokensAfter?: number;
         createdAt: number;
       };
       events.push({
@@ -156,6 +164,7 @@ export const ConversationTimeline = memo(function ConversationTimeline({
         kind: "compaction",
         summary: msg.summary,
         tokensBefore: msg.tokensBefore,
+        estimatedTokensAfter: msg.estimatedTokensAfter,
         createdAt: msg.createdAt,
       });
       continue;
@@ -940,7 +949,13 @@ function EventBody({
     );
   }
   if (event.kind === "compaction") {
-    return <CompactionCard summary={event.summary} tokensBefore={event.tokensBefore} />;
+    return (
+      <CompactionCard
+        summary={event.summary}
+        tokensBefore={event.tokensBefore}
+        estimatedTokensAfter={event.estimatedTokensAfter}
+      />
+    );
   }
   if (event.kind === "note") {
     return (
@@ -1167,9 +1182,27 @@ function formatTimeMeta(ts: number): string {
 // ---------------------------------------------------------------------------
 
 /** Lightweight inline collapsible row rendered when the agent prunes old context. */
-function CompactionCard({ summary, tokensBefore }: { summary: string; tokensBefore: number }) {
+function CompactionCard({
+  summary,
+  tokensBefore,
+  estimatedTokensAfter,
+}: {
+  summary: string;
+  tokensBefore: number;
+  estimatedTokensAfter?: number;
+}) {
   const [open, setOpen] = useState(false);
-  const tokenLabel = tokensBefore > 0 ? `${fmtTokens(tokensBefore)} tokens` : null;
+  const beforeLabel = tokensBefore > 0 ? fmtTokens(tokensBefore) : null;
+  const afterLabel =
+    typeof estimatedTokensAfter === "number" && estimatedTokensAfter > 0
+      ? fmtTokens(estimatedTokensAfter)
+      : null;
+  const tokenLabel =
+    beforeLabel && afterLabel
+      ? `${beforeLabel} -> ${afterLabel} tokens`
+      : beforeLabel
+        ? `${beforeLabel} tokens`
+        : null;
 
   return (
     <div className="mt-1">

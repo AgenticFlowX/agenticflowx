@@ -15,7 +15,7 @@
  */
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, extname, isAbsolute, join } from "node:path";
+import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
 
 import * as vscode from "vscode";
 
@@ -100,6 +100,10 @@ const RUNTIME_CONFIGURATION_KEYS = [
   "afx.agentEphemeralSession",
   "afx.rpc.enabled",
   "afx.sessionDir",
+  "afx.skills.extraPaths",
+  "afx.pi.projectTrust",
+  "afx.pi.excludedTools",
+  "afx.network.httpProxy",
   "afx.sdk.enabled",
   "afx.sdk.ollamaBaseUrl",
 ] as const;
@@ -199,12 +203,6 @@ export async function activate(
     "skills",
     "agenticflowx",
   ).fsPath;
-  const bundledDefaultConfigPath = vscode.Uri.joinPath(
-    context.extensionUri,
-    "resources",
-    "defaults",
-    ".afx.yaml",
-  ).fsPath;
   const bundledAfxSkillOverlayPath = vscode.Uri.joinPath(
     context.extensionUri,
     "resources",
@@ -219,9 +217,6 @@ export async function activate(
     "bootstrap.js",
   ).fsPath;
   const additionalSkillPaths = existsSync(bundledSkillsPath) ? [bundledSkillsPath] : undefined;
-  const defaultConfigPath = existsSync(bundledDefaultConfigPath)
-    ? bundledDefaultConfigPath
-    : undefined;
   const additionalSystemPromptPaths = existsSync(bundledAfxSkillOverlayPath)
     ? [bundledAfxSkillOverlayPath]
     : undefined;
@@ -250,6 +245,62 @@ export async function activate(
   // sidebar so adapters never read `process.env` themselves.
   const piAgentDir = process.env["PI_CODING_AGENT_DIR"] ?? join(homedir(), ".pi", "agent");
 
+  function resolveConfiguredSkillPaths(
+    paths: readonly string[] | undefined,
+    workspaceRoot?: string,
+  ): Array<{ rawPath: string; resolvedPath: string }> {
+    return normalizeStringList(paths).map((rawPath) => ({
+      rawPath,
+      resolvedPath: resolveUserPath(rawPath, workspaceRoot),
+    }));
+  }
+
+  function resolveUserPath(value: string, workspaceRoot?: string): string {
+    if (value === "~") return homedir();
+    if (value.startsWith("~/")) return join(homedir(), value.slice(2));
+    if (isAbsolute(value)) return value;
+    return workspaceRoot ? resolve(workspaceRoot, value) : resolve(value);
+  }
+
+  function resolveProjectTrust(
+    value: string,
+    workspaceRoot?: string,
+  ): "trust" | "ignore" | undefined {
+    const normalized = value === "trust" || value === "ignore" ? value : "ask";
+    if (normalized === "trust" || normalized === "ignore") return normalized;
+    return workspaceRoot && hasWorkspacePiResources(workspaceRoot) ? "ignore" : undefined;
+  }
+
+  function hasWorkspacePiResources(workspaceRoot: string): boolean {
+    return [
+      join(workspaceRoot, ".pi", "settings.json"),
+      join(workspaceRoot, ".pi", "SYSTEM.md"),
+      join(workspaceRoot, ".pi", "APPEND_SYSTEM.md"),
+      join(workspaceRoot, ".pi", "skills"),
+      join(workspaceRoot, ".pi", "prompts"),
+      join(workspaceRoot, ".pi", "themes"),
+      join(workspaceRoot, ".pi", "extensions"),
+      join(workspaceRoot, ".agents", "skills"),
+    ].some((candidate) => existsSync(candidate));
+  }
+
+  function normalizeStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return [
+      ...new Set(
+        (value as readonly unknown[])
+          .filter((entry): entry is string => typeof entry === "string")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+
+  function buildRuntimeEnv(httpProxy: string | undefined): Record<string, string> | undefined {
+    const proxy = httpProxy?.trim();
+    return proxy ? { HTTP_PROXY: proxy, HTTPS_PROXY: proxy } : undefined;
+  }
+
   async function buildAgentInstances(): Promise<AgentInstance[]> {
     const cfg = vscode.workspace.getConfiguration("afx");
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -258,6 +309,20 @@ export async function activate(
     const piBinaryPath = rpcEnabled
       ? resolvePiBinaryPath(configuredPiBinary, workspaceRoot)
       : undefined;
+    const customSkillPaths = resolveConfiguredSkillPaths(
+      cfg.get<readonly string[]>("skills.extraPaths", []),
+      workspaceRoot,
+    );
+    const effectiveSkillPaths = [
+      ...(additionalSkillPaths ?? []),
+      ...customSkillPaths.map((entry) => entry.resolvedPath),
+    ];
+    const projectTrust = resolveProjectTrust(
+      cfg.get<string>("pi.projectTrust", "ask"),
+      workspaceRoot,
+    );
+    const excludedTools = normalizeStringList(cfg.get<readonly string[]>("pi.excludedTools", []));
+    const runtimeEnv = buildRuntimeEnv(cfg.get<string>("network.httpProxy", ""));
     const legacySdkDefaultModel = cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5");
     const selected = configuredModelSelection(cfg);
     const sdkDefaultModel =
@@ -278,8 +343,10 @@ export async function activate(
       agentDir: piAgentDir,
       cwd: workspaceRoot,
       additionalSystemPromptPaths,
-      additionalSkillPaths,
-      defaultConfigPath,
+      additionalSkillPaths: effectiveSkillPaths,
+      projectTrust,
+      excludedTools,
+      runtimeEnv,
       secretStore,
       // Shared OAuth orchestrator (active-method resolver for the bundled Pi SDK seam).
       // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
@@ -338,6 +405,47 @@ export async function activate(
     return runtimeRebuildChain;
   }
 
+  let projectTrustPromptInFlight = false;
+  async function maybePromptProjectTrust(): Promise<void> {
+    if (projectTrustPromptInFlight) return;
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot || !hasWorkspacePiResources(workspaceRoot)) return;
+    const cfg = vscode.workspace.getConfiguration("afx");
+    const projectTrust = cfg.get<string>("pi.projectTrust", "ask");
+    if (projectTrust === "trust" || projectTrust === "ignore") return;
+
+    projectTrustPromptInFlight = true;
+    try {
+      const trust = "Trust workspace";
+      const ignore = "Ignore workspace";
+      const openSettings = "Open Skills settings";
+      const choice = await vscode.window.showWarningMessage(
+        "AgenticFlowX found workspace Pi resources.",
+        {
+          modal: true,
+          detail:
+            "AFX is starting Pi with workspace skills and Pi project resources blocked until you choose. Trust this workspace to load them, ignore them, or open Settings > Support > Skills & commands later.",
+        },
+        trust,
+        ignore,
+        openSettings,
+      );
+      if (choice === openSettings) {
+        await vscode.commands.executeCommand("afx.openSidebar");
+        await sidebarProvider?.openSettingsTarget("skills");
+        return;
+      }
+      if (choice !== trust && choice !== ignore) return;
+      await cfg.update(
+        "pi.projectTrust",
+        choice === trust ? "trust" : "ignore",
+        vscode.ConfigurationTarget.Workspace,
+      );
+    } finally {
+      projectTrustPromptInFlight = false;
+    }
+  }
+
   function rememberCommandOwnedProviderCredentialChange(secretKey: string): void {
     const existing = commandOwnedProviderCredentialKeys.get(secretKey);
     if (existing) clearTimeout(existing);
@@ -385,6 +493,9 @@ export async function activate(
       }
       if (RUNTIME_CONFIGURATION_KEYS.some((key) => e.affectsConfiguration(key))) {
         void scheduleAgentRuntimeRebuild("configuration changed");
+      }
+      if (e.affectsConfiguration("afx.pi.projectTrust")) {
+        void maybePromptProjectTrust();
       }
     }),
     secretStore.onDidChange((e) => {
@@ -457,6 +568,7 @@ export async function activate(
     logger,
     openChatCommand,
   });
+  void maybePromptProjectTrust();
 
   // @see docs/specs/200-app-vscode/spec.md [FR-11]
   // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]

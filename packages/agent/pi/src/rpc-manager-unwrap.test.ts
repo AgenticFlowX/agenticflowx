@@ -17,6 +17,7 @@ let running = false;
 let getModelsResponse: unknown = null;
 let getCommandsResponse: unknown = null;
 let getStateResponse: unknown = null;
+let compactResponse: unknown = null;
 
 const fakeClient = {
   get isRunning() {
@@ -31,6 +32,7 @@ const fakeClient = {
     if (cmd.type === "get_available_models") return getModelsResponse;
     if (cmd.type === "get_commands") return getCommandsResponse;
     if (cmd.type === "get_state") return getStateResponse;
+    if (cmd.type === "compact") return compactResponse;
     return {};
   }),
   send: vi.fn(),
@@ -53,7 +55,18 @@ const PI_MODEL = {
   maxTokens: 128_000,
 };
 
-const PI_COMMAND = { name: "skill:afx-task", description: "Task workflow", source: "skill" };
+const PI_COMMAND = {
+  name: "skill:afx-task",
+  description: "Task workflow",
+  source: "skill",
+  sourceInfo: {
+    path: "/workspace/.pi/skills/afx-task/SKILL.md",
+    source: "local",
+    scope: "project",
+    origin: "top-level",
+    baseDir: "/workspace/.pi/skills",
+  },
+};
 
 describe("PiRpcManager response unwrap", () => {
   beforeEach(() => {
@@ -61,6 +74,7 @@ describe("PiRpcManager response unwrap", () => {
     getModelsResponse = null;
     getCommandsResponse = null;
     getStateResponse = null;
+    compactResponse = null;
     vi.clearAllMocks();
   });
 
@@ -104,6 +118,7 @@ describe("PiRpcManager response unwrap", () => {
       expect(result).toHaveLength(1);
       expect(result[0]?.name).toBe("skill:afx-task");
       expect(result[0]?.source).toBe("skill");
+      expect(result[0]?.sourceInfo).toEqual(PI_COMMAND.sourceInfo);
     });
 
     it("accepts a bare array response (legacy / mock shape)", async () => {
@@ -141,6 +156,27 @@ describe("PiRpcManager response unwrap", () => {
       expect(result.sessionFile).toBe("/tmp/agenticflowx-sessions/session.jsonl");
       expect(result.steeringMode).toBe("one-at-a-time");
       expect(result.followUpMode).toBe("all");
+    });
+  });
+
+  describe("compact", () => {
+    it("preserves Pi 0.80 estimatedTokensAfter metadata", async () => {
+      compactResponse = {
+        summary: "Compacted prior turns.",
+        firstKeptEntryId: "entry-2",
+        tokensBefore: 42_000,
+        estimatedTokensAfter: 1_800,
+      };
+      const { createAgentManager } = await import("./rpc-manager");
+      const manager = createAgentManager({ logger: createLogger(), ephemeral: true });
+
+      const result = await manager.compact();
+      expect(result).toEqual({
+        summary: "Compacted prior turns.",
+        firstKeptEntryId: "entry-2",
+        tokensBefore: 42_000,
+        estimatedTokensAfter: 1_800,
+      });
     });
   });
 });

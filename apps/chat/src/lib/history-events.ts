@@ -49,6 +49,7 @@ export interface ChatHistoryEvent {
   compaction?: {
     summary: string;
     tokensBefore: number;
+    estimatedTokensAfter?: number;
   };
 }
 
@@ -76,6 +77,7 @@ export function deriveHistoryEvents(messages: readonly ChatTimelineItem[]): Chat
         compaction: {
           summary: compaction.summary,
           tokensBefore: compaction.tokensBefore,
+          estimatedTokensAfter: compaction.estimatedTokensAfter,
         },
       });
       continue;

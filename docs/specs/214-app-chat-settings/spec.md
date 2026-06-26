@@ -3,11 +3,23 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.9"
+version: "1.10"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-05T15:53:53.000Z"
+updated_at: "2026-06-26T12:50:19.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
-tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models", "intent"]
+tags:
+  [
+    "app",
+    "chat",
+    "settings",
+    "providers",
+    "mode",
+    "workspace-mode",
+    "custom-models",
+    "intent",
+    "skills",
+    "project-trust",
+  ]
 depends_on:
   [
     "100-package-shared",
@@ -68,9 +80,10 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-9  | Provide structured Add/Edit forms inside the Pi SDK track for custom providers (id, displayName, baseUrl, api kind, apiKeySource, authHeader, per-api compat flags from `COMPAT_FLAGS_BY_API`) and per-model entries (id, name, api override, capabilities, contextWindow, maxTokens, cost). Forms use only `@afx/ui/components/*` shadcn primitives and Lucide React icons — no custom widgets or one-off styles. Provider Remove uses an inline two-click confirm (Webviews block `window.confirm`)                                                                                                                                                                                                                                                     | Should Have |
 | FR-10 | Store all custom-provider data — apiKey value, baseUrl, models, headers, opaque compat — in VSCode SecretStorage. The host→webview bridge carries only `CustomProviderSummary` and `CustomProviderModelSummary`: id, displayName, baseUrl, api kind, modelCount, redacted models[] (id/name/contextWindow/maxTokens/capabilities), apiKeySource, apiKeyLabel, hasApiKey, authHeader, UI-known compatFlags (booleans only). AFX never writes to `~/.pi/agent/models.json` from either track. When a chat model switch selects an AFX-managed Pi SDK custom-provider model, the host persists `afx.sdk.defaultModel` and the next Pi SDK runtime spawn honors that saved custom provider/model instead of falling back to the first configured custom model | Must Have   |
 | FR-11 | Own the Composer Intent settings surface in the Workspace group: expose the current four-slot default, remap slot 4 by active parent mode (`Code` or `PRD`), persist `afx.composer.intent.slot`, persist the `afx.composer.intent.minimized` default, and expose global-default vs workspace-override scope as an either/or radio choice without changing Spec mode behavior                                                                                                                                                                                                                                                                                                                                                                              | Must Have   |
-| FR-12 | Surface a first-run "Connect a model" path at the top of Settings. It guides users to hosted API keys, custom endpoints, or Pi RPC in one or two clicks, focuses the first credential field when possible, and remains navigation-only until Save. Existing provider keys, custom-provider records, bridge payloads, and SecretStorage keys must not change. Skills and command catalogues live in Support inside a collapsed disclosure by default, and include every bundled AFX skill even when the active runtime reports only a partial command list.                                                                                                                                                                                                | Must Have   |
+| FR-12 | Surface a first-run "Connect a model" path at the top of Settings. It guides users to hosted API keys, custom endpoints, or Pi RPC in one or two clicks, focuses the first credential field when possible, and remains navigation-only until Save. Existing provider keys, custom-provider records, bridge payloads, and SecretStorage keys must not change.                                                                                                                                                                                                                                                                                                                                                                                              | Must Have   |
 | FR-13 | Surface the host slow-start threshold in Settings → Runtimes as "Model warm-up timeout" with the effective value, provider/proxy/local first-token copy, and a Configure action for `afx.runtime.responseStartTimeoutMs`. This setting controls the AFX host warning only; it must not change provider keys, custom providers, Ollama URL, or Pi session settings.                                                                                                                                                                                                                                                                                                                                                                                        | Must Have   |
-| FR-14 | Own the **Experimental** settings group — a feature-flag surface for in-progress AFX surfaces. v1 surfaces the Workbench Canvas toggle: a switch bound to `SettingsSnapshot.experimental.canvasEnabled` that sends `experimental/setCanvasEnabled { requestId, enabled }` (optimistic local patch + pending-mutation success/error toast), a read-only canvas-file path field that deep-links the `afx.experimental.canvas` VS Code setting, and an "Open Workbench" action (`chat/openWorkbench`). The canvas feature itself is owned by `229-app-workbench-canvas` [FR-22]; this spec owns only its Settings presentation.                                                                                                                              | Should Have |
+| FR-14 | Own the **Experimental** settings group — a feature-flag surface for in-progress AFX surfaces. It surfaces the Workbench Canvas toggle: a switch bound to `SettingsSnapshot.experimental.canvasEnabled` that sends `experimental/setCanvasEnabled { requestId, enabled }` (optimistic local patch + pending-mutation success/error toast), a read-only canvas-file path field that deep-links the `afx.experimental.canvas` VS Code setting, and an "Open Workbench" action (`chat/openWorkbench`). The canvas feature itself is owned by `229-app-workbench-canvas` [FR-22]; this spec owns only its Settings presentation.                                                                                                                              | Should Have |
+| FR-15 | Surface Skills & commands inside Support with grouped AFX bundled skills, Pi global skills, Agent Skills global entries, Pi workspace skills, Agent Skills workspace entries, and custom skill paths from `afx.skills.extraPaths`. Each entry shows command, description, path, origin, trust/load state, duplicate warnings, and actions to insert, open, reveal, refresh, and create a starter skill. Workspace skill groups expose `afx.pi.projectTrust` (`ask` / `trust` / `ignore`) and do not load workspace resources while trust is unresolved. Settings also exposes `afx.pi.excludedTools` and `afx.network.httpProxy` as Pi runtime controls.                                                                                                  | Must Have   |
 
 ### Non-Functional Requirements
 
@@ -93,7 +106,7 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Workspace mode card is surfaced in Settings and mirrors the host snapshot
 - [ ] Composer Intent controls are surfaced in the Workspace group and mirror `SettingsSnapshot.intent`
 - [ ] Each registered `AgentInstance` (Pi RPC, Pi SDK) renders its own card under the Runtimes group; Behaviour controls show an explicit "Active: …" scope label per `350-agent-manager [DES-AGENT-BEHAVIOUR-ROUTING]`
-- [ ] Models tab is sub-tabbed (`Built-in` / `Custom Models`); Custom Models carries a `Track: [Pi SDK] [Pi RPC]` selector per `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`
+- [ ] Models tab is sub-tabbed (`Built-in` / `Custom Models`); Custom Models carries a `Track: [Pi SDK] [Pi RPC]` selector per `351-agent-pi [DES-PI-CUSTOM-PROVIDERS-RPC-SDK]`
 - [ ] Pi SDK track surfaces AFX-managed providers from VSCode SecretStorage with full Add/Edit/Delete CRUD via structured forms (preset picker, custom-provider-form, custom-model-form, api-key-source-input) using only `@afx/ui/components/*` and Lucide React icons
 - [ ] Pi RPC track surfaces hand-edited entries from `~/.pi/agent/models.json` as read-only cards with an "Open in editor" button per row (re-uses existing `chat/openModelsJson` deep-link); AFX never writes to this file
 - [ ] Webview snapshot for both tracks contains only `CustomProviderSummary` (id, baseUrl, api kind, model count, key-resolution label) — never apiKey, models[], compat, or headers
@@ -102,7 +115,9 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Hosted-key setup expands a provider card and focuses the masked API key input without sending `provider/setApiKey`
 - [ ] Custom endpoint setup opens the Pi SDK create form without mutating existing custom providers
 - [ ] Support shows Diagnostics, Privacy, and About before a collapsed Skills & commands disclosure
-- [ ] Skills & commands lists every bundled `afx-*` skill plus runtime-only commands after expansion
+- [ ] Skills & commands shows AFX, global, workspace, and custom skill groups with accurate provenance, trust/load state, duplicate warnings, and insert/open/reveal/refresh/create actions
+- [ ] Workspace skill groups expose the AFX project trust state and actions; `ask` keeps workspace resources unloaded until the user chooses trust or ignore
+- [ ] Runtime controls expose excluded tools and proxy settings without leaking secrets into the webview
 - [ ] Runtimes shows the model warm-up timeout row with a Configure action that opens `afx.runtime.responseStartTimeoutMs`
 - [x] An Experimental group surfaces the Workbench Canvas toggle; flipping it sends `experimental/setCanvasEnabled` and the path field deep-links `afx.experimental.canvas` (canvas feature owned by `229-app-workbench-canvas`)
 

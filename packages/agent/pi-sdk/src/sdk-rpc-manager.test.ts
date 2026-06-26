@@ -77,6 +77,32 @@ function createFakeClient(options: unknown): FakeClient {
           sessionFile: "/tmp/session.jsonl",
         } as T;
       }
+      if (type === "get_commands") {
+        return {
+          commands: [
+            {
+              name: "skill:custom-docs",
+              description: "Custom docs workflow",
+              source: "skill",
+              sourceInfo: {
+                path: "/workspace/custom-skills/custom-docs/SKILL.md",
+                source: "path",
+                scope: "temporary",
+                origin: "top-level",
+                baseDir: "/workspace/custom-skills",
+              },
+            },
+          ],
+        } as T;
+      }
+      if (type === "compact") {
+        return {
+          summary: "Compacted previous context.",
+          firstKeptEntryId: "entry-kept",
+          tokensBefore: 88_000,
+          estimatedTokensAfter: 2_400,
+        } as T;
+      }
       if (type === "set_model") {
         const target = cmd as { provider: string; modelId: string };
         return { provider: target.provider, id: target.modelId, name: target.modelId } as T;
@@ -199,7 +225,6 @@ describe("createPiSdkAgentManager", () => {
       sessionDir: "/sessions",
       getApiKey: () => "secret-key",
       additionalSkillPaths: ["/extension/resources/skills/agenticflowx"],
-      defaultConfigPath: "/extension/resources/defaults/.afx.yaml",
       additionalSystemPromptPaths: [
         "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
       ],
@@ -214,10 +239,66 @@ describe("createPiSdkAgentManager", () => {
         "--skill",
         "/extension/resources/skills/agenticflowx",
         "--append-system-prompt",
-        "/extension/resources/defaults/.afx.yaml",
-        "--append-system-prompt",
         "/extension/resources/harness-overlays/common/agenticflowx-vscode.md",
       ],
+    });
+  });
+
+  it("passes Pi 0.80 trust, excluded tools, and extra skill args", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+      projectTrust: "ignore",
+      excludedTools: ["bash", "write"],
+      additionalSkillPaths: ["/extension/resources/skills/agenticflowx", "/workspace/skills"],
+    });
+
+    await manager.getStatus();
+
+    expect(mocks.clients[0]!.options).toMatchObject({
+      args: [
+        "--no-approve",
+        "--exclude-tools",
+        "bash,write",
+        "--skill",
+        "/extension/resources/skills/agenticflowx",
+        "--skill",
+        "/workspace/skills",
+      ],
+    });
+  });
+
+  it("preserves Pi 0.80 command source info and compaction metadata", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+    });
+
+    await expect(manager.getCommands()).resolves.toEqual([
+      {
+        name: "skill:custom-docs",
+        description: "Custom docs workflow",
+        source: "skill",
+        sourceInfo: {
+          path: "/workspace/custom-skills/custom-docs/SKILL.md",
+          source: "path",
+          scope: "temporary",
+          origin: "top-level",
+          baseDir: "/workspace/custom-skills",
+        },
+      },
+    ]);
+    await expect(manager.compact()).resolves.toEqual({
+      summary: "Compacted previous context.",
+      firstKeptEntryId: "entry-kept",
+      tokensBefore: 88_000,
+      estimatedTokensAfter: 2_400,
     });
   });
 

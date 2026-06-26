@@ -98,6 +98,9 @@ export default function App({ transport }: AppProps) {
       bridgeOn("agent/status", (msg) => {
         setAgentStatus(msg.status);
       }),
+      bridgeOn("settings/openTarget", (msg) => {
+        openSettings(msg.target);
+      }),
     ];
     const onVisibilityChange = () => {
       if (!document.hidden) {
@@ -113,7 +116,7 @@ export default function App({ transport }: AppProps) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("focus", onVisibilityChange);
     };
-  }, []);
+  }, [openSettings]);
 
   useEffect(() => {
     const offs = [

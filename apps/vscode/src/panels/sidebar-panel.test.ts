@@ -11,6 +11,9 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-2] [FR-4] [FR-14]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST] [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  */
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+
 import { EventEmitter } from "events";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
@@ -95,7 +98,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -299,7 +302,7 @@ describe("sidebar-panel host bridge", () => {
           }),
           about: expect.objectContaining({
             extensionVersion: "2.0.0-test",
-            bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+            bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
           }),
         }),
       }),
@@ -2930,7 +2933,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -2961,6 +2964,75 @@ describe("sidebar-panel host bridge", () => {
     });
   });
 
+  it("includes Pi 0.80 skills groups and trust state in the settings snapshot", async () => {
+    const root = "/tmp/agenticflowx-skills-settings-test";
+    rmSync(root, { recursive: true, force: true });
+    mkdirSync(join(root, "resources", "skills", "agenticflowx"), { recursive: true });
+    mkdirSync(join(root, "pi-agent", "skills"), { recursive: true });
+    mkdirSync(join(root, ".pi", "skills"), { recursive: true });
+    mkdirSync(join(root, "custom-skills"), { recursive: true });
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file(root) } as vscode.WorkspaceFolder,
+    ]);
+    mockAfxConfiguration({
+      "skills.extraPaths": ["custom-skills"],
+      "pi.projectTrust": "ask",
+      "pi.excludedTools": ["bash"],
+      "network.httpProxy": "http://127.0.0.1:8080",
+    });
+    const { view, inbound } = makeMockView();
+    createSidebarPanel({
+      extensionUri: vscode.Uri.file(root),
+      extensionMode: vscode.ExtensionMode.Test,
+      extensionVersion: "2.0.0-test",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledSkillsPath: join(root, "resources", "skills", "agenticflowx"),
+      piAgentDir: join(root, "pi-agent"),
+      agentManager: agent,
+      logger,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "req-settings" });
+    await flushAsyncWork(2);
+
+    const postMessage = view.webview.postMessage as ReturnType<typeof vi.fn>;
+    const snapshotCall = postMessage.mock.calls
+      .map(([m]) => m as { type?: string; snapshot?: { skills?: unknown } })
+      .find((m) => m.type === "agent/settingsSnapshot");
+    const skills = snapshotCall?.snapshot?.skills;
+    expect(skills).toMatchObject({
+      bundledSkillsPath: join(root, "resources", "skills", "agenticflowx"),
+      projectTrust: "ask",
+      effectiveProjectTrust: "ignore",
+      excludedTools: ["bash"],
+      httpProxy: "http://127.0.0.1:8080",
+      globalPaths: [
+        expect.objectContaining({
+          label: "Pi global skills",
+          path: join(root, "pi-agent", "skills"),
+          exists: true,
+        }),
+        expect.any(Object),
+      ],
+      workspacePaths: [
+        expect.objectContaining({
+          label: "Pi workspace skills",
+          path: join(root, ".pi", "skills"),
+          exists: true,
+          trusted: false,
+        }),
+        expect.any(Object),
+      ],
+      customPaths: [
+        expect.objectContaining({
+          label: "Custom skills",
+          path: join(root, "custom-skills"),
+          exists: true,
+        }),
+      ],
+    });
+  });
+
   it("writes onboarding flag updates to workspaceState via chat/setOnboardingFlag", async () => {
     mockAfxConfiguration();
     const memento: vscode.Memento = {
@@ -2973,7 +3045,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -2997,7 +3069,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -3046,7 +3118,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,

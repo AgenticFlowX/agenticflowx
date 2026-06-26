@@ -25,6 +25,7 @@ export interface SettingsSnapshotInput {
   agentBinary?: string;
   bundledSkillsPath?: string;
   bundledSkillCount?: number;
+  skills?: SettingsSnapshot["skills"];
   ephemeral?: boolean;
   sdkEnabled?: boolean;
   sdkDefaultModel?: string;
@@ -69,6 +70,7 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
       bundledSkillCount: input.bundledSkillCount ?? 0,
       ephemeral: input.ephemeral ?? false,
     },
+    skills: input.skills ?? defaultSkillsSnapshot(input.bundledSkillsPath, input.bundledSkillCount),
     sdk: {
       enabled: input.sdkEnabled ?? true,
       defaultModel: input.sdkDefaultModel?.trim() || "anthropic:claude-opus-4-5",
@@ -108,6 +110,23 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
       extensionVersion: input.extensionVersion?.trim() || "?",
       bundledPiNpmVersion: input.bundledPiNpmVersion?.trim() || "?",
     },
+  };
+}
+
+function defaultSkillsSnapshot(
+  bundledSkillsPath?: string,
+  bundledSkillCount?: number,
+): NonNullable<SettingsSnapshot["skills"]> {
+  return {
+    bundledSkillsPath: bundledSkillsPath?.trim() || "resources/skills/agenticflowx",
+    bundledSkillCount: bundledSkillCount ?? 0,
+    globalPaths: [],
+    workspacePaths: [],
+    customPaths: [],
+    projectTrust: "ask",
+    effectiveProjectTrust: "none",
+    excludedTools: [],
+    httpProxy: "",
   };
 }
 

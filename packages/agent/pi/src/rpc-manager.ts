@@ -91,8 +91,10 @@ export interface PiRpcManagerOptions {
   additionalSystemPromptPaths?: readonly string[];
   /** Additional skill roots appended as repeated `--skill <path>` CLI args. */
   additionalSkillPaths?: readonly string[];
-  /** Absolute path to a default .afx.yaml bundled with the extension. Passed as `--append-system-prompt <path>` so the model has fallback config. */
-  defaultConfigPath?: string;
+  /** AFX-owned project trust decision for this Pi RPC run. */
+  projectTrust?: "trust" | "ignore";
+  /** Comma-separated Pi tool denylist passed as `--exclude-tools`. */
+  excludedTools?: readonly string[];
   /** Environment overrides passed to the spawned runtime. */
   env?: Record<string, string>;
 }
@@ -115,7 +117,8 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     cwd,
     additionalSystemPromptPaths = [],
     additionalSkillPaths = [],
-    defaultConfigPath,
+    projectTrust,
+    excludedTools = [],
     env,
   } = opts;
   const log = parentLogger.child("rpc-manager");
@@ -142,8 +145,13 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     const args = [
       ...(!ephemeral && sessionDir ? ["--session-dir", sessionDir] : []),
       ...(ephemeral ? ["--no-session"] : []),
+      ...(projectTrust === "trust"
+        ? ["--approve"]
+        : projectTrust === "ignore"
+          ? ["--no-approve"]
+          : []),
+      ...(excludedTools.length > 0 ? ["--exclude-tools", excludedTools.join(",")] : []),
       ...additionalSkillPaths.flatMap((p) => ["--skill", p]),
-      ...(defaultConfigPath ? ["--append-system-prompt", defaultConfigPath] : []),
       ...additionalSystemPromptPaths.flatMap((p) => ["--append-system-prompt", p]),
     ];
 
@@ -519,11 +527,14 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       summary?: unknown;
       firstKeptEntryId?: unknown;
       tokensBefore?: unknown;
+      estimatedTokensAfter?: unknown;
     };
     return {
       summary: typeof raw.summary === "string" ? raw.summary : "",
       firstKeptEntryId: typeof raw.firstKeptEntryId === "string" ? raw.firstKeptEntryId : "",
       tokensBefore: typeof raw.tokensBefore === "number" ? raw.tokensBefore : 0,
+      estimatedTokensAfter:
+        typeof raw.estimatedTokensAfter === "number" ? raw.estimatedTokensAfter : undefined,
     };
   }
 
@@ -735,6 +746,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       summary?: unknown;
       firstKeptEntryId?: unknown;
       tokensBefore?: unknown;
+      estimatedTokensAfter?: unknown;
     } | null>({
       type: "compact",
       ...(customInstructions ? { customInstructions } : {}),
@@ -744,6 +756,10 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       firstKeptEntryId:
         typeof response?.firstKeptEntryId === "string" ? response.firstKeptEntryId : "",
       tokensBefore: typeof response?.tokensBefore === "number" ? response.tokensBefore : 0,
+      estimatedTokensAfter:
+        typeof response?.estimatedTokensAfter === "number"
+          ? response.estimatedTokensAfter
+          : undefined,
     };
   }
 
@@ -977,13 +993,45 @@ function normalizeModelCost(value: unknown): AgentModel["cost"] {
 
 function normalizeCommand(value: unknown): AgentCommand | null {
   if (!value || typeof value !== "object") return null;
-  const raw = value as { name?: unknown; description?: unknown; source?: unknown };
+  const raw = value as {
+    name?: unknown;
+    description?: unknown;
+    source?: unknown;
+    sourceInfo?: unknown;
+  };
   if (typeof raw.name !== "string") return null;
   if (raw.source !== "extension" && raw.source !== "prompt" && raw.source !== "skill") return null;
   return {
     name: raw.name,
     description: typeof raw.description === "string" ? raw.description : undefined,
     source: raw.source,
+    sourceInfo: normalizeCommandSourceInfo(raw.sourceInfo),
+  };
+}
+
+function normalizeCommandSourceInfo(value: unknown): AgentCommand["sourceInfo"] | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const raw = value as {
+    path?: unknown;
+    source?: unknown;
+    scope?: unknown;
+    origin?: unknown;
+    baseDir?: unknown;
+  };
+  if (
+    typeof raw.path !== "string" ||
+    typeof raw.source !== "string" ||
+    typeof raw.scope !== "string" ||
+    typeof raw.origin !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    path: raw.path,
+    source: raw.source,
+    scope: raw.scope,
+    origin: raw.origin,
+    baseDir: typeof raw.baseDir === "string" ? raw.baseDir : undefined,
   };
 }
 

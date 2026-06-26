@@ -3,10 +3,10 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T05:56:29.000Z"
-tags: ["agent", "runtime", "manager"]
+updated_at: "2026-06-26T12:50:19.000Z"
+tags: ["agent", "runtime", "manager", "skills"]
 spec: spec.md
 ---
 
@@ -182,7 +182,7 @@ Implementation: `MultiplexedAgentManager` forwards each call via `requireActive(
 
 **Consequence for UI:** each `AgentInstance` keeps its own copy of these values internally. Settings UI must surface the active-instance scope so users understand why a value set against one instance does not propagate to another (see `214-app-chat-settings [DES-SETTINGS-INSTANCE-CARDS]`).
 
-**Not changed by this routing decision:** `setModel`, `abort`, `newSession`, `compact` already target the active instance per the existing flow. `getAvailableModels` is the one explicit fan-out (it aggregates from all instances) — see `[DES-AGENT-MULTIPLEX-FLOW]`.
+**Active-instance behavior:** `setModel`, `abort`, `newSession`, and `compact` target the active instance. `getAvailableModels` is the explicit fan-out and aggregates from all instances; see `[DES-AGENT-MULTIPLEX-FLOW]`.
 
 ---
 
@@ -217,7 +217,7 @@ Pi RPC adapter
   |  rewrites /afx-hello -> /skill:afx-hello
   |  starts Pi with:
   |    --skill resources/skills/agenticflowx
-  |    --append-system-prompt resources/defaults/.afx.yaml
+  |    --skill <configured afx.skills.extraPaths entries>
   |    --append-system-prompt resources/harness-overlays/common/agenticflowx-vscode.md
   v
 Pi skill expansion
@@ -312,13 +312,13 @@ e2e proves the provider request contains both expanded skill XML and
 
 ---
 
-## [DES-ROLLOUT] Migration / Rollout Plan
+## [DES-MAINT] Maintenance Plan
 
-Retarget runtime manager refs from `chat-foundation` and Pi plan docs. Keep Pi adapter specifics in `351-agent-pi`.
+Runtime manager refs point to this spec. Pi adapter specifics stay in `351-agent-pi`.
 
-### Rollback Plan
+### Routing Fallback
 
-If manager/adapters split is too early, route adapter-neutral files back to `300-infra-pi` only until `351-agent-pi` is accepted.
+If routing changes, update file references before moving source ownership.
 
 ---
 

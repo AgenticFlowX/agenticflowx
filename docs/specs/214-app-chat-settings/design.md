@@ -3,11 +3,22 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.9"
+version: "1.10"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-05T15:53:53.000Z"
+updated_at: "2026-06-26T12:50:19.000Z"
 approved_at: "2026-05-05T11:45:45.000Z"
-tags: ["app", "chat", "settings", "providers", "mode", "workspace-mode", "custom-models"]
+tags:
+  [
+    "app",
+    "chat",
+    "settings",
+    "providers",
+    "mode",
+    "workspace-mode",
+    "custom-models",
+    "skills",
+    "project-trust",
+  ]
 spec: spec.md
 ---
 
@@ -38,20 +49,21 @@ Settings view
   -> agent/settingsSnapshot | agent/runtimeSettings | agent/appearanceUpdated
 ```
 
-| Flow               | Source anchor                                                                                            | Bridge message                                                                                                                               | Host-owned result                                                                         | Returned state                                                                    |
-| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Hydrate panel      | mount effect in `Settings`                                                                               | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                                              | Host broadcasts settings, commands, runtime settings                                      | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings`               |
-| Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry`  | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`                       | Active `AgentManager` runtime setting update                                              | `agent/runtimeSettings` or `chat/error`                                           |
-| Host timeout       | `ConfigField` in Runtimes Behaviour                                                                      | `chat/openSettings` for `afx.runtime.responseStartTimeoutMs`                                                                                 | VS Code opens the contributed setting; host snapshots the effective clamped value         | `agent/settingsSnapshot`                                                          |
-| Context preference | `applyIncludeActiveFileContext`                                                                          | `chat/setIncludeActiveFileContext`                                                                                                           | Host persists `afx.context.includeActiveFileContext` + snapshot                           | `agent/settingsSnapshot` or `chat/error`                                          |
-| Workspace mode     | `applyMode`                                                                                              | `chat/setMode`                                                                                                                               | Host persists `afx.mode.active` globally by default, preserving workspace overrides       | `agent/settingsSnapshot` or `chat/error`                                          |
-| Composer Intent    | `applyIntentSlot`, `applyIntentMinimized`, `applyIntentScope`                                            | `chat/setIntentSlot`, `chat/setIntentMinimized`, `chat/setIntentScope`                                                                       | Host persists `afx.composer.intent.*` globally by default or as a workspace override      | `agent/settingsSnapshot` or `chat/error`                                          |
-| Appearance         | `applyTheme`, `applyStyle`                                                                               | `appearance/update`                                                                                                                          | Host persists `afx.theme` / `afx.style` and emits runtime appearance                      | `agent/appearanceUpdated` or `chat/error`                                         |
-| API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                         | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                     | Host SecretStore/settings mutation                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
-| Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                 | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                                                 | Host config + runtime discovery                                                           | `agent/settingsSnapshot` or `chat/error`                                          |
-| Diagnostics        | `openOutputLogs`, recovery buttons                                                                       | `chat/showLogs`, recovery callbacks                                                                                                          | VS Code AgenticFlowX Output channel and runtime recovery actions                          | Output panel, runtime status events                                               |
-| Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                        | `agent/settingsSnapshot` or `chat/error`                                          |
-| Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack |
+| Flow               | Source anchor                                                                                            | Bridge message                                                                                                                               | Host-owned result                                                                                                     | Returned state                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Hydrate panel      | mount effect in `Settings`                                                                               | `chat/getSettingsSnapshot`, `chat/getCommands`, `chat/getState`                                                                              | Host broadcasts settings, commands, runtime settings                                                                  | `agent/settingsSnapshot`, `agent/commands`, `agent/runtimeSettings`                  |
+| Runtime controls   | `applyThinkingLevel`, `applySteeringMode`, `applyFollowUpMode`, `applyAutoCompaction`, `applyAutoRetry`  | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`                       | Active `AgentManager` runtime setting update                                                                          | `agent/runtimeSettings` or `chat/error`                                              |
+| Host timeout       | `ConfigField` in Runtimes Behaviour                                                                      | `chat/openSettings` for `afx.runtime.responseStartTimeoutMs`                                                                                 | VS Code opens the contributed setting; host snapshots the effective clamped value                                     | `agent/settingsSnapshot`                                                             |
+| Context preference | `applyIncludeActiveFileContext`                                                                          | `chat/setIncludeActiveFileContext`                                                                                                           | Host persists `afx.context.includeActiveFileContext` + snapshot                                                       | `agent/settingsSnapshot` or `chat/error`                                             |
+| Workspace mode     | `applyMode`                                                                                              | `chat/setMode`                                                                                                                               | Host persists `afx.mode.active` globally by default, preserving workspace overrides                                   | `agent/settingsSnapshot` or `chat/error`                                             |
+| Composer Intent    | `applyIntentSlot`, `applyIntentMinimized`, `applyIntentScope`                                            | `chat/setIntentSlot`, `chat/setIntentMinimized`, `chat/setIntentScope`                                                                       | Host persists `afx.composer.intent.*` globally by default or as a workspace override                                  | `agent/settingsSnapshot` or `chat/error`                                             |
+| Appearance         | `applyTheme`, `applyStyle`                                                                               | `appearance/update`                                                                                                                          | Host persists `afx.theme` / `afx.style` and emits runtime appearance                                                  | `agent/appearanceUpdated` or `chat/error`                                            |
+| API provider key   | `saveProviderKey`, `clearProviderKey`, `setProviderDefaultModel`                                         | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                     | Host SecretStore/settings mutation                                                                                    | `agent/settingsSnapshot` or `chat/error`                                             |
+| Pi RPC local agent | `detectPiBinary`, `setRpcEnabled`, `setEphemeralSession`                                                 | `external/detectPiBinary`, `external/setRpcEnabled`, `external/setEphemeral`                                                                 | Host config + runtime discovery                                                                                       | `agent/settingsSnapshot` or `chat/error`                                             |
+| Diagnostics        | `openOutputLogs`, recovery buttons                                                                       | `chat/showLogs`, recovery callbacks                                                                                                          | VS Code AgenticFlowX Output channel and runtime recovery actions                                                      | Output panel, runtime status events                                                  |
+| Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                                                    | `agent/settingsSnapshot` or `chat/error`                                             |
+| Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track                             | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack    |
+| Skills             | `refreshSkills`, `setProjectTrust`, `createSkill`, path open/reveal actions                              | `chat/getCommands`, `skills/setProjectTrust`, `skills/create`, `skills/openPath`, `skills/revealPath`, `chat/openSettings`                   | Host rebuilds settings/command snapshots, persists workspace trust, creates starter skills, opens/reveals skill paths | `agent/settingsSnapshot`, `agent/commands`, `settings/updateResult`, or `chat/error` |
 
 ---
 
@@ -107,7 +119,7 @@ Custom Models sub-tab inside the Models tab carries a `Track: [Pi SDK] [Pi RPC]`
 - **Source of truth:** VSCode SecretStorage records keyed `afx.customProvider.${id}` (full `CustomProviderRecord` JSON, including apiKey value). Index entry `afx.customProviders.index` enumerates ids.
 - **Reads `~/.pi/agent/models.json`?** Never.
 - **Writes `~/.pi/agent/models.json`?** Never.
-- **Runtime delivery:** at Pi SDK spawn, the host calls `customProvidersService.buildEnvForPiSdkSpawn()` which reads SecretStorage and uses the active `HarnessAdapter` (Pi SDK adapter) to produce a JSON envelope plus an env map. The envelope is shipped as `AFX_CUSTOM_PROVIDERS_JSON` and the env map carries `AFX_<PROVIDER>_KEY=<value>` entries. The Pi SDK bootstrap reads these, builds an empty `ModelRegistry`, calls `registerProvider(...)` per record, and hands the registry to `createAgentSessionRuntime({ modelRegistry })` followed by `runRpcMode(runtime)`. See `[351-agent-pi DES-PI-CUSTOM-PROVIDERS]`.
+- **Runtime delivery:** at Pi SDK spawn, the host calls `customProvidersService.buildEnvForPiSdkSpawn()` which reads SecretStorage and uses the active `HarnessAdapter` (Pi SDK adapter) to produce a JSON envelope plus an env map. The envelope is shipped as `AFX_CUSTOM_PROVIDERS_JSON` and the env map carries `AFX_<PROVIDER>_KEY=<value>` entries. The Pi SDK bootstrap builds an extension factory that calls `pi.registerProvider(...)` per record, then delegates to Pi `main(...)` with those factories. See `[351-agent-pi DES-PI-CUSTOM-PROVIDERS-RPC-SDK]`.
 - **UI:** Add/Edit/Delete cards (`apps/chat/src/components/custom-model-card.tsx` mode `editable`) backed by `customModels/upsertProvider` / `customModels/removeProvider` bridge messages. Preset picker for new providers, structured form for edit, model sub-form for add-model. All using `@afx/ui/components/*` and Lucide React icons.
 
 ### Pi RPC track — read-only display of `~/.pi/agent/models.json`
@@ -411,9 +423,15 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 | Skills, diagnostics, privacy, version                          |
 +----------------------------------------------------------------+
 | Skills & commands                                              |
+| Project trust: ask / effective ignore                          |
+| [ Trust workspace ] [ Ignore workspace ] [ Ask each time ]      |
 | AFX skills (12)               [Show ▾]               [?]       |
-| Pi skills (5)                 [Show ▾]               [?]       |
-| Extension commands (5)        [Show ▾]               [?]       |
+| Global skills (2)             [Show ▾]               [?]       |
+| Workspace skills (blocked)    [Show ▾]               [?]       |
+| Custom skills (1 path)        [Show ▾]               [?]       |
+| Other skills (0)              [Show ▾]               [?]       |
+| Runtime: excluded tools [open setting] proxy [open setting]    |
+| [ Refresh ] [ Create skill ] [ Configure custom paths ]        |
 +----------------------------------------------------------------+
 | Diagnostics                                                    |
 | Log level: info                            [open setting]      |
@@ -457,7 +475,7 @@ Custom Models sub-tab — Pi RPC track active (read-only):
 | [ChatSettings.Models]                                           |
 |   [ChatSettings.Models.Builtin]  API providers tile grid        |
 |   [ChatSettings.Models.Custom]   sub-tabbed:                    |
-|     Track [Pi SDK] (v1 placeholder)                             |
+|     Track [Pi SDK] (SecretStorage CRUD)                         |
 |     Track [Pi RPC] (Open models.json deep-link)                 |
 +----------------------------------------------------------------+
 | [ChatSettings.Look]   Theme + Style                             |
@@ -600,17 +618,17 @@ This satisfies NFR-3 (self-documentation) and gives copy editors a single file t
 
 ### [DES-SETTINGS-CUSTOM-MODELS] Custom Models Sub-Tab (Two Tracks)
 
-Custom providers are runtime-specific: Pi RPC reads its own `models.json`; Pi SDK uses AFX-managed env-var injection. The sub-tab carries a `Track: [ Pi SDK ] [ Pi RPC ]` selector accordingly. See `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]` for the full architecture rationale.
+Custom providers are runtime-specific: Pi RPC reads its own `models.json`; Pi SDK uses AFX-managed env-var injection. The sub-tab carries a `Track: [ Pi SDK ] [ Pi RPC ]` selector accordingly. See `351-agent-pi [DES-PI-CUSTOM-PROVIDERS-RPC-SDK]` for the full architecture rationale.
 
-| Track      | v1 (this PR)                                                                                                            | Phase-1 (follow-up PR)                                                                                                  |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| **Pi SDK** | Read-only placeholder explaining the upcoming AFX-managed config. Default selected.                                     | Full editor: preset picker, structured forms, raw JSON editor. Secrets in VSCode SecretStorage via env-var indirection. |
-| **Pi RPC** | Working `[ Open models.json ]` deep-link. Create-if-missing seeds canonical empty shape. Honours `PI_CODING_AGENT_DIR`. | Optional parsed read-only view; AFX still doesn't write Pi's file.                                                      |
+| Track      | Source of truth                                                                                                | UI contract                                                                                                            |
+| ---------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Pi SDK** | AFX-managed provider records in VSCode SecretStorage.                                                          | Full editor: preset picker, structured forms, model forms, inline remove confirmation, and SecretStorage-backed saves. |
+| **Pi RPC** | Hand-edited `~/.pi/agent/models.json` or `${PI_CODING_AGENT_DIR}/models.json` when that env var is set for Pi. | Read-only parsed cards plus `[ Open models.json ]`; create-if-missing seeds the canonical empty shape.                 |
 
 Track selection persists per webview via localStorage.
 
 @see `docs/research/pi/res-pi-models-json-settings-ui.md`
-@see `351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS]`
+@see `351-agent-pi/design.md [DES-PI-CUSTOM-PROVIDERS-RPC-SDK]`
 
 ### [DES-SETTINGS-COMPONENT-FORM-ROWS] Narrow Form Rows
 
@@ -632,16 +650,39 @@ Track selection persists per webview via localStorage.
 
 ### [DES-SETTINGS-SURFACE-SKILLS] Chat Skills And Commands
 
-| Code anchor       | UI/functionality                                                                        |
-| ----------------- | --------------------------------------------------------------------------------------- |
-| `groupCommands`   | Splits commands into AFX skills, other skills, extension commands, and prompt templates |
-| Skills disclosure | Collapsed by default so first-run Settings focuses on connection and diagnostics        |
-| `CommandGroup`    | Inserts slash command text into composer via `onInsertCommand` after disclosure opens   |
-| `ACTIONS`         | Direct `/new` and `/abort` extension actions                                            |
+| Code anchor       | UI/functionality                                                                                                                 |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `groupCommands`   | Splits commands into AFX skills, global skills, workspace skills, custom skills, other skills, extension commands, and templates |
+| Skills disclosure | Collapsed by default so first-run Settings focuses on connection and diagnostics                                                 |
+| `SkillTrustPanel` | Shows `projectTrust`, `effectiveProjectTrust`, workspace-resource status, and trust/ignore/ask actions                           |
+| `SkillPathGroup`  | Lists bundled, global, workspace, and custom skill roots with exists/load state plus open/reveal actions                         |
+| `CommandGroup`    | Inserts slash command text into composer and shows `sourceInfo` provenance, origin, scope, path, and duplicate labels            |
+| `ACTIONS`         | Direct `/new` and `/abort` extension actions                                                                                     |
 
 `SidebarPanel.handleGetCommands` merges runtime commands with the bundled skill folders under
 `resources/skills/agenticflowx`. Runtime metadata wins for duplicate names, but missing bundled
 `afx-*` skills are still shown so Support does not look empty when a runtime reports a small set.
+
+`SettingsSnapshot.skills` carries `bundledSkillsPath`, `globalPaths`, `workspacePaths`,
+`customPaths`, `projectTrust`, `effectiveProjectTrust`, `excludedTools`, and `httpProxy`.
+Global paths include Pi global skills and Agent Skills global. Workspace paths include Pi
+workspace skills and Agent Skills workspace. Custom paths come from `afx.skills.extraPaths`.
+When `projectTrust` is `ask` and workspace resources exist, `effectiveProjectTrust` is
+`ignore`; the Skills surface stays openable through the host trust prompt so the user has a
+persistent place to choose trust, ignore, or ask.
+
+Skills actions use the shared bridge contract:
+
+| Action               | Message / setting                                                                |
+| -------------------- | -------------------------------------------------------------------------------- |
+| Refresh              | `chat/getCommands` plus settings snapshot refresh                                |
+| Trust / ignore / ask | `skills/setProjectTrust { value }`, persisted to workspace `afx.pi.projectTrust` |
+| Create skill         | `skills/create`, creates a starter `SKILL.md` in a chosen skill root             |
+| Open path            | `skills/openPath`                                                                |
+| Reveal path          | `skills/revealPath`                                                              |
+| Custom paths         | `chat/openSettings` for `afx.skills.extraPaths`                                  |
+| Excluded tools       | `chat/openSettings` for `afx.pi.excludedTools`                                   |
+| Proxy                | `chat/openSettings` for `afx.network.httpProxy`                                  |
 
 ### [DES-SETTINGS-SURFACE-DIAGNOSTICS] Diagnostics, Recovery, And Telemetry
 
@@ -812,13 +853,13 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 
 ---
 
-## [DES-ROLLOUT] Migration / Rollout Plan
+## [DES-MAINT] Maintenance Plan
 
-Retarget settings source refs from retired chat docs, then update provider/runtime UX through this child spec.
+Settings source refs point to this child spec. Provider/runtime UX changes update this spec alongside code changes.
 
-### [DES-SETTINGS-ROLLOUT-ROLLBACK] Rollback Plan
+### [DES-SETTINGS-ROUTING-FALLBACK] Routing Fallback
 
-Route files back to `210-app-chat` only if this child spec stops improving routing.
+If routing changes, update file references before moving source ownership.
 
 ---
 
@@ -847,9 +888,9 @@ Route files back to `210-app-chat` only if this child spec stops improving routi
 | `[ChatSettings.Runtimes.Rpc]`       | `ExternalAgentCard`                                                           | `external/setRpcEnabled`, `external/detectPiBinary`, `external/setEphemeral`                                                                | `external-agent-card.test.tsx`                                    |
 | `[ChatSettings.Runtimes.Behaviour]` | Behaviour card (`SelectRow`, `SwitchRow`, `ConfigField`)                      | `chat/setThinkingLevel`, `chat/setSteeringMode`, `chat/setFollowUpMode`, `chat/setAutoCompaction`, `chat/setAutoRetry`, `chat/openSettings` | `apps/chat/src/app.test.tsx`, `apps/chat/e2e/screenshots.spec.ts` |
 | `[ChatSettings.Models.Builtin]`     | `ProviderCard` tile grid                                                      | `provider/setApiKey`, `provider/clearApiKey`, `provider/setDefaultModel`                                                                    | `provider-card.test.tsx`, `settings-snapshot.test.ts`             |
-| `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                        | (v1) `chat/openSettings` for `~/.pi/agent/models.json`                                                                                      | future custom-models tests                                        |
+| `[ChatSettings.Models.Custom]`      | Custom Models sub-tab + track selector                                        | `customModels/*`, `chat/openModelsJson`, `chat/openSettings`                                                                                | custom-models tests                                               |
 | `[ChatSettings.Look]`               | identity/style cards, `theme-preview.ts`                                      | `appearance/update`, `afx.theme`, `afx.style`                                                                                               | `theme-preview.ts` helper tests                                   |
-| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                       | `chat/getCommands`, `chat/showLogs`, `telemetry/setEnabled`                                                                                 | `apps/chat/src/app.test.tsx`                                      |
+| `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                       | `chat/getCommands`, `skills/*`, `chat/openSettings`, `chat/showLogs`, `telemetry/setEnabled`                                                | `apps/chat/src/app.test.tsx`                                      |
 | `[ChatSettings.Experimental]`       | `SettingsCard id="experimental"` (`SwitchRow`, `ConfigField`, Open Workbench) | `experimental/setCanvasEnabled`, `chat/openWorkbench`, `afx.experimental.canvas` (canvas feature → `229-app-workbench-canvas`)              | `apps/chat/src/app.test.tsx`                                      |
 
 ## [DES-SETTINGS-TRACE] Functional Trace Matrix

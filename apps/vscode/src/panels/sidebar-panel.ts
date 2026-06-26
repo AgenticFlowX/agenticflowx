@@ -31,6 +31,7 @@ import {
   type ChatMessageView,
   type ChatTimelineItem,
   PROVIDER_DETAILS,
+  type SettingsOpenTarget,
   composeIntentControlBlock,
   isIntentParentMode,
   normalizeIntentSlot,
@@ -199,6 +200,7 @@ export interface ActiveDocContextPayload {
 export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
   sendExternalPrompt(content: string): Promise<void>;
   appendToDraft(content: string): Promise<void>;
+  openSettingsTarget(target: SettingsOpenTarget): Promise<void>;
   refreshRuntimeConfiguration(): Promise<void>;
   /**
    * Push the active AFX document context to the chat webview so it can render
@@ -466,6 +468,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   let webview: vscode.Webview | null = null;
   let chatReady = false;
   const pendingDraftAppends: string[] = [];
+  const pendingSettingsTargets: SettingsOpenTarget[] = [];
   const pendingToasts: Array<{
     tone: "success" | "info" | "error";
     message: string;
@@ -855,6 +858,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function markChatReady(): void {
     chatReady = true;
     flushPendingDraftAppends();
+    flushPendingSettingsTargets();
     flushPendingToasts();
     postTelemetryState();
     void scheduleOAuthProactiveRefresh();
@@ -866,6 +870,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     for (const content of pendingDraftAppends.splice(0, pendingDraftAppends.length)) {
       post({ type: "chat/draftAppend", content });
     }
+  }
+
+  function flushPendingSettingsTargets(): void {
+    if (!webview || !chatReady) return;
+    if (pendingSettingsTargets.length === 0) return;
+    const target = pendingSettingsTargets.pop();
+    pendingSettingsTargets.length = 0;
+    if (!target) return;
+    post({ type: "settings/openTarget", target });
   }
 
   function flushPendingToasts(): void {
@@ -974,6 +987,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       role: "compactionSummary",
       summary: result.summary || "Session history compacted.",
       tokensBefore: result.tokensBefore,
+      estimatedTokensAfter: result.estimatedTokensAfter,
       createdAt: Date.now(),
     };
     state.messages.push(compactionMsg);
@@ -2013,6 +2027,26 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleGetSettingsSnapshot(msg.requestId);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
+      case "skills/openPath": {
+        void handleOpenSkillPath(msg.requestId, msg.path);
+        return;
+      }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
+      case "skills/revealPath": {
+        void handleRevealSkillPath(msg.requestId, msg.path);
+        return;
+      }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
+      case "skills/create": {
+        void handleCreateSkill(msg.requestId);
+        return;
+      }
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-SURFACE-SKILLS]
+      case "skills/setProjectTrust": {
+        void handleSetProjectTrust(msg.requestId, msg.value);
+        return;
+      }
       // @see docs/specs/100-package-shared/spec.md [FR-12]
       // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
       case "chat/setOnboardingFlag": {
@@ -2955,6 +2989,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         ...(customProvidersService
           ? { customModels: await customProvidersService.getSnapshot() }
           : {}),
+        skills: buildSkillsSnapshot(cfg, {
+          bundledSkillCount,
+          workspaceRoot: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
+        }),
         diagnostics: { logLevel: cfg.get<string>("logLevel", "info") },
         telemetry: {
           enabled: telemetryEnabled,
@@ -2974,6 +3012,251 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       log.error("settings snapshot failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
+  }
+
+  function buildSkillsSnapshot(
+    cfg: vscode.WorkspaceConfiguration,
+    { bundledSkillCount, workspaceRoot }: { bundledSkillCount: number; workspaceRoot?: string },
+  ): NonNullable<SettingsSnapshot["skills"]> {
+    const projectTrust = normalizeProjectTrust(cfg.get<string>("pi.projectTrust", "ask"));
+    const workspaceHasResources = workspaceRoot ? hasWorkspacePiResources(workspaceRoot) : false;
+    const effectiveProjectTrust =
+      projectTrust === "trust"
+        ? "trust"
+        : projectTrust === "ignore" || workspaceHasResources
+          ? "ignore"
+          : "none";
+    const customPaths = normalizeStringList(
+      cfg.get<readonly string[]>("skills.extraPaths", []),
+    ).map((rawPath) => buildSkillPathSnapshot("custom", "Custom skills", rawPath, workspaceRoot));
+    return {
+      bundledSkillsPath,
+      bundledSkillCount,
+      globalPaths: [
+        buildSkillPathSnapshot("global", "Pi global skills", path.join(piAgentDir, "skills")),
+        buildSkillPathSnapshot(
+          "global",
+          "Agent Skills global",
+          path.join(homedir(), ".agents", "skills"),
+        ),
+      ],
+      workspacePaths: workspaceRoot
+        ? [
+            buildSkillPathSnapshot(
+              "workspace",
+              "Pi workspace skills",
+              path.join(workspaceRoot, ".pi", "skills"),
+              workspaceRoot,
+              effectiveProjectTrust === "trust",
+            ),
+            buildSkillPathSnapshot(
+              "workspace",
+              "Agent Skills workspace",
+              path.join(workspaceRoot, ".agents", "skills"),
+              workspaceRoot,
+              effectiveProjectTrust === "trust",
+            ),
+          ]
+        : [],
+      customPaths,
+      projectTrust,
+      effectiveProjectTrust,
+      excludedTools: normalizeStringList(cfg.get<readonly string[]>("pi.excludedTools", [])),
+      httpProxy: cfg.get<string>("network.httpProxy", "").trim(),
+    };
+  }
+
+  function buildSkillPathSnapshot(
+    kind: NonNullable<SettingsSnapshot["skills"]>["globalPaths"][number]["kind"],
+    label: string,
+    rawPath: string,
+    workspaceRoot?: string,
+    trusted?: boolean,
+  ): NonNullable<SettingsSnapshot["skills"]>["globalPaths"][number] {
+    const resolvedPath = resolveUserPath(rawPath, workspaceRoot);
+    return {
+      kind,
+      label,
+      path: resolvedPath,
+      exists: existsSync(resolvedPath),
+      ...(trusted !== undefined ? { trusted } : {}),
+    };
+  }
+
+  function resolveUserPath(value: string, workspaceRoot?: string): string {
+    if (value === "~") return homedir();
+    if (value.startsWith("~/")) return path.join(homedir(), value.slice(2));
+    if (path.isAbsolute(value)) return value;
+    return workspaceRoot ? path.resolve(workspaceRoot, value) : path.resolve(value);
+  }
+
+  function normalizeProjectTrust(
+    value: string | undefined,
+  ): NonNullable<SettingsSnapshot["skills"]>["projectTrust"] {
+    return value === "trust" || value === "ignore" ? value : "ask";
+  }
+
+  function normalizeStringList(value: unknown): string[] {
+    if (!Array.isArray(value)) return [];
+    return [
+      ...new Set(
+        (value as readonly unknown[])
+          .filter((entry): entry is string => typeof entry === "string")
+          .map((entry) => entry.trim())
+          .filter(Boolean),
+      ),
+    ];
+  }
+
+  function hasWorkspacePiResources(workspaceRoot: string): boolean {
+    return [
+      path.join(workspaceRoot, ".pi", "settings.json"),
+      path.join(workspaceRoot, ".pi", "SYSTEM.md"),
+      path.join(workspaceRoot, ".pi", "APPEND_SYSTEM.md"),
+      path.join(workspaceRoot, ".pi", "skills"),
+      path.join(workspaceRoot, ".pi", "prompts"),
+      path.join(workspaceRoot, ".pi", "themes"),
+      path.join(workspaceRoot, ".pi", "extensions"),
+      path.join(workspaceRoot, ".agents", "skills"),
+    ].some((candidate) => existsSync(candidate));
+  }
+
+  async function handleOpenSkillPath(requestId: string, targetPath: string): Promise<void> {
+    try {
+      const uri = vscode.Uri.file(targetPath);
+      const stat = await vscode.workspace.fs.stat(uri);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison -- VS Code FileType is a bitmask.
+      if ((stat.type & vscode.FileType.Directory) === vscode.FileType.Directory) {
+        const skillFile = vscode.Uri.file(path.join(targetPath, "SKILL.md"));
+        try {
+          await vscode.workspace.fs.stat(skillFile);
+          await vscode.window.showTextDocument(skillFile, { preview: false });
+        } catch {
+          await vscode.commands.executeCommand("revealFileInOS", uri);
+        }
+        return;
+      }
+      await vscode.window.showTextDocument(uri, { preview: false });
+    } catch (err) {
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleRevealSkillPath(requestId: string, targetPath: string): Promise<void> {
+    try {
+      await vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(targetPath));
+    } catch (err) {
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetProjectTrust(
+    requestId: string,
+    value: NonNullable<SettingsSnapshot["skills"]>["projectTrust"],
+  ): Promise<void> {
+    try {
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("pi.projectTrust", value, vscode.ConfigurationTarget.Workspace);
+      await deps.reconfigureAgentRuntimes?.("Pi project trust changed");
+      await handleGetSettingsSnapshot(requestId);
+      await handleGetCommands(requestId);
+    } catch (err) {
+      log.error("set Pi project trust failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleCreateSkill(requestId: string): Promise<void> {
+    try {
+      const cfg = vscode.workspace.getConfiguration("afx");
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      const targets = createSkillTargets(cfg, workspaceRoot);
+      const target =
+        targets.length === 1
+          ? targets[0]
+          : await vscode.window.showQuickPick(targets, {
+              placeHolder: "Choose where to create the skill",
+            });
+      if (!target) return;
+      const nameInput = await vscode.window.showInputBox({
+        prompt: "Skill name",
+        placeHolder: "my-skill",
+        validateInput: (value) =>
+          normalizeSkillName(value) === value.trim()
+            ? undefined
+            : "Use lowercase letters, numbers, and hyphens.",
+      });
+      const skillName = normalizeSkillName(nameInput ?? "");
+      if (!skillName) return;
+      const skillDir = path.join(target.path, skillName);
+      const skillFile = path.join(skillDir, "SKILL.md");
+      if (existsSync(skillFile)) {
+        throw new Error(`Skill already exists: ${skillFile}`);
+      }
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(skillFile, createSkillTemplate(skillName), "utf8");
+      await vscode.window.showTextDocument(vscode.Uri.file(skillFile), { preview: false });
+      await deps.reconfigureAgentRuntimes?.("Pi skill created");
+      await handleGetSettingsSnapshot(requestId);
+      await handleGetCommands(requestId);
+    } catch (err) {
+      log.error("create skill failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  function createSkillTargets(
+    cfg: vscode.WorkspaceConfiguration,
+    workspaceRoot?: string,
+  ): Array<{ label: string; description: string; path: string }> {
+    const targets = [
+      {
+        label: "Global Pi skills",
+        description: path.join(piAgentDir, "skills"),
+        path: path.join(piAgentDir, "skills"),
+      },
+    ];
+    if (workspaceRoot) {
+      targets.push({
+        label: "Workspace skills",
+        description: path.join(workspaceRoot, ".agents", "skills"),
+        path: path.join(workspaceRoot, ".agents", "skills"),
+      });
+    }
+    for (const rawPath of normalizeStringList(
+      cfg.get<readonly string[]>("skills.extraPaths", []),
+    )) {
+      const resolvedPath = resolveUserPath(rawPath, workspaceRoot);
+      targets.push({
+        label: `Custom: ${rawPath}`,
+        description: resolvedPath,
+        path: resolvedPath,
+      });
+    }
+    return targets;
+  }
+
+  function normalizeSkillName(value: string): string {
+    return value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 64);
+  }
+
+  function createSkillTemplate(skillName: string): string {
+    return `---\nname: ${skillName}\ndescription: Describe when ${skillName} should be used.\n---\n\n# ${formatSkillTitle(skillName)}\n\n## Instructions\n\nAdd the workflow, constraints, and examples this skill should teach the agent.\n`;
+  }
+
+  function formatSkillTitle(skillName: string): string {
+    return skillName
+      .split("-")
+      .filter(Boolean)
+      .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+      .join(" ");
   }
 
   async function handleSetProviderApiKey(
@@ -3402,6 +3685,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         role: "compactionSummary",
         summary: result.summary || "Session history compacted.",
         tokensBefore: result.tokensBefore,
+        estimatedTokensAfter: result.estimatedTokensAfter,
         createdAt: Date.now(),
       };
       state.messages = [compactionMsg];
@@ -3863,6 +4147,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         return Promise.resolve();
       }
       post({ type: "chat/draftAppend", content: insertion });
+      return Promise.resolve();
+    },
+    openSettingsTarget(target: SettingsOpenTarget): Promise<void> {
+      if (!webview || !chatReady) {
+        pendingSettingsTargets.push(target);
+        return Promise.resolve();
+      }
+      post({ type: "settings/openTarget", target });
       return Promise.resolve();
     },
     async refreshRuntimeConfiguration(): Promise<void> {

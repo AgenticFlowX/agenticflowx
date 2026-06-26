@@ -249,6 +249,7 @@ Still visible.`,
             role: "compactionSummary",
             summary: "Older context compacted",
             tokensBefore: 9999,
+            estimatedTokensAfter: 1234,
             createdAt: MAY_16 + 3_000,
           } as unknown as ChatTimelineItem,
         ]}
@@ -262,6 +263,7 @@ Still visible.`,
     expect(screen.getByText("1 turn")).toBeInTheDocument();
     expect(screen.getByText("standalone note")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /compacted/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /10\.0k -> 1\.2k tokens/i })).toBeInTheDocument();
   });
 
   it("suppresses empty assistant placeholders and announces errors assertively", () => {

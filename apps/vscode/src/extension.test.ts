@@ -8,6 +8,9 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-4] [FR-6]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  */
+import { mkdirSync, rmSync } from "node:fs";
+import { join } from "node:path";
+
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
@@ -48,6 +51,7 @@ vi.mock("./panels/sidebar-panel", () => ({
     refreshCustomModelsSnapshot: vi.fn(),
     sendExternalPrompt: vi.fn(),
     appendToDraft: vi.fn(),
+    openSettingsTarget: vi.fn(),
     postActiveDocContext: vi.fn(),
   })),
 }));
@@ -625,6 +629,58 @@ describe("extension.activate", () => {
         cwd: "/tmp/workspace",
       }),
     );
+  });
+
+  it("opens the persistent Skills settings trust surface from the project-trust prompt", async () => {
+    const root = join("/tmp", "afx-project-trust-prompt-test");
+    rmSync(root, { recursive: true, force: true });
+    mkdirSync(join(root, ".pi", "skills"), { recursive: true });
+    const update = vi.fn(async () => {});
+    vi.spyOn(vscode.workspace, "getConfiguration").mockReturnValue({
+      get: vi.fn(<T>(key: string, defaultValue?: T): T | undefined => {
+        if (key === "pi.projectTrust") return "ask" as T;
+        return defaultValue;
+      }),
+      has: () => false,
+      inspect: () => undefined,
+      update,
+    });
+    Object.defineProperty(vscode.workspace, "workspaceFolders", {
+      configurable: true,
+      get: () => [{ uri: vscode.Uri.file(root), name: "workspace", index: 0 }],
+    });
+    const showWarningMessage = vi
+      .spyOn(vscode.window, "showWarningMessage")
+      .mockResolvedValue("Open Skills settings" as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand");
+
+    try {
+      const { activate } = await import("./extension");
+      const ctx = makeContext();
+      await activate(ctx);
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
+
+      expect(showWarningMessage).toHaveBeenCalledWith(
+        "AgenticFlowX found workspace Pi resources.",
+        expect.objectContaining({ modal: true }),
+        "Trust workspace",
+        "Ignore workspace",
+        "Open Skills settings",
+      );
+      expect(update).not.toHaveBeenCalledWith(
+        "pi.projectTrust",
+        expect.anything(),
+        vscode.ConfigurationTarget.Workspace,
+      );
+      expect(executeCommand).toHaveBeenCalledWith("afx.openSidebar");
+      const sidebarProvider = registerWebview.mock.calls.find(
+        ([id]) => id === "afx-sidebar",
+      )?.[1] as { openSettingsTarget?: ReturnType<typeof vi.fn> } | undefined;
+      expect(sidebarProvider?.openSettingsTarget).toHaveBeenCalledWith("skills");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("creates an output channel and status bar item", async () => {

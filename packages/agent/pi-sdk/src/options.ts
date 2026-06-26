@@ -37,10 +37,12 @@ export interface PiSdkManagerOptions {
   additionalSystemPromptPaths?: readonly string[];
   /** Additional skill roots appended as repeated `--skill <path>` CLI args. */
   additionalSkillPaths?: readonly string[];
+  /** AFX-owned project trust decision for this Pi SDK run. */
+  projectTrust?: "trust" | "ignore";
+  /** Comma-separated Pi tool denylist passed as `--exclude-tools`. */
+  excludedTools?: readonly string[];
   /** Optional Ollama endpoint for local provider models. */
   ollamaBaseUrl?: string;
-  /** Absolute path to a default .afx.yaml bundled with the extension. */
-  defaultConfigPath?: string;
   /**
    * Extra env entries merged into the bootstrap process env. Used by the AFX
    * custom-providers service to ship `AFX_CUSTOM_PROVIDERS_JSON` and per-provider

@@ -66,7 +66,9 @@ export interface AgentFactoryOptions {
   cwd?: string;
   additionalSystemPromptPaths?: readonly string[];
   additionalSkillPaths?: readonly string[];
-  defaultConfigPath?: string;
+  projectTrust?: "trust" | "ignore";
+  excludedTools?: readonly string[];
+  runtimeEnv?: Record<string, string>;
   secretStore?: SecretStore;
   /**
    * AFX-owned OAuth orchestrator for the bundled Pi SDK runtime. The Pi SDK
@@ -138,14 +140,17 @@ export async function createConfiguredAgentInstances(
     // auth.json. The harness owns its own auth.
     // @see docs/specs/352-agent-managed-oauth/spec.md [FR-1] [FR-2] [FR-4] [NFR-1]
     // @see docs/specs/352-agent-managed-oauth/design.md [DES-POLICY]
-    const scrubbedEnv = scrubInheritedProviderCredentials(process.env);
+    const scrubbedEnv = mergeSpawnEnv(
+      scrubInheritedProviderCredentials(process.env),
+      opts.runtimeEnv,
+    );
     instances.push({
       id: "pi",
       label: "Pi CLI",
       runtime: "pi",
       manager: createPiAgentManager({
         ...opts,
-        ...(Object.keys(scrubbedEnv).length > 0 ? { env: scrubbedEnv } : {}),
+        ...(scrubbedEnv ? { env: scrubbedEnv } : {}),
       }),
     });
   }
@@ -208,7 +213,12 @@ export async function createConfiguredAgentInstances(
       buildCopilotBaseUrlOverrideEnv(opts.secretStore),
       buildProviderConfigEnv(opts.secretStore, apiProviders),
     ]);
-    const piSdkExtraEnv = mergeSpawnEnv(opts.piSdkExtraEnv, providerConfigEnv, overrideEnv);
+    const piSdkExtraEnv = mergeSpawnEnv(
+      opts.runtimeEnv,
+      opts.piSdkExtraEnv,
+      providerConfigEnv,
+      overrideEnv,
+    );
     instances.push({
       id: "pi-sdk",
       label: "API Providers",
@@ -236,7 +246,8 @@ export async function createConfiguredAgentInstances(
         cwd: opts.cwd,
         additionalSystemPromptPaths: opts.additionalSystemPromptPaths,
         additionalSkillPaths: opts.additionalSkillPaths,
-        defaultConfigPath: opts.defaultConfigPath,
+        projectTrust: opts.projectTrust,
+        excludedTools: opts.excludedTools,
         ollamaBaseUrl: opts.ollamaBaseUrl,
         extraEnv: piSdkExtraEnv,
       }),

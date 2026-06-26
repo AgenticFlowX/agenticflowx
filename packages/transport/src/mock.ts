@@ -254,7 +254,7 @@ const MOCK_SETTINGS_SNAPSHOT: SettingsSnapshot = {
   },
   about: {
     extensionVersion: "2.0.0",
-    bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+    bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
   },
 };
 

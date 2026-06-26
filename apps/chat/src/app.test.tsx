@@ -163,7 +163,7 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
     },
     about: {
       extensionVersion: "2.0.0",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.75.4",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
     },
   };
 }
@@ -1813,7 +1813,7 @@ describe("chat App", () => {
     // Support group: About + telemetry toggle
     await user.click(screen.getByRole("button", { name: "Support" }));
     expect(screen.getByText("Bundled Pi npm")).toBeInTheDocument();
-    expect(screen.getByText("@earendil-works/pi-coding-agent@0.75.4")).toBeInTheDocument();
+    expect(screen.getByText("@earendil-works/pi-coding-agent@0.80.2")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Anonymous UI analytics" })).toBeChecked();
 
     fireEvent.click(screen.getByRole("switch", { name: "Anonymous UI analytics" }));
@@ -1866,6 +1866,49 @@ describe("chat App", () => {
     expect(
       screen.getByText("⏎ follow-up · ⌘⏎ steer · idle: ⏎ send · ⌘⇧⏎ note · ↑ history"),
     ).toBeInTheDocument();
+  });
+
+  it("opens the Skills settings trust decision from a host navigation message", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      emitChatState(transport, {}, null, "code", {
+        skills: {
+          bundledSkillsPath: "resources/skills/agenticflowx",
+          bundledSkillCount: 17,
+          globalPaths: [],
+          workspacePaths: [
+            {
+              kind: "workspace",
+              label: "Pi workspace skills",
+              path: "/workspace/.pi/skills",
+              exists: true,
+              trusted: false,
+            },
+          ],
+          customPaths: [],
+          projectTrust: "ask",
+          effectiveProjectTrust: "ignore",
+          excludedTools: [],
+          httpProxy: "",
+        },
+      });
+      transport.emit({ type: "settings/openTarget", target: "skills" });
+    });
+
+    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
+    const skills = screen.getByTestId("settings-skills-disclosure");
+    await waitFor(() => expect(skills).toHaveAttribute("open", ""));
+    expect(screen.getByText("trust needed")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Workspace Pi resources are blocked until you choose. Trust this workspace to load its skills, or ignore it to keep them disabled.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trust workspace" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Ignore workspace" })).toBeVisible();
   });
 
   /**

@@ -9,6 +9,7 @@
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-SETTINGS]
  */
 import {
+  type ComponentProps,
   type ReactElement,
   type ReactNode,
   useCallback,
@@ -274,6 +275,14 @@ export default function Settings({
   const pendingContextMutations = useRef<Map<string, string>>(new Map());
   const pendingTelemetryMutations = useRef<Map<string, string>>(new Map());
   const pendingExperimentalMutations = useRef<Map<string, string>>(new Map());
+  const pendingSkillsMutations = useRef<Map<string, string>>(new Map());
+  const skills = snapshot?.skills;
+  const workspaceTrustNeedsDecision = Boolean(
+    skills &&
+    skills.projectTrust === "ask" &&
+    skills.effectiveProjectTrust === "ignore" &&
+    skills.workspacePaths.some((entry) => entry.exists),
+  );
 
   useEffect(() => {
     const offs = [
@@ -308,6 +317,11 @@ export default function Settings({
         if (experimentalLabel) {
           pendingExperimentalMutations.current.delete(msg.requestId);
           toast.success(experimentalLabel);
+        }
+        const skillsLabel = pendingSkillsMutations.current.get(msg.requestId);
+        if (skillsLabel) {
+          pendingSkillsMutations.current.delete(msg.requestId);
+          toast.success(skillsLabel);
         }
       }),
       // Terminal redacted OAuth status — drives the provider card's connected /
@@ -385,6 +399,7 @@ export default function Settings({
         const intentLabel = pendingIntentMutations.current.get(msg.requestId);
         const telemetryLabel = pendingTelemetryMutations.current.get(msg.requestId);
         const experimentalLabel = pendingExperimentalMutations.current.get(msg.requestId);
+        const skillsLabel = pendingSkillsMutations.current.get(msg.requestId);
         const label =
           runtimeLabel ??
           appearanceLabel ??
@@ -393,7 +408,8 @@ export default function Settings({
           intentLabel ??
           modeLabel ??
           telemetryLabel ??
-          experimentalLabel;
+          experimentalLabel ??
+          skillsLabel;
         if (!label) return;
         pendingRuntimeMutations.current.delete(msg.requestId);
         pendingAppearanceMutations.current.delete(msg.requestId);
@@ -403,6 +419,7 @@ export default function Settings({
         pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         pendingExperimentalMutations.current.delete(msg.requestId);
+        pendingSkillsMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
       }),
     ];
@@ -559,6 +576,11 @@ export default function Settings({
     pendingExperimentalMutations.current.set(requestId, label);
     return requestId;
   }
+  function trackSkillsMutation(label: string): string {
+    const requestId = uid();
+    pendingSkillsMutations.current.set(requestId, label);
+    return requestId;
+  }
 
   function applyThinkingLevel(level: ThinkingLevel) {
     setRuntime((r) => ({ ...r, thinkingLevel: level }));
@@ -598,6 +620,26 @@ export default function Settings({
       type: "chat/setAutoRetry",
       requestId: trackRuntimeMutation(`Auto-retry ${enabled ? "enabled" : "disabled"}`),
       enabled,
+    });
+  }
+  function refreshSkills() {
+    bridgeSend({
+      type: "chat/getSettingsSnapshot",
+      requestId: trackSkillsMutation("Skills refreshed"),
+    });
+    bridgeSend({ type: "chat/getCommands", requestId: uid() });
+  }
+  function setProjectTrust(value: NonNullable<SettingsSnapshot["skills"]>["projectTrust"]) {
+    bridgeSend({
+      type: "skills/setProjectTrust",
+      requestId: trackSkillsMutation(`Project trust set to ${value}`),
+      value,
+    });
+  }
+  function createSkill() {
+    bridgeSend({
+      type: "skills/create",
+      requestId: trackSkillsMutation("Skill created"),
     });
   }
   function applyIncludeActiveFileContext(enabled: boolean) {
@@ -782,6 +824,8 @@ export default function Settings({
         openHostedKeySetup();
       } else if (openTarget === "custom-provider") {
         openCustomEndpointSetup();
+      } else if (openTarget === "skills") {
+        jumpToSection("support");
       } else {
         openRuntimesSetup();
       }
@@ -798,6 +842,7 @@ export default function Settings({
     openHostedKeySetup,
     openRuntimesSetup,
     openTarget,
+    jumpToSection,
   ]);
 
   function applyTheme(theme: AfxThemeId) {
@@ -2185,7 +2230,8 @@ export default function Settings({
             icon={Info}
             title={SUPPORT.groupTitle}
             description={SUPPORT.groupDescription}
-            badge={`${skillCount}`}
+            badge={workspaceTrustNeedsDecision ? "trust needed" : `${skillCount}`}
+            badgeVariant={workspaceTrustNeedsDecision ? "destructive" : "secondary"}
           >
             {/* Diagnostics */}
             <div className="flex flex-col gap-2">
@@ -2269,9 +2315,14 @@ export default function Settings({
 
             <SkillsDisclosure
               groups={groups}
+              skills={snapshot?.skills}
               disabled={runtimeControlsDisabled}
               onInsertCommand={onInsertCommand}
+              onRefresh={refreshSkills}
+              onCreateSkill={createSkill}
+              onSetProjectTrust={setProjectTrust}
               skillCount={skillCount}
+              forceOpen={workspaceTrustNeedsDecision}
             />
           </SettingsCard>
         </div>
@@ -2652,6 +2703,7 @@ function SettingsCard({
   title,
   description,
   badge,
+  badgeVariant = "secondary",
   children,
 }: {
   id?: string;
@@ -2659,6 +2711,7 @@ function SettingsCard({
   title: string;
   description: string;
   badge?: string;
+  badgeVariant?: ComponentProps<typeof Badge>["variant"];
   children: ReactNode;
 }) {
   return (
@@ -2676,7 +2729,7 @@ function SettingsCard({
             <span className="block text-[13px]">{title}</span>
             <CardDescription className="mt-0.5">{description}</CardDescription>
           </div>
-          {badge ? <Badge variant="secondary">{badge}</Badge> : null}
+          {badge ? <Badge variant={badgeVariant}>{badge}</Badge> : null}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2 px-1 pt-1 pb-4">{children}</CardContent>
@@ -2902,19 +2955,40 @@ function SelectRow({
  */
 function SkillsDisclosure({
   groups,
+  skills,
   disabled,
   onInsertCommand,
+  onRefresh,
+  onCreateSkill,
+  onSetProjectTrust,
   skillCount,
+  forceOpen,
 }: {
   groups: ReturnType<typeof groupCommands>;
+  skills?: SettingsSnapshot["skills"];
   disabled?: boolean;
   onInsertCommand?: (commandText: string) => void;
+  onRefresh: () => void;
+  onCreateSkill: () => void;
+  onSetProjectTrust: (value: NonNullable<SettingsSnapshot["skills"]>["projectTrust"]) => void;
   skillCount: number;
+  forceOpen?: boolean;
 }) {
+  const allCommands = [
+    ...groups.afx,
+    ...groups.globalSkills,
+    ...groups.workspaceSkills,
+    ...groups.customSkills,
+    ...groups.otherSkills,
+    ...groups.extension,
+    ...groups.prompt,
+  ];
+  const duplicates = duplicateCommandNames(allCommands);
   return (
     <details
       data-testid="settings-skills-disclosure"
       className="group mt-2 rounded-md border bg-muted/10"
+      open={forceOpen ? true : undefined}
     >
       <summary className="flex cursor-pointer list-none items-start justify-between gap-2 px-2.5 py-2 marker:hidden">
         <span className="min-w-0">
@@ -2931,6 +3005,61 @@ function SkillsDisclosure({
         </span>
       </summary>
       <div className="flex flex-col gap-2 border-t px-2.5 py-2">
+        <div className="flex flex-wrap gap-1.5">
+          <Button type="button" size="xs" variant="outline" onClick={onRefresh}>
+            <RefreshCw size={12} />
+            Refresh
+          </Button>
+          <Button type="button" size="xs" variant="outline" onClick={onCreateSkill}>
+            <Plus size={12} />
+            Create skill
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() =>
+              bridgeSend({
+                type: "chat/openSettings",
+                requestId: uid(),
+                key: "afx.skills.extraPaths",
+              })
+            }
+          >
+            <ExternalLink size={12} />
+            Custom paths
+          </Button>
+        </div>
+        {skills ? (
+          <SkillTrustPanel
+            skills={skills}
+            disabled={disabled}
+            onSetProjectTrust={onSetProjectTrust}
+          />
+        ) : null}
+        {duplicates.length > 0 ? (
+          <p className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-700 dark:text-amber-200">
+            Duplicate command names: {duplicates.join(", ")}
+          </p>
+        ) : null}
+        {skills ? (
+          <div className="grid gap-2 md:grid-cols-2">
+            <SkillPathGroup
+              title="AFX skills"
+              paths={[
+                {
+                  kind: "afx",
+                  label: "Bundled AFX skills",
+                  path: skills.bundledSkillsPath,
+                  exists: skills.bundledSkillCount > 0,
+                },
+              ]}
+            />
+            <SkillPathGroup title="Global skills" paths={skills.globalPaths} />
+            <SkillPathGroup title="Workspace skills" paths={skills.workspacePaths} />
+            <SkillPathGroup title="Custom skills" paths={skills.customPaths} />
+          </div>
+        ) : null}
         <CommandGroup
           title={SUPPORT.afxSkillsLabel}
           titleTooltip={SUPPORT.afxSkillsTooltip}
@@ -2939,7 +3068,28 @@ function SkillsDisclosure({
           onInsertCommand={onInsertCommand}
         />
         <CommandGroup
-          title="Pi skills"
+          title="Global skills"
+          titleTooltip={SUPPORT.piSkillsTooltip}
+          commands={groups.globalSkills}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title="Workspace skills"
+          titleTooltip={SUPPORT.piSkillsTooltip}
+          commands={groups.workspaceSkills}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title="Custom skills"
+          titleTooltip={SUPPORT.piSkillsTooltip}
+          commands={groups.customSkills}
+          disabled={disabled}
+          onInsertCommand={onInsertCommand}
+        />
+        <CommandGroup
+          title="Other skills"
           titleTooltip={SUPPORT.piSkillsTooltip}
           commands={groups.otherSkills}
           disabled={disabled}
@@ -2987,6 +3137,134 @@ function SkillsDisclosure({
   );
 }
 
+function SkillTrustPanel({
+  skills,
+  disabled,
+  onSetProjectTrust,
+}: {
+  skills: NonNullable<SettingsSnapshot["skills"]>;
+  disabled?: boolean;
+  onSetProjectTrust: (value: NonNullable<SettingsSnapshot["skills"]>["projectTrust"]) => void;
+}) {
+  const workspaceHasPaths = skills.workspacePaths.some((entry) => entry.exists);
+  const needsDecision =
+    workspaceHasPaths && skills.projectTrust === "ask" && skills.effectiveProjectTrust === "ignore";
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-card/35 px-2 py-2",
+        needsDecision && "border-amber-500/40 bg-amber-500/10",
+      )}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[11px] font-semibold">Project trust</span>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant={skills.effectiveProjectTrust === "trust" ? "default" : "outline"}>
+            {skills.effectiveProjectTrust}
+          </Badge>
+          <Badge variant="outline">{skills.projectTrust}</Badge>
+        </div>
+      </div>
+      <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+        {needsDecision
+          ? "Workspace Pi resources are blocked until you choose. Trust this workspace to load its skills, or ignore it to keep them disabled."
+          : workspaceHasPaths
+            ? "Workspace Pi resources are present; trust controls whether Pi loads them."
+            : "No workspace Pi skill folders were found."}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        <Button
+          type="button"
+          size="xs"
+          variant={skills.projectTrust === "trust" ? "default" : "outline"}
+          disabled={disabled}
+          onClick={() => onSetProjectTrust("trust")}
+        >
+          Trust workspace
+        </Button>
+        <Button
+          type="button"
+          size="xs"
+          variant={skills.projectTrust === "ignore" ? "default" : "outline"}
+          disabled={disabled}
+          onClick={() => onSetProjectTrust("ignore")}
+        >
+          Ignore workspace
+        </Button>
+        <Button
+          type="button"
+          size="xs"
+          variant={skills.projectTrust === "ask" ? "default" : "ghost"}
+          disabled={disabled}
+          onClick={() => onSetProjectTrust("ask")}
+        >
+          Ask
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type SkillPathSnapshot = NonNullable<SettingsSnapshot["skills"]>["globalPaths"][number];
+
+function SkillPathGroup({ title, paths }: { title: string; paths: readonly SkillPathSnapshot[] }) {
+  if (paths.length === 0) return null;
+  return (
+    <div className="rounded-md border bg-card/35 px-2 py-2">
+      <GroupTitle label={title} count={paths.length} />
+      <div className="mt-1 flex flex-col gap-1">
+        {paths.map((entry) => (
+          <div
+            key={`${entry.kind}:${entry.path}`}
+            className="border-b border-border/50 py-1 last:border-b-0"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-[10px] font-medium">{entry.label}</span>
+              <span className="flex shrink-0 gap-1">
+                <Badge variant={entry.exists ? "default" : "outline"}>
+                  {entry.exists ? "loaded" : "missing"}
+                </Badge>
+                {entry.trusted !== undefined ? (
+                  <Badge variant={entry.trusted ? "default" : "outline"}>
+                    {entry.trusted ? "trusted" : "blocked"}
+                  </Badge>
+                ) : null}
+              </span>
+            </div>
+            <p className="mt-0.5 break-all font-mono text-[9px] text-muted-foreground">
+              {entry.path}
+            </p>
+            <div className="mt-1 flex gap-1">
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                onClick={() =>
+                  bridgeSend({ type: "skills/openPath", requestId: uid(), path: entry.path })
+                }
+              >
+                <ExternalLink size={11} />
+                Open
+              </Button>
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                onClick={() =>
+                  bridgeSend({ type: "skills/revealPath", requestId: uid(), path: entry.path })
+                }
+              >
+                <Folder size={11} />
+                Reveal
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CommandGroup({
   title,
   titleTooltip,
@@ -3006,26 +3284,77 @@ function CommandGroup({
       <GroupTitle label={title} tooltip={titleTooltip} count={commands.length} />
       {commands.map((command) => {
         const display = displayCommandName(command);
+        const sourceInfo = command.sourceInfo;
         return (
-          <button
-            key={`${command.source}:${command.name}`}
-            type="button"
-            onClick={() => onInsertCommand?.(display)}
-            disabled={disabled}
-            className="flex items-center justify-between gap-2 border-b border-border/50 px-0.5 py-1.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50 last:border-b-0"
+          <div
+            key={`${command.source}:${command.name}:${sourceInfo?.path ?? ""}`}
+            className="border-b border-border/50 py-1.5 last:border-b-0"
           >
-            <span className="min-w-0">
-              <span className="block truncate font-mono text-[11px]">{display}</span>
-              {command.description ? (
-                <span className="block truncate text-[10px] text-muted-foreground">
-                  {command.description}
+            <button
+              type="button"
+              onClick={() => onInsertCommand?.(display)}
+              disabled={disabled}
+              className="flex w-full items-center justify-between gap-2 px-0.5 py-0.5 text-left hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-mono text-[11px]">{display}</span>
+                {command.description ? (
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {command.description}
+                  </span>
+                ) : null}
+              </span>
+              <span className="flex shrink-0 items-center gap-1">
+                {sourceInfo?.scope ? (
+                  <Badge variant="outline" className="text-[9px]">
+                    {sourceInfo.scope}
+                  </Badge>
+                ) : null}
+                <Badge variant="outline" className="text-[9px]">
+                  {sourceInfo?.origin ?? command.source}
+                </Badge>
+              </span>
+            </button>
+            {sourceInfo?.path ? (
+              <div className="mt-1 flex items-center justify-between gap-2 px-0.5">
+                <span className="min-w-0 break-all font-mono text-[9px] text-muted-foreground">
+                  {sourceInfo.path}
                 </span>
-              ) : null}
-            </span>
-            <Badge variant="outline" className="text-[9px]">
-              {command.source}
-            </Badge>
-          </button>
+                <span className="flex shrink-0 gap-1">
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() =>
+                      bridgeSend({
+                        type: "skills/openPath",
+                        requestId: uid(),
+                        path: sourceInfo.path,
+                      })
+                    }
+                  >
+                    <ExternalLink size={11} />
+                    Open
+                  </Button>
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() =>
+                      bridgeSend({
+                        type: "skills/revealPath",
+                        requestId: uid(),
+                        path: sourceInfo.path,
+                      })
+                    }
+                  >
+                    <Folder size={11} />
+                    Reveal
+                  </Button>
+                </span>
+              </div>
+            ) : null}
+          </div>
         );
       })}
     </div>
@@ -3045,14 +3374,32 @@ function GroupTitle({ label, tooltip, count }: { label: string; tooltip?: string
 }
 
 function groupCommands(commands: readonly AgentCommand[]) {
+  const skillCommands = commands.filter((cmd) => cmd.source === "skill");
+  const afx = skillCommands.filter((cmd) => cmd.name.startsWith("skill:afx-"));
+  const nonAfxSkills = skillCommands.filter((cmd) => !cmd.name.startsWith("skill:afx-"));
+  const globalSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "user");
+  const workspaceSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "project");
+  const customSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "temporary");
+  const classified = new Set([...globalSkills, ...workspaceSkills, ...customSkills]);
   return {
-    afx: commands.filter((cmd) => cmd.source === "skill" && cmd.name.startsWith("skill:afx-")),
-    otherSkills: commands.filter(
-      (cmd) => cmd.source === "skill" && !cmd.name.startsWith("skill:afx-"),
-    ),
+    afx,
+    globalSkills,
+    workspaceSkills,
+    customSkills,
+    otherSkills: nonAfxSkills.filter((cmd) => !classified.has(cmd)),
     extension: commands.filter((cmd) => cmd.source === "extension"),
     prompt: commands.filter((cmd) => cmd.source === "prompt"),
   };
+}
+
+function duplicateCommandNames(commands: readonly AgentCommand[]): string[] {
+  const counts = new Map<string, number>();
+  for (const command of commands) {
+    counts.set(command.name, (counts.get(command.name) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count > 1)
+    .map(([name]) => displayCommandName({ name }));
 }
 
 function providerLabel(provider: string): string {

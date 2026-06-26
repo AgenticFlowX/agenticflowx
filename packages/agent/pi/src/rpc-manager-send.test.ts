@@ -98,7 +98,6 @@ describe("PiRpcManager send rewrite", () => {
       sessionDir: "/tmp/agenticflowx-sessions",
       cwd: "/tmp/workspace",
       additionalSkillPaths: ["/tmp/agenticflowx/skills"],
-      defaultConfigPath: "/tmp/agenticflowx/defaults/.afx.yaml",
       additionalSystemPromptPaths: ["/tmp/agenticflowx/harness-overlays/common/afx-vscode.md"],
     });
 
@@ -112,9 +111,37 @@ describe("PiRpcManager send rewrite", () => {
           "--skill",
           "/tmp/agenticflowx/skills",
           "--append-system-prompt",
-          "/tmp/agenticflowx/defaults/.afx.yaml",
-          "--append-system-prompt",
           "/tmp/agenticflowx/harness-overlays/common/afx-vscode.md",
+        ],
+      }),
+    );
+  });
+
+  it("passes Pi 0.80 trust, excluded tools, and extra skill args", async () => {
+    const clientMod = await import("./rpc-client");
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+      projectTrust: "trust",
+      excludedTools: ["bash", "edit"],
+      additionalSkillPaths: ["/tmp/agenticflowx/skills", "/tmp/custom-skills"],
+    });
+
+    await manager.getStatus();
+
+    expect(vi.mocked(clientMod.createPiClient)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: [
+          "--no-session",
+          "--approve",
+          "--exclude-tools",
+          "bash,edit",
+          "--skill",
+          "/tmp/agenticflowx/skills",
+          "--skill",
+          "/tmp/custom-skills",
         ],
       }),
     );

@@ -157,6 +157,50 @@ describe("agent-factory", () => {
     );
   });
 
+  it("passes Pi 0.80 skill, trust, excluded-tool, and proxy env options to both runtimes", async () => {
+    const { createConfiguredAgentInstances } = await import("./agent-factory");
+    const { logger } = createMockLogger();
+    const secretStore = createSecretStoreMock(async () => "secret");
+    const additionalSkillPaths = ["/extension/resources/skills/agenticflowx", "/workspace/skills"];
+    const excludedTools = ["bash", "write"];
+    const runtimeEnv = {
+      HTTP_PROXY: "http://127.0.0.1:8080",
+      HTTPS_PROXY: "http://127.0.0.1:8080",
+    };
+
+    await createConfiguredAgentInstances({
+      logger,
+      binaryPath: "/usr/local/bin/pi",
+      ephemeral: false,
+      rpcEnabled: true,
+      sessionDir: "/tmp/agenticflowx-sessions",
+      bootstrapPath: "/tmp/bootstrap.js",
+      sdkDefaultModel: "openai:gpt-5.2",
+      secretStore: secretStore as never,
+      additionalSkillPaths,
+      projectTrust: "ignore",
+      excludedTools,
+      runtimeEnv,
+    });
+
+    expect(createPiAgentManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        additionalSkillPaths,
+        projectTrust: "ignore",
+        excludedTools,
+        env: expect.objectContaining(runtimeEnv),
+      }),
+    );
+    expect(createPiSdkAgentManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        additionalSkillPaths,
+        projectTrust: "ignore",
+        excludedTools,
+        extraEnv: expect.objectContaining(runtimeEnv),
+      }),
+    );
+  });
+
   it("keeps API Providers available when Pi RPC is disabled", async () => {
     const { createConfiguredAgentInstances } = await import("./agent-factory");
     const { logger } = createMockLogger();
