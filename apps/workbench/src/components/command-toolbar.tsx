@@ -77,7 +77,8 @@ export function CommandToolbar({
         "inline-flex min-h-9 max-w-full min-w-0 items-center gap-0.5 overflow-hidden rounded-md border border-border/70 bg-background/70 p-1 shadow-[0_1px_0_rgba(255,255,255,0.04),0_8px_24px_rgba(0,0,0,0.08)]",
         compact && "min-h-8 p-0.5",
         scope === "section" && "border-afx-brand/25 bg-muted/10 shadow-none",
-        scope.startsWith("inline-") && "border-afx-brand/25 bg-background/95 shadow-md",
+        scope.startsWith("inline-") &&
+          "w-full flex-1 border-transparent bg-transparent shadow-none",
         className,
       )}
     >

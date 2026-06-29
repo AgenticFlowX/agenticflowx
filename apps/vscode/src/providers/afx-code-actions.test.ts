@@ -28,6 +28,11 @@ type MenuEntry = {
   when?: string;
 };
 
+type ViewContainerContribution = {
+  id: string;
+  title: string;
+};
+
 type ExtensionManifest = {
   contributes: {
     commands: CommandContribution[];
@@ -36,6 +41,9 @@ type ExtensionManifest = {
       "editor/title": MenuEntry[];
     };
     submenus: Array<{ icon?: string; id: string; label: string }>;
+    viewsContainers: {
+      panel: ViewContainerContribution[];
+    };
   };
 };
 
@@ -253,7 +261,7 @@ describe("createAfxCodeActionProvider", () => {
     );
   });
 
-  it("surfaces a single Open Preview title action with the AFX activity icon", () => {
+  it("surfaces Open Preview and Refine title actions with the AFX activity icon", () => {
     const packageJson = readExtensionManifest();
     const iconSvg = readFileSync(resolve(__dirname, "../../resources/activity-icon.svg"), "utf8");
     const previewCommand = packageJson.contributes.commands.find(
@@ -261,6 +269,9 @@ describe("createAfxCodeActionProvider", () => {
     );
     const workbenchCommand = packageJson.contributes.commands.find(
       (entry) => entry.command === "afx.openWorkbench",
+    );
+    const workbenchPanel = packageJson.contributes.viewsContainers.panel.find(
+      (entry) => entry.id === "afx-workbench-container",
     );
     const submenu = packageJson.contributes.submenus.find(
       (entry) => entry.id === "afx.editorContext",
@@ -282,6 +293,10 @@ describe("createAfxCodeActionProvider", () => {
       command: "afx.openWorkbench",
       title: "Open Workbench",
     });
+    expect(workbenchPanel).toMatchObject({
+      id: "afx-workbench-container",
+      title: "AgenticFlowX Workbench",
+    });
     expect(submenu).toMatchObject({
       icon: "resources/activity-icon.svg",
       id: "afx.editorContext",
@@ -292,7 +307,12 @@ describe("createAfxCodeActionProvider", () => {
       group: "navigation@0",
       when: "editorLangId == markdown",
     });
-    expect(editorTitle).toHaveLength(1);
+    expect(editorTitle[1]).toMatchObject({
+      command: "afx.refineCurrentDocument",
+      group: "navigation@1",
+      when: "editorLangId == markdown && afx.activeSddDocument",
+    });
+    expect(editorTitle).toHaveLength(2);
     expect(editorTitle.some((entry) => entry.submenu === "afx.editorContext")).toBe(false);
     expect(editorContext[0]).toMatchObject({
       command: "afx.openAfxPreview",
@@ -304,6 +324,11 @@ describe("createAfxCodeActionProvider", () => {
       group: "0_preview@1",
     });
     expect(editorContext[2]).toMatchObject({
+      command: "afx.refineCurrentDocument",
+      group: "0_preview@2",
+      when: "editorLangId == markdown && afx.activeSddDocument",
+    });
+    expect(editorContext[3]).toMatchObject({
       command: "afx.action.saveToNotes",
       group: "1_notes@1",
     });

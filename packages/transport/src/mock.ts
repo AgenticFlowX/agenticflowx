@@ -1021,6 +1021,37 @@ This is a long-running response on purpose so the queue stays visible while you 
     endAssistant(id);
   }
 
+  async function runSddGuideActions(): Promise<void> {
+    const feature = "checkout-redesign";
+    const id = startAssistant();
+    await delay(60);
+
+    for (const [toolCallId, path, summary] of [
+      ["sdd-spec", `docs/specs/${feature}/spec.md`, "Wrote product requirements."],
+      ["sdd-design", `docs/specs/${feature}/design.md`, "Wrote technical design."],
+    ] as const) {
+      emit({
+        type: "chat/toolStart",
+        toolCallId,
+        toolName: "write_file",
+        args: { path },
+      });
+      await delay(80);
+      emit({ type: "chat/toolEnd", toolCallId, ok: true, summary, firstChangedLine: 1 });
+    }
+
+    await streamText(
+      id,
+      `Created the first SDD files for ${feature}.
+
+Next:
+1. /afx-design review ${feature}
+2. /afx-task verify ${feature}
+3. /afx-sprint task ${feature} resolve open questions`,
+    );
+    endAssistant(id);
+  }
+
   /**
    * Builds N realistic deep-path filenames so the Modified files panel can be
    * stress-tested against THRESHOLD overflow with names that wrap and exceed
@@ -1224,7 +1255,9 @@ Result: NOT READY FOR CODING
 
 Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
 /afx-sprint design ${feature} add explicit Key Decisions table or N/A note
-/afx-sprint spec ${feature} --approve`,
+/afx-sprint spec ${feature} --approve
+/afx-sprint verify ${feature}
+/afx-next`,
     });
     emit({ type: "chat/messageEnd", id, stopReason: "end_turn" });
   }
@@ -2391,6 +2424,7 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     "spec-doc-clear": () => clearDocContext(),
     "spec-doc-preview": () => emitSpecDocContext(),
     "markdown-active-file": () => emitMarkdownActiveFileContext(),
+    "sdd-guide-actions": () => void runSddGuideActions(),
     "long-next-actions": () => runLongNextActions(),
     "sprint-doc-actions": () => runSprintDocActions(),
     "journal-doc-actions": () => runJournalDocActions(),

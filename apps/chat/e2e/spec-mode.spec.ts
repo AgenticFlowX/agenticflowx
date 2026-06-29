@@ -144,7 +144,9 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     const composer = page.locator("#afx-chat-composer");
     await expect(composer).toHaveValue(/\/afx-spec refine auth performance/);
 
-    await expect(page.getByTestId("result-action-button")).toContainText("/afx-task code 2.3");
+    await expect(page.getByTestId("result-action-button")).toHaveAccessibleName(
+      /\/afx-task code 2\.3/,
+    );
     await page.getByTestId("result-action-button").click();
     await expect(composer).toHaveValue("/afx-task code 2.3 ");
   });

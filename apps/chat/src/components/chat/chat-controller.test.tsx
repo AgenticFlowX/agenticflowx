@@ -434,6 +434,44 @@ After.`,
     ).toBe(true);
   });
 
+  it("auto-opens AFX preview once when a fresh assistant edit touches an SDD document", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({
+        type: "chat/messageStart",
+        id: "a1",
+        role: "assistant",
+        createdAt: 1,
+      });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "t1",
+        toolName: "write_file",
+        args: { path: "docs/specs/billing-export/spec.md" },
+      });
+    });
+
+    expect(transport.send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "docs/specs/billing-export/spec.md",
+      mode: "afxPreview",
+    });
+    const openPreviewCalls = vi.mocked(transport.send).mock.calls.filter(([message]) => {
+      return (
+        typeof message === "object" &&
+        message !== null &&
+        "type" in message &&
+        message.type === "chat/openFile" &&
+        "mode" in message &&
+        message.mode === "afxPreview"
+      );
+    });
+    expect(openPreviewCalls).toHaveLength(1);
+  });
+
   it("exposes derived flags and region slices instead of raw writers", () => {
     initTransport(createStatefulTransport());
 

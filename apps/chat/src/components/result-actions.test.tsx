@@ -35,6 +35,27 @@ describe("ResultActions", () => {
     ).toHaveAttribute("data-group", "quality");
   });
 
+  it("keeps long next-action sets compact behind a visible overflow button", () => {
+    const onDraft = vi.fn();
+    const onSend = vi.fn();
+    const actions = parseResultActions(`
+Next (ranked):
+1. /afx-task verify 2.3
+2. /afx-task code 2.4
+3. /afx-check path docs/specs/chat
+4. /afx-next
+5. /afx-session note "capture"
+`);
+
+    render(<ResultActions actions={actions} onSend={onSend} onInsert={onDraft} />);
+
+    expect(screen.getAllByTestId("result-action-button")).toHaveLength(2);
+    const more = screen.getByTestId("result-actions-more");
+    expect(more).toHaveAccessibleName("Show 3 more next actions");
+    expect(more).toHaveTextContent("+3");
+    expect(screen.queryByText("/afx-check path docs/specs/chat")).not.toBeInTheDocument();
+  });
+
   it("sends auto-send supported commands on normal click", () => {
     const onDraft = vi.fn();
     const onSend = vi.fn();
@@ -84,7 +105,7 @@ describe("ResultActions", () => {
     expect(onSend).not.toHaveBeenCalled();
   });
 
-  it("preserves long commands in accessible names and truncates visible command text", () => {
+  it("preserves long commands in accessible names without rendering them in the compact chip", () => {
     const longSpec = "dapi-394-warm-container-app-poc-with-approval-gates-and-long-name";
     const longCommand = `/afx-sprint design ${longSpec} --approve`;
     const actions = parseResultActions(`Next: ${longCommand}`);
@@ -96,6 +117,6 @@ describe("ResultActions", () => {
     });
     expect(button).toHaveAccessibleName(`Insert Refine Design: ${longCommand}`);
     expect(button).toHaveAttribute("data-mode", "insert");
-    expect(screen.getByText(longCommand)).toHaveClass("truncate");
+    expect(screen.queryByText(longCommand)).not.toBeInTheDocument();
   });
 });

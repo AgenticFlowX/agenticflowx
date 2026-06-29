@@ -156,6 +156,119 @@ This paragraph includes \`packages/configs/src/edge/marketplace/themes/super-lon
     expect(screen.queryByRole("cell", { name: /---------------/ })).not.toBeInTheDocument();
   });
 
+  it("collapses accidental fully blank table columns", () => {
+    const { container } = render(
+      <MinimalMarkdown
+        content={`| Section | Status |  | Notes |
+| ------- | ------ | --- | ----- |
+| Spec | Approved |  | Requirements satisfied by the worktree implementation. |
+| Design | Approved |  | PostgreSQL schema built as designed. |
+| Tasks | Approved |  | Phases 0-10 complete. |
+| Doc | Living |  | Sprint status promoted to Living. |
+`}
+      />,
+    );
+
+    const headers = [...container.querySelectorAll("th")].map((header) => header.textContent);
+
+    expect(headers).toEqual(["Section", "Status", "Notes"]);
+    expect(container.querySelectorAll("td")).toHaveLength(12);
+    expect(screen.getByRole("cell", { name: /Requirements satisfied/i })).toBeInTheDocument();
+  });
+
+  it("keeps description-heavy requirements tables from creating a blank middle column", () => {
+    const { container } = render(
+      <MinimalMarkdown
+        content={`## Functional Requirements
+
+| ID | Requirement | Description |
+| -- | ----------- | ----------- |
+| FR-1 | Hero section | Display room identity, room status, a short description, and three status chips. |
+`}
+      />,
+    );
+
+    const tableShell = container.querySelector('[data-afx-md-table="requirements"]');
+    const table = screen.getByRole("table", { name: "Requirements table" });
+
+    expect(tableShell).not.toBeNull();
+    expect(table).toHaveClass("table-fixed");
+    expect(table).toHaveClass("min-w-full");
+    expect(table).toHaveClass("[&_td:nth-child(2)]:w-44");
+    expect(table).not.toHaveClass("[&_td:last-child]:w-28");
+    expect(screen.getByRole("cell", { name: "Hero section" })).toBeInTheDocument();
+    expect(screen.getByRole("cell", { name: /Display room identity/i })).toBeInTheDocument();
+  });
+
+  it("marks Open Questions headings as attention sections", () => {
+    render(
+      <MinimalMarkdown
+        content={`## Open Questions
+
+| Question | Status |
+| -------- | ------ |
+| Is approval ready? | Open |
+`}
+      />,
+    );
+
+    const heading = screen.getByRole("heading", { name: "Open Questions" });
+
+    expect(heading).toHaveAttribute("data-afx-md-attention", "open-questions");
+    expect(heading).toHaveClass("border-amber-500/35");
+    expect(heading).toHaveClass("bg-amber-500/8");
+  });
+
+  it("turns recognizable AFX anchors into jump controls across markdown previews", () => {
+    const scrollIntoView = vi.fn();
+    const original = HTMLElement.prototype.scrollIntoView;
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    });
+
+    render(
+      <MinimalMarkdown
+        content={`## [DES-UI-ATTRIBUTION] Attribution component
+
+Create attribution component (see design.md [DES-UI-ATTRIBUTION] for interface and markup).
+
+## FR-10 EC3 source handling
+
+Required by FR-10.
+
+| ID | Requirement | Description |
+| -- | ----------- | ----------- |
+| FR-10 | Keep EC3 source attribution visible. | Preserve traceability. |
+
+\`\`\`text
+FR-99 should stay plain inside code.
+\`\`\`
+`}
+      />,
+    );
+
+    const designAnchor = screen.getByRole("button", {
+      name: "Jump to DES-UI-ATTRIBUTION",
+    });
+
+    expect(designAnchor).toHaveAttribute("data-afx-md-anchor-target", "attribution-component");
+    fireEvent.click(designAnchor);
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+
+    const frAnchor = screen.getByRole("button", { name: "Jump to FR-10" });
+    expect(frAnchor).toHaveAttribute("data-afx-md-anchor-target", "fr-10-ec3-source-handling");
+    expect(document.querySelector('[data-afx-md-table-chip="info"]')).toHaveAttribute(
+      "data-afx-md-anchor-target",
+      "fr-10-ec3-source-handling",
+    );
+    expect(screen.queryByRole("button", { name: "Jump to FR-99" })).not.toBeInTheDocument();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: original,
+    });
+  });
+
   it("emits toggle targets for spaced and compact markdown task checkboxes", () => {
     const onCheckboxToggle = vi.fn();
     render(

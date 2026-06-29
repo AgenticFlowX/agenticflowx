@@ -104,6 +104,6 @@ describe("Documents", () => {
     expect(
       screen.getByRole("cell", { name: "Read planning docs in the workbench" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Refine/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Refine/i }).length).toBeGreaterThan(0);
   });
 });

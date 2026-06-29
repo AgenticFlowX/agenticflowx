@@ -35,6 +35,7 @@ import {
   getIntentPrompt,
   normalizeIntentSlot,
   outputChannelSink,
+  sddPrimaryActionForPath,
 } from "@afx/shared";
 
 import {
@@ -95,6 +96,7 @@ const TRACE_LANGUAGES: vscode.DocumentSelector = [
 ];
 
 const VALID_LEVELS = new Set<LogLevel>(["silent", "error", "warn", "info", "debug", "trace"]);
+const AFX_ACTIVE_SDD_DOCUMENT_CONTEXT = "afx.activeSddDocument";
 const RUNTIME_CONFIGURATION_KEYS = [
   "afx.agentBinaryPath",
   "afx.agentEphemeralSession",
@@ -142,6 +144,15 @@ export interface AfxExtensionTestApi {
     models: Array<{ id: string; name: string; contextWindow?: number; maxTokens?: number }>;
   }): Promise<{ ok: boolean; error?: string }>;
   removeCustomProvider(providerId: string): Promise<{ ok: boolean; error?: string }>;
+}
+
+function sddPrimaryActionForActiveEditor(editor: vscode.TextEditor | undefined | null) {
+  if (!editor?.document.uri) return null;
+  if (editor.document.languageId && editor.document.languageId !== "markdown") return null;
+  const relativePath = vscode.workspace
+    .asRelativePath(editor.document.uri, false)
+    .replace(/\\/g, "/");
+  return sddPrimaryActionForPath(relativePath);
 }
 
 export async function activate(
@@ -601,6 +612,31 @@ export async function activate(
       await vscode.commands.executeCommand("workbench.view.extension.afx-workbench-container");
       await vscode.commands.executeCommand(`${WORKBENCH_VIEW_TYPE}.focus`);
     }),
+    // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-COMMAND-OPEN-WORKBENCH]
+    vscode.commands.registerCommand("afx.openSddStudio", async () => {
+      await vscode.commands.executeCommand("afx.openWorkbench");
+    }),
+    // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
+    vscode.commands.registerCommand("afx.newSdd", async () => {
+      await openChatCommand("/afx-spec new ", "insert");
+    }),
+    // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
+    vscode.commands.registerCommand("afx.refineCurrentDocument", async () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor?.document.uri) {
+        vscode.window.showInformationMessage("AgenticFlowX: open an AFX markdown document first.");
+        return;
+      }
+      const action = sddPrimaryActionForActiveEditor(editor);
+      if (!action) {
+        vscode.window.showInformationMessage(
+          "AgenticFlowX: current document is not an AFX SDD document.",
+        );
+        return;
+      }
+      openAfxPreview(afxPreviewDeps, editor.document.uri);
+      await openChatCommand(action.command, action.mode);
+    }),
     // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
     vscode.commands.registerCommand("afx.showLogs", () => channel.show(true)),
     // @see docs/specs/350-agent-manager/design.md [DES-AGENT-COMMAND-SMOKE-TEST]
@@ -822,6 +858,18 @@ export async function activate(
     onDocContextChange: (ctx) => sidebarProvider?.postActiveDocContext(ctx),
   });
   for (const d of sprintContext.disposables) context.subscriptions.push(d);
+
+  const updateActiveSddDocumentContext = () => {
+    void vscode.commands.executeCommand(
+      "setContext",
+      AFX_ACTIVE_SDD_DOCUMENT_CONTEXT,
+      sddPrimaryActionForActiveEditor(vscode.window.activeTextEditor) != null,
+    );
+  };
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(updateActiveSddDocumentContext),
+  );
+  updateActiveSddDocumentContext();
 
   void vscode.commands.executeCommand("setContext", "afx.loaded", true);
 

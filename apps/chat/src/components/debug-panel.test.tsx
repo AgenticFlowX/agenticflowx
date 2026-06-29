@@ -81,6 +81,7 @@ describe("DebugPanel", () => {
       "Spec actions",
       "Clear doc",
       "Preview doc",
+      "SDD guide",
       "Long next",
       "Sprint actions",
       "Journal actions",

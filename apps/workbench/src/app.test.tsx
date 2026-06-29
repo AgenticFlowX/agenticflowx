@@ -10,7 +10,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import App from "./app";
 import { _resetBridgeForTest } from "./lib/bridge";
 
-const TAB_LABELS = ["Workbench", "Pipeline", "Documents", "Analytics", "Journal", "Board", "Notes"];
+const TAB_LABELS = [
+  "SDD Studio",
+  "Pipeline",
+  "Documents",
+  "Analytics",
+  "Journal",
+  "Board",
+  "Notes",
+];
 
 describe("workbench App", () => {
   afterEach(() => {
@@ -25,8 +33,11 @@ describe("workbench App", () => {
     }
   });
 
-  it("defaults to the Workbench tab", () => {
+  it("defaults to the SDD Studio tab", () => {
     render(<App />);
-    expect(screen.getByRole("tab", { name: "Workbench" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "SDD Studio" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });

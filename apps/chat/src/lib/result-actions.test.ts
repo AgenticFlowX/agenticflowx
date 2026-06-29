@@ -115,19 +115,29 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     ]);
   });
 
-  it("limits rendered candidates to the top three actions", () => {
+  it("keeps a deeper ranked action set for the timeline overflow menu", () => {
     const actions = parseResultActions(`
 Next (ranked):
 1. /afx-task verify 2.3
 2. /afx-task code 2.4
 3. /afx-check path docs/specs/chat
 4. /afx-next
+5. /afx-session note "capture"
+6. /afx-sprint verify chat-foundation
+7. /afx-spec review chat-foundation
+8. /afx-design review chat-foundation
+9. /afx-task code 2.5
 `);
 
     expect(actions.map((action) => action.command)).toEqual([
       "/afx-task verify 2.3",
       "/afx-task code 2.4",
       "/afx-check path docs/specs/chat",
+      "/afx-next",
+      '/afx-session note "capture"',
+      "/afx-sprint verify chat-foundation",
+      "/afx-spec review chat-foundation",
+      "/afx-design review chat-foundation",
     ]);
   });
 

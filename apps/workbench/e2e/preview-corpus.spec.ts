@@ -28,7 +28,13 @@ import {
 } from "./preview-test-helpers";
 
 const DOC_FILES = markdownFilesUnder("docs");
-const EXTRA_DOC_ROOTS_FILE = `${REPO_ROOT}/.afx/preview-extra-doc-roots.txt`;
+const EXTRA_DOC_ROOTS_FILE =
+  // eslint-disable-next-line no-restricted-syntax -- Playwright corpus harness flag, not app/runtime configuration.
+  process.env["AFX_PREVIEW_EXTRA_DOC_ROOTS_FILE"] ??
+  `${REPO_ROOT}/.afx/preview-extra-doc-roots.txt`;
+// eslint-disable-next-line no-restricted-syntax -- Playwright corpus harness flag, not app/runtime configuration.
+const RUN_EXTRA_DOC_CORPUS = process.env["AFX_PREVIEW_EXTRA_DOC_CORPUS"] === "1";
+const EXTRA_DOC_CORPUS_LIMIT = readPositiveIntEnv("AFX_PREVIEW_EXTRA_DOC_CORPUS_LIMIT");
 const AFX_FILES = DOC_FILES.filter((filePath) => isAfxMarkdown(readRepoMarkdown(filePath)));
 const GENERIC_FILES = DOC_FILES.filter((filePath) => !isAfxMarkdown(readRepoMarkdown(filePath)));
 const AFX_CONTEXT_FILES = AFX_FILES.filter(
@@ -41,7 +47,21 @@ const AFX_SPEC_FILES = AFX_FILES.filter(
 const AFX_TASK_AND_LOG_FILES = AFX_FILES.filter(
   (filePath) => !AFX_CONTEXT_FILES.includes(filePath) && !AFX_SPEC_FILES.includes(filePath),
 );
-const EXTRA_DOC_SAMPLES = externalMarkdownSamplesFromRootsFile(EXTRA_DOC_ROOTS_FILE);
+const EXTRA_DOC_SAMPLES = RUN_EXTRA_DOC_CORPUS
+  ? limitSamples(externalMarkdownSamplesFromRootsFile(EXTRA_DOC_ROOTS_FILE), EXTRA_DOC_CORPUS_LIMIT)
+  : [];
+
+function readPositiveIntEnv(name: string): number | null {
+  // eslint-disable-next-line no-restricted-syntax -- Playwright corpus harness flag, not app/runtime configuration.
+  const raw = process.env[name];
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function limitSamples(samples: MarkdownSample[], limit: number | null): MarkdownSample[] {
+  return limit ? samples.slice(0, limit) : samples;
+}
 
 async function boot(page: Page) {
   await bootInPreviewMode(page);
@@ -120,8 +140,10 @@ test.describe.serial("markdown preview corpus", () => {
   test("renders optional local external markdown corpus", async ({ page }, testInfo) => {
     test.setTimeout(600_000);
     test.skip(
-      EXTRA_DOC_SAMPLES.length === 0,
-      `Add newline-separated local docs folders to ${EXTRA_DOC_ROOTS_FILE}.`,
+      !RUN_EXTRA_DOC_CORPUS || EXTRA_DOC_SAMPLES.length === 0,
+      RUN_EXTRA_DOC_CORPUS
+        ? `Add newline-separated local docs folders to ${EXTRA_DOC_ROOTS_FILE}.`
+        : `Set AFX_PREVIEW_EXTRA_DOC_CORPUS=1 to render local external docs from ${EXTRA_DOC_ROOTS_FILE}.`,
     );
 
     await boot(page);

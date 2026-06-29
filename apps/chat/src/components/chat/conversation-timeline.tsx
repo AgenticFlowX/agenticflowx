@@ -7,8 +7,10 @@ import {
   type ReactNode,
   type Ref,
   type RefObject,
+  createContext,
   memo,
   useCallback,
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -16,9 +18,12 @@ import {
 
 import {
   AlertTriangle,
+  BookOpenCheck,
   ChevronDown,
   ChevronRight,
   Info,
+  Layers3,
+  MoreHorizontal,
   PenLine,
   Scissors,
   Terminal,
@@ -26,6 +31,14 @@ import {
 } from "lucide-react";
 
 import type { ChatMessageView, ChatTimelineItem, ChatToolView } from "@afx/shared";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@afx/ui/components/dropdown-menu";
 import { cn } from "@afx/ui/lib/utils";
 
 import {
@@ -33,6 +46,11 @@ import {
   stripLegacyUiActionBlocks,
   stripResultActionSections,
 } from "../../lib/result-actions";
+import {
+  type SddGuideAction,
+  type SddWorkflowGuide,
+  deriveSddWorkflowGuide,
+} from "../../lib/sdd-workflow-guide";
 import { toolDescriptor } from "../../lib/tool-descriptor";
 import { AfxLogoIcon } from "../afx-logo";
 import { MarkdownMessage } from "../markdown-message";
@@ -131,18 +149,28 @@ function hasVisibleAssistantMessage(message: ChatMessageView): boolean {
  * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
  * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-MOCKUP-CHAT]
  */
+/**
+ * Id of the most recent assistant turn that changed SDD docs. The timeline SDD
+ * guide card renders only under that turn, so it never stacks down the history.
+ */
+const LatestSddGuideContext = createContext<string | null>(null);
+
 export const ConversationTimeline = memo(function ConversationTimeline({
   messages,
   noteEvents,
   commandOutputs,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   messages: ChatTimelineItem[];
   noteEvents: ConversationNoteEventView[];
   commandOutputs: ConversationCommandOutputView[];
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   const events: TimelineEvent[] = [];
   for (const m of messages) {
@@ -201,12 +229,25 @@ export const ConversationTimeline = memo(function ConversationTimeline({
 
   const groups = buildTimelineGroups(events);
 
+  // The SDD guide card belongs to the latest assistant turn that changed SDD
+  // docs only — otherwise a card stacks under every historical SDD message.
+  let latestSddGuideMessageId: string | null = null;
+  for (const event of events) {
+    if (
+      event.kind === "assistant" &&
+      event.message.content &&
+      deriveSddWorkflowGuide(event.message, []) != null
+    ) {
+      latestSddGuideMessageId = event.id;
+    }
+  }
+
   const hasErrorEvent = events.some(
     (event) => event.kind === "error" || (event.kind === "shell" && Boolean(event.error)),
   );
 
   return (
-    <>
+    <LatestSddGuideContext.Provider value={latestSddGuideMessageId}>
       {hasErrorEvent ? (
         <span role="alert" className="sr-only">
           Conversation contains an error event.
@@ -225,10 +266,12 @@ export const ConversationTimeline = memo(function ConversationTimeline({
             group={group}
             onSendCommand={onSendCommand}
             onInsertCommand={onInsertCommand}
+            onOpenPreview={onOpenPreview}
+            onOpenWorkbench={onOpenWorkbench}
           />
         ))}
       </ol>
-    </>
+    </LatestSddGuideContext.Provider>
   );
 });
 
@@ -336,10 +379,14 @@ function DayGroup({
   group,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   group: TimelineDayGroup;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   return (
     <li className="mb-4 last:mb-0" data-timeline-day={group.dateKey}>
@@ -352,6 +399,8 @@ function DayGroup({
               turn={item}
               onSendCommand={onSendCommand}
               onInsertCommand={onInsertCommand}
+              onOpenPreview={onOpenPreview}
+              onOpenWorkbench={onOpenWorkbench}
             />
           ) : (
             <SystemRow
@@ -359,6 +408,8 @@ function DayGroup({
               event={item.event}
               onSendCommand={onSendCommand}
               onInsertCommand={onInsertCommand}
+              onOpenPreview={onOpenPreview}
+              onOpenWorkbench={onOpenWorkbench}
             />
           ),
         )}
@@ -397,10 +448,14 @@ const TurnGroup = memo(function TurnGroup({
   turn,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   turn: TimelineTurnGroup;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   const userEvent = turn.events.find(
     (event): event is Extract<TurnEvent, { kind: "user" }> => event.kind === "user",
@@ -428,6 +483,8 @@ const TurnGroup = memo(function TurnGroup({
             rowRef={event.kind === "user" ? userRowRef : undefined}
             onSendCommand={onSendCommand}
             onInsertCommand={onInsertCommand}
+            onOpenPreview={onOpenPreview}
+            onOpenWorkbench={onOpenWorkbench}
           />
         ))}
       </ol>
@@ -555,11 +612,15 @@ const TurnEventRow = memo(function TurnEventRow({
   rowRef,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   event: TurnEvent;
   rowRef?: Ref<HTMLLIElement>;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   if (event.kind === "user") {
     return (
@@ -585,7 +646,13 @@ const TurnEventRow = memo(function TurnEventRow({
         <div className="relative z-[8] flex justify-center pt-0.5">
           <Marker event={event} />
         </div>
-        <AfxBlock event={event} onSendCommand={onSendCommand} onInsertCommand={onInsertCommand} />
+        <AfxBlock
+          event={event}
+          onSendCommand={onSendCommand}
+          onInsertCommand={onInsertCommand}
+          onOpenPreview={onOpenPreview}
+          onOpenWorkbench={onOpenWorkbench}
+        />
       </li>
     );
   }
@@ -608,6 +675,8 @@ const TurnEventRow = memo(function TurnEventRow({
               event={event}
               onSendCommand={onSendCommand}
               onInsertCommand={onInsertCommand}
+              onOpenPreview={onOpenPreview}
+              onOpenWorkbench={onOpenWorkbench}
             />
           </>
         )}
@@ -629,15 +698,25 @@ function AfxBlock({
   event,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   event: Extract<TurnEvent, { kind: "assistant" }>;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   return (
     <div className="min-w-0">
       <EventHeader event={event} />
-      <EventBody event={event} onSendCommand={onSendCommand} onInsertCommand={onInsertCommand} />
+      <EventBody
+        event={event}
+        onSendCommand={onSendCommand}
+        onInsertCommand={onInsertCommand}
+        onOpenPreview={onOpenPreview}
+        onOpenWorkbench={onOpenWorkbench}
+      />
     </div>
   );
 }
@@ -646,10 +725,14 @@ function SystemRow({
   event,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   event: SystemEvent;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
   return (
     <li
@@ -661,7 +744,13 @@ function SystemRow({
       </div>
       <div className="min-w-0">
         <EventHeader event={event} />
-        <EventBody event={event} onSendCommand={onSendCommand} onInsertCommand={onInsertCommand} />
+        <EventBody
+          event={event}
+          onSendCommand={onSendCommand}
+          onInsertCommand={onInsertCommand}
+          onOpenPreview={onOpenPreview}
+          onOpenWorkbench={onOpenWorkbench}
+        />
       </div>
     </li>
   );
@@ -893,11 +982,16 @@ function EventBody({
   event,
   onSendCommand,
   onInsertCommand,
+  onOpenPreview,
+  onOpenWorkbench,
 }: {
   event: TimelineEvent;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
 }) {
+  const isLatestSddGuideTurn = event.id === useContext(LatestSddGuideContext);
   if (event.kind === "user") {
     return (
       <div className="mt-1 rounded-md bg-muted/40 px-2.5 py-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
@@ -909,11 +1003,22 @@ function EventBody({
     if (event.message.content) {
       const sanitizedContent = stripLegacyUiActionBlocks(event.message.content);
       const resultActions = event.message.streaming ? [] : parseResultActions(sanitizedContent);
+      // Only the latest SDD-editing turn owns the guide card (see D2 / P0-3).
+      const sddGuide = isLatestSddGuideTurn
+        ? deriveSddWorkflowGuide(event.message, resultActions)
+        : null;
       const visibleContent =
         resultActions.length > 0 ? stripResultActionSections(sanitizedContent) : sanitizedContent;
       return (
         <div className="mt-0.5">
           <MarkdownMessage content={visibleContent} />
+          <SddWorkflowGuideCard
+            guide={sddGuide}
+            onOpenPreview={onOpenPreview}
+            onOpenWorkbench={onOpenWorkbench}
+            onSendCommand={onSendCommand}
+            onInsertCommand={onInsertCommand}
+          />
           <ResultActions
             actions={resultActions}
             onSend={(command) => onSendCommand(command)}
@@ -981,6 +1086,196 @@ function EventBody({
   }
   // tool events are rendered by ToolEvent (table layout) — EventBody is unused.
   return null;
+}
+
+function SddWorkflowGuideCard({
+  guide,
+  onOpenPreview,
+  onOpenWorkbench,
+  onSendCommand,
+  onInsertCommand,
+}: {
+  guide: SddWorkflowGuide | null;
+  onOpenPreview?: (path: string) => void;
+  onOpenWorkbench?: () => void;
+  onSendCommand: (command: string) => void;
+  onInsertCommand: (command: string) => void;
+}) {
+  if (!guide) return null;
+  const visibleFiles = guide.files.slice(0, 3);
+  const overflowFiles = guide.files.length - visibleFiles.length;
+  const overflowActions = guide.alternatives.slice(0, 6);
+
+  return (
+    <section
+      data-testid="sdd-workflow-guide-card"
+      aria-label="SDD workflow guide"
+      className="my-2 rounded-md border border-border/60 border-l-2 border-l-afx-brand/50 bg-background/40 p-2 shadow-sm"
+    >
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft">
+          SDD guide
+        </span>
+        <span className="min-w-0 truncate text-xs font-medium text-foreground">
+          {guide.eventLabel}: {guide.feature}
+        </span>
+        <span className="rounded-sm border border-border/70 px-1 font-mono text-[9px] uppercase text-muted-foreground">
+          {guide.currentStep}
+        </span>
+      </div>
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
+        {visibleFiles.map((file) => (
+          <span
+            key={file.path}
+            className={cn(
+              "inline-flex min-w-0 max-w-[10rem] items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]",
+              file.primary
+                ? "border-afx-brand/35 bg-background text-foreground"
+                : "border-border/60 bg-background/60 text-muted-foreground",
+            )}
+            title={file.path}
+          >
+            <span className="shrink-0 font-mono uppercase">{file.label}</span>
+            <span className="min-w-0 truncate">{basename(file.path)}</span>
+          </span>
+        ))}
+        {overflowFiles > 0 ? (
+          <span className="rounded-sm border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+            +{overflowFiles} files
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
+        {guide.recommended ? (
+          <SddGuideCommandButton
+            action={guide.recommended}
+            onSendCommand={onSendCommand}
+            onInsertCommand={onInsertCommand}
+            primary
+          />
+        ) : null}
+        {onOpenPreview ? (
+          <button
+            type="button"
+            className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+            onClick={() => onOpenPreview(guide.previewPath)}
+          >
+            <BookOpenCheck size={11} aria-hidden />
+            Preview
+          </button>
+        ) : null}
+        {onOpenWorkbench ? (
+          <button
+            type="button"
+            className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+            onClick={onOpenWorkbench}
+          >
+            <Layers3 size={11} aria-hidden />
+            Studio
+          </button>
+        ) : null}
+        {overflowActions.length > 0 ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+                aria-label="More SDD actions"
+              >
+                <MoreHorizontal size={11} aria-hidden />
+                More
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1.5rem)]">
+              <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+                More SDD actions
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {overflowActions.map((action) => (
+                <DropdownMenuItem
+                  key={action.command}
+                  className="flex cursor-pointer flex-col items-start gap-0.5 py-1.5"
+                  onClick={() => runSddGuideAction(action, onSendCommand, onInsertCommand)}
+                >
+                  <span className="flex w-full items-center gap-1.5">
+                    <span className="text-xs font-medium">{action.label}</span>
+                    <span
+                      className={cn(
+                        "ml-auto shrink-0 rounded-sm px-1 text-[9px] uppercase tracking-wide",
+                        action.mode === "send"
+                          ? "bg-afx-brand/15 text-afx-brand-soft"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                    >
+                      {action.mode === "send" ? "Run" : "Draft"}
+                    </span>
+                  </span>
+                  <span className="w-full truncate font-mono text-[10px] text-muted-foreground">
+                    {action.command}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function SddGuideCommandButton({
+  action,
+  onSendCommand,
+  onInsertCommand,
+  primary,
+}: {
+  action: SddGuideAction;
+  onSendCommand: (command: string) => void;
+  onInsertCommand: (command: string) => void;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        "inline-flex h-7 min-w-0 max-w-full items-center gap-1 rounded-md border px-2 font-mono text-[10px] hover:bg-muted",
+        primary
+          ? "border-afx-brand/40 bg-afx-brand/10 text-foreground shadow-sm"
+          : "border-border/70 bg-background/80 text-foreground/85",
+      )}
+      title={action.command}
+      onClick={() => runSddGuideAction(action, onSendCommand, onInsertCommand)}
+    >
+      <PenLine size={11} aria-hidden />
+      <span className="truncate">{action.label}</span>
+      <span
+        className={cn(
+          "ml-0.5 shrink-0 rounded-sm px-1 text-[9px] uppercase tracking-wide",
+          action.mode === "send"
+            ? "bg-afx-brand/15 text-afx-brand-soft"
+            : "bg-muted text-muted-foreground",
+        )}
+      >
+        {action.mode === "send" ? "Run" : "Draft"}
+      </span>
+    </button>
+  );
+}
+
+function runSddGuideAction(
+  action: SddGuideAction,
+  onSendCommand: (command: string) => void,
+  onInsertCommand: (command: string) => void,
+) {
+  if (action.mode === "send") {
+    onSendCommand(action.command);
+    return;
+  }
+  onInsertCommand(action.command);
+}
+
+function basename(path: string): string {
+  return path.split("/").pop() ?? path;
 }
 
 // ---------------------------------------------------------------------------

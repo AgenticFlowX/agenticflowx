@@ -4,7 +4,7 @@
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-A11Y] [DES-PERF]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS]
  */
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatTimelineItem, ChatToolView } from "@afx/shared";
@@ -236,6 +236,51 @@ Still visible.`,
       /inspect the timeline[\s\S]*pnpm --filter apps\/chat test[\s\S]*apps\/chat\/src\/components\/chat\/conversation-timeline\.tsx[\s\S]*timeline checked/,
     );
     expect(screen.getByText("1 turn")).toBeInTheDocument();
+  });
+
+  it("shows an SDD guide card when assistant edits create spec documents", () => {
+    const onDraft = vi.fn();
+    const onOpenPreview = vi.fn();
+    const onOpenWorkbench = vi.fn();
+    render(
+      <ConversationTimeline
+        messages={[
+          msg("u1", "user", "create billing export spec", MAY_16),
+          msg(
+            "a1",
+            "assistant",
+            `Created the spec.
+
+Next:
+1. /afx-design review billing-export
+2. /afx-task verify billing-export`,
+            MAY_16 + 1_000,
+            [tool("write-spec", "write_file", "docs/specs/billing-export/spec.md")],
+          ),
+        ]}
+        noteEvents={[]}
+        commandOutputs={[]}
+        onSendCommand={noop}
+        onInsertCommand={onDraft}
+        onOpenPreview={onOpenPreview}
+        onOpenWorkbench={onOpenWorkbench}
+      />,
+    );
+
+    const guide = screen.getByTestId("sdd-workflow-guide-card");
+    expect(guide).toHaveTextContent("SDD guide");
+    expect(guide).toHaveTextContent("billing-export");
+    expect(guide).toHaveTextContent("spec.md");
+
+    fireEvent.click(within(guide).getByRole("button", { name: /Preview/i }));
+    expect(onOpenPreview).toHaveBeenCalledWith("docs/specs/billing-export/spec.md");
+
+    fireEvent.click(within(guide).getByRole("button", { name: /Studio/i }));
+    expect(onOpenWorkbench).toHaveBeenCalled();
+
+    // The recommended action advances the lifecycle (spec → design), drafted into chat.
+    fireEvent.click(within(guide).getByRole("button", { name: /Author design/i }));
+    expect(onDraft).toHaveBeenCalledWith("/afx-design author billing-export");
   });
 
   it("keeps notes and compaction rows standalone without adding turns", () => {

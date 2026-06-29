@@ -14,6 +14,7 @@ import {
   Loader2,
   NotepadText,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@afx/ui/components/tabs";
 import { cn } from "@afx/ui/lib/utils";
@@ -87,7 +88,7 @@ function WorkbenchShell() {
           variant="line"
           className="h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden border-b px-1"
         >
-          <WorkbenchTabTrigger value="workbench" icon={Layers} label="Workbench" />
+          <WorkbenchTabTrigger value="workbench" icon={Layers} label="SDD Studio" />
           <WorkbenchTabTrigger value="pipeline" icon={GitBranch} label="Pipeline" />
           <WorkbenchTabTrigger value="documents" icon={Files} label="Documents" />
           <WorkbenchTabTrigger value="analytics" icon={BarChart2} label="Analytics" />
@@ -153,7 +154,7 @@ function WorkbenchTabTrigger({
   label,
 }: {
   value: string;
-  icon: typeof Layers;
+  icon: LucideIcon;
   label: string;
 }) {
   return (

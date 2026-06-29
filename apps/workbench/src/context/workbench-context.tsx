@@ -40,6 +40,7 @@ export interface WorkbenchState {
 }
 
 const EMPTY_GHOST: GhostTaskResult = { count: 0, items: [] };
+const SELECTED_FEATURE_STORAGE_KEY = "afx.workbench.selectedFeature.v1";
 
 const INITIAL_STATE: WorkbenchState = {
   pipeline: [],
@@ -56,6 +57,43 @@ const INITIAL_STATE: WorkbenchState = {
   selectedFeature: null,
   isLoading: true,
 };
+
+function readSelectedFeature(): string | null {
+  try {
+    const value = globalThis.localStorage?.getItem(SELECTED_FEATURE_STORAGE_KEY)?.trim();
+    return value || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSelectedFeature(name: string | null): void {
+  try {
+    if (name) {
+      globalThis.localStorage?.setItem(SELECTED_FEATURE_STORAGE_KEY, name);
+      return;
+    }
+    globalThis.localStorage?.removeItem(SELECTED_FEATURE_STORAGE_KEY);
+  } catch {
+    // localStorage unavailable - selection stays in-memory only.
+  }
+}
+
+function initialWorkbenchState(initialState: Partial<WorkbenchState> | undefined): WorkbenchState {
+  const pipeline = initialState?.pipeline ?? INITIAL_STATE.pipeline;
+  const candidates = [readSelectedFeature(), initialState?.selectedFeature ?? null];
+  const selectedFeature =
+    candidates.find(
+      (name) => name && (pipeline.length === 0 || pipeline.some((row) => row.name === name)),
+    ) ??
+    pipeline[0]?.name ??
+    null;
+  return {
+    ...INITIAL_STATE,
+    ...initialState,
+    selectedFeature,
+  };
+}
 
 type Action =
   | { type: "merge"; payload: Extract<WorkbenchInbound, { type: "afxUpdate" }> }
@@ -120,7 +158,7 @@ interface ProviderProps {
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-STATE] [DES-SHELL-BRIDGE]
  */
 export function WorkbenchProvider({ children, initialState }: ProviderProps) {
-  const [state, dispatch] = useReducer(reducer, { ...INITIAL_STATE, ...initialState });
+  const [state, dispatch] = useReducer(reducer, initialState, initialWorkbenchState);
 
   useEffect(() => {
     return workbenchOn("afxUpdate", (msg) => {
@@ -133,6 +171,7 @@ export function WorkbenchProvider({ children, initialState }: ProviderProps) {
       ...state,
       send: workbenchSend,
       selectFeature: (name) => {
+        writeSelectedFeature(name);
         dispatch({ type: "selectFeature", name });
         if (name) workbenchSend({ type: "afxSelectFeature", name });
       },

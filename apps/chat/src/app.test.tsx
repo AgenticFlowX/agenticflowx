@@ -2873,7 +2873,10 @@ describe("chat App", () => {
     expect(within(chatPanel).queryByText(/Next \(ranked\):/i)).toBeNull();
     expect(within(chatPanel).queryByText(/Re-orient/i)).toBeNull();
     expect(within(chatPanel).getAllByTestId("result-actions-row")).toHaveLength(1);
-    expect(within(chatPanel).getAllByTestId("result-action-button")).toHaveLength(3);
+    expect(within(chatPanel).getAllByTestId("result-action-button")).toHaveLength(2);
+    expect(within(chatPanel).getByTestId("result-actions-more")).toHaveAccessibleName(
+      "Show 1 more next action",
+    );
 
     const composer = document.querySelector<HTMLTextAreaElement>("#afx-chat-composer");
     if (!composer) throw new Error("Composer textarea not found.");
@@ -2889,19 +2892,5 @@ describe("chat App", () => {
     });
     expect(composer).toHaveFocus();
     expect(composer.selectionStart).toBe(`/afx-sprint design ${longSpec} --approve `.length);
-
-    const send = transport.send as ReturnType<typeof vi.fn>;
-    send.mockClear();
-    await user.click(
-      screen.getByRole("button", {
-        name: `Run Verify: /afx-sprint verify ${longSpec}`,
-      }),
-    );
-    expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "chat/send",
-        content: `/afx-sprint verify ${longSpec}`,
-      }),
-    );
   });
 });

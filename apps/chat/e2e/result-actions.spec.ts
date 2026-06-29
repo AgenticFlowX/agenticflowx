@@ -31,7 +31,7 @@ async function assertLongNextRail(page: Page) {
   await expect(conversation.getByText(/^Next:/)).toHaveCount(0);
   await expect(conversation.getByText(/Re-orient/)).toHaveCount(0);
   await expect(conversation.getByTestId("result-actions-row")).toHaveCount(1);
-  await expect(conversation.getByTestId("result-action-button")).toHaveCount(3);
+  await expect(conversation.getByTestId("result-action-button")).toHaveCount(2);
   await expect(
     conversation.getByRole("button", {
       name: `Insert Refine Tasks: ${TASK_COMMAND}`,
@@ -42,9 +42,17 @@ async function assertLongNextRail(page: Page) {
       name: `Insert Refine Design: ${DESIGN_COMMAND}`,
     }),
   ).toBeVisible();
+  await expect(conversation.getByTestId("result-actions-more")).toBeVisible();
+  await expect(conversation.getByTestId("result-actions-more")).toContainText("+3");
+}
+
+async function openAndAssertLongNextOverflow(page: Page) {
+  const conversation = page.getByLabel("Conversation");
+  await conversation.getByTestId("result-actions-more").click();
+  await expect(page.getByText("More next actions")).toBeVisible();
   await expect(
-    conversation.getByRole("button", {
-      name: `Insert Refine Spec: ${SPEC_COMMAND}`,
+    page.getByRole("menuitem", {
+      name: new RegExp(SPEC_COMMAND.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
     }),
   ).toBeVisible();
 }
@@ -58,6 +66,11 @@ test("desktop next-action rail handles long commands", async ({ page }) => {
     path: resolve(SCREENSHOT_DIR, "next-actions-desktop.png"),
     fullPage: true,
   });
+  await openAndAssertLongNextOverflow(page);
+  await page.screenshot({
+    path: resolve(SCREENSHOT_DIR, "next-actions-desktop-overflow.png"),
+    fullPage: true,
+  });
 });
 
 test("narrow next-action rail handles long commands", async ({ page }) => {
@@ -68,6 +81,11 @@ test("narrow next-action rail handles long commands", async ({ page }) => {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.screenshot({
     path: resolve(SCREENSHOT_DIR, "next-actions-narrow.png"),
+    fullPage: true,
+  });
+  await openAndAssertLongNextOverflow(page);
+  await page.screenshot({
+    path: resolve(SCREENSHOT_DIR, "next-actions-narrow-overflow.png"),
     fullPage: true,
   });
 });

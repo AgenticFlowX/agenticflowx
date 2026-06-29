@@ -9,7 +9,7 @@
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-DATA]
  */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ModifiedFile } from "../lib/derive-modified-files";
@@ -86,6 +86,65 @@ describe("FilesPanelBody", () => {
   it("reflects the file status via data-status on the pill", () => {
     render(<FilesPanelBody files={[file("a.ts", "running")]} onOpenFile={vi.fn()} />);
     expect(screen.getByTestId("files-panel-pill")).toHaveAttribute("data-status", "running");
+  });
+
+  it("renders SDD next-step actions for changed spec docs", () => {
+    const onOpenPreview = vi.fn();
+    const onOpenWorkbench = vi.fn();
+    const onCommand = vi.fn();
+    render(
+      <FilesPanelBody
+        files={[file("docs/specs/checkout-redesign/spec.md")]}
+        onOpenFile={vi.fn()}
+        onOpenPreview={onOpenPreview}
+        onOpenWorkbench={onOpenWorkbench}
+        onCommand={onCommand}
+      />,
+    );
+
+    expect(screen.getByTestId("sdd-modified-guide")).toBeInTheDocument();
+    expect(screen.getByText("Spec")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open SDD Studio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refine spec" }));
+    fireEvent.click(screen.getByRole("button", { name: "Journal" }));
+
+    expect(onOpenPreview).toHaveBeenCalledWith("docs/specs/checkout-redesign/spec.md");
+    expect(onOpenWorkbench).toHaveBeenCalledTimes(1);
+    expect(onCommand).toHaveBeenCalledWith("/afx-spec refine checkout-redesign", "insert");
+    expect(onCommand).toHaveBeenCalledWith(
+      "/afx-session capture --links checkout-redesign",
+      "insert",
+    );
+  });
+
+  it("keeps SDD guidance compact while signaling additional changed SDD docs", () => {
+    render(
+      <FilesPanelBody
+        files={[
+          file("docs/specs/checkout-redesign/spec.md"),
+          file("docs/specs/checkout-redesign/design.md"),
+          file("docs/specs/checkout-redesign/tasks.md"),
+          file("docs/specs/checkout-redesign/journal.md"),
+          file("docs/specs/checkout-redesign/checkout-redesign.md"),
+        ]}
+        onOpenFile={vi.fn()}
+        onOpenPreview={vi.fn()}
+        onOpenWorkbench={vi.fn()}
+        onCommand={vi.fn()}
+      />,
+    );
+
+    const guide = screen.getByTestId("sdd-modified-guide");
+    expect(guide).toHaveTextContent("5 changed docs");
+    expect(guide).toHaveTextContent("+2 more SDD docs");
+    expect(within(guide).queryByText("journal.md")).not.toBeInTheDocument();
+  });
+
+  it("does not render SDD guide for non-SDD markdown", () => {
+    render(<FilesPanelBody files={[file("README.md")]} onOpenFile={vi.fn()} />);
+    expect(screen.queryByTestId("sdd-modified-guide")).toBeNull();
   });
 });
 

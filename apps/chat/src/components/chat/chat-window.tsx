@@ -565,6 +565,8 @@ export function ChatWindow({
                 commandOutputs={slices.conversation.commandOutputs as never[]}
                 onSendCommand={handleSendCommand}
                 onInsertCommand={setDraftDirect}
+                onOpenPreview={actions.handleOpenAfxPreview}
+                onOpenWorkbench={actions.handleOpenWorkbench}
               />
             ) : !slices.conversation.hasReceivedStateSnapshot ? (
               <AgentSetupState />

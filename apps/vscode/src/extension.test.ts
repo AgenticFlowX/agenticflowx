@@ -61,6 +61,10 @@ vi.mock("./panels/workbench-panel", () => ({
   createWorkbenchPanel: vi.fn(() => ({ resolveWebviewView: vi.fn() })),
 }));
 
+vi.mock("./panels/afx-preview-panel", () => ({
+  openAfxPreview: vi.fn(async () => undefined),
+}));
+
 let agentManager: MockAgentManager;
 let agentInstance: { id: string; label: string; runtime: string; manager: MockAgentManager };
 let createConfiguredAgentInstances: ReturnType<typeof vi.fn>;
@@ -116,6 +120,7 @@ describe("extension.activate", () => {
   });
 
   afterEach(() => {
+    vscode.window.activeTextEditor = undefined;
     vi.restoreAllMocks();
   });
 
@@ -139,6 +144,9 @@ describe("extension.activate", () => {
       expect.arrayContaining([
         "afx.openSidebar",
         "afx.openWorkbench",
+        "afx.openSddStudio",
+        "afx.newSdd",
+        "afx.refineCurrentDocument",
         "afx.openAfxPreview",
         "afx.showLogs",
         "afx.agentSmokeTest",
@@ -150,6 +158,83 @@ describe("extension.activate", () => {
         "afx.detectPiBinary",
       ]),
     );
+  });
+
+  it("aliases Open SDD Studio to the Workbench command", async () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.openSddStudio",
+    )?.[1] as (() => Promise<void>) | undefined;
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.();
+
+    expect(executeCommand).toHaveBeenCalledWith("afx.openWorkbench");
+  });
+
+  it("drafts a new SDD command from the command palette", async () => {
+    const sidebarMod = await import("./panels/sidebar-panel");
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.newSdd",
+    )?.[1] as (() => Promise<void>) | undefined;
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.();
+
+    const sidebar = vi.mocked(sidebarMod.createSidebarPanel).mock.results[0]?.value as
+      | { appendToDraft: ReturnType<typeof vi.fn> }
+      | undefined;
+    expect(sidebar?.appendToDraft).toHaveBeenCalledWith("/afx-spec new ");
+  });
+
+  it("refines the active AFX markdown document from the command palette", async () => {
+    const sidebarMod = await import("./panels/sidebar-panel");
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    vscode.window.activeTextEditor = {
+      document: {
+        uri: vscode.Uri.file("docs/specs/checkout-redesign/spec.md"),
+        languageId: "markdown",
+      },
+    } as unknown as typeof vscode.window.activeTextEditor;
+
+    const handler = registerCommand.mock.calls.find(
+      ([command]) => command === "afx.refineCurrentDocument",
+    )?.[1] as (() => Promise<void>) | undefined;
+    expect(handler).toBeTypeOf("function");
+
+    await handler?.();
+
+    const sidebar = vi.mocked(sidebarMod.createSidebarPanel).mock.results[0]?.value as
+      | { appendToDraft: ReturnType<typeof vi.fn> }
+      | undefined;
+    expect(sidebar?.appendToDraft).toHaveBeenCalledWith("/afx-spec refine checkout-redesign");
+  });
+
+  it("sets a context key only when the active editor is an AFX SDD markdown document", async () => {
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    vscode.window.activeTextEditor = {
+      document: {
+        uri: vscode.Uri.file("docs/specs/checkout-redesign/spec.md"),
+        languageId: "markdown",
+      },
+    } as unknown as typeof vscode.window.activeTextEditor;
+
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+    await activate(ctx);
+
+    expect(executeCommand).toHaveBeenCalledWith("setContext", "afx.activeSddDocument", true);
   });
 
   it("persists mode globally through afx.setMode when no workspace override exists", async () => {

@@ -167,6 +167,7 @@ describe("loadWebviewHtml — Development (HMR)", () => {
     expect(html).toContain("127.0.0.1:5174");
     expect(html).toContain("AFX chat (dev)");
     expect(html).toContain('body class="theme-meridian style-mira"');
+    expect(html).toMatch(/src="http:\/\/127\.0\.0\.1:5174\/src\/main\.tsx\?t=[a-z0-9]+"/);
     expect(html).toMatch(/nonce="[A-Za-z0-9]{32}"/);
   });
 

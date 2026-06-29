@@ -64,11 +64,17 @@ test.describe.serial("canonical AFX sprint preview", () => {
       .locator("[data-afx-md-heading-action-anchor]")
       .filter({ has: phaseHeading })
       .first();
-    const floatingAction = phaseAnchor.locator('[data-afx-md-heading-action="floating"]').first();
-    await expect(floatingAction).toHaveCSS("opacity", "0");
+    const actionBar = phaseAnchor.locator('[data-afx-md-heading-action="bar"]').first();
+    await expect(actionBar).toBeVisible();
+    const [anchorWidth, barWidth] = await Promise.all([
+      phaseAnchor.evaluate((node) => node.getBoundingClientRect().width),
+      actionBar.evaluate((node) => node.getBoundingClientRect().width),
+    ]);
+    expect(barWidth).toBeGreaterThan(anchorWidth * 0.95);
+    await expect(actionBar.getByRole("button", { name: /Code task phase 0:/ })).toBeVisible();
     await phaseAnchor.hover();
-    await expect(floatingAction).toHaveCSS("opacity", "1");
-    await attachPreviewScreenshot(page, testInfo, "preview-canonical-sprint-floating-toolbar");
+    await expect(actionBar).toBeVisible();
+    await attachPreviewScreenshot(page, testInfo, "preview-canonical-sprint-visible-action-bar");
 
     const functionalRequirements = page.getByRole("heading", {
       name: "Functional Requirements",

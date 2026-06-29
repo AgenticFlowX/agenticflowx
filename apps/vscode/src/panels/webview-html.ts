@@ -99,6 +99,7 @@ function tryDevModeHtml(
 
   const localServerUrl = `${devServer.host}:${devServer.port}`;
   const nonce = getNonce();
+  const cacheBust = Date.now().toString(36);
   const viewAttr = opts?.view === "preview" ? ` data-afx-view="preview"` : "";
   const bodyClass = ` class="${appearanceClass}"${viewAttr}`;
 
@@ -128,7 +129,7 @@ function tryDevModeHtml(
 </head>
 <body${bodyClass}>
   <div id="root"></div>
-  <script nonce="${nonce}" type="module" src="http://${localServerUrl}/src/main.tsx"></script>
+  <script nonce="${nonce}" type="module" src="http://${localServerUrl}/src/main.tsx?t=${cacheBust}"></script>
 </body>
 </html>`;
 }

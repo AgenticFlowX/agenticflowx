@@ -50,6 +50,29 @@ owner: "@rix"
 - [ ] Verify command routing
 `;
 
+const SIGNAL_SPEC_CONTENT = `---
+afx: true
+type: SPEC
+status: Draft
+owner: "@rix"
+---
+# Checkout Redesign
+
+## Overview
+Decision: keep checkout refinement local-first.
+
+## Requirements
+| ID | Requirement | Status |
+| --- | --- | --- |
+| FR-1 | Keep generated specs easy to refine. | Draft |
+
+## Open Questions
+
+| Question | Owner | Status |
+| --- | --- | --- |
+| Should approval happen before design? | @rix | Open |
+`;
+
 const SPRINT_CONTENT = `---
 afx: true
 type: SPRINT
@@ -197,6 +220,86 @@ describe("PreviewApp", () => {
     postMessage.mockRestore();
   });
 
+  it("renders refinement coach suggestions and journal nudges in AFX Preview", async () => {
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
+    initWorkbenchBridge();
+    render(<PreviewApp />);
+    postPreview("docs/specs/checkout-redesign/spec.md", SIGNAL_SPEC_CONTENT, true);
+
+    expect(await screen.findByText("Refinement coach")).toBeInTheDocument();
+    expect(screen.getByText("Strategy")).toBeInTheDocument();
+    expect(screen.getByText("Completeness")).toBeInTheDocument();
+    expect(screen.getAllByText("Suggested fix:", { exact: false }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Open Questions").length).toBeGreaterThan(1);
+    expect(screen.getByText("Open questions need answers")).toBeInTheDocument();
+    expect(screen.getByText("Journal nudges")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refine Requirements" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Answer questions in Open Questions" }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-afx-md-attention="open-questions"]')?.textContent,
+    ).toContain("Open Questions");
+    expect(document.querySelector('[data-afx-md-table-chip="info"]')?.textContent).toContain(
+      "FR-1",
+    );
+    expect(document.querySelector('[data-afx-md-table-chip="warning"]')?.textContent).toContain(
+      "Open",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Refine Requirements" }));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-spec refine checkout-redesign Requirements",
+        mode: "insert",
+      },
+      "*",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Answer questions in Open Questions" }));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-spec refine checkout-redesign Open Questions answers",
+        mode: "insert",
+      },
+      "*",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Draft answer for open question/i }));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command:
+          '/afx-spec refine checkout-redesign answer open question "Should approval happen before design?"',
+        mode: "insert",
+      },
+      "*",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Resolve questions" }));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-spec refine checkout-redesign open questions",
+        mode: "insert",
+      },
+      "*",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Capture questions/i }));
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-session capture --links checkout-redesign open-questions",
+        mode: "insert",
+      },
+      "*",
+    );
+    postMessage.mockRestore();
+  });
+
   it("toggles markdown task checkboxes through the preview bridge", async () => {
     const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
     initWorkbenchBridge();
@@ -248,6 +351,40 @@ describe("PreviewApp", () => {
       {
         type: "afxOpenChatCommand",
         command: "/afx-sprint code checkout-redesign 1.2",
+        mode: "insert",
+      },
+      "*",
+    );
+    postMessage.mockRestore();
+  });
+
+  it("keeps nested fleet sprint paths in preview chat commands", async () => {
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
+    initWorkbenchBridge();
+    render(<PreviewApp />);
+    postPreview(
+      "docs/specs/900-fleet/01-upgrade-package/01-upgrade-package.md",
+      SPRINT_CONTENT,
+      true,
+    );
+
+    const refineSpec = await screen.findByRole("button", { name: "Refine spec: Draft" });
+    fireEvent.click(refineSpec);
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-sprint spec 900-fleet/01-upgrade-package",
+        mode: "insert",
+      },
+      "*",
+    );
+
+    const codeTask = screen.getByRole("button", { name: "Code 1.2: Wire preview actions" });
+    fireEvent.click(codeTask);
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenChatCommand",
+        command: "/afx-sprint code 900-fleet/01-upgrade-package 1.2",
         mode: "insert",
       },
       "*",

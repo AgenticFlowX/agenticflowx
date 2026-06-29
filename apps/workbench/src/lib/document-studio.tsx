@@ -61,12 +61,34 @@ interface TaskPhaseActionTarget {
   headingLevel: number;
 }
 
+interface OpenQuestionTarget {
+  id: string;
+  question: string;
+  owner: string | null;
+  status: string | null;
+  line: number;
+}
+
+interface OpenQuestionSignalSummary {
+  open: number;
+  blocked: number;
+  statusMismatch: number;
+  resolvedWithoutResolution: number;
+  resolvedWithoutJournal: number;
+}
+
+interface TaskCheckboxSummary {
+  total: number;
+  open: number;
+}
+
 const TOOLBAR_OVERFLOW_LIMIT = 5;
 const SURGICAL_TOOLBAR_OVERFLOW_LIMIT = 3;
 const PHASE_HEADING_RE = /^#{2,3}\s+Phase\s+(\d+)\s*:\s*(.+?)\s*$/i;
 const TASK_GROUP_HEADING_RE = /^(#{3,5})\s+(\d+\.\d+(?:\.\d+)*)\s+(.+?)\s*$/;
 const ANY_HEADING_RE = /^(#{1,6})\s+/;
 const CHECKBOX_RE = /^\s*[-*]\s+\[([ xX]?)\]\s+/;
+const TABLE_SEPARATOR_RE = /^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$/;
 
 interface DocumentStudioProps {
   doc: DocumentRow;
@@ -236,22 +258,34 @@ function DocumentStudioBody({
   onCheckboxToggle: ((target: MarkdownCheckboxToggle) => void) | undefined;
   onSessionBulkAction: ((action: DocumentSessionBulkAction) => void) | undefined;
 }) {
+  const openQuestions = (
+    <OpenQuestionsActionList content={content} feature={feature} onCommand={onCommand} />
+  );
+  const sectionActions = useMemo(
+    () => createSectionHeadingActionRenderer(doc, feature, onCommand),
+    [doc, feature, onCommand],
+  );
+
   if (sprintLike) {
     return (
-      <SprintBody
-        content={content}
-        feature={feature}
-        scale={scale}
-        onCommand={onCommand}
-        onCheckboxToggle={onCheckboxToggle}
-        onSessionBulkAction={onSessionBulkAction}
-      />
+      <div className="flex min-w-0 flex-col gap-3">
+        {openQuestions}
+        <SprintBody
+          content={content}
+          feature={feature}
+          scale={scale}
+          onCommand={onCommand}
+          onCheckboxToggle={onCheckboxToggle}
+          onSessionBulkAction={onSessionBulkAction}
+        />
+      </div>
     );
   }
 
   if (doc.type === "TASKS") {
     return (
       <div className="flex min-w-0 flex-col gap-3">
+        {openQuestions}
         <TaskActionList content={content} feature={feature} source="tasks" onCommand={onCommand} />
         <WorkSessionsActionList content={content} onSessionBulkAction={onSessionBulkAction} />
         <TaskMarkdown
@@ -269,13 +303,98 @@ function DocumentStudioBody({
   }
 
   return (
-    <MinimalMarkdown
-      content={content}
-      hideTitle
-      density={density}
-      scale={scale}
-      onCheckboxToggle={onCheckboxToggle}
-    />
+    <div className="flex min-w-0 flex-col gap-3">
+      {openQuestions}
+      <MinimalMarkdown
+        content={content}
+        hideTitle
+        density={density}
+        scale={scale}
+        renderAfterHeading={sectionActions}
+        onCheckboxToggle={onCheckboxToggle}
+      />
+    </div>
+  );
+}
+
+function OpenQuestionsActionList({
+  content,
+  feature,
+  onCommand,
+}: {
+  content: string;
+  feature: string;
+  onCommand: ((command: string, mode?: "insert" | "send") => void) | undefined;
+}) {
+  const questions = useMemo(() => parseOpenQuestions(content), [content]);
+  if (questions.length === 0) return null;
+
+  const first = questions[0];
+  const quoted = quoteCommandText(first.question);
+  const actions: DocumentStudioAction[] = [
+    {
+      label: "Draft answer",
+      ariaLabel: `Draft answer for open question: ${first.question}`,
+      command: `/afx-spec refine ${feature} answer open question ${quoted}`,
+      description: first.question,
+      mode: "insert",
+      icon: "draft",
+      meta: first.owner ? `Owner ${first.owner}` : undefined,
+    },
+    {
+      label: "Resolve",
+      ariaLabel: `Resolve open question: ${first.question}`,
+      command: `/afx-spec refine ${feature} resolve open question ${quoted}`,
+      description: first.question,
+      mode: "insert",
+      icon: "spark",
+    },
+    {
+      label: "Journal",
+      ariaLabel: "Capture open-question decision in journal",
+      command: `/afx-session capture --links ${feature} open-questions`,
+      description: "Capture the answer or decision context.",
+      mode: "insert",
+      icon: "draft",
+    },
+    {
+      label: "Ignore",
+      ariaLabel: `Draft rationale to ignore open question: ${first.question}`,
+      command: `/afx-session capture --links ${feature} ignored open question ${quoted}`,
+      description: "Capture why this question is intentionally not blocking.",
+      mode: "insert",
+      icon: "run",
+    },
+  ];
+
+  return (
+    <div
+      data-afx-action-scope="open-questions"
+      className="flex min-w-0 flex-col gap-2 rounded-md border border-amber-500/25 bg-amber-500/5 p-2.5"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-amber-300">
+            Open questions need answers
+          </p>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground" title={first.question}>
+            {first.question}
+          </p>
+        </div>
+        <span className="shrink-0 rounded-sm border border-border/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          {questions.length}
+        </span>
+      </div>
+      <CommandToolbar
+        actions={actions}
+        onCommand={onCommand}
+        scope="open-questions"
+        label="Question"
+        density="compact"
+        overflowAfter={4}
+        actionAria="label"
+      />
+    </div>
   );
 }
 
@@ -524,6 +643,139 @@ function InlineTaskCommand({
       overflowAfter={1}
     />
   );
+}
+
+function createSectionHeadingActionRenderer(
+  doc: DocumentRow,
+  feature: string,
+  onCommand: ((command: string, mode?: "insert" | "send") => void) | undefined,
+): MarkdownHeadingActionRenderer {
+  function renderSectionHeadingAction(heading: MarkdownHeadingInfo) {
+    if (!onCommand || heading.level === 1) return null;
+    const actions = sectionActionsForHeading(doc, feature, heading);
+    if (actions.length === 0) return null;
+    return (
+      <CommandToolbar
+        actions={actions}
+        onCommand={onCommand}
+        scope="inline-section"
+        density="compact"
+        overflowAfter={3}
+        actionAria="label"
+      />
+    );
+  }
+
+  return renderSectionHeadingAction;
+}
+
+function sectionActionsForHeading(
+  doc: DocumentRow,
+  feature: string,
+  heading: MarkdownHeadingInfo,
+): DocumentStudioAction[] {
+  const target = featureFromPath(doc.filePath) ?? feature;
+  const text = heading.text.toLowerCase();
+  const sourceAnchor = `${target}#${heading.slug}`;
+
+  if (/\b(open\s+questions?|questions?)\b/.test(text)) {
+    return [
+      {
+        label: "Answer",
+        ariaLabel: `Answer questions in ${heading.text}`,
+        command: refinementCommandForDoc(doc, target, `${heading.text} answers`),
+        description: "Draft answers or clarify what information is still missing.",
+        mode: "insert",
+        icon: "draft",
+      },
+      {
+        label: "Resolve",
+        ariaLabel: `Resolve or defer questions in ${heading.text}`,
+        command: refinementCommandForDoc(doc, target, `${heading.text} resolution`),
+        description: "Draft a focused pass for the unresolved questions in this section.",
+        mode: "insert",
+        icon: "spark",
+      },
+      {
+        label: "Journal",
+        ariaLabel: `Capture decisions for ${heading.text}`,
+        command: `/afx-session capture --links ${sourceAnchor} open-questions`,
+        description: "Capture the answer context before approval moves on.",
+        mode: "insert",
+        icon: "draft",
+      },
+    ];
+  }
+
+  if (/\b(requirements?|functional requirements?|non-functional requirements?)\b/.test(text)) {
+    return [
+      {
+        label: "Refine",
+        ariaLabel: `Refine ${heading.text}`,
+        command: refinementCommandForDoc(doc, target, heading.text),
+        description: "Improve scope, ambiguity, and acceptance language for this section.",
+        mode: "insert",
+        icon: "spark",
+      },
+      {
+        label: "Review",
+        ariaLabel: `Review ${heading.text}`,
+        command: reviewCommandForDoc(doc, target, heading.text),
+        description: "Run a gap pass against this section.",
+        mode: "send",
+        icon: "run",
+      },
+    ];
+  }
+
+  if (/\b(acceptance|success|test plan|verification|proof)\b/.test(text)) {
+    return [
+      {
+        label: "Add proof",
+        ariaLabel: `Add proof for ${heading.text}`,
+        command: refinementCommandForDoc(doc, target, `${heading.text} proof`),
+        description: "Draft measurable proof, tests, or acceptance evidence.",
+        mode: "insert",
+        icon: "draft",
+      },
+    ];
+  }
+
+  if (/\b(decisions?|decision log|tradeoffs?|risks?|blockers?)\b/.test(text)) {
+    return [
+      {
+        label: "Journal",
+        ariaLabel: `Capture ${heading.text} in journal`,
+        command: `/afx-session capture --links ${sourceAnchor} ${heading.text}`,
+        description: "Preserve why this decision or risk matters.",
+        mode: "insert",
+        icon: "draft",
+      },
+      {
+        label: "Refine",
+        ariaLabel: `Refine ${heading.text}`,
+        command: refinementCommandForDoc(doc, target, heading.text),
+        description: "Clarify options, impact, and the chosen path.",
+        mode: "insert",
+        icon: "spark",
+      },
+    ];
+  }
+
+  if (/\b(work\s+sessions?|sessions?|journal)\b/.test(text)) {
+    return [
+      {
+        label: "Capture",
+        ariaLabel: `Capture context for ${heading.text}`,
+        command: `/afx-session capture --links ${sourceAnchor}`,
+        description: "Turn the current section into durable session context.",
+        mode: "insert",
+        icon: "draft",
+      },
+    ];
+  }
+
+  return [];
 }
 
 function taskCommandForTarget(
@@ -1125,8 +1377,14 @@ function sprintSectionLabel(section: SprintSectionKind | null): string {
 }
 
 export function featureFromPath(filePath: string): string | null {
-  const m = filePath.match(/^docs\/specs\/([^/]+)\//);
-  return m?.[1] ?? null;
+  const normalized = filePath.replace(/\\/g, "/");
+  const match = normalized.match(/(?:^|\/)docs\/specs\/(.+)$/);
+  if (!match) return null;
+
+  const parts = match[1].split("/").filter(Boolean);
+  if (parts.length < 2) return null;
+
+  return parts.slice(0, -1).join("/");
 }
 
 export function docDisplayName(doc: DocumentRow): string {
@@ -1150,26 +1408,522 @@ export function stringMeta(frontmatter: Record<string, unknown>, key: string): s
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+export interface DocumentQualitySuggestion {
+  id: string;
+  category: "blocker" | "refinement" | "evidence";
+  target: string;
+  why: string;
+  evidence: string;
+  suggestedFix: string;
+  actionLabel: string;
+  command: string;
+  mode: "insert" | "send";
+}
+
+export interface DocumentJournalNudge {
+  id: string;
+  label: string;
+  reason: string;
+  command: string;
+  mode: "insert" | "send";
+}
+
+export interface DocumentScorecardItem {
+  label: "Strategy" | "Structure" | "Clarity" | "Completeness";
+  status: "good" | "watch" | "gap";
+  reason: string;
+}
+
+export interface DocumentQualitySummary {
+  issues: string[];
+  scoreLabel: string;
+  summary: string | null;
+  scorecard: DocumentScorecardItem[];
+  suggestions: DocumentQualitySuggestion[];
+  journalNudges: DocumentJournalNudge[];
+}
+
 export function summarizeDocumentQuality(
   doc: DocumentRow,
   content: string | undefined,
   frontmatter: Record<string, unknown>,
   outline: Array<{ text: string }>,
-): { issues: string[]; scoreLabel: string; summary: string | null } {
+): DocumentQualitySummary {
   const issues: string[] = [];
-  if (!stringMeta(frontmatter, "owner")) issues.push("Owner missing");
-  if (!doc.status && !stringMeta(frontmatter, "status")) issues.push("Status missing");
-  if (outline.length < 3) issues.push("Needs more sections");
+  const suggestions: DocumentQualitySuggestion[] = [];
+  const journalNudges: DocumentJournalNudge[] = [];
+  const target = featureFromPath(doc.filePath) ?? doc.filePath;
+  const addIssue = (
+    issue: string,
+    suggestion?: Omit<DocumentQualitySuggestion, "id" | "command" | "mode" | "suggestedFix"> & {
+      command?: string;
+      mode?: "insert" | "send";
+      suggestedFix?: string;
+    },
+  ) => {
+    issues.push(issue);
+    if (suggestion) {
+      suggestions.push({
+        id: slugify(`${issue}-${suggestion.target}`),
+        command: suggestion.command ?? refinementCommandForDoc(doc, target, suggestion.target),
+        mode: suggestion.mode ?? "insert",
+        suggestedFix: suggestion.suggestedFix ?? suggestion.actionLabel,
+        ...suggestion,
+      });
+    }
+  };
+
   const lowered = content?.toLowerCase() ?? "";
-  if ((doc.type === "SPEC" || doc.type === "DESIGN") && !lowered.includes("success")) {
-    issues.push("Success metrics missing");
+  const rawContent = content ?? "";
+  const hasOwner = Boolean(stringMeta(frontmatter, "owner"));
+  const hasStatus = Boolean(doc.status || stringMeta(frontmatter, "status"));
+  const hasSuccessLanguage = lowered.includes("success");
+  const hasRequirementLanguage = /\b(?:fr-\d+|nfr-\d+|requirement|acceptance criteria)\b/i.test(
+    rawContent,
+  );
+  const hasAcceptanceLanguage =
+    /\b(?:acceptance criteria|verification|test plan|done definition|proof|e2e)\b/i.test(
+      rawContent,
+    );
+  const hasTraceLanguage = /\b(?:fr-\d+|nfr-\d+|des-[a-z0-9-]+|ref:|implements:|@see)\b/i.test(
+    rawContent,
+  );
+  const openQuestionSignals = summarizeOpenQuestionSignals(content);
+  const unresolvedQuestions = openQuestionSignals.open + openQuestionSignals.blocked;
+  const taskSummary = summarizeTaskCheckboxes(content);
+  const signoffSummary = content ? summarizeWorkSessionSignoffs(content) : null;
+
+  if (!hasOwner) {
+    addIssue("Owner missing", {
+      category: "blocker",
+      target: "Frontmatter",
+      why: "Ownership makes approval and follow-up unambiguous.",
+      evidence: "No owner field was found in frontmatter.",
+      actionLabel: "Add owner",
+    });
+  }
+  if (!hasStatus) {
+    addIssue("Status missing", {
+      category: "blocker",
+      target: "Frontmatter",
+      why: "Lifecycle state should be visible before approval or implementation.",
+      evidence: "No status field was found in frontmatter.",
+      actionLabel: "Set status",
+    });
+  }
+  if (outline.length < 3) {
+    addIssue("Needs more sections", {
+      category: "refinement",
+      target: "Document structure",
+      why: "A short outline makes it harder to spot requirements, decisions, and proof gaps.",
+      evidence: `${outline.length} heading${outline.length === 1 ? "" : "s"} detected.`,
+      actionLabel: "Refine structure",
+    });
+  }
+  if ((doc.type === "SPEC" || doc.type === "DESIGN") && !hasSuccessLanguage) {
+    addIssue("Success metrics missing", {
+      category: "refinement",
+      target: "Success metrics",
+      why: "A spec is easier to approve when success is measurable.",
+      evidence: "No success language was detected in the document body.",
+      suggestedFix: "Add measurable outcomes, target behaviors, or verification signals.",
+      actionLabel: "Add metrics",
+    });
+  }
+  if (unresolvedQuestions > 0) {
+    addIssue(`${unresolvedQuestions} open question${unresolvedQuestions === 1 ? "" : "s"}`, {
+      category: "blocker",
+      target: "Open Questions",
+      why: "Unresolved questions often block approval or implementation planning.",
+      evidence: `${unresolvedQuestions} unresolved row${unresolvedQuestions === 1 ? "" : "s"} found.`,
+      suggestedFix: "Resolve, intentionally defer, or capture the decision context.",
+      actionLabel: "Resolve questions",
+      command: refinementCommandForDoc(doc, target, "open questions"),
+    });
+    journalNudges.push({
+      id: "capture-open-questions",
+      label: "Capture questions",
+      reason: "Preserve the decision context when questions are resolved.",
+      command: `/afx-session capture --links ${target} open-questions`,
+      mode: "insert",
+    });
+  }
+  if (openQuestionSignals.statusMismatch > 0) {
+    addIssue("Question status mismatch", {
+      category: "refinement",
+      target: "Open Questions",
+      why: "A question with an answer but an open status leaves approval unclear.",
+      evidence: `${openQuestionSignals.statusMismatch} row${openQuestionSignals.statusMismatch === 1 ? "" : "s"} have open status with resolution text.`,
+      suggestedFix: "Mark answered rows resolved or capture why they remain open.",
+      actionLabel: "Fix status",
+      command: refinementCommandForDoc(doc, target, "open question status"),
+    });
+  }
+  if (openQuestionSignals.resolvedWithoutResolution > 0) {
+    addIssue("Resolved question needs answer", {
+      category: "refinement",
+      target: "Open Questions",
+      why: "Resolved questions need enough answer text for future readers.",
+      evidence: `${openQuestionSignals.resolvedWithoutResolution} resolved row${openQuestionSignals.resolvedWithoutResolution === 1 ? "" : "s"} have no resolution.`,
+      suggestedFix: "Add the final answer or reopen the question.",
+      actionLabel: "Add answer",
+      command: refinementCommandForDoc(doc, target, "resolved question answers"),
+    });
+  }
+
+  if (
+    (doc.type === "SPEC" || doc.type === "TASKS" || doc.type === "SPRINT") &&
+    !hasAcceptanceLanguage
+  ) {
+    addIssue("Acceptance proof missing", {
+      category: "evidence",
+      target: "Acceptance Criteria",
+      why: "Implementation can move faster when completion proof is visible in the document.",
+      evidence:
+        "No acceptance criteria, verification, test plan, done definition, or proof section was detected.",
+      suggestedFix: "Add concrete acceptance or verification bullets.",
+      actionLabel: "Add proof",
+      command: refinementCommandForDoc(doc, target, "acceptance proof"),
+    });
+  }
+
+  if ((doc.type === "DESIGN" || doc.type === "TASKS") && !hasTraceLanguage) {
+    addIssue("Trace links missing", {
+      category: "evidence",
+      target: "Traceability",
+      why: "Design and task docs should point back to the requirements they implement.",
+      evidence: "No FR/NFR/DES/ref markers were detected.",
+      suggestedFix: "Add requirement or design references near the relevant sections.",
+      actionLabel: "Add trace",
+      command: reviewCommandForDoc(doc, target, "traceability"),
+      mode: "send",
+    });
+  }
+
+  if (
+    (doc.type === "TASKS" || doc.type === "SPRINT" || doc.type === "FLUID") &&
+    taskSummary.open > 0
+  ) {
+    addIssue(`${taskSummary.open} open task${taskSummary.open === 1 ? "" : "s"}`, {
+      category: "refinement",
+      target: "Tasks",
+      why: "Open implementation work should have a clear next command.",
+      evidence: `${taskSummary.open}/${taskSummary.total} checklist item${taskSummary.total === 1 ? "" : "s"} remain open.`,
+      suggestedFix: "Pick the next task or verify the task list before coding.",
+      actionLabel: doc.type === "TASKS" ? "Pick task" : "Verify tasks",
+      command:
+        doc.type === "TASKS" ? `/afx-task pick ${target}` : `/afx-sprint verify ${target} tasks`,
+      mode: doc.type === "TASKS" ? "send" : "send",
+    });
+  }
+
+  if (
+    signoffSummary &&
+    (signoffSummary.agentChecked < signoffSummary.total ||
+      signoffSummary.humanChecked < signoffSummary.total)
+  ) {
+    addIssue("Work session signoff pending", {
+      category: "evidence",
+      target: "Work Sessions",
+      why: "Unsigned work sessions leave the final approval trail ambiguous.",
+      evidence: `Agent ${signoffSummary.agentChecked}/${signoffSummary.total} · Human ${signoffSummary.humanChecked}/${signoffSummary.total}.`,
+      suggestedFix: "Use the signoff controls or capture why signoff is pending.",
+      actionLabel: "Capture signoff",
+      command: `/afx-session capture --links ${target} work-sessions`,
+    });
+  }
+
+  if (hasDecisionLanguage(content)) {
+    journalNudges.push({
+      id: "capture-decisions",
+      label: "Capture decisions",
+      reason: "Decision language was detected in this document.",
+      command: `/afx-session capture --links ${target} decisions`,
+      mode: "insert",
+    });
+  }
+  if (openQuestionSignals.resolvedWithoutJournal > 0) {
+    journalNudges.push({
+      id: "capture-resolved-questions",
+      label: "Capture resolved questions",
+      reason: "Resolved questions were found without an obvious journal reference.",
+      command: `/afx-session capture --links ${target} resolved-questions`,
+      mode: "insert",
+    });
+  }
+  if (isApprovedStatus(doc, frontmatter) && !hasJournalReference(rawContent)) {
+    journalNudges.push({
+      id: "capture-approval",
+      label: "Capture approval",
+      reason: "Approved state should have durable context.",
+      command: `/afx-session capture --links ${target} approval`,
+      mode: "insert",
+    });
   }
   const summary = extractFirstParagraph(content);
   return {
     issues,
     scoreLabel: issues.length === 0 ? "Strong" : issues.length <= 2 ? "Needs pass" : "Drafty",
     summary,
+    scorecard: [
+      {
+        label: "Strategy",
+        status: hasSuccessLanguage ? "good" : "watch",
+        reason: hasSuccessLanguage ? "Success signal found" : "Add success measure",
+      },
+      {
+        label: "Structure",
+        status: outline.length >= 3 ? "good" : "watch",
+        reason: outline.length >= 3 ? `${outline.length} sections` : "Outline is thin",
+      },
+      {
+        label: "Clarity",
+        status:
+          unresolvedQuestions === 0 && openQuestionSignals.statusMismatch === 0 ? "good" : "gap",
+        reason:
+          unresolvedQuestions === 0 && openQuestionSignals.statusMismatch === 0
+            ? "No unresolved questions"
+            : `${unresolvedQuestions + openQuestionSignals.statusMismatch} question signal${unresolvedQuestions + openQuestionSignals.statusMismatch === 1 ? "" : "s"}`,
+      },
+      {
+        label: "Completeness",
+        status: hasOwner && hasStatus && hasRequirementLanguage ? "good" : "watch",
+        reason:
+          hasOwner && hasStatus && hasRequirementLanguage
+            ? "Core fields present"
+            : "Check owner, status, requirements",
+      },
+    ],
+    suggestions: suggestions.slice(0, 4),
+    journalNudges: dedupeJournalNudges(journalNudges).slice(0, 3),
   };
+}
+
+function refinementCommandForDoc(doc: DocumentRow, target: string, focus: string): string {
+  const suffix = focus ? ` ${focus}` : "";
+  switch (doc.type) {
+    case "DESIGN":
+      return `/afx-design refine ${target}${suffix}`;
+    case "TASKS":
+      return `/afx-task review ${target}${suffix}`;
+    case "SPRINT":
+    case "FLUID":
+      return `/afx-sprint verify ${target}${suffix}`;
+    default:
+      return `/afx-spec refine ${target}${suffix}`;
+  }
+}
+
+function reviewCommandForDoc(doc: DocumentRow, target: string, focus: string): string {
+  const suffix = focus ? ` ${focus}` : "";
+  switch (doc.type) {
+    case "DESIGN":
+      return `/afx-design review ${target}${suffix}`;
+    case "TASKS":
+      return `/afx-task review ${target}${suffix}`;
+    case "SPRINT":
+    case "FLUID":
+      return `/afx-sprint verify ${target}${suffix}`;
+    default:
+      return `/afx-spec review ${target}${suffix}`;
+  }
+}
+
+function summarizeTaskCheckboxes(content: string | undefined): TaskCheckboxSummary {
+  if (!content) return { total: 0, open: 0 };
+  let total = 0;
+  let open = 0;
+  for (const line of content.split(/\r?\n/)) {
+    const checkbox = CHECKBOX_RE.exec(line.trim());
+    if (!checkbox) continue;
+    total += 1;
+    if ((checkbox[1] ?? "").trim().toLowerCase() !== "x") open += 1;
+  }
+  return { total, open };
+}
+
+function summarizeOpenQuestionSignals(content: string | undefined): OpenQuestionSignalSummary {
+  const summary: OpenQuestionSignalSummary = {
+    open: 0,
+    blocked: 0,
+    statusMismatch: 0,
+    resolvedWithoutResolution: 0,
+    resolvedWithoutJournal: 0,
+  };
+  if (!content) return summary;
+  const hasJournal = hasJournalReference(content);
+  const lines = content.split(/\r?\n/);
+  let inOpenQuestions = false;
+  let tableHeaders: string[] | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      inOpenQuestions = /open\s+questions?/i.test(trimmed);
+      tableHeaders = null;
+      continue;
+    }
+    if (!inOpenQuestions) continue;
+    if (!trimmed) continue;
+    if (/^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$/.test(trimmed)) continue;
+    if (/^\|/.test(trimmed)) {
+      const cells = splitMarkdownTableRow(trimmed);
+      if (isOpenQuestionHeader(cells)) {
+        tableHeaders = cells.map((cell) => cell.toLowerCase());
+        continue;
+      }
+      const statusIndex = findHeaderIndex(tableHeaders, ["status", "state"]);
+      const resolutionIndex = findHeaderIndex(tableHeaders, ["resolution", "answer", "decision"]);
+      const status = cleanQuestionText(
+        statusIndex >= 0
+          ? (cells[statusIndex] ?? "")
+          : (cells.find((cell) =>
+              /\b(open|unresolved|blocked|pending|resolved|closed|answered|done)\b/i.test(cell),
+            ) ?? ""),
+      );
+      const resolution = cleanQuestionText(
+        resolutionIndex >= 0 ? (cells[resolutionIndex] ?? "") : "",
+      );
+      const normalized = normalizeQuestionStatus(status);
+      if (normalized === "blocked") {
+        summary.blocked += 1;
+      } else if (normalized === "resolved") {
+        if (!resolution) summary.resolvedWithoutResolution += 1;
+        if (resolution && !hasJournal) summary.resolvedWithoutJournal += 1;
+      } else if (normalized === "open" || trimmed.includes("?")) {
+        if (resolution) summary.statusMismatch += 1;
+        else summary.open += 1;
+      }
+      continue;
+    }
+    if (/^[-*]\s+\[\s\]/.test(trimmed)) summary.open += 1;
+  }
+
+  return summary;
+}
+
+function parseOpenQuestions(content: string): OpenQuestionTarget[] {
+  const lines = content.split(/\r?\n/);
+  const questions: OpenQuestionTarget[] = [];
+  let inOpenQuestions = false;
+  let tableHeaders: string[] | null = null;
+
+  for (const [index, line] of lines.entries()) {
+    const trimmed = line.trim();
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      inOpenQuestions = /open\s+questions?/i.test(trimmed);
+      tableHeaders = null;
+      continue;
+    }
+    if (!inOpenQuestions || !trimmed) continue;
+
+    if (trimmed.startsWith("|")) {
+      if (TABLE_SEPARATOR_RE.test(trimmed)) continue;
+      const cells = splitMarkdownTableRow(trimmed);
+      if (cells.length === 0) continue;
+      if (isOpenQuestionHeader(cells)) {
+        tableHeaders = cells.map((cell) => cell.toLowerCase());
+        continue;
+      }
+
+      const questionIndex =
+        findHeaderIndex(tableHeaders, ["question", "open question", "prompt"]) ?? 0;
+      const statusIndex = findHeaderIndex(tableHeaders, ["status", "state"]);
+      const ownerIndex = findHeaderIndex(tableHeaders, ["owner"]);
+      const question = cleanQuestionText(cells[questionIndex] ?? cells[0] ?? "");
+      const status = statusIndex >= 0 ? cleanQuestionText(cells[statusIndex] ?? "") : null;
+      if (!question || isResolvedQuestionStatus(status)) continue;
+      questions.push({
+        id: `oq-${index + 1}`,
+        question,
+        owner: ownerIndex >= 0 ? cleanQuestionText(cells[ownerIndex] ?? "") || null : null,
+        status,
+        line: index + 1,
+      });
+      continue;
+    }
+
+    const checklist = trimmed.match(/^[-*]\s+\[\s\]\s+(.+)$/);
+    if (checklist?.[1]) {
+      questions.push({
+        id: `oq-${index + 1}`,
+        question: cleanQuestionText(checklist[1]),
+        owner: null,
+        status: "Open",
+        line: index + 1,
+      });
+    }
+  }
+
+  return questions;
+}
+
+function splitMarkdownTableRow(row: string): string[] {
+  return row
+    .replace(/^\||\|$/g, "")
+    .split("|")
+    .map((cell) => cleanQuestionText(cell));
+}
+
+function isOpenQuestionHeader(cells: string[]): boolean {
+  const normalized = cells.map((cell) => cleanQuestionText(cell).toLowerCase());
+  return (
+    normalized.some((cell) => ["question", "open question", "prompt"].includes(cell)) &&
+    normalized.some((cell) =>
+      ["status", "state", "resolution", "answer", "decision"].includes(cell),
+    )
+  );
+}
+
+function findHeaderIndex(headers: string[] | null | undefined, aliases: string[]): number {
+  if (!headers) return -1;
+  const aliasSet = new Set(aliases.map((alias) => alias.toLowerCase()));
+  return headers.findIndex((header) => aliasSet.has(cleanQuestionText(header).toLowerCase()));
+}
+
+function cleanQuestionText(value: string): string {
+  return cleanInlineMarkdownText(value).replace(/\s+/g, " ").trim();
+}
+
+function isResolvedQuestionStatus(status: string | null): boolean {
+  return status != null && /\b(resolved|closed|answered|done)\b/i.test(status);
+}
+
+function normalizeQuestionStatus(status: string | null): "open" | "blocked" | "resolved" | null {
+  if (!status) return null;
+  if (/\b(blocked)\b/i.test(status)) return "blocked";
+  if (/\b(resolved|closed|answered|done)\b/i.test(status)) return "resolved";
+  if (/\b(open|unresolved|pending)\b/i.test(status)) return "open";
+  return null;
+}
+
+function quoteCommandText(value: string): string {
+  return JSON.stringify(value);
+}
+
+function hasDecisionLanguage(content: string | undefined): boolean {
+  if (!content) return false;
+  return /\b(decision|decided|chosen|agreed|approved|deferred)\b/i.test(content);
+}
+
+function hasJournalReference(content: string): boolean {
+  return /\b(journal|session capture|discussion|decision id|work session|captured)\b/i.test(
+    content,
+  );
+}
+
+function isApprovedStatus(doc: DocumentRow, frontmatter: Record<string, unknown>): boolean {
+  const status = doc.status || stringMeta(frontmatter, "status") || "";
+  return /\bapproved\b/i.test(status);
+}
+
+function dedupeJournalNudges(nudges: DocumentJournalNudge[]): DocumentJournalNudge[] {
+  const seen = new Set<string>();
+  return nudges.filter((nudge) => {
+    if (seen.has(nudge.id)) return false;
+    seen.add(nudge.id);
+    return true;
+  });
 }
 
 function extractFirstParagraph(content: string | undefined): string | null {

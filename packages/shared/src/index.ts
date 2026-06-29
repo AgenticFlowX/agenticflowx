@@ -13,6 +13,7 @@ export * from "./intent-copy";
 export * from "./intent-prompts";
 export * from "./constants";
 export * from "./provider-catalog";
+export * from "./sdd";
 export * from "./workbench-types";
 export * from "./workbench-protocol";
 export * from "./custom-providers";

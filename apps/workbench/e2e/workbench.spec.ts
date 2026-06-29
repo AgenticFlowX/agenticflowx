@@ -8,10 +8,25 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
 
-const TAB_LABELS = ["Workbench", "Pipeline", "Documents", "Analytics", "Journal", "Board", "Notes"];
+const TAB_LABELS = [
+  "SDD Studio",
+  "Pipeline",
+  "Documents",
+  "Analytics",
+  "Journal",
+  "Board",
+  "Notes",
+];
 const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screenshots");
 const REAL_SPEC_PATH = "docs/specs/410-warranty-claims/spec.md";
+const SDD_STUDIO_VIEWPORTS = [
+  { name: "bottom-panel", width: 760, height: 360 },
+  { name: "short-editor", width: 1024, height: 500 },
+  { name: "standard-editor", width: 1400, height: 600 },
+  { name: "wide-editor", width: 1440, height: 760 },
+] as const;
 const REAL_SPEC_CONTENT = `---
 afx: true
 type: SPEC
@@ -53,7 +68,7 @@ Organizations need to streamline warranty management for their assets and produc
 | FR-2 | View list of claims with filtering by status, urgency, date | Must Have |
 `;
 
-async function postEmptyWorkbenchUpdate(page: import("@playwright/test").Page) {
+async function postEmptyWorkbenchUpdate(page: Page) {
   await page.evaluate(() => {
     window.postMessage(
       {
@@ -73,7 +88,7 @@ async function postEmptyWorkbenchUpdate(page: import("@playwright/test").Page) {
   });
 }
 
-async function postRealSpecWorkbenchUpdate(page: import("@playwright/test").Page) {
+async function postRealSpecWorkbenchUpdate(page: Page) {
   await page.evaluate((filePath) => {
     window.postMessage(
       {
@@ -105,17 +120,29 @@ async function postRealSpecWorkbenchUpdate(page: import("@playwright/test").Page
   }, REAL_SPEC_PATH);
 }
 
-async function postDocContent(
-  page: import("@playwright/test").Page,
-  filePath: string,
-  content: string,
-) {
+async function postDocContent(page: Page, filePath: string, content: string) {
   await page.evaluate(
     ({ filePath, content }) => {
       window.postMessage({ type: "afxDocContent", filePath, content }, "*");
     },
     { filePath, content },
   );
+}
+
+async function expectNoPageOverflow(page: Page) {
+  const overflow = await page.evaluate(() => ({
+    body: document.body.scrollWidth - window.innerWidth,
+    root: document.documentElement.scrollWidth - window.innerWidth,
+  }));
+  expect(Math.max(overflow.body, overflow.root)).toBeLessThanOrEqual(1);
+}
+
+async function captureWorkbenchScreenshot(page: Page, testInfo: TestInfo, fileName: string) {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const screenshotPath = resolve(SCREENSHOT_DIR, fileName);
+  const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
+  await testInfo.attach(fileName, { body: buf, contentType: "image/png" });
+  expect(buf.length).toBeGreaterThan(10_000);
 }
 
 test("workbench root mounts", async ({ page }) => {
@@ -130,11 +157,40 @@ test("renders all 7 tabs", async ({ page }) => {
   }
 });
 
-test("Workbench tab is selected by default", async ({ page }) => {
+test("SDD Studio tab is selected by default", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Workbench" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "SDD Studio" })).toHaveAttribute(
     "aria-selected",
     "true",
+  );
+});
+
+test("SDD Studio feature picker opens and switches feature", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 760 });
+  await page.goto("/");
+
+  const picker = page.getByRole("button", { name: "Select SDD feature" });
+  await expect(picker).toContainText("Infrastructure");
+  await picker.click();
+
+  const listbox = page.getByRole("listbox", { name: "Select SDD feature" });
+  await expect(listbox).toBeVisible();
+  await expect(listbox.getByText("Recent specs")).toBeVisible();
+  await expect(listbox.getByRole("option", { name: /Infrastructure/i })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+
+  await captureWorkbenchScreenshot(page, testInfo, "sdd-studio-feature-picker-open.png");
+
+  await listbox.getByRole("option", { name: /Marketplace Asset Recovery/i }).click();
+  await expect(listbox).toBeHidden();
+  await expect(picker).toContainText("Marketplace Asset Recovery");
+  await captureWorkbenchScreenshot(page, testInfo, "sdd-studio-feature-picker-selected.png");
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Select SDD feature" })).toContainText(
+    "Marketplace Asset Recovery",
   );
 });
 
@@ -144,19 +200,24 @@ test("feature thinking desk keeps readable columns in compact bottom panels", as
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 760, height: 360 });
   await page.goto("/");
+  await page
+    .getByLabel("SDD Studio view mode")
+    .getByRole("button", { name: "Compare docs" })
+    .click();
 
   await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refine spec" })).toBeVisible();
+  await expect(
+    page.getByTestId("workbench-column-spec").getByRole("button", { name: "Refine spec" }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "Open in AFX Preview" }).first()).toBeVisible();
 
-  await expect(page.getByTestId("workbench-column-toggles")).toContainText("Show/hide docs");
-  await expect(page.getByRole("button", { name: "Hide SPEC document column" })).toBeVisible();
-  await page.getByRole("button", { name: "Hide SPEC document column" }).click();
-  await expect(page.getByRole("button", { name: "Show SPEC document column" })).toHaveAttribute(
+  await expect(page.getByRole("button", { name: "Hide Spec document column" })).toBeVisible();
+  await page.getByRole("button", { name: "Hide Spec document column" }).click();
+  await expect(page.getByRole("button", { name: "Show Spec document column" })).toHaveAttribute(
     "aria-pressed",
     "false",
   );
-  await page.getByRole("button", { name: "Show SPEC document column" }).click();
+  await page.getByRole("button", { name: "Show Spec document column" }).click();
 
   const region = page.getByTestId("workbench-column-region");
   await expect(region).toBeVisible();
@@ -182,42 +243,53 @@ test("feature thinking desk keeps readable columns in compact bottom panels", as
   );
   expect(pageOverflow).toBeLessThanOrEqual(1);
 
-  const screenshotPath = resolve(SCREENSHOT_DIR, "workbench-thinking-desk-compact.png");
+  const screenshotPath = resolve(SCREENSHOT_DIR, "sdd-studio-compare-compact-columns.png");
   const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
-  await testInfo.attach("workbench-thinking-desk-compact.png", {
+  await testInfo.attach("sdd-studio-compare-compact-columns.png", {
     body: buf,
     contentType: "image/png",
   });
   expect(buf.length).toBeGreaterThan(10_000);
 });
 
-test("feature thinking desk expands into a zen reading layout", async ({ page }, testInfo) => {
+test("SDD Studio focus view expands into a guided reading layout", async ({ page }, testInfo) => {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 1440, height: 760 });
   await page.goto("/");
+  await page.getByLabel("SDD Studio view mode").getByRole("button", { name: "Focus doc" }).click();
 
-  await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refine spec" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open in AFX Preview" }).first()).toBeVisible();
-  await expect(page.getByText("Open tasks")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Code Phase 1: Setup" })).toBeVisible();
+  const focus = page.getByTestId("sdd-studio-focus");
+  await expect(focus).toBeVisible();
+  await expect(focus.getByText("Workflow")).toBeVisible();
+  await expect(focus.getByText("Needs attention")).toBeVisible();
+  await expect(focus.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
+  await expect(focus.getByRole("button", { name: /^Spec\b/i }).first()).toBeVisible();
+  await focus
+    .getByRole("button", { name: /^Tasks\b/i })
+    .first()
+    .click();
+  await expect(focus.getByText("docs/specs/15-infrastructure/tasks.md")).toBeVisible();
+  await expect(focus.getByRole("button", { name: "Code Phase 1: Setup" })).toBeVisible();
 
-  const region = page.getByTestId("workbench-column-region");
-  const overflow = await region.evaluate((node) =>
-    Math.max(0, node.scrollWidth - node.clientWidth),
-  );
-  expect(overflow).toBeLessThanOrEqual(24);
+  await expectNoPageOverflow(page);
 
-  const screenshotPath = resolve(SCREENSHOT_DIR, "workbench-thinking-desk-zen.png");
+  const screenshotPath = resolve(SCREENSHOT_DIR, "sdd-studio-focus-zen.png");
   const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
-  await testInfo.attach("workbench-thinking-desk-zen.png", {
+  await testInfo.attach("sdd-studio-focus-zen.png", {
     body: buf,
     contentType: "image/png",
   });
   expect(buf.length).toBeGreaterThan(10_000);
+
+  await page.reload();
+  const restoredFocus = page.getByTestId("sdd-studio-focus");
+  await expect(restoredFocus).toBeVisible();
+  await expect(page.getByTestId("sdd-studio-focus-tasks")).toBeVisible();
+  await expect(restoredFocus.getByText("docs/specs/15-infrastructure/tasks.md")).toBeVisible();
 });
 
 test("task phase code action drafts a scoped command", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.evaluate(() => {
     const w = window as typeof window & {
@@ -231,9 +303,44 @@ test("task phase code action drafts a scoped command", async ({ page }) => {
       }
     });
   });
+  await page.evaluate(() => {
+    window.postMessage(
+      {
+        type: "afxUpdate",
+        pipeline: [
+          {
+            name: "16-marketplace-asset-recovery",
+            specStatus: "Approved",
+            designStatus: "Draft",
+            tasksStatus: "In Progress",
+            completed: 8,
+            total: 15,
+            featureStatus: "In Progress",
+            specPath: "docs/specs/16-marketplace-asset-recovery/spec.md",
+            designPath: "docs/specs/16-marketplace-asset-recovery/design.md",
+            tasksPath: "docs/specs/16-marketplace-asset-recovery/tasks.md",
+          },
+        ],
+        featureTasks: [
+          {
+            name: "16-marketplace-asset-recovery",
+            tasksPath: "docs/specs/16-marketplace-asset-recovery/tasks.md",
+            completed: 8,
+            total: 15,
+            phases: [],
+            workSessions: [],
+          },
+        ],
+      },
+      "*",
+    );
+  });
+  await expect(page.getByText("Marketplace Asset Recovery").first()).toBeVisible();
 
-  await page.getByRole("combobox").click();
-  await page.getByRole("option", { name: /16-marketplace-asset-recovery/ }).click();
+  await page
+    .getByLabel("SDD Studio view mode")
+    .getByRole("button", { name: "Compare docs" })
+    .click();
   await page.getByRole("button", { name: "Code Phase 2: Implementation" }).click();
 
   await expect
@@ -256,10 +363,11 @@ test("can switch tabs and capture screenshot of each view", async ({ page }, tes
     await page.getByRole("tab", { name: label }).click();
     await expect(page.getByRole("tab", { name: label })).toHaveAttribute("aria-selected", "true");
     await page.waitForTimeout(200);
-    const screenshotPath = resolve(SCREENSHOT_DIR, `workbench-${label.toLowerCase()}.png`);
+    const slug = label.toLowerCase().replace(/\s+/g, "-");
+    const screenshotPath = resolve(SCREENSHOT_DIR, `workbench-${slug}.png`);
     const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
     expect(buf.length).toBeGreaterThan(10_000);
-    await testInfo.attach(`workbench-${label.toLowerCase()}.png`, {
+    await testInfo.attach(`workbench-${slug}.png`, {
       body: buf,
       contentType: "image/png",
     });
@@ -312,11 +420,11 @@ test("notes splitter remains draggable in compact viewport", async ({ page }) =>
 
 test("workbench keeps a default feature selected after refresh updates", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("tab", { name: "Workbench" })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "SDD Studio" })).toHaveAttribute(
     "aria-selected",
     "true",
   );
-  await expect(page.getByText("15-infrastructure").first()).toBeVisible();
+  await expect(page.getByText("Infrastructure").first()).toBeVisible();
   await page.evaluate(() => {
     window.postMessage(
       {
@@ -338,7 +446,7 @@ test("workbench keeps a default feature selected after refresh updates", async (
       "*",
     );
   });
-  await expect(page.getByText("replacement-feature").first()).toBeVisible();
+  await expect(page.getByText("Replacement Feature").first()).toBeVisible();
   await expect(page.getByText("No columns visible")).toHaveCount(0);
 });
 
@@ -379,7 +487,7 @@ test("first-run launchpad survives the constrained bottom-panel viewport", async
 
   await expect(page.getByTestId("workbench-launchpad")).toBeVisible();
   await expect(page.getByRole("button", { name: /^Full spec/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Sample SDD set/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Import notes/i })).toBeVisible();
 
   const overflow = await page.evaluate(() => ({
     body: document.body.scrollWidth - window.innerWidth,
@@ -394,6 +502,212 @@ test("first-run launchpad survives the constrained bottom-panel viewport", async
     contentType: "image/png",
   });
   expect(buf.length).toBeGreaterThan(10_000);
+});
+
+for (const viewport of SDD_STUDIO_VIEWPORTS) {
+  test(`SDD Studio launchpad stays actionable in ${viewport.name} layout`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/");
+    await postEmptyWorkbenchUpdate(page);
+
+    const studio = page.locator('[data-afx-sdd-studio="home"]');
+    await expect(studio).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Full spec/i })).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Fast sprint/i })).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Bugfix/i })).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Research/i })).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Import notes/i })).toBeVisible();
+    await expect(studio.getByRole("button", { name: /^Refine existing/i })).toBeVisible();
+    await expect(studio.getByText("Active refinement")).toBeVisible();
+    await expect(studio.getByText("Changed docs")).toBeVisible();
+    await expectNoPageOverflow(page);
+
+    await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-launchpad-${viewport.name}.png`);
+
+    await studio.getByRole("button", { name: /^Full spec/i }).click();
+    const drawer = page.getByTestId("sdd-guided-start-drawer");
+    await expect(drawer).toBeVisible();
+    await drawer.getByLabel("Describe the SDD outcome").fill("Checkout redesign");
+    await expect(drawer.getByText("/afx-spec new checkout-redesign")).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Draft command" })).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Start now" })).toBeVisible();
+    await expectNoPageOverflow(page);
+
+    await captureWorkbenchScreenshot(
+      page,
+      testInfo,
+      `sdd-studio-guided-start-${viewport.name}.png`,
+    );
+  });
+}
+
+for (const viewport of [
+  { name: "compact", width: 760, height: 360 },
+  { name: "wide", width: 1440, height: 760 },
+] as const) {
+  test(`SDD Studio modes stay clear and actionable in ${viewport.name} layout`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.goto("/");
+    await page.evaluate(() => {
+      const w = window as typeof window & {
+        __afxOutboundMessages?: Array<{
+          command?: string;
+          mode?: string;
+          path?: string;
+          type?: string;
+        }>;
+      };
+      w.__afxOutboundMessages = [];
+      window.addEventListener("message", (event: MessageEvent) => {
+        const msg = event.data as
+          | { command?: string; mode?: string; path?: string; type?: string }
+          | undefined;
+        if (msg?.type === "afxOpenChatCommand" || msg?.type === "afxOpenFile") {
+          w.__afxOutboundMessages?.push(msg);
+        }
+      });
+    });
+
+    const header = page.locator('[data-afx-sdd-studio="header"]');
+    await expect(header).toBeVisible();
+    await expect(header.getByRole("button", { name: "Select SDD feature" })).toBeVisible();
+    await expect(page.getByText("View mode")).toBeVisible();
+    await expect(page.getByTestId("sdd-feature-summary")).toContainText("Status");
+    await expect(page.getByTestId("sdd-feature-summary")).toContainText("Tasks");
+    await expect(header.getByRole("button", { name: "Overview" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(header.getByRole("button", { name: "Focus doc" })).toBeVisible();
+    await expect(header.getByRole("button", { name: "Compare docs" })).toBeVisible();
+    if (viewport.name === "compact") {
+      await expect
+        .poll(async () => {
+          const box = await header.boundingBox();
+          return Math.round(box?.height ?? 999);
+        })
+        .toBeLessThanOrEqual(72);
+    }
+
+    const cockpit = page.getByTestId("sdd-studio-cockpit");
+    await expect(cockpit).toBeVisible();
+    await expect(cockpit.getByText("Next work")).toBeVisible();
+    await expect(cockpit.getByText("Needs attention")).toBeVisible();
+    await expect(cockpit.getByText("Role modes")).toBeVisible();
+    await expect(cockpit.getByText("Active docs")).toBeVisible();
+    await expect(cockpit.getByRole("button", { name: /^Coach\b/i })).toBeVisible();
+    await expect(cockpit.getByRole("button", { name: /^Architect\b/i })).toBeVisible();
+    await expect(cockpit.getByRole("button", { name: /^Dev\b/i })).toBeVisible();
+    await expect(cockpit.getByRole("button", { name: /^Ship\b/i })).toBeVisible();
+    await expectNoPageOverflow(page);
+    await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-cockpit-${viewport.name}.png`);
+
+    await header.getByRole("button", { name: "Focus doc" }).click();
+    const focus = page.getByTestId("sdd-studio-focus");
+    await expect(focus).toBeVisible();
+    await expect(focus.getByText("Workflow")).toBeVisible();
+    await expect(focus.getByText("Needs attention")).toBeVisible();
+    await focus
+      .getByRole("button", { name: /^Design\b/i })
+      .first()
+      .click();
+    await expect(page.getByTestId("sdd-studio-focus-design")).toBeVisible();
+    await expect(focus.getByText("docs/specs/15-infrastructure/design.md")).toBeVisible();
+    await expectNoPageOverflow(page);
+    await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-focus-${viewport.name}.png`);
+
+    await header.getByRole("button", { name: "Compare docs" }).click();
+    const compare = page.locator('[data-afx-sdd-studio="compare"]');
+    await expect(compare).toBeVisible();
+    await expect(page.getByTestId("workbench-column-toggles")).toHaveAccessibleName(
+      "Show or hide SDD Studio compare documents",
+    );
+    await expect(page.getByRole("button", { name: "Hide Spec document column" })).toBeVisible();
+    await page.getByRole("button", { name: "Hide Spec document column" }).click();
+    await expect(page.getByRole("button", { name: "Show Spec document column" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    await page.getByRole("button", { name: "Show Spec document column" }).click();
+
+    await page
+      .getByTestId("workbench-column-spec")
+      .getByRole("button", { name: /^Refine spec$/i })
+      .click();
+    await page
+      .getByRole("button", { name: /^Open in AFX Preview$/i })
+      .first()
+      .click();
+
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const w = window as typeof window & {
+            __afxOutboundMessages?: Array<{ mode?: string; type?: string }>;
+          };
+          return (w.__afxOutboundMessages ?? []).some(
+            (msg) => msg.type === "afxOpenFile" && msg.mode === "afxPreview",
+          );
+        }),
+      )
+      .toBe(true);
+
+    const messages = await page.evaluate(() => {
+      const w = window as typeof window & {
+        __afxOutboundMessages?: Array<{
+          command?: string;
+          mode?: string;
+          path?: string;
+          type?: string;
+        }>;
+      };
+      return w.__afxOutboundMessages ?? [];
+    });
+
+    expect(messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "afxOpenChatCommand",
+          command: expect.stringMatching(/^\/afx-spec refine /),
+          mode: "insert",
+        }),
+        expect.objectContaining({
+          type: "afxOpenFile",
+          mode: "afxPreview",
+        }),
+      ]),
+    );
+    await expectNoPageOverflow(page);
+
+    await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-compare-${viewport.name}.png`);
+  });
+}
+
+test("SDD Studio remains clean in light compact theme", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 760, height: 360 });
+  await page.goto("/");
+  await page.evaluate(() => {
+    document.body.classList.remove("vscode-dark");
+    document.body.classList.add("vscode-light", "theme-meridian", "style-mira");
+  });
+
+  const header = page.locator('[data-afx-sdd-studio="header"]');
+  await expect(header).toBeVisible();
+  await expect(header.getByRole("button", { name: "Select SDD feature" })).toBeVisible();
+  await expect(page.getByTestId("sdd-studio-cockpit")).toBeVisible();
+  await expect
+    .poll(async () => {
+      const box = await header.boundingBox();
+      return Math.round(box?.height ?? 999);
+    })
+    .toBeLessThanOrEqual(72);
+  await expectNoPageOverflow(page);
+
+  await captureWorkbenchScreenshot(page, testInfo, "sdd-studio-light-compact.png");
 });
 
 test("empty child tabs provide actionable guides and screenshots", async ({ page }, testInfo) => {
@@ -604,6 +918,10 @@ test("workbench column reading-options popover has Width + tooltips fire on tool
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.setViewportSize({ width: 1024, height: 720 });
   await page.goto("/");
+  await page
+    .getByLabel("SDD Studio view mode")
+    .getByRole("button", { name: "Compare docs" })
+    .click();
   await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
 
   // 1. Open the SPEC column's reading options and verify Width row is present
@@ -683,7 +1001,7 @@ for (const mode of ["light", "dark"] as const) {
       document.body.classList.add("theme-meridian", "style-mira");
     }, mode);
 
-    for (const label of ["Workbench", "Pipeline", "Board", "Documents"]) {
+    for (const label of ["SDD Studio", "Pipeline", "Board", "Documents"]) {
       await page.getByRole("tab", { name: label }).click();
       await page.waitForTimeout(150);
       const buf = await page.screenshot({ fullPage: false });

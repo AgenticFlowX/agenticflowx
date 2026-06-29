@@ -29,9 +29,6 @@ export const MOCK_PIPELINE: PipelineRow[] = [
     specPath: "docs/specs/15-infrastructure/spec.md",
     designPath: "docs/specs/15-infrastructure/design.md",
     tasksPath: "docs/specs/15-infrastructure/tasks.md",
-    specLastVerified: new Date(Date.now() - 7 * 86400000).toISOString(),
-    designLastVerified: new Date(Date.now() - 7 * 86400000).toISOString(),
-    tasksLastVerified: new Date(Date.now() - 30 * 86400000).toISOString(),
   },
   {
     name: "16-marketplace-asset-recovery",
@@ -44,8 +41,6 @@ export const MOCK_PIPELINE: PipelineRow[] = [
     specPath: "docs/specs/16-marketplace-asset-recovery/spec.md",
     designPath: "docs/specs/16-marketplace-asset-recovery/design.md",
     tasksPath: "docs/specs/16-marketplace-asset-recovery/tasks.md",
-    specLastVerified: new Date(Date.now() - 2 * 86400000).toISOString(),
-    designLastVerified: new Date(Date.now() - 5 * 86400000).toISOString(),
   },
   {
     name: "19-marketplace-listings",

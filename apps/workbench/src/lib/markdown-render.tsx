@@ -24,7 +24,11 @@ import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
 import { slugify } from "./document-outline";
-import { cleanMarkdownForReading, removeLeadingH1 } from "./markdown-cleanup";
+import {
+  cleanInlineMarkdownText,
+  cleanMarkdownForReading,
+  removeLeadingH1,
+} from "./markdown-cleanup";
 import {
   type MarkdownTableKind,
   classifyRenderedTableText,
@@ -67,6 +71,9 @@ interface DefinitionCalloutRow {
 }
 
 const TASK_CHECKBOX_RE = /^\s*[-*]\s+\[( |x|X)?\](?=\s)/;
+const ANCHOR_TOKEN_RE =
+  /\[(?:FR|NFR|DES|ADR|AC|REQ|TASK|QA|TRACE|DESIGN|SPEC)-[A-Za-z0-9_.:-]+\]|\b(?:FR|NFR|DES|ADR|AC|REQ|TASK|QA|TRACE|DESIGN|SPEC)-[A-Za-z0-9_.:-]+\b/g;
+const HEADING_LINE_RE = /^(#{1,6})\s+(.+?)\s*$/;
 
 const TABLE_MIN_WIDTH: Record<MarkdownTableKind, string> = {
   requirements: "min-w-full",
@@ -79,6 +86,7 @@ const TABLE_MIN_WIDTH: Record<MarkdownTableKind, string> = {
 };
 
 const MarkdownTableKindContext = createContext<MarkdownTableKind>("generic");
+const MarkdownAnchorContext = createContext<Map<string, string>>(new Map());
 
 function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
@@ -255,13 +263,115 @@ function workSessionsColumnsForRow(line: string): { agent: number; human: number
   return workSessionsColumns(line);
 }
 
+function anchorTokenKey(token: string): string {
+  return token.replace(/^\[|\]$/g, "").toLowerCase();
+}
+
+function anchorTokenLabel(token: string): string {
+  return token.replace(/^\[|\]$/g, "");
+}
+
+function anchorTokensFromText(text: string): string[] {
+  return [...text.matchAll(ANCHOR_TOKEN_RE)].map((match) => match[0]).filter(Boolean);
+}
+
+function collectMarkdownAnchorAliases(content: string): Map<string, string> {
+  const aliases = new Map<string, string>();
+  const lines = content.split("\n");
+  let inFence = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^(```|~~~)/.test(trimmed)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+
+    const heading = HEADING_LINE_RE.exec(trimmed);
+    if (!heading) continue;
+
+    const sourceText = heading[2] ?? "";
+    const visibleText = cleanInlineMarkdownText(sourceText);
+    const target = slugify(visibleText);
+    if (!target) continue;
+
+    for (const token of anchorTokensFromText(sourceText)) {
+      aliases.set(anchorTokenKey(token), target);
+    }
+  }
+
+  return aliases;
+}
+
+function findAnchorTarget(source: HTMLElement, targetId: string): HTMLElement | null {
+  const root = source.closest("[data-afx-md-root]");
+  const scopedTarget = root
+    ? [...root.querySelectorAll<HTMLElement>("[id]")].find((node) => node.id === targetId)
+    : null;
+  return scopedTarget ?? document.getElementById(targetId);
+}
+
+function MarkdownAnchorLens({ token, aliases }: { token: string; aliases: Map<string, string> }) {
+  const label = anchorTokenLabel(token);
+  const key = anchorTokenKey(token);
+  const target = aliases.get(key) ?? slugify(label);
+
+  return (
+    <button
+      type="button"
+      data-afx-md-anchor-lens
+      data-afx-md-anchor-token={key}
+      data-afx-md-anchor-target={target}
+      className="mx-0.5 inline-flex max-w-full items-baseline rounded-sm border border-transparent px-1 font-mono text-[0.9em] text-afx-brand-soft underline decoration-afx-brand/35 decoration-dotted underline-offset-2 transition-colors hover:border-afx-brand/30 hover:bg-afx-brand/10 hover:text-afx-brand focus-visible:border-afx-brand/50 focus-visible:bg-afx-brand/10 focus-visible:outline-none"
+      aria-label={`Jump to ${label}`}
+      title={`Jump to ${label}`}
+      onClick={(event) => {
+        const targetElement = findAnchorTarget(event.currentTarget, target);
+        targetElement?.scrollIntoView({ block: "center", behavior: "smooth" });
+      }}
+    >
+      {token}
+    </button>
+  );
+}
+
+function renderAnchorLensText(text: string, aliases: Map<string, string>): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of text.matchAll(ANCHOR_TOKEN_RE)) {
+    const token = match[0];
+    const index = match.index ?? 0;
+    if (index > lastIndex) parts.push(text.slice(lastIndex, index));
+    parts.push(<MarkdownAnchorLens key={`${token}-${index}`} token={token} aliases={aliases} />);
+    lastIndex = index + token.length;
+  }
+
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts.length ? parts : [text];
+}
+
+function MarkdownAnchorLensText({ children }: { children?: ReactNode }) {
+  const aliases = useContext(MarkdownAnchorContext);
+  return (
+    <>
+      {Children.map(children, (child) =>
+        typeof child === "string" || typeof child === "number"
+          ? renderAnchorLensText(String(child), aliases)
+          : child,
+      )}
+    </>
+  );
+}
+
 function MarkdownTableCell({ children }: { children?: ReactNode }) {
   return (
     <td
       data-afx-md-cell="body"
       className="min-w-0 break-words px-2.5 py-2.5 align-top leading-5 text-foreground/85 [overflow-wrap:anywhere]"
     >
-      {children}
+      <MarkdownAnchorLensText>{children}</MarkdownAnchorLensText>
     </td>
   );
 }
@@ -435,6 +545,10 @@ function renderInlineNodes(nodes: ReactNode[]): ReactNode {
   return nodes.map((node, index) => <Fragment key={index}>{node}</Fragment>);
 }
 
+function isOpenQuestionsHeading(text: string): boolean {
+  return /\bopen\s+questions?\b/i.test(text);
+}
+
 function MarkdownDefinitionCallout({ rows }: { rows: DefinitionCalloutRow[] }) {
   return (
     <aside
@@ -474,10 +588,14 @@ function MarkdownTable({ children }: { children?: ReactNode }) {
             "w-full border-collapse text-left text-xs",
             TABLE_MIN_WIDTH[kind],
             kind === "requirements" &&
-              "table-auto [&_td:first-child]:w-20 [&_td:last-child]:w-28 [&_th:first-child]:w-20 [&_th:last-child]:w-28",
+              "table-fixed [&_td:first-child]:w-20 [&_td:first-child]:whitespace-nowrap [&_td:nth-child(2)]:w-44 [&_th:first-child]:w-20 [&_th:nth-child(2)]:w-44",
             kind === "work-sessions" &&
               "table-fixed [&_td:nth-child(1)]:w-24 [&_td:nth-child(1)]:whitespace-nowrap [&_td:nth-child(2)]:w-12 [&_td:nth-child(2)]:whitespace-nowrap [&_td:nth-child(3)]:w-20 [&_td:nth-child(4)]:w-28 [&_td:nth-child(5)]:sticky [&_td:nth-child(5)]:right-16 [&_td:nth-child(5)]:z-10 [&_td:nth-child(5)]:w-16 [&_td:nth-child(5)]:bg-background [&_td:nth-child(5)]:shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.65)] [&_td:nth-child(6)]:sticky [&_td:nth-child(6)]:right-0 [&_td:nth-child(6)]:z-10 [&_td:nth-child(6)]:w-16 [&_td:nth-child(6)]:bg-background [&_th:nth-child(1)]:w-24 [&_th:nth-child(2)]:w-12 [&_th:nth-child(3)]:w-20 [&_th:nth-child(4)]:w-28 [&_th:nth-child(5)]:sticky [&_th:nth-child(5)]:right-16 [&_th:nth-child(5)]:z-20 [&_th:nth-child(5)]:w-16 [&_th:nth-child(5)]:bg-muted [&_th:nth-child(5)]:shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.65)] [&_th:nth-child(6)]:sticky [&_th:nth-child(6)]:right-0 [&_th:nth-child(6)]:z-20 [&_th:nth-child(6)]:w-16 [&_th:nth-child(6)]:bg-muted",
-            kind !== "requirements" && kind !== "work-sessions" && "table-fixed",
+            kind === "generic" && "table-auto",
+            kind !== "requirements" &&
+              kind !== "work-sessions" &&
+              kind !== "generic" &&
+              "table-fixed",
           )}
         >
           {children}
@@ -510,6 +628,7 @@ function MarkdownHeading({
   const text = headingText(children);
   const slug = slugify(text);
   const after = renderAfterHeading?.({ level, text, slug }) ?? null;
+  const needsAttention = isOpenQuestionsHeading(text);
 
   switch (level) {
     case 1:
@@ -518,8 +637,13 @@ function MarkdownHeading({
           <h1
             data-afx-md-section="heading"
             data-afx-md-heading-level="1"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-4 mt-1 min-w-0 max-w-full break-words text-lg font-semibold leading-tight tracking-normal first:mt-0 [overflow-wrap:anywhere]"
+            className={cx(
+              "mb-4 mt-1 min-w-0 max-w-full break-words text-lg font-semibold leading-tight tracking-normal first:mt-0 [overflow-wrap:anywhere]",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 text-foreground shadow-[0_0_0_1px_rgba(245,158,11,0.08)]",
+            )}
           >
             {children}
           </h1>
@@ -531,10 +655,21 @@ function MarkdownHeading({
           <h2
             data-afx-md-section="heading"
             data-afx-md-heading-level="2"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-2 mt-7 flex min-w-0 max-w-full items-start gap-2 border-t border-border/70 pt-4 text-[15px] font-semibold leading-tight tracking-normal first:mt-0 first:border-t-0 first:pt-0"
+            className={cx(
+              "mb-2 mt-7 flex min-w-0 max-w-full items-start gap-2 border-t border-border/70 pt-4 text-[15px] font-semibold leading-tight tracking-normal first:mt-0 first:border-t-0 first:pt-0",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 text-foreground shadow-[0_0_0_1px_rgba(245,158,11,0.08)] first:border-amber-500/35 first:pt-2",
+            )}
           >
-            <span className="h-4 w-1 rounded-full bg-afx-brand/70" aria-hidden />
+            <span
+              className={cx(
+                "h-4 w-1 rounded-full",
+                needsAttention ? "bg-amber-400" : "bg-afx-brand/70",
+              )}
+              aria-hidden
+            />
             <span className="min-w-0 break-words [overflow-wrap:anywhere]">{children}</span>
           </h2>
         </MarkdownHeadingActionAnchor>
@@ -545,8 +680,13 @@ function MarkdownHeading({
           <h3
             data-afx-md-section="heading"
             data-afx-md-heading-level="3"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-1.5 mt-5 min-w-0 max-w-full break-words text-sm font-semibold leading-tight text-foreground first:mt-0 [overflow-wrap:anywhere]"
+            className={cx(
+              "mb-1.5 mt-5 min-w-0 max-w-full break-words text-sm font-semibold leading-tight text-foreground first:mt-0 [overflow-wrap:anywhere]",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]",
+            )}
           >
             {children}
           </h3>
@@ -558,8 +698,13 @@ function MarkdownHeading({
           <h4
             data-afx-md-section="heading"
             data-afx-md-heading-level="4"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-1 mt-4 min-w-0 max-w-full break-words font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground first:mt-0 [overflow-wrap:anywhere]"
+            className={cx(
+              "mb-1 mt-4 min-w-0 max-w-full break-words font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground first:mt-0 [overflow-wrap:anywhere]",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 text-amber-300 shadow-[0_0_0_1px_rgba(245,158,11,0.08)]",
+            )}
           >
             {children}
           </h4>
@@ -571,8 +716,13 @@ function MarkdownHeading({
           <h5
             data-afx-md-section="heading"
             data-afx-md-heading-level="5"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-1 mt-3 min-w-0 max-w-full break-words text-xs font-semibold first:mt-0 [overflow-wrap:anywhere]"
+            className={cx(
+              "mb-1 mt-3 min-w-0 max-w-full break-words text-xs font-semibold first:mt-0 [overflow-wrap:anywhere]",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 text-foreground",
+            )}
           >
             {children}
           </h5>
@@ -584,8 +734,13 @@ function MarkdownHeading({
           <h6
             data-afx-md-section="heading"
             data-afx-md-heading-level="6"
+            data-afx-md-attention={needsAttention ? "open-questions" : undefined}
             id={slug}
-            className="mb-1 mt-3 min-w-0 max-w-full break-words text-xs font-medium text-muted-foreground first:mt-0 [overflow-wrap:anywhere]"
+            className={cx(
+              "mb-1 mt-3 min-w-0 max-w-full break-words text-xs font-medium text-muted-foreground first:mt-0 [overflow-wrap:anywhere]",
+              needsAttention &&
+                "rounded-md border border-amber-500/35 bg-amber-500/8 px-3 py-2 text-amber-300",
+            )}
           >
             {children}
           </h6>
@@ -613,8 +768,8 @@ function MarkdownHeadingActionAnchor({
     >
       {children}
       <div
-        data-afx-md-heading-action="floating"
-        className="z-10 mt-1 flex max-w-full justify-start md:pointer-events-none md:absolute md:right-0 md:top-0 md:mt-0 md:-translate-y-1 md:justify-end md:opacity-0 md:transition-opacity md:duration-150 md:group-hover/afx-heading:pointer-events-auto md:group-hover/afx-heading:opacity-100 md:group-focus-within/afx-heading:pointer-events-auto md:group-focus-within/afx-heading:opacity-100"
+        data-afx-md-heading-action="bar"
+        className="z-10 mt-2 flex w-full max-w-full justify-start rounded-md border border-border/70 bg-muted/10 p-1 shadow-[0_1px_0_rgba(255,255,255,0.04)]"
       >
         {action}
       </div>
@@ -638,7 +793,7 @@ const components: Components = {
       data-afx-md-section="paragraph"
       className="my-2.5 min-w-0 max-w-full break-words leading-6 text-foreground/90 first:mt-0 last:mb-0 [overflow-wrap:anywhere]"
     >
-      {children}
+      <MarkdownAnchorLensText>{children}</MarkdownAnchorLensText>
     </p>
   ),
   ul: ({ children, ...props }) => {
@@ -678,7 +833,7 @@ const components: Components = {
         data-afx-md-section="list-item"
         className="min-w-0 break-words leading-6 [overflow-wrap:anywhere]"
       >
-        {children}
+        <MarkdownAnchorLensText>{children}</MarkdownAnchorLensText>
       </li>
     );
   },
@@ -782,6 +937,8 @@ function createComponents(
     const checked = checkboxMarkerState(headingText(children));
     const tableKind = useContext(MarkdownTableKindContext);
     if (checked === null || tableKind !== "work-sessions") {
+      const semantic = semanticTableCell(tableKind, children);
+      if (semantic) return <MarkdownTableCell>{semantic}</MarkdownTableCell>;
       return <MarkdownTableCell>{children}</MarkdownTableCell>;
     }
 
@@ -881,6 +1038,88 @@ function createComponents(
   };
 }
 
+function semanticTableCell(kind: MarkdownTableKind, children: ReactNode): ReactNode | null {
+  const text = textFromReactNode(children).trim();
+  if (!text) return null;
+
+  if (kind === "open-questions") {
+    const normalized = text.toLowerCase();
+    if (/\b(blocked)\b/.test(normalized)) {
+      return <TableStatusBadge tone="danger" label={text} />;
+    }
+    if (/\b(open|unresolved|pending)\b/.test(normalized)) {
+      return <TableStatusBadge tone="warning" label={text} />;
+    }
+    if (/\b(resolved|closed|answered|done)\b/.test(normalized)) {
+      return <TableStatusBadge tone="success" label={text} />;
+    }
+  }
+
+  if (kind === "requirements" && /^(?:FR|NFR|REQ)-?\d+/i.test(text)) {
+    return <TableStatusBadge tone="info" label={text} />;
+  }
+
+  if (kind === "decisions" && /\b(accepted|approved|selected|chosen|decided)\b/i.test(text)) {
+    return <TableStatusBadge tone="success" label={text} />;
+  }
+
+  return null;
+}
+
+function TableStatusBadge({
+  tone,
+  label,
+}: {
+  tone: "danger" | "warning" | "success" | "info";
+  label: string;
+}) {
+  const aliases = useContext(MarkdownAnchorContext);
+  const anchorToken = anchorTokensFromText(label.trim())[0];
+  const isAnchor = anchorToken === label.trim();
+  const anchorKey = isAnchor ? anchorTokenKey(anchorToken) : "";
+  const anchorTarget = isAnchor ? (aliases.get(anchorKey) ?? slugify(anchorTokenLabel(label))) : "";
+  const toneClass =
+    tone === "danger"
+      ? "border-destructive/35 bg-destructive/10 text-destructive"
+      : tone === "warning"
+        ? "border-amber-500/35 bg-amber-500/10 text-amber-300"
+        : tone === "success"
+          ? "border-afx-success/30 bg-afx-success/10 text-afx-success"
+          : "border-afx-brand/30 bg-afx-brand/10 text-afx-brand-soft";
+  const className = cx(
+    "inline-flex max-w-full items-center truncate rounded-sm border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em]",
+    toneClass,
+    isAnchor &&
+      "cursor-pointer underline decoration-current/30 decoration-dotted underline-offset-2 hover:bg-background/35 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-current/30",
+  );
+
+  if (isAnchor) {
+    return (
+      <button
+        type="button"
+        data-afx-md-table-chip={tone}
+        data-afx-md-anchor-lens
+        data-afx-md-anchor-token={anchorKey}
+        data-afx-md-anchor-target={anchorTarget}
+        className={className}
+        title={`Jump to ${anchorTokenLabel(label)}`}
+        onClick={(event) => {
+          const targetElement = findAnchorTarget(event.currentTarget, anchorTarget);
+          targetElement?.scrollIntoView({ block: "center", behavior: "smooth" });
+        }}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <span data-afx-md-table-chip={tone} className={className} title={label}>
+      {label}
+    </span>
+  );
+}
+
 /**
  * Render markdown for Workbench panes (notes, journal, spec/design/tasks columns).
  *
@@ -927,6 +1166,7 @@ export function MinimalMarkdown({
     }),
     [content, sourceLineOffset],
   );
+  const anchorAliases = useMemo(() => collectMarkdownAnchorAliases(content), [content]);
   const markdownComponents = createComponents(
     checkboxTargets,
     onCheckboxToggle,
@@ -946,18 +1186,21 @@ export function MinimalMarkdown({
       : "text-sm";
   return (
     <div
+      data-afx-md-root
       className={`min-w-0 max-w-full overflow-hidden text-foreground [overflow-wrap:anywhere] ${sizeClass} ${leadingClass}`}
     >
-      <ReactMarkdown
-        remarkPlugins={
-          breaks
-            ? [remarkGfm, remarkBreaks, remarkTidyThematicBreaks]
-            : [remarkGfm, remarkTidyThematicBreaks]
-        }
-        components={markdownComponents}
-      >
-        {cleaned}
-      </ReactMarkdown>
+      <MarkdownAnchorContext.Provider value={anchorAliases}>
+        <ReactMarkdown
+          remarkPlugins={
+            breaks
+              ? [remarkGfm, remarkBreaks, remarkTidyThematicBreaks]
+              : [remarkGfm, remarkTidyThematicBreaks]
+          }
+          components={markdownComponents}
+        >
+          {cleaned}
+        </ReactMarkdown>
+      </MarkdownAnchorContext.Provider>
     </div>
   );
 }

@@ -29,9 +29,6 @@ export interface PipelineRow {
   specPath?: string;
   designPath?: string;
   tasksPath?: string;
-  specLastVerified?: string;
-  designLastVerified?: string;
-  tasksLastVerified?: string;
 }
 
 /**

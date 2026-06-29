@@ -251,6 +251,21 @@
         "category": "AgenticFlowX"
       },
       {
+        "command": "afx.openSddStudio",
+        "title": "Open SDD Studio",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.newSdd",
+        "title": "New SDD",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.refineCurrentDocument",
+        "title": "Refine Current Document",
+        "category": "AgenticFlowX"
+      },
+      {
         "command": "afx.showLogs",
         "title": "AgenticFlowX: Show Logs (Output Panel)"
       },
@@ -458,6 +473,11 @@
           "command": "afx.openAfxPreview",
           "group": "navigation@0",
           "when": "editorLangId == markdown"
+        },
+        {
+          "command": "afx.refineCurrentDocument",
+          "group": "navigation@1",
+          "when": "editorLangId == markdown && afx.activeSddDocument"
         }
       ],
       "afx.editorContext": [
@@ -469,6 +489,11 @@
         {
           "command": "afx.openWorkbench",
           "group": "0_preview@1"
+        },
+        {
+          "command": "afx.refineCurrentDocument",
+          "group": "0_preview@2",
+          "when": "editorLangId == markdown && afx.activeSddDocument"
         },
         {
           "command": "afx.action.saveToNotes",
@@ -622,7 +647,7 @@
       "panel": [
         {
           "id": "afx-workbench-container",
-          "title": "AgenticFlowX",
+          "title": "AgenticFlowX Workbench",
           "icon": "resources/activity-icon.svg"
         }
       ]

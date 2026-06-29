@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-23T11:03:30.000Z"
+updated_at: "2026-06-28T13:03:15.000Z"
 tags: ["app", "workbench", "shell", "tabs", "bridge", "layout"]
 depends_on: ["100-package-shared", "110-package-transport", "130-package-ui", "220-app-workbench"]
 ---
@@ -65,7 +65,7 @@ Developers and agents using the bottom panel as the AFX control plane.
 | FR-9  | Render a first-run launchpad when no AFX docs/features exist                                                                                                                                                                                                                                     | Must Have |
 | FR-10 | Let the launchpad draft chat commands or create sample docs                                                                                                                                                                                                                                      | Must Have |
 | FR-11 | Keep shell tabs and launchpad usable in constrained bottom panels                                                                                                                                                                                                                                | Must Have |
-| FR-12 | Keep feature docs readable as a thinking/refinement workspace                                                                                                                                                                                                                                    | Must Have |
+| FR-12 | Render SDD Studio as a guided refinement workspace with a single feature context header, overview/focus/compare modes, workflow guidance, attention guidance, and readable document cards                                                                                                        | Must Have |
 | FR-13 | Place AFX command actions inside the relevant spec/design/tasks surface, including phase-scoped task code drafts                                                                                                                                                                                 | Must Have |
 | FR-14 | Label feature document toggles as show/hide controls and contain column content inside each pane                                                                                                                                                                                                 | Must Have |
 | FR-15 | Preview boot mode: the Workbench bundle supports a standalone preview mode selected by a `data-afx-view="preview"` attribute on `<body>` (read in `main.tsx`). In this mode it mounts `<PreviewApp/>` (wrapped in `WorkbenchProvider`) instead of the tab shell, subscribing to `afxPreviewShow` | Must Have |
@@ -93,7 +93,7 @@ Developers and agents using the bottom panel as the AFX control plane.
 ### State And Feature Columns
 
 - [ ] `WorkbenchProvider` stores host updates and exposes `send`.
-- [ ] Feature-scoped Workbench tab renders selector, columns, tasks, sessions, docs, and drift footer.
+- [ ] Feature-scoped Workbench tab renders the SDD Studio feature picker, workflow rail, attention rail, next-work guidance, role modes, active docs, focus reading, compare columns, sessions, and compare footer.
 - [ ] Task/session toggles and open actions send typed messages.
 - [ ] Empty Workbench/Pipeline/Documents surfaces show a launchpad with clear creation paths.
 - [ ] Launchpad sample actions create either a complete SDD set or a sprint document and refresh state.
@@ -104,6 +104,9 @@ Developers and agents using the bottom panel as the AFX control plane.
 - [ ] Feature document buttons communicate that they show or hide the spec/design/tasks/session panes.
 - [ ] Feature tab offers contextual actions inside spec/design/tasks cards, using real AFX verbs from the workflow skills.
 - [ ] Tasks surface can draft implementation-oriented commands such as task status, task refinement, code-all runs, and phase-scoped surgical code runs for the next open task in a phase.
+- [ ] SDD Studio keeps feature name, status, task count, and progress in one header selector instead of duplicating feature context inside the body.
+- [ ] SDD Studio overview and focus modes both keep Workflow guidance visible with the copy "Follow the artifact chain from intent to proof."
+- [ ] SDD Studio overview places Needs Attention with the Workflow rail so blockers and questions are read as guidance, not as a detached right-side warning panel.
 
 ---
 
@@ -136,14 +139,14 @@ Developers and agents using the bottom panel as the AFX control plane.
 
 ### Agent Entry Map
 
-| Field           | Value                                                                                                                                                                                                                                              |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Owned surface   | Workbench bottom-panel shell, tabs, state provider, bridge, feature-scoped Workbench tab                                                                                                                                                           |
-| Owned files     | `apps/workbench/src/main.tsx`, `apps/workbench/src/app.tsx`, `apps/workbench/src/context/workbench-context.tsx`, `apps/workbench/src/lib/bridge.ts`, `apps/workbench/src/views/workbench.tsx`, `apps/workbench/src/components/coming-soon.tsx`     |
-| Local anchors   | `App`, `WorkbenchShell`, `WorkbenchTabTrigger`, `WorkbenchProvider`, `reducer`, `initWorkbenchBridge`, `workbenchSend`, `workbenchOn`, `Workbench`, `ColumnToggle`, `ColumnHeader`, `ColumnTasks`, `ColumnSessions`, `ColumnDoc`, `DriftIndicator` |
-| Bridge messages | `afxReady`, `afxUpdate`, `afxOpenFile`, `afxFetchDocContent`, `afxToggleTask`, `afxToggleSession`, `afxOpenChatCommand`, `afxCreateSampleDocs`                                                                                                     |
-| Settings keys   | Column visibility state, tab state                                                                                                                                                                                                                 |
-| Tests           | `apps/workbench/src/app.test.tsx`, `apps/workbench/src/views/workbench.test.tsx`, e2e Workbench tests                                                                                                                                              |
-| Dependencies    | `220-app-workbench`, `100-package-shared`, `130-package-ui`                                                                                                                                                                                        |
-| Out of scope    | Child tab widget internals, Impact Lens index internals                                                                                                                                                                                            |
-| Example prompt  | "Add a Workbench bottom-panel tab; start at 227-app-workbench-shell."                                                                                                                                                                              |
+| Field           | Value                                                                                                                                                                                                                                                                                                                             |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Workbench bottom-panel shell, tabs, state provider, bridge, feature-scoped Workbench tab                                                                                                                                                                                                                                          |
+| Owned files     | `apps/workbench/src/main.tsx`, `apps/workbench/src/app.tsx`, `apps/workbench/src/context/workbench-context.tsx`, `apps/workbench/src/lib/bridge.ts`, `apps/workbench/src/views/workbench.tsx`, `apps/workbench/src/components/coming-soon.tsx`                                                                                    |
+| Local anchors   | `App`, `WorkbenchShell`, `WorkbenchTabTrigger`, `WorkbenchProvider`, `reducer`, `initWorkbenchBridge`, `workbenchSend`, `workbenchOn`, `Workbench`, `SddStudioHeader`, `SddStudioCockpit`, `SddStudioFocusView`, `CompareToolbar`, `ColumnToggle`, `ColumnHeader`, `ColumnTasks`, `ColumnSessions`, `ColumnDoc`, `DriftIndicator` |
+| Bridge messages | `afxReady`, `afxUpdate`, `afxOpenFile`, `afxFetchDocContent`, `afxToggleTask`, `afxToggleSession`, `afxOpenChatCommand`, `afxCreateSampleDocs`                                                                                                                                                                                    |
+| Settings keys   | Column visibility state, tab state                                                                                                                                                                                                                                                                                                |
+| Tests           | `apps/workbench/src/app.test.tsx`, `apps/workbench/src/views/workbench.test.tsx`, e2e Workbench tests                                                                                                                                                                                                                             |
+| Dependencies    | `220-app-workbench`, `100-package-shared`, `130-package-ui`                                                                                                                                                                                                                                                                       |
+| Out of scope    | Child tab widget internals, Impact Lens index internals                                                                                                                                                                                                                                                                           |
+| Example prompt  | "Add a Workbench bottom-panel tab; start at 227-app-workbench-shell."                                                                                                                                                                                                                                                             |

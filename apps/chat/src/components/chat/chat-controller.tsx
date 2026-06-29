@@ -38,6 +38,7 @@ import type {
   WorkspaceMode,
 } from "@afx/shared";
 import {
+  classifySddDocumentPath,
   createCheckingAgentRuntimeStatus,
   getIntentPrompt,
   isIntentParentMode,
@@ -273,6 +274,8 @@ export interface ChatControllerActions {
   // Pure controller actions
   startCompact: (composer?: ComposerLocalCallbacks) => void;
   handleOpenModifiedFile: (path: string, line?: number) => void;
+  handleOpenAfxPreview: (path: string) => void;
+  handleOpenWorkbench: () => void;
   dismissComposerPanel: (id: string) => void;
   dismissModifiedFiles: () => void;
   dismissQueued: (id: string) => void;
@@ -559,6 +562,7 @@ export function useChatController({
   const pendingAfxCommandSuggestRef = useRef(false);
   const activeCommandRef = useRef<{ requestId: string; command: string } | null>(null);
   const pendingDangerousRef = useRef<{ requestId: string; command: string } | null>(null);
+  const lastAutoOpenedSddPreviewRef = useRef<string | null>(null);
 
   useEffect(() => {
     latestWorkspaceModeRef.current = workspaceMode;
@@ -1115,6 +1119,19 @@ export function useChatController({
     bridgeSend({ type: "chat/openFile", path: p, mode: "afxPreview" });
   });
 
+  const handleOpenWorkbench = useStableCallback(() => {
+    bridgeSend({ type: "chat/openWorkbench", requestId: createChatUid() });
+  });
+
+  useEffect(() => {
+    if (!latestEditingAssistantMessageId) return;
+    if (lastAutoOpenedSddPreviewRef.current === latestEditingAssistantMessageId) return;
+    const changedSddFile = modifiedFiles.find((file) => classifySddDocumentPath(file.path));
+    if (!changedSddFile) return;
+    lastAutoOpenedSddPreviewRef.current = latestEditingAssistantMessageId;
+    handleOpenAfxPreview(changedSddFile.path);
+  }, [handleOpenAfxPreview, latestEditingAssistantMessageId, modifiedFiles]);
+
   const dismissModifiedFiles = useStableCallback(() => {
     setDismissedAtAssistantMessageId(latestEditingAssistantMessageId);
   });
@@ -1585,7 +1602,19 @@ export function useChatController({
         collapsible: true,
         dismissible: true,
         component: FilesPanelBody as ComponentType<unknown>,
-        props: { files: modifiedFiles, onOpenFile: handleOpenModifiedFile },
+        props: {
+          files: modifiedFiles,
+          onOpenFile: handleOpenModifiedFile,
+          onOpenPreview: handleOpenAfxPreview,
+          onOpenWorkbench: handleOpenWorkbench,
+          onCommand: (command: string, mode?: "insert" | "send") => {
+            if (mode === "send") {
+              sendNow(command, composerLocal);
+              return;
+            }
+            composerLocal?.setDraft?.(command);
+          },
+        },
       });
     }
 
@@ -1754,6 +1783,7 @@ export function useChatController({
     filesPanelVisible,
     handleOpenAfxPreview,
     handleOpenModifiedFile,
+    handleOpenWorkbench,
     intentMinimized,
     intentSlot,
     modifiedFiles,
@@ -1867,6 +1897,8 @@ export function useChatController({
       handleMemorySelect,
       startCompact,
       handleOpenModifiedFile,
+      handleOpenAfxPreview,
+      handleOpenWorkbench,
       dismissComposerPanel,
       dismissModifiedFiles,
       dismissQueued,
@@ -1894,7 +1926,9 @@ export function useChatController({
       dispatchSlashAction,
       dismissComposerPanel,
       handleMemorySelect,
+      handleOpenAfxPreview,
       handleOpenModifiedFile,
+      handleOpenWorkbench,
       persistAction,
       registerDebugQueueInjection,
       restartAgent,

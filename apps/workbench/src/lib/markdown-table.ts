@@ -108,6 +108,24 @@ function fallbackHeader(targetCount: number): string[] {
   return Array.from({ length: targetCount }, (_, index) => `Column ${index + 1}`);
 }
 
+function pruneFullyBlankColumns(
+  headerCells: string[],
+  bodyRows: string[][],
+): { headerCells: string[]; bodyRows: string[][] } {
+  const keepColumns = headerCells.map(
+    (header, index) =>
+      header.trim().length > 0 || bodyRows.some((row) => (row[index] ?? "").trim().length > 0),
+  );
+  if (keepColumns.every(Boolean) || keepColumns.every((keep) => !keep)) {
+    return { headerCells, bodyRows };
+  }
+
+  return {
+    headerCells: headerCells.filter((_, index) => keepColumns[index]),
+    bodyRows: bodyRows.map((row) => row.filter((_, index) => keepColumns[index])),
+  };
+}
+
 /**
  * Repair common loose/malformed AFX tables before remark-gfm sees them:
  * blank lines after separators, separator/header count drift, and rows with
@@ -161,8 +179,7 @@ export function normalizeMarkdownTables(markdown: string): string {
 
     const headerCells = splitMarkdownTableCells(line);
     const targetCount = headerCells.length;
-    out.push(tableRow(normalizeCells(headerCells, targetCount)));
-    out.push(normalizeSeparator(targetCount));
+    const bodyRows: string[][] = [];
     i++;
 
     for (let j = i + 1; j < lines.length; j++) {
@@ -188,9 +205,17 @@ export function normalizeMarkdownTables(markdown: string): string {
         i = j - 1;
         break;
       }
-      out.push(tableRow(normalizeCells(splitMarkdownTableCells(row), targetCount)));
+      bodyRows.push(normalizeCells(splitMarkdownTableCells(row), targetCount));
       i = j;
     }
+
+    const normalizedTable = pruneFullyBlankColumns(
+      normalizeCells(headerCells, targetCount),
+      bodyRows,
+    );
+    out.push(tableRow(normalizedTable.headerCells));
+    out.push(normalizeSeparator(normalizedTable.headerCells.length));
+    out.push(...normalizedTable.bodyRows.map(tableRow));
   }
 
   return out.join("\n");
@@ -210,7 +235,10 @@ export function classifyRenderedTableText(text: string): MarkdownTableKind {
   if (
     normalized.includes("id") &&
     normalized.includes("requirement") &&
-    (normalized.includes("priority") || normalized.includes("target"))
+    (normalized.includes("priority") ||
+      normalized.includes("description") ||
+      normalized.includes("target") ||
+      normalized.includes("status"))
   ) {
     return "requirements";
   }
@@ -231,8 +259,11 @@ export function classifyRenderedTableText(text: string): MarkdownTableKind {
   }
   if (
     normalized.includes("question") &&
-    normalized.includes("status") &&
-    normalized.includes("resolution")
+    (normalized.includes("status") || normalized.includes("state")) &&
+    (normalized.includes("resolution") ||
+      normalized.includes("answer") ||
+      normalized.includes("decision") ||
+      normalized.includes("owner"))
   ) {
     return "open-questions";
   }

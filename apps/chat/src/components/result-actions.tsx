@@ -4,6 +4,16 @@
  * @see docs/specs/211-app-chat-composer/spec.md [FR-16]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-COMPONENT-STRIP]
  */
+import { MoreHorizontal } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@afx/ui/components/dropdown-menu";
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +33,8 @@ export interface ResultActionsProps {
 
 export function ResultActions({ actions, onSend, onInsert, onDismiss }: ResultActionsProps) {
   if (actions.length === 0) return null;
-  const visibleActions = actions.slice(0, 3);
+  const visibleActions = actions.slice(0, 2);
+  const overflowActions = actions.slice(2);
 
   return (
     <TooltipProvider delayDuration={250}>
@@ -47,7 +58,7 @@ export function ResultActions({ actions, onSend, onInsert, onDismiss }: ResultAc
             </button>
           ) : null}
         </div>
-        <div className="grid max-w-full grid-cols-1 gap-1 sm:grid-cols-3">
+        <div className="flex max-w-full flex-wrap items-center gap-1">
           {visibleActions.map((action) => (
             <ResultActionButton
               key={action.command}
@@ -56,9 +67,65 @@ export function ResultActions({ actions, onSend, onInsert, onDismiss }: ResultAc
               onInsert={onInsert}
             />
           ))}
+          {overflowActions.length > 0 ? (
+            <ResultActionOverflow actions={overflowActions} onSend={onSend} onInsert={onInsert} />
+          ) : null}
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+function ResultActionOverflow({
+  actions,
+  onSend,
+  onInsert,
+}: {
+  actions: readonly ParsedResultAction[];
+  onSend?: (command: string, action: ParsedResultAction) => void;
+  onInsert?: (command: string, action: ParsedResultAction) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          data-testid="result-actions-more"
+          className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md border border-border/65 bg-background/85 px-2 font-mono text-[10px] text-foreground/85 shadow-sm hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-label={`Show ${actions.length} more next ${actions.length === 1 ? "action" : "actions"}`}
+        >
+          <MoreHorizontal size={12} aria-hidden />
+          More
+          <span className="rounded-[3px] bg-muted/55 px-1 py-0.5 text-[8px] text-muted-foreground">
+            +{actions.length}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1.5rem)]">
+        <DropdownMenuLabel className="font-mono uppercase tracking-[0.14em]">
+          More next actions
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {actions.map((action) => (
+          <DropdownMenuItem
+            key={action.command}
+            disabled={!isActionAvailable(action, onSend, onInsert)}
+            className="flex cursor-pointer flex-col items-start gap-0.5 py-1.5"
+            onClick={() => runAction(action, onSend, onInsert)}
+          >
+            <span className="flex w-full min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-xs font-medium">{action.label}</span>
+              <span className="shrink-0 rounded-[3px] bg-muted/55 px-1 py-0.5 font-mono text-[8px] uppercase text-muted-foreground">
+                {action.autoSend ? "Run" : "Draft"}
+              </span>
+            </span>
+            <span className="w-full truncate font-mono text-[10px] text-muted-foreground">
+              {action.command}
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -79,13 +146,7 @@ function ResultActionButton({
   const actionVerb = runNow ? "Run" : "Insert";
 
   function handleClick() {
-    if (canRun) {
-      onSend(action.command, action);
-      return;
-    }
-    if (canInsert) {
-      onInsert(action.command, action);
-    }
+    runAction(action, onSend, onInsert);
   }
 
   return (
@@ -101,7 +162,7 @@ function ResultActionButton({
           data-group={action.group}
           data-mode={modeLabel}
           className={cn(
-            "flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border/65 bg-background/85 px-2 text-left",
+            "flex h-8 min-w-0 max-w-full items-center gap-1.5 rounded-md border border-border/65 bg-background/85 px-2 text-left",
             "font-mono text-foreground/90 shadow-sm transition-colors hover:border-border hover:bg-muted/60 hover:text-foreground",
             "active:translate-y-px focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
             !isAvailable
@@ -109,12 +170,8 @@ function ResultActionButton({
               : "",
           )}
         >
-          <span className="min-w-0 max-w-[7.5rem] shrink-0 truncate font-sans text-[11px] font-semibold text-primary">
+          <span className="min-w-0 max-w-[8.5rem] truncate font-sans text-[11px] font-semibold text-primary">
             {action.label}
-          </span>
-          <span aria-hidden className="h-3 w-px shrink-0 bg-border/70" />
-          <span className="block min-w-0 flex-1 truncate text-[10.5px] leading-tight text-foreground/78">
-            {action.command}
           </span>
           <span className="shrink-0 rounded-[3px] bg-muted/45 px-1 py-0.5 font-sans text-[8px] uppercase text-muted-foreground/70">
             {runNow ? "Run" : "Draft"}
@@ -137,4 +194,28 @@ function ResultActionButton({
       </TooltipContent>
     </Tooltip>
   );
+}
+
+function runAction(
+  action: ParsedResultAction,
+  onSend?: (command: string, action: ParsedResultAction) => void,
+  onInsert?: (command: string, action: ParsedResultAction) => void,
+) {
+  const runNow = action.status === "supported" && action.autoSend;
+  if (runNow && onSend) {
+    onSend(action.command, action);
+    return;
+  }
+  if (!runNow && action.status !== "unknown" && onInsert) {
+    onInsert(action.command, action);
+  }
+}
+
+function isActionAvailable(
+  action: ParsedResultAction,
+  onSend?: (command: string, action: ParsedResultAction) => void,
+  onInsert?: (command: string, action: ParsedResultAction) => void,
+): boolean {
+  const runNow = action.status === "supported" && action.autoSend;
+  return runNow ? onSend != null : action.status !== "unknown" && onInsert != null;
 }

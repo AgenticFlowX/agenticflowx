@@ -29,7 +29,7 @@ const LIST_ITEM_RE = /^\s*(?:[-*]|\d+[.)])\s+/;
 const SEPARATOR_LINE_RE = /^\s*[-–—─]{2,}\s*$/;
 const TRAILING_PROSE_RE = /\s+(?:[-–—]\s+|#\s+)/;
 const SENTENCE_TRAILING_RE = /[.,;:!?]+$/;
-const MAX_RESULT_ACTIONS = 3;
+const MAX_RESULT_ACTIONS = 8;
 const LEGACY_UI_ACTION_MARKER_PARTS = ["AFX", "UI", "ACTIONS"] as const;
 const LEGACY_UI_ACTION_MARKER = LEGACY_UI_ACTION_MARKER_PARTS.join("-");
 

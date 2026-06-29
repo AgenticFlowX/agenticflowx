@@ -203,6 +203,12 @@ export function DocPreview({
     },
     [doc.filePath, send],
   );
+  const handleChatCommand = useCallback(
+    (command: string, mode: "insert" | "send" = "insert") => {
+      send({ type: "afxOpenChatCommand", command, mode });
+    },
+    [send],
+  );
 
   if (mode === "generic") {
     const genericSheet = cn(
@@ -279,6 +285,7 @@ export function DocPreview({
             outline={outline}
             onJump={scrollToHeading}
             onToggleRail={() => setRailCollapsed((prev) => !prev)}
+            onCommand={handleChatCommand}
           />
           {readingControls}
         </div>
@@ -307,7 +314,12 @@ export function DocPreview({
           </div>
         </ScrollArea>
         {!railCollapsed && !prefs.focus && (
-          <QualityOutlineRail quality={quality} outline={outline} onJump={scrollToHeading} />
+          <QualityOutlineRail
+            quality={quality}
+            outline={outline}
+            onJump={scrollToHeading}
+            onCommand={handleChatCommand}
+          />
         )}
       </div>
       {prefs.focus && <FocusExitButton onExit={() => updatePrefs({ focus: false })} />}
@@ -326,12 +338,14 @@ function OutlineToolbarControl({
   outline,
   onJump,
   onToggleRail,
+  onCommand,
 }: {
   railCollapsed: boolean;
   quality: DocumentQualitySummary;
   outline: OutlineItem[];
   onJump: (slug: string) => void;
   onToggleRail: () => void;
+  onCommand: (command: string, mode?: "insert" | "send") => void;
 }) {
   const summary = (
     <>
@@ -365,7 +379,13 @@ function OutlineToolbarControl({
           sideOffset={6}
           className="max-h-[calc(100vh-4rem)] w-[min(22rem,calc(100vw-2rem))] gap-0 overflow-hidden p-0"
         >
-          <OutlinePopoverPanel summary={summary} outline={outline} onJump={onJump} />
+          <OutlinePopoverPanel
+            summary={summary}
+            quality={quality}
+            outline={outline}
+            onJump={onJump}
+            onCommand={onCommand}
+          />
         </PopoverContent>
       </Popover>
       <Tooltip>
@@ -398,12 +418,16 @@ function OutlineToolbarControl({
 /** Minimized outline content for constrained previews. */
 function OutlinePopoverPanel({
   summary,
+  quality,
   outline,
   onJump,
+  onCommand,
 }: {
   summary: ReactNode;
+  quality: DocumentQualitySummary;
   outline: OutlineItem[];
   onJump: (slug: string) => void;
+  onCommand: (command: string, mode?: "insert" | "send") => void;
 }) {
   return (
     <section
@@ -422,6 +446,10 @@ function OutlinePopoverPanel({
         data-afx-preview-outline-scroll="popover"
         className="min-h-0 max-h-[calc(100vh-7rem)] overflow-y-auto overscroll-contain pr-1"
       >
+        <ScorecardList quality={quality} compact />
+        <Separator className="my-2" />
+        <SignalActionList quality={quality} onCommand={onCommand} compact />
+        <Separator className="my-2" />
         <OutlineList outline={outline} onJump={onJump} compact />
       </div>
     </section>
@@ -433,10 +461,12 @@ function QualityOutlineRail({
   quality,
   outline,
   onJump,
+  onCommand,
 }: {
   quality: DocumentQualitySummary;
   outline: OutlineItem[];
   onJump: (slug: string) => void;
+  onCommand: (command: string, mode?: "insert" | "send") => void;
 }) {
   return (
     <aside
@@ -451,6 +481,7 @@ function QualityOutlineRail({
         <span className="font-medium text-foreground">{quality.scoreLabel}</span> · {outline.length}{" "}
         {outline.length === 1 ? "section" : "sections"} · {quality.issues.length} to review
       </p>
+      <ScorecardList quality={quality} />
       <div className="flex flex-col gap-1.5">
         {quality.issues.length === 0 ? (
           <span className="rounded-md border border-afx-success/30 bg-afx-success/10 px-2 py-1.5 text-xs text-afx-success">
@@ -467,6 +498,7 @@ function QualityOutlineRail({
           ))
         )}
       </div>
+      <SignalActionList quality={quality} onCommand={onCommand} />
       <Separator />
       <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
         Outline
@@ -476,6 +508,126 @@ function QualityOutlineRail({
         <OutlineList outline={outline} onJump={onJump} />
       </ScrollArea>
     </aside>
+  );
+}
+
+function ScorecardList({
+  quality,
+  compact,
+}: {
+  quality: DocumentQualitySummary;
+  compact?: boolean;
+}) {
+  return (
+    <section className={cn("grid gap-1", compact ? "grid-cols-2" : "grid-cols-1")}>
+      <h3 className="sr-only">Refinement scorecard</h3>
+      {quality.scorecard.map((item) => (
+        <div
+          key={item.label}
+          className={cn(
+            "min-w-0 rounded-md border px-2 py-1.5",
+            item.status === "good"
+              ? "border-afx-success/25 bg-afx-success/10"
+              : item.status === "gap"
+                ? "border-amber-500/35 bg-amber-500/10"
+                : "border-border/70 bg-background/70",
+          )}
+        >
+          <div className="flex min-w-0 items-center justify-between gap-1">
+            <span className="truncate text-[11px] font-medium text-foreground">{item.label}</span>
+            <span
+              className={cn(
+                "shrink-0 font-mono text-[9px] uppercase",
+                item.status === "good"
+                  ? "text-afx-success"
+                  : item.status === "gap"
+                    ? "text-amber-300"
+                    : "text-muted-foreground",
+              )}
+            >
+              {item.status}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{item.reason}</p>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function SignalActionList({
+  quality,
+  onCommand,
+  compact,
+}: {
+  quality: DocumentQualitySummary;
+  onCommand: (command: string, mode?: "insert" | "send") => void;
+  compact?: boolean;
+}) {
+  if (quality.suggestions.length === 0 && quality.journalNudges.length === 0) return null;
+
+  return (
+    <div className={cn("flex flex-col", compact ? "gap-1.5" : "gap-2")}>
+      {quality.suggestions.length > 0 ? (
+        <section className="flex flex-col gap-1.5" aria-label="Refinement coach">
+          <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Refinement coach
+          </h3>
+          {quality.suggestions.map((suggestion) => (
+            <div
+              key={suggestion.id}
+              className="rounded-md border border-afx-brand/25 bg-afx-brand/5 px-2 py-1.5"
+            >
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="min-w-0 truncate text-xs font-medium text-foreground">
+                  {suggestion.target}
+                </span>
+                <span className="shrink-0 rounded-sm border border-border/60 px-1 font-mono text-[9px] uppercase text-muted-foreground">
+                  {suggestion.category}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{suggestion.why}</p>
+              <p className="mt-1 text-[11px] leading-4 text-foreground/80">
+                <span className="font-medium">Suggested fix:</span> {suggestion.suggestedFix}
+              </p>
+              <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80">
+                {suggestion.evidence}
+              </p>
+              <button
+                type="button"
+                className="mt-1.5 inline-flex h-6 max-w-full items-center rounded-sm border border-border/70 bg-background/80 px-1.5 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+                onClick={() => onCommand(suggestion.command, suggestion.mode)}
+              >
+                <span className="truncate">{suggestion.actionLabel}</span>
+              </button>
+            </div>
+          ))}
+        </section>
+      ) : null}
+      {quality.journalNudges.length > 0 ? (
+        <section className="flex flex-col gap-1" aria-label="Journal nudges">
+          <h3 className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            Journal nudges
+          </h3>
+          {quality.journalNudges.map((nudge) => (
+            <button
+              key={nudge.id}
+              type="button"
+              className="min-w-0 rounded-md border border-border/70 bg-background/70 px-2 py-1.5 text-left hover:bg-muted"
+              title={nudge.command}
+              onClick={() => onCommand(nudge.command, nudge.mode)}
+            >
+              <span className="block truncate text-xs font-medium text-foreground">
+                {nudge.label}
+              </span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                {nudge.reason}
+              </span>
+            </button>
+          ))}
+        </section>
+      ) : null}
+    </div>
   );
 }
 
