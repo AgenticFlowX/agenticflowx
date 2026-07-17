@@ -43,6 +43,8 @@ describe("conversation empty states", () => {
     fireEvent.click(screen.getByRole("button", { name: "Spec: Plan" }));
     expect(onSwitchToSpec).toHaveBeenCalled();
     expect(onInsert).toHaveBeenCalledWith("/afx-spec new ");
+    expect(screen.queryByText("Early access")).not.toBeInTheDocument();
+    expect(screen.getByText(/Add provider keys in Settings/i)).toBeInTheDocument();
   });
 
   it("opens Workbench from the Code welcome workflow tile", () => {

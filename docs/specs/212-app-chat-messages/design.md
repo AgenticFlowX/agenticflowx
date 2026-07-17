@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T06:20:53.000Z"
+updated_at: "2026-07-15T05:59:29.000Z"
 tags: ["app", "chat", "messages", "streaming"]
 spec: spec.md
 ---
@@ -182,7 +182,7 @@ you go.` and `The usual ceremony, just faster. Opt-in only.`
   document state is useful even when the user does not know the command surface.
 
 The default empty-state component remains the Code onboarding surface. It uses
-website-aligned product copy, keeps the logo and early-access footer, demotes
+website-aligned product copy, keeps the logo and runtime-guidance footer, demotes
 quick commands below starter prompts, and preserves the runtime-unconfigured
 warning. Code mode must not reuse Spec pipeline copy; its supporting sentence is
 workflow-neutral: `Most coding stays in chat. Use the workflow when work needs

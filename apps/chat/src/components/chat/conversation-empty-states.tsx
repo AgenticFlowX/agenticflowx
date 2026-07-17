@@ -2,7 +2,7 @@
  * Conversation empty/loading/onboarding states.
  *
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-FILES] [DES-UI]
- * @see docs/specs/212-app-chat-messages/spec.md [FR-10] [FR-11]
+ * @see docs/specs/212-app-chat-messages/spec.md [FR-8] [FR-10] [FR-11]
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
  */
 import { memo, useState } from "react";
@@ -258,7 +258,7 @@ export interface EmptyStateProps {
 /**
  * Shown when the chat has no messages and the agent is ready.
  * Displays the product onboarding surface, starter prompts, and demoted quick
- * commands while preserving the runtime setup and early-access affordances.
+ * commands while preserving the runtime setup guidance.
  */
 export const EmptyState = memo(function EmptyState({
   onInsert,
@@ -403,10 +403,7 @@ export const EmptyState = memo(function EmptyState({
       ) : null}
 
       <div className="mt-1 border-t border-border/50 pt-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground/60">
-          Early access
-        </p>
-        <div className="mt-2 text-[11px] leading-relaxed text-muted-foreground/60">
+        <div className="text-[11px] leading-relaxed text-muted-foreground/60">
           <p>
             {rpcEnabled
               ? "Pi CLI and API provider models can run side by side; the model picker decides which one handles a turn."
