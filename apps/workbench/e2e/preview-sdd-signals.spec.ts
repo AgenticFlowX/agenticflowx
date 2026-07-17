@@ -90,6 +90,32 @@ for (const viewport of [
         : page.getByLabel("Document quality and outline");
     await expect(signals.getByText("Strategy")).toBeVisible();
     await expect(signals.getByText("Completeness")).toBeVisible();
+
+    const coach = signals.locator('section[aria-label="Refinement coach"]');
+    await expect(coach).toBeVisible();
+    await expect(coach.getByText("Open Questions", { exact: true })).toBeVisible();
+    await expect(coach.getByText("blocker", { exact: true })).toBeVisible();
+    await expect(
+      coach.getByText("Unresolved questions often block approval or implementation planning."),
+    ).toBeVisible();
+    await expect(coach.getByText("2 unresolved rows found.")).toBeVisible();
+    await expect(coach.locator("p").filter({ hasText: "Suggested fix:" })).toHaveText(
+      "Suggested fix: Resolve, intentionally defer, or capture the decision context.",
+    );
+
+    await coach.getByRole("button", { name: "Resolve questions" }).click();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => Reflect.get(window, "__afxPreviewMessages") as unknown[]),
+      )
+      .toContainEqual(
+        expect.objectContaining({
+          type: "afxOpenChatCommand",
+          command: "/afx-spec refine checkout-redesign open questions",
+          mode: "insert",
+        }),
+      );
+
     if (viewport.name === "narrow") {
       await page.keyboard.press("Escape");
     }
@@ -105,6 +131,14 @@ for (const viewport of [
       page.getByRole("button", { name: /Draft answer for open question/i }),
     ).toBeVisible();
     await expect(page.getByRole("button", { name: /Resolve open question/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /Capture open-question decision in journal/i }),
+    ).toBeVisible();
+
+    const questionToolbar = page.getByRole("toolbar", { name: "Question command toolbar" });
+    await expect(
+      questionToolbar.getByRole("button", { name: "Question command menu" }),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: /Draft answer for open question/i }).click();
     await expect
@@ -116,6 +150,20 @@ for (const viewport of [
           type: "afxOpenChatCommand",
           command:
             '/afx-spec refine checkout-redesign answer open question "Should approval happen before design?"',
+          mode: "insert",
+        }),
+      );
+
+    await page.getByRole("button", { name: /Resolve open question/i }).click();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => Reflect.get(window, "__afxPreviewMessages") as unknown[]),
+      )
+      .toContainEqual(
+        expect.objectContaining({
+          type: "afxOpenChatCommand",
+          command:
+            '/afx-spec refine checkout-redesign resolve open question "Should approval happen before design?"',
           mode: "insert",
         }),
       );
@@ -146,10 +194,78 @@ for (const viewport of [
         }),
       );
 
+    await questionToolbar.getByRole("button", { name: "Question command menu" }).click();
+    const ignoreAction = page.getByRole("menuitem", { name: /Ignore/i });
+    await expect(ignoreAction).toBeVisible();
+    await ignoreAction.click();
+    await expect
+      .poll(async () =>
+        page.evaluate(() => Reflect.get(window, "__afxPreviewMessages") as unknown[]),
+      )
+      .toContainEqual(
+        expect.objectContaining({
+          type: "afxOpenChatCommand",
+          command:
+            '/afx-session capture --links checkout-redesign ignored open question "Should approval happen before design?"',
+          mode: "insert",
+        }),
+      );
+    await expect(ignoreAction).toBeHidden();
+
     await expectNoPageOverflow(page);
     await attachPreviewScreenshot(page, testInfo, `preview-sdd-signals-${viewport.name}`);
   });
 }
+
+// E2E-13 v1 safety boundary: exact source-row mutation remains deliberately
+// deferred. The current release must fail closed to a visible draft command and
+// must not emit an implicit write/edit message. This is fallback proof, not a
+// claim that the matrix's future exact-edit + stale-source contract is complete.
+test("open-question resolve safely drafts a command instead of mutating markdown", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 820, height: 720 });
+  await bootInPreviewMode(page);
+  await page.evaluate(() => {
+    const original = window.parent.postMessage.bind(window.parent);
+    const messages: unknown[] = [];
+    Reflect.set(window, "__afxPreviewMessages", messages);
+    window.parent.postMessage = (
+      message: unknown,
+      targetOrigin: string,
+      transfer?: Transferable[],
+    ) => {
+      messages.push(message);
+      return original(message, targetOrigin, transfer ?? []);
+    };
+  });
+  await postPreview(page, "docs/specs/checkout-redesign/spec.md", SIGNAL_SPEC, true);
+
+  await page.getByRole("button", { name: /Resolve open question/i }).click();
+  const messages = await page.evaluate(
+    () => Reflect.get(window, "__afxPreviewMessages") as Array<Record<string, unknown>>,
+  );
+  expect(messages).toContainEqual(
+    expect.objectContaining({
+      type: "afxOpenChatCommand",
+      command:
+        '/afx-spec refine checkout-redesign resolve open question "Should approval happen before design?"',
+      mode: "insert",
+    }),
+  );
+  const interactionMessages = messages.filter((message) => message.type !== "afxPreviewShow");
+  expect(interactionMessages).toEqual([
+    expect.objectContaining({
+      type: "afxOpenChatCommand",
+      command:
+        '/afx-spec refine checkout-redesign resolve open question "Should approval happen before design?"',
+      mode: "insert",
+    }),
+  ]);
+
+  await expectNoPageOverflow(page);
+  await attachPreviewScreenshot(page, testInfo, "e2e-13-structured-edit-safe-fallback");
+});
 
 test("Preview collapses accidental fully blank markdown table columns", async ({
   page,
