@@ -4,6 +4,12 @@ tsconfig.json
 esbuild.mjs
 node_modules/
 .vscode/
+.gitignore
+coverage/
+__mocks__/
+scripts/
+vitest.config.ts
+vitest.setup.ts
 **/*.map
 !LICENSE
 **/e2e/
