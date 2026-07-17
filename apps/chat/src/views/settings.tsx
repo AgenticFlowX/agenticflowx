@@ -2984,6 +2984,11 @@ function SkillsDisclosure({
     ...groups.prompt,
   ];
   const duplicates = duplicateCommandNames(allCommands);
+  const workspaceSkillsBlocked = Boolean(
+    skills &&
+    skills.workspacePaths.some((entry) => entry.exists) &&
+    skills.effectiveProjectTrust !== "trust",
+  );
   return (
     <details
       data-testid="settings-skills-disclosure"
@@ -3037,6 +3042,16 @@ function SkillsDisclosure({
             onSetProjectTrust={onSetProjectTrust}
           />
         ) : null}
+        {workspaceSkillsBlocked ? (
+          <CommandGroup
+            title="Workspace skills"
+            titleTooltip={SUPPORT.piSkillsTooltip}
+            commands={groups.workspaceSkills}
+            disabled
+            disabledReason="Read-only: workspace skill commands are blocked until this workspace is trusted."
+            onInsertCommand={onInsertCommand}
+          />
+        ) : null}
         {duplicates.length > 0 ? (
           <p className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] text-amber-700 dark:text-amber-200">
             Duplicate command names: {duplicates.join(", ")}
@@ -3074,13 +3089,15 @@ function SkillsDisclosure({
           disabled={disabled}
           onInsertCommand={onInsertCommand}
         />
-        <CommandGroup
-          title="Workspace skills"
-          titleTooltip={SUPPORT.piSkillsTooltip}
-          commands={groups.workspaceSkills}
-          disabled={disabled}
-          onInsertCommand={onInsertCommand}
-        />
+        {!workspaceSkillsBlocked ? (
+          <CommandGroup
+            title="Workspace skills"
+            titleTooltip={SUPPORT.piSkillsTooltip}
+            commands={groups.workspaceSkills}
+            disabled={disabled}
+            onInsertCommand={onInsertCommand}
+          />
+        ) : null}
         <CommandGroup
           title="Custom skills"
           titleTooltip={SUPPORT.piSkillsTooltip}
@@ -3160,9 +3177,9 @@ function SkillTrustPanel({
         <span className="text-[11px] font-semibold">Project trust</span>
         <div className="flex flex-wrap gap-1">
           <Badge variant={skills.effectiveProjectTrust === "trust" ? "default" : "outline"}>
-            {skills.effectiveProjectTrust}
+            effective: {skills.effectiveProjectTrust}
           </Badge>
-          <Badge variant="outline">{skills.projectTrust}</Badge>
+          <Badge variant="outline">policy: {skills.projectTrust}</Badge>
         </div>
       </div>
       <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
@@ -3222,7 +3239,7 @@ function SkillPathGroup({ title, paths }: { title: string; paths: readonly Skill
               <span className="truncate text-[10px] font-medium">{entry.label}</span>
               <span className="flex shrink-0 gap-1">
                 <Badge variant={entry.exists ? "default" : "outline"}>
-                  {entry.exists ? "loaded" : "missing"}
+                  {entry.exists ? (entry.trusted === false ? "found" : "loaded") : "missing"}
                 </Badge>
                 {entry.trusted !== undefined ? (
                   <Badge variant={entry.trusted ? "default" : "outline"}>
@@ -3270,18 +3287,28 @@ function CommandGroup({
   titleTooltip,
   commands,
   disabled,
+  disabledReason,
   onInsertCommand,
 }: {
   title: string;
   titleTooltip?: string;
   commands: readonly AgentCommand[];
   disabled?: boolean;
+  disabledReason?: string;
   onInsertCommand?: (commandText: string) => void;
 }) {
   if (commands.length === 0) return null;
   return (
     <div className="flex flex-col gap-1">
       <GroupTitle label={title} tooltip={titleTooltip} count={commands.length} />
+      {disabledReason ? (
+        <p
+          role="status"
+          className="rounded-sm border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[10px] leading-relaxed text-amber-700 dark:text-amber-200"
+        >
+          {disabledReason}
+        </p>
+      ) : null}
       {commands.map((command) => {
         const display = displayCommandName(command);
         const sourceInfo = command.sourceInfo;
@@ -3316,8 +3343,8 @@ function CommandGroup({
               </span>
             </button>
             {sourceInfo?.path ? (
-              <div className="mt-1 flex items-center justify-between gap-2 px-0.5">
-                <span className="min-w-0 break-all font-mono text-[9px] text-muted-foreground">
+              <div className="mt-1 flex flex-col items-start gap-1 px-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                <span className="min-w-0 break-words font-mono text-[9px] text-muted-foreground">
                   {sourceInfo.path}
                 </span>
                 <span className="flex shrink-0 gap-1">
@@ -3375,8 +3402,11 @@ function GroupTitle({ label, tooltip, count }: { label: string; tooltip?: string
 
 function groupCommands(commands: readonly AgentCommand[]) {
   const skillCommands = commands.filter((cmd) => cmd.source === "skill");
-  const afx = skillCommands.filter((cmd) => cmd.name.startsWith("skill:afx-"));
-  const nonAfxSkills = skillCommands.filter((cmd) => !cmd.name.startsWith("skill:afx-"));
+  const isBundledAfx = (cmd: AgentCommand) =>
+    cmd.sourceInfo?.scope === "bundled" ||
+    (cmd.sourceInfo == null && cmd.name.startsWith("skill:afx-"));
+  const afx = skillCommands.filter(isBundledAfx);
+  const nonAfxSkills = skillCommands.filter((cmd) => !isBundledAfx(cmd));
   const globalSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "user");
   const workspaceSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "project");
   const customSkills = nonAfxSkills.filter((cmd) => cmd.sourceInfo?.scope === "temporary");

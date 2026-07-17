@@ -220,6 +220,7 @@ const SCENARIO_GROUPS: ScenarioGroup[] = [
       { name: "filesListed", label: "Files", accent: "bg-afx-info" },
       { name: "stderrLoaded", label: "stderr", accent: "bg-afx-warning" },
       { name: "settingsSnapshotLoaded", label: "Settings", accent: "bg-afx-info" },
+      { name: "workspaceTrustBlocked", label: "Trust blocked", accent: "bg-afx-warning" },
     ],
   },
   {

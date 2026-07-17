@@ -1908,6 +1908,16 @@ describe("chat App", () => {
     render(<App transport={transport} />);
 
     act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
       emitChatState(transport, {}, null, "code", {
         skills: {
           bundledSkillsPath: "resources/skills/agenticflowx",
@@ -1929,6 +1939,36 @@ describe("chat App", () => {
           httpProxy: "",
         },
       });
+      transport.emit({
+        type: "agent/commands",
+        requestId: "workspace-skill-commands",
+        commands: [
+          {
+            name: "skill:afx-dev",
+            description: "Bundled development workflow",
+            source: "skill",
+            sourceInfo: {
+              path: "resources/skills/agenticflowx/afx-dev/SKILL.md",
+              source: "path",
+              scope: "bundled",
+              origin: "top-level",
+              baseDir: "resources/skills/agenticflowx",
+            },
+          },
+          {
+            name: "skill:afx-qa-methodology",
+            description: "External workspace QA workflow",
+            source: "skill",
+            sourceInfo: {
+              path: "/workspace/.pi/skills/afx-qa-methodology/SKILL.md",
+              source: "path",
+              scope: "project",
+              origin: "top-level",
+              baseDir: "/workspace/.pi/skills",
+            },
+          },
+        ],
+      });
       transport.emit({ type: "settings/openTarget", target: "skills" });
     });
 
@@ -1943,6 +1983,13 @@ describe("chat App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Trust workspace" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Ignore workspace" })).toBeVisible();
+    expect(
+      screen.getByText(
+        "Read-only: workspace skill commands are blocked until this workspace is trusted.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: /\/afx-qa-methodology/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /\/afx-dev/ })).toBeEnabled();
   });
 
   /**

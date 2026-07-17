@@ -8,13 +8,36 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-4] [FR-6]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  */
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as vscode from "vscode";
 
 import { type MockAgentManager, createMockAgentManager } from "./__fixtures__/mock-agent-manager";
+
+it("bundles only the canonical AgenticFlowX core and leaves QA/dev/security packs external", () => {
+  const skillsRoot = fileURLToPath(new URL("../resources/skills", import.meta.url));
+  const bundledRoots = readdirSync(skillsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  const bundledCore = readdirSync(join(skillsRoot, "agenticflowx"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+  expect(bundledRoots).toEqual(["agenticflowx"]);
+  expect(bundledCore).toContain("afx-dev");
+  expect(bundledCore).not.toEqual(
+    expect.arrayContaining([
+      "afx-clean-code",
+      "afx-qa-methodology",
+      "afx-security-audit",
+      "afx-spec-test-planning",
+    ]),
+  );
+});
 
 vi.mock("./agent-factory", () => ({
   createConfiguredAgentInstances: vi.fn(),

@@ -148,6 +148,7 @@ describe("createMockTransport", () => {
       "filesListed",
       "stderrLoaded",
       "settingsSnapshotLoaded",
+      "workspaceTrustBlocked",
       "providersEmpty",
       "providersAnthropicConfigured",
       "providersMultiConfigured",
@@ -161,6 +162,39 @@ describe("createMockTransport", () => {
     t.dispose();
   });
 
+  it("models an external workspace skill as blocked until project trust is granted", () => {
+    const t = createMockTransport();
+    let commands: unknown[] = [];
+    let skills: unknown;
+    t.on("agent/commands", (message) => {
+      commands = message.commands;
+    });
+    t.on("agent/settingsSnapshot", (message) => {
+      skills = message.snapshot.skills;
+    });
+
+    t.scenarios["workspaceTrustBlocked"]?.();
+
+    expect(commands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "skill:afx-qa-methodology",
+          sourceInfo: expect.objectContaining({
+            scope: "project",
+            path: "/workspace/.pi/skills/afx-qa-methodology/SKILL.md",
+          }),
+        }),
+      ]),
+    );
+    expect(skills).toEqual(
+      expect.objectContaining({
+        projectTrust: "ask",
+        effectiveProjectTrust: "ignore",
+        workspacePaths: [expect.objectContaining({ exists: true, trusted: false })],
+      }),
+    );
+    t.dispose();
+  });
   it("disconnected scenario fires runtime status running=false", () => {
     const t = createMockTransport();
     let running: boolean | undefined;

@@ -92,6 +92,42 @@ function createFakeClient(options: unknown): FakeClient {
                 baseDir: "/workspace/custom-skills",
               },
             },
+            {
+              name: "skill:afx-qa-methodology",
+              description: "External QA workflow",
+              source: "skill",
+              sourceInfo: {
+                path: "/external/qa/afx-qa-methodology/SKILL.md",
+                source: "path",
+                scope: "temporary",
+                origin: "top-level",
+                baseDir: "/external/qa",
+              },
+            },
+            {
+              name: "skill:afx-clean-code",
+              description: "External development workflow",
+              source: "skill",
+              sourceInfo: {
+                path: "/external/dev/afx-clean-code/SKILL.md",
+                source: "path",
+                scope: "temporary",
+                origin: "top-level",
+                baseDir: "/external/dev",
+              },
+            },
+            {
+              name: "skill:afx-security-audit",
+              description: "External security workflow",
+              source: "skill",
+              sourceInfo: {
+                path: "/external/security/afx-security-audit/SKILL.md",
+                source: "path",
+                scope: "temporary",
+                origin: "top-level",
+                baseDir: "/external/security",
+              },
+            },
           ],
         } as T;
       }
@@ -244,7 +280,7 @@ describe("createPiSdkAgentManager", () => {
     });
   });
 
-  it("passes Pi 0.80 trust, excluded tools, and extra skill args", async () => {
+  it("passes Pi 0.80 trust, excluded tools, and external QA/dev/security skill paths", async () => {
     const manager = createPiSdkAgentManager({
       logger,
       bootstrapPath: "/extension/dist/bootstrap.js",
@@ -253,7 +289,12 @@ describe("createPiSdkAgentManager", () => {
       getApiKey: () => "secret-key",
       projectTrust: "ignore",
       excludedTools: ["bash", "write"],
-      additionalSkillPaths: ["/extension/resources/skills/agenticflowx", "/workspace/skills"],
+      additionalSkillPaths: [
+        "/extension/resources/skills/agenticflowx",
+        "/external/qa",
+        "/external/dev",
+        "/external/security",
+      ],
     });
 
     await manager.getStatus();
@@ -266,7 +307,11 @@ describe("createPiSdkAgentManager", () => {
         "--skill",
         "/extension/resources/skills/agenticflowx",
         "--skill",
-        "/workspace/skills",
+        "/external/qa",
+        "--skill",
+        "/external/dev",
+        "--skill",
+        "/external/security",
       ],
     });
   });
@@ -291,6 +336,42 @@ describe("createPiSdkAgentManager", () => {
           scope: "temporary",
           origin: "top-level",
           baseDir: "/workspace/custom-skills",
+        },
+      },
+      {
+        name: "skill:afx-qa-methodology",
+        description: "External QA workflow",
+        source: "skill",
+        sourceInfo: {
+          path: "/external/qa/afx-qa-methodology/SKILL.md",
+          source: "path",
+          scope: "temporary",
+          origin: "top-level",
+          baseDir: "/external/qa",
+        },
+      },
+      {
+        name: "skill:afx-clean-code",
+        description: "External development workflow",
+        source: "skill",
+        sourceInfo: {
+          path: "/external/dev/afx-clean-code/SKILL.md",
+          source: "path",
+          scope: "temporary",
+          origin: "top-level",
+          baseDir: "/external/dev",
+        },
+      },
+      {
+        name: "skill:afx-security-audit",
+        description: "External security workflow",
+        source: "skill",
+        sourceInfo: {
+          path: "/external/security/afx-security-audit/SKILL.md",
+          source: "path",
+          scope: "temporary",
+          origin: "top-level",
+          baseDir: "/external/security",
         },
       },
     ]);

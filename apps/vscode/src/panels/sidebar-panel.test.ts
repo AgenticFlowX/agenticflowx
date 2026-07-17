@@ -2132,6 +2132,18 @@ describe("sidebar-panel host bridge", () => {
   it("chat/getCommands includes bundled AFX skills alongside runtime commands", async () => {
     const runtimeCommands: AgentCommand[] = [
       { name: "skill:afx-task", description: "Runtime task helper", source: "skill" },
+      {
+        name: "skill:afx-qa-methodology",
+        description: "External QA workflow",
+        source: "skill",
+        sourceInfo: {
+          path: "/external/qa/afx-qa-methodology/SKILL.md",
+          source: "path",
+          scope: "temporary",
+          origin: "top-level",
+          baseDir: "/external/qa",
+        },
+      },
       { name: "summarize", description: "Summarize current context", source: "prompt" },
     ];
     agent.getCommands.mockResolvedValueOnce(runtimeCommands);
@@ -2154,13 +2166,21 @@ describe("sidebar-panel host bridge", () => {
     const posted = postMessage.mock.calls
       .map(
         ([msg]) =>
-          msg as { type?: string; commands?: Array<{ name: string; description?: string }> },
+          msg as {
+            type?: string;
+            commands?: Array<{
+              name: string;
+              description?: string;
+              sourceInfo?: { scope?: string; baseDir?: string };
+            }>;
+          },
       )
       .find((msg) => msg.type === "agent/commands");
     expect(posted?.commands?.map((command) => command.name)).toEqual([
       "skill:afx-next",
       "skill:afx-task",
       "skill:afx-release",
+      "skill:afx-qa-methodology",
       "summarize",
     ]);
     expect(
@@ -2169,6 +2189,15 @@ describe("sidebar-panel host bridge", () => {
     expect(
       posted?.commands?.find((command) => command.name === "skill:afx-release")?.description,
     ).toBe("Description for afx-release");
+    expect(
+      posted?.commands?.find((command) => command.name === "skill:afx-task")?.sourceInfo,
+    ).toMatchObject({
+      scope: "bundled",
+      baseDir: "/tmp/agenticflowx/resources/skills/agenticflowx",
+    });
+    expect(
+      posted?.commands?.find((command) => command.name === "skill:afx-qa-methodology")?.sourceInfo,
+    ).toMatchObject({ scope: "temporary", baseDir: "/external/qa" });
   });
 
   it("chat/getCommands returns empty commands without an error when no runtime is configured", async () => {

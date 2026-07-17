@@ -3997,6 +3997,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
             name: `skill:${skillName}`,
             description,
             source: "skill",
+            sourceInfo: {
+              path: path.join(bundledSkillsPath, skillName, "SKILL.md"),
+              source: "path",
+              scope: "bundled",
+              origin: "package",
+              baseDir: bundledSkillsPath,
+            },
           };
         }),
       );
@@ -4047,6 +4054,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         ...bundled,
         ...command,
         description: command.description ?? bundled?.description,
+        // A runtime may rediscover the same vendored core skill. Preserve the
+        // extension-owned provenance so external `afx-*` skills are never
+        // mistaken for the canonical bundled AgenticFlowX set.
+        sourceInfo: bundled?.sourceInfo ?? command.sourceInfo,
       });
     }
     return [...byKey.values()];

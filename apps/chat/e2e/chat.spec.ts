@@ -5,7 +5,12 @@
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
  * @see docs/specs/210-app-chat/design.md [DES-TEST]
  */
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { type Locator, expect, test } from "@playwright/test";
+
+const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
 
 async function switchGeometry(toggle: Locator): Promise<{
   trackX: number;
@@ -240,6 +245,56 @@ test("Settings keeps skills collapsed until requested", async ({ page }) => {
   await expect(skills).toHaveAttribute("open", "");
   await expect(skills.getByRole("button", { name: "/afx-task" })).toBeVisible();
   await expect(skills.getByRole("button", { name: "/afx-release" })).toBeVisible();
+  await expect(skills.getByRole("button", { name: "/afx-qa-methodology" })).toBeVisible();
+  await expect(skills.getByRole("button", { name: "/afx-clean-code" })).toBeVisible();
+  await expect(skills.getByRole("button", { name: "/afx-security-audit" })).toBeVisible();
+  await expect(
+    skills.getByText("/external/qa/afx-qa-methodology/SKILL.md", { exact: true }),
+  ).toBeVisible();
+});
+
+// E2E-19: external project skills are visible for inspection but their command
+// actions remain read-only until the workspace trust decision is explicit.
+test("Settings blocks external workspace skills until the workspace is trusted", async ({
+  page,
+}, testInfo) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("button", { name: "Trust blocked" }).click();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+
+  await page.getByRole("tab", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Support", exact: true }).click();
+  const skills = page.getByTestId("settings-skills-disclosure");
+  // A pending trust decision intentionally opens this disclosure. Clicking its
+  // summary here would close the native details element before React rerenders.
+  await expect(skills).toHaveAttribute("open", "");
+
+  await expect(skills.getByText("Project trust")).toBeVisible();
+  await expect(
+    skills.getByText(
+      "Workspace Pi resources are blocked until you choose. Trust this workspace to load its skills, or ignore it to keep them disabled.",
+    ),
+  ).toBeVisible();
+  await expect(
+    skills.getByText(
+      "Read-only: workspace skill commands are blocked until this workspace is trusted.",
+    ),
+  ).toBeVisible();
+  await expect(skills.getByRole("button", { name: /\/afx-qa-methodology/ })).toBeDisabled();
+  await expect(skills.getByRole("button", { name: /\/afx-dev/ })).toBeEnabled();
+  expect(await page.evaluate(() => document.body.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await skills.getByText("Project trust").scrollIntoViewIfNeeded();
+  const screenshot = await page.screenshot({
+    path: resolve(SCREENSHOT_DIR, "e2e-19-workspace-trust-blocked.png"),
+  });
+  expect(screenshot.length).toBeGreaterThan(10_000);
+  await testInfo.attach("e2e-19-workspace-trust-blocked.png", {
+    body: screenshot,
+    contentType: "image/png",
+  });
 });
 
 test("active tab has visible ::after strip indicator", async ({ page }) => {

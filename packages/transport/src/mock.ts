@@ -139,6 +139,42 @@ const MOCK_COMMANDS: AgentCommand[] = [
   { name: "skill:afx-sprint", description: "Run sprint-format spec workflow", source: "skill" },
   { name: "skill:afx-research", description: "Create and refine research notes", source: "skill" },
   { name: "skill:afx-release", description: "Prepare release notes and checks", source: "skill" },
+  {
+    name: "skill:afx-qa-methodology",
+    description: "External QA planning and test methodology",
+    source: "skill",
+    sourceInfo: {
+      path: "/external/qa/afx-qa-methodology/SKILL.md",
+      source: "path",
+      scope: "temporary",
+      origin: "top-level",
+      baseDir: "/external/qa",
+    },
+  },
+  {
+    name: "skill:afx-clean-code",
+    description: "External development quality workflow",
+    source: "skill",
+    sourceInfo: {
+      path: "/external/dev/afx-clean-code/SKILL.md",
+      source: "path",
+      scope: "temporary",
+      origin: "top-level",
+      baseDir: "/external/dev",
+    },
+  },
+  {
+    name: "skill:afx-security-audit",
+    description: "External security audit workflow",
+    source: "skill",
+    sourceInfo: {
+      path: "/external/security/afx-security-audit/SKILL.md",
+      source: "path",
+      scope: "temporary",
+      origin: "top-level",
+      baseDir: "/external/security",
+    },
+  },
   { name: "summarize", description: "Summarize current context", source: "prompt" },
 ];
 
@@ -1834,6 +1870,55 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     });
   }
 
+  function runWorkspaceTrustBlocked(): void {
+    emit({
+      type: "agent/commands",
+      requestId: uid(),
+      commands: MOCK_COMMANDS.map((command) =>
+        command.name === "skill:afx-qa-methodology"
+          ? {
+              ...command,
+              sourceInfo: {
+                path: "/workspace/.pi/skills/afx-qa-methodology/SKILL.md",
+                source: "path",
+                scope: "project",
+                origin: "top-level",
+                baseDir: "/workspace/.pi/skills",
+              },
+            }
+          : command,
+      ),
+    });
+    emit({
+      type: "agent/settingsSnapshot",
+      requestId: uid(),
+      snapshot: {
+        ...MOCK_SETTINGS_SNAPSHOT,
+        appearance,
+        context: { includeActiveFileContext },
+        skills: {
+          bundledSkillsPath: "resources/skills/agenticflowx",
+          bundledSkillCount: 17,
+          globalPaths: [],
+          workspacePaths: [
+            {
+              kind: "workspace",
+              label: "Pi workspace skills",
+              path: "/workspace/.pi/skills",
+              exists: true,
+              trusted: false,
+            },
+          ],
+          customPaths: [],
+          projectTrust: "ask",
+          effectiveProjectTrust: "ignore",
+          excludedTools: [],
+          httpProxy: "",
+        },
+      },
+    });
+  }
+
   function runProvidersEmpty(): void {
     emit({
       type: "agent/settingsSnapshot",
@@ -2450,6 +2535,7 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     filesListed: () => runFilesListed(),
     stderrLoaded: () => runStderrLoaded(),
     settingsSnapshotLoaded: () => runSettingsSnapshotLoaded(),
+    workspaceTrustBlocked: () => runWorkspaceTrustBlocked(),
     providersEmpty: () => runProvidersEmpty(),
     providersAnthropicConfigured: () => runProvidersAnthropicConfigured(),
     providersMultiConfigured: () => runProvidersMultiConfigured(),
