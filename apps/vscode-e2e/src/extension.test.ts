@@ -36,7 +36,7 @@ suite("AFX Extension — activation", () => {
     assert.ok(commands.includes("afx.openWorkbench"), "afx.openWorkbench not registered");
   });
 
-  test("all 5 contributed commands are registered", async () => {
+  test("legacy runtime commands remain registered", async () => {
     const commands = await vscode.commands.getCommands(true);
     for (const id of [
       "afx.openSidebar",
@@ -49,6 +49,24 @@ suite("AFX Extension — activation", () => {
     }
   });
 
+  test("2.4.0 SDD commands are contributed and registered", async () => {
+    const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
+    assert.ok(ext, "Extension agenticflowx.agenticflowx not found");
+
+    const contributed =
+      (
+        ext.packageJSON as {
+          contributes?: { commands?: Array<{ command?: string }> };
+        }
+      ).contributes?.commands?.map(({ command }) => command) ?? [];
+    const registered = await vscode.commands.getCommands(true);
+
+    for (const id of ["afx.openSddStudio", "afx.newSdd", "afx.refineCurrentDocument"]) {
+      assert.ok(contributed.includes(id), `${id} missing from package.json contributions`);
+      assert.ok(registered.includes(id), `${id} not registered after activation`);
+    }
+  });
+
   test("afx.showLogs executes without throwing", async () => {
     await vscode.commands.executeCommand("afx.showLogs");
   });
@@ -57,6 +75,46 @@ suite("AFX Extension — activation", () => {
     await vscode.commands.executeCommand("afx.openSidebar");
     // No exception means VSCode resolved the focus command path; deeper webview
     // assertions belong in a Playwright session against the live webview.
+  });
+
+  test("afx.openSddStudio resolves through the real Workbench command path", async () => {
+    await vscode.commands.executeCommand("afx.openSddStudio");
+    // This exercises the contributed command through VSCode's command registry.
+    // Webview rendering remains covered by the Workbench Playwright suite.
+  });
+
+  test("afx.newSdd resolves through the real sidebar draft path", async () => {
+    await vscode.commands.executeCommand("afx.newSdd");
+    // The extension unit suite asserts the exact `/afx-spec new ` draft. Here
+    // we prove the command palette contribution reaches the live sidebar host.
+  });
+
+  test("afx.refineCurrentDocument opens AFX Preview for a real SDD fixture", async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    assert.ok(root, "Expected an open workspace folder");
+    const specPath = path.join(root, "docs/specs/200-app-vscode/spec.md");
+    assert.ok(fs.existsSync(specPath), `Expected canonical SDD fixture at ${specPath}`);
+
+    const document = await vscode.workspace.openTextDocument(vscode.Uri.file(specPath));
+    await vscode.window.showTextDocument(document, { preview: false });
+    await waitFor(
+      () => vscode.window.activeTextEditor?.document.uri.fsPath === specPath,
+      "Expected the canonical SDD fixture to become the active text editor",
+    );
+    assert.strictEqual(vscode.window.activeTextEditor?.document.languageId, "markdown");
+    await vscode.commands.executeCommand("afx.refineCurrentDocument");
+
+    await waitFor(
+      () =>
+        vscode.window.tabGroups.all.some((group) =>
+          group.tabs.some(
+            (tab) =>
+              (tab.input as { viewType?: string } | undefined)?.viewType === "afxPreview" ||
+              tab.label === "AFX Preview — spec.md",
+          ),
+        ),
+      "Expected Refine Current Document to open an AFX Preview tab",
+    );
   });
 
   test("afx.agentRestart resolves without throwing when the agent is idle", async () => {
