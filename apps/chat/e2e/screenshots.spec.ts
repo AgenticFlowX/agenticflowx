@@ -30,6 +30,11 @@ async function capture(page: Page, testInfo: TestInfo, name: string) {
 }
 
 test("captures primary chat surfaces", async ({ page }, testInfo) => {
+  // This single visual smoke deliberately walks and attaches every primary
+  // surface. Keep its sequential asset budget separate from the 30s product
+  // interaction budget used by the rest of the Chat Playwright suite.
+  test.setTimeout(60_000);
+
   const consoleErrors: string[] = [];
   page.on("console", (msg) => {
     if (msg.type() === "error") consoleErrors.push(msg.text());

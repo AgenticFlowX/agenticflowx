@@ -23,6 +23,9 @@ export default defineConfig({
   },
   test: {
     name: "workbench",
+    // Keep the aggregate Turbo verification gate deterministic when the other
+    // jsdom/coverage projects run at the same time on an eight-core host.
+    maxWorkers: 2,
     environment: "jsdom",
     execArgv: ["--no-experimental-webstorage"],
     environmentOptions: {

@@ -23,6 +23,7 @@ const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screens
 const REAL_SPEC_PATH = "docs/specs/410-warranty-claims/spec.md";
 const SDD_STUDIO_VIEWPORTS = [
   { name: "bottom-panel", width: 760, height: 360 },
+  { name: "wide-bottom-panel", width: 1024, height: 360 },
   { name: "short-editor", width: 1024, height: 500 },
   { name: "standard-editor", width: 1400, height: 600 },
   { name: "wide-editor", width: 1440, height: 760 },
@@ -797,7 +798,7 @@ test("empty child tabs stay usable in the constrained bottom-panel viewport", as
 test("documents tab renders the PRD studio reader", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.getByRole("tab", { name: "Documents" }).click();
-  await page.getByRole("button", { name: /^Infrastructure\b.*SPEC/i }).click();
+  await page.getByRole("button", { name: "Read Infrastructure SPEC" }).click();
 
   await expect(page.locator('[data-afx-doc-surface="document-studio"]').first()).toBeVisible();
   await expect(page.getByText("Quality pulse")).toBeVisible();

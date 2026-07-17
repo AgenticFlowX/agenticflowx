@@ -24,6 +24,11 @@ async function capture(page: Page, testInfo: TestInfo, name: string): Promise<vo
 test("history: lists sessions, searches, opens a transcript, and reopens", async ({
   page,
 }, testInfo) => {
+  // This visual journey writes three full-page screenshots and exercises the
+  // clipboard. Give it Playwright's standard slow-test budget under the full
+  // coverage -> browser-suite release chain; state assertions still gate each
+  // transition, so a stalled session load cannot pass silently.
+  test.slow();
   const consoleErrors: string[] = [];
   page.on("console", (m) => {
     if (m.type() === "error") consoleErrors.push(m.text());

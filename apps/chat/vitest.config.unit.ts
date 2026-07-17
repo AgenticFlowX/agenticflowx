@@ -33,6 +33,10 @@ export default defineConfig({
   },
   test: {
     name: "chat",
+    // Turbo runs the Chat, Workbench, and extension coverage suites together.
+    // Letting every Vitest project claim all eight host cores makes otherwise
+    // sub-second interaction tests breach Vitest's 5s budget under contention.
+    maxWorkers: 2,
     environment: "jsdom",
     execArgv: ["--no-experimental-webstorage"],
     environmentOptions: {
