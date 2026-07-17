@@ -5,7 +5,7 @@
  * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-STUDIO] [DES-DOCS-LAUNCHPAD] [DES-TEST]
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DocumentRow } from "@afx/shared";
 
@@ -84,7 +84,7 @@ describe("Documents", () => {
   it("renders selected specs in the PRD studio", async () => {
     renderDocuments();
 
-    fireEvent.click(screen.getByRole("button", { name: /spec\.md/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Read sample / spec.md SPEC" }));
     window.postMessage(
       { type: "afxDocContent", filePath: SPEC_DOC.filePath, content: SPEC_CONTENT },
       "*",
@@ -105,5 +105,22 @@ describe("Documents", () => {
       screen.getByRole("cell", { name: "Read planning docs in the workbench" }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Refine/i }).length).toBeGreaterThan(0);
+  });
+
+  it("opens the selected AFX document in the refinement Preview from a library row", () => {
+    const postMessage = vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
+    renderDocuments();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refine sample / spec.md" }));
+
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        type: "afxOpenFile",
+        path: SPEC_DOC.filePath,
+        mode: "afxPreview",
+      },
+      "*",
+    );
+    postMessage.mockRestore();
   });
 });

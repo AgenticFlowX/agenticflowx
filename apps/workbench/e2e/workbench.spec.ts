@@ -810,6 +810,124 @@ test("documents tab renders the PRD studio reader", async ({ page }, testInfo) =
   expect(buf.length).toBeGreaterThan(10_000);
 });
 
+// E2E-17: a library row has an explicit refinement launch that targets the
+// selected AFX document in the standalone Preview cockpit.
+test("documents library Refine opens the correct AFX Preview cockpit", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.goto("/");
+  await page.evaluate(() => {
+    const w = window as typeof window & {
+      __afxOutboundMessages?: Array<{ mode?: string; path?: string; type?: string }>;
+    };
+    w.__afxOutboundMessages = [];
+    window.addEventListener("message", (event: MessageEvent) => {
+      const msg = event.data as { mode?: string; path?: string; type?: string } | undefined;
+      if (msg?.type === "afxOpenFile") w.__afxOutboundMessages?.push(msg);
+    });
+  });
+  await page.getByRole("tab", { name: "Documents" }).click();
+
+  const refine = page.getByRole("button", { name: "Refine Asset Recovery" });
+  await expect(refine).toBeVisible();
+  await refine.click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const w = window as typeof window & {
+          __afxOutboundMessages?: Array<{ mode?: string; path?: string; type?: string }>;
+        };
+        return w.__afxOutboundMessages?.at(-1) ?? null;
+      }),
+    )
+    .toEqual({
+      type: "afxOpenFile",
+      path: "docs/specs/16-marketplace-asset-recovery/spec.md",
+      mode: "afxPreview",
+    });
+
+  await expectNoPageOverflow(page);
+  const screenshotPath = resolve(SCREENSHOT_DIR, "e2e-17-documents-refine.png");
+  const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
+  await testInfo.attach("e2e-17-documents-refine.png", {
+    body: buf,
+    contentType: "image/png",
+  });
+  expect(buf.length).toBeGreaterThan(10_000);
+});
+
+// E2E-16: blocked work has an explicit action that opens the relevant task
+// document in the refinement Preview instead of a generic markdown preview.
+test("pipeline Refine blockers opens the blocked feature in AFX Preview", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.goto("/");
+  await page.evaluate(() => {
+    const w = window as typeof window & {
+      __afxOutboundMessages?: Array<{ mode?: string; path?: string; type?: string }>;
+    };
+    w.__afxOutboundMessages = [];
+    window.addEventListener("message", (event: MessageEvent) => {
+      const msg = event.data as { mode?: string; path?: string; type?: string } | undefined;
+      if (msg?.type === "afxOpenFile") w.__afxOutboundMessages?.push(msg);
+    });
+    window.postMessage(
+      {
+        type: "afxUpdate",
+        pipeline: [
+          {
+            name: "2.4.0-release-readiness",
+            specStatus: "Approved",
+            designStatus: "Approved",
+            tasksStatus: "In Progress",
+            completed: 9,
+            total: 12,
+            featureStatus: "blocked",
+            specPath: "docs/specs/2.4.0-release-readiness/spec.md",
+            designPath: "docs/specs/2.4.0-release-readiness/design.md",
+            tasksPath: "docs/specs/2.4.0-release-readiness/tasks.md",
+          },
+        ],
+      },
+      "*",
+    );
+  });
+  await page.getByRole("tab", { name: "Pipeline" }).click();
+
+  const refineBlockers = page.getByRole("button", {
+    name: /2\.4\.0-release-readiness.*Refine blockers/i,
+  });
+  await expect(refineBlockers).toBeVisible();
+  await refineBlockers.click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const w = window as typeof window & {
+          __afxOutboundMessages?: Array<{ mode?: string; path?: string; type?: string }>;
+        };
+        return w.__afxOutboundMessages?.at(-1) ?? null;
+      }),
+    )
+    .toEqual({
+      type: "afxOpenFile",
+      path: "docs/specs/2.4.0-release-readiness/tasks.md",
+      mode: "afxPreview",
+    });
+
+  await expectNoPageOverflow(page);
+  const screenshotPath = resolve(SCREENSHOT_DIR, "e2e-16-pipeline-blocker-launch.png");
+  const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
+  await testInfo.attach("e2e-16-pipeline-blocker-launch.png", {
+    body: buf,
+    contentType: "image/png",
+  });
+  expect(buf.length).toBeGreaterThan(10_000);
+});
+
 test("documents tab renders a real-spec-style PRD with clean tables", async ({
   page,
 }, testInfo) => {

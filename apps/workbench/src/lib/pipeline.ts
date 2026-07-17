@@ -27,9 +27,9 @@ export type GroupStatus = "in_progress" | "ready_to_build" | "complete" | "block
  */
 export function getGroupStatus(row: PipelineRow): GroupStatus {
   if (row.completed === row.total && row.total > 0) return "complete";
+  if (row.featureStatus.toLowerCase() === "blocked") return "blocked";
   if (row.completed > 0) return "in_progress";
   if (row.specStatus && row.designStatus && row.tasksStatus) return "ready_to_build";
-  if (row.featureStatus === "blocked") return "blocked";
   return "not_started";
 }
 
@@ -46,6 +46,13 @@ export interface NextAction {
  * @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-CARD] [DES-PIPELINE-HELPERS]
  */
 export function getNextAction(row: PipelineRow): NextAction {
+  if (getGroupStatus(row) === "blocked") {
+    return {
+      label: "Refine blockers",
+      color: "text-amber-400",
+      path: row.tasksPath ?? row.designPath ?? row.specPath,
+    };
+  }
   if (!row.specStatus || row.specStatus === "Draft") {
     return { label: "Approve spec", color: "text-amber-400", path: row.specPath };
   }

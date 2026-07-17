@@ -6,7 +6,15 @@
  */
 import { useEffect, useMemo, useState } from "react";
 
-import { ArrowLeft, ChevronDown, ChevronRight, FileText, Folder, Library } from "lucide-react";
+import {
+  ArrowLeft,
+  BookOpenCheck,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder,
+  Library,
+} from "lucide-react";
 
 import type { DocumentRow, WorkbenchInbound } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
@@ -194,6 +202,9 @@ export default function Documents() {
             documents={documents}
             onSelect={setSelected}
             onTypeFilter={setTypeFilter}
+            onRefine={(doc) =>
+              send({ type: "afxOpenFile", path: doc.filePath, mode: "afxPreview" })
+            }
           />
         )}
       </ResizablePanel>
@@ -211,10 +222,12 @@ function DocumentsHome({
   documents,
   onSelect,
   onTypeFilter,
+  onRefine,
 }: {
   documents: DocumentRow[];
   onSelect: (doc: DocumentRow) => void;
   onTypeFilter: (type: string) => void;
+  onRefine: (doc: DocumentRow) => void;
 }) {
   const stats = useMemo(() => computeStats(documents), [documents]);
   const recent = useMemo(() => recentDocs(documents, 6), [documents]);
@@ -285,38 +298,55 @@ function DocumentsHome({
               <ul className="afx-surface-card flex flex-col divide-y divide-border/60 overflow-hidden rounded-md border border-border">
                 {recent.map((doc) => (
                   <li key={doc.filePath}>
-                    <button
-                      type="button"
-                      onClick={() => onSelect(doc)}
-                      className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
-                    >
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="truncate text-sm font-medium text-foreground">
-                          {docDisplayName(doc)}
-                        </span>
-                        {doc.excerpt ? (
-                          <span className="truncate text-[11px] text-muted-foreground">
-                            {doc.excerpt}
-                          </span>
-                        ) : (
-                          <span className="font-mono text-[10px] text-muted-foreground/70">
-                            {doc.filePath}
-                          </span>
-                        )}
-                      </div>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "shrink-0 px-1.5 text-[10px]",
-                          chipForType(doc.type)?.className,
-                        )}
+                    <div className="flex min-w-0 items-center gap-1 px-1 transition-colors hover:bg-accent/40">
+                      <button
+                        type="button"
+                        onClick={() => onSelect(doc)}
+                        className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 px-2 py-2.5 text-left"
+                        aria-label={`Read ${docDisplayName(doc)} ${doc.type}`}
                       >
-                        {doc.type}
-                      </Badge>
-                      <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                        {formatShortDate(doc.updatedAt) ?? "—"}
-                      </span>
-                    </button>
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {docDisplayName(doc)}
+                          </span>
+                          {doc.excerpt ? (
+                            <span className="truncate text-[11px] text-muted-foreground">
+                              {doc.excerpt}
+                            </span>
+                          ) : (
+                            <span className="truncate font-mono text-[10px] text-muted-foreground/70">
+                              {doc.filePath}
+                            </span>
+                          )}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "shrink-0 px-1.5 text-[10px]",
+                            chipForType(doc.type)?.className,
+                          )}
+                        >
+                          {doc.type}
+                        </Badge>
+                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                          {formatShortDate(doc.updatedAt) ?? "—"}
+                        </span>
+                      </button>
+                      {doc.isAfx ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          className="h-7 shrink-0 gap-1 px-1.5 font-mono text-[10px]"
+                          aria-label={`Refine ${docDisplayName(doc)}`}
+                          title={`Open ${doc.filePath} in AFX Preview`}
+                          onClick={() => onRefine(doc)}
+                        >
+                          <BookOpenCheck size={11} aria-hidden />
+                          <span className="hidden sm:inline">Refine</span>
+                        </Button>
+                      ) : null}
+                    </div>
                   </li>
                 ))}
               </ul>

@@ -331,7 +331,7 @@ function PipelineCard({ row, send }: { row: PipelineRow; send: (msg: WorkbenchOu
               send({
                 type: "afxOpenFile",
                 path: next.path,
-                mode: "preview",
+                mode: getGroupStatus(row) === "blocked" ? "afxPreview" : "preview",
               })
             }
           >
@@ -370,7 +370,7 @@ function PipelineNextRow({
         send({
           type: "afxOpenFile",
           path: next.path,
-          mode: "preview",
+          mode: status === "blocked" ? "afxPreview" : "preview",
         })
       }
       className="afx-surface-card flex w-full flex-col gap-2 rounded-md border px-3 py-2 text-left transition-colors hover:border-afx-brand/40 hover:bg-accent/30 disabled:cursor-not-allowed disabled:opacity-70"
