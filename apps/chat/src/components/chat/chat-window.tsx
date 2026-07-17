@@ -206,14 +206,16 @@ export function ChatWindow({
     workspaceMode: state.workspaceMode,
   });
 
-  // Scroll behavior — the pane auto-pins to the bottom whenever new messages
-  // arrive UNLESS the user has scrolled up. `handleScroll` flips
+  // Scroll behavior — the pane auto-pins to the bottom whenever timeline content
+  // arrives UNLESS the user has scrolled up. `handleScroll` flips
   // `userScrolledUp` to true the moment they're not at the bottom (with an 80px
   // tolerance); clicking the scroll-to-latest button or sending a new message
   // flips it back to false.
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
     bottomRef.current?.scrollIntoView({ behavior, block: "end" });
   }, []);
+  const hasTimelineContent =
+    state.messages.length > 0 || state.commandOutputs.length > 0 || state.noteEvents.length > 0;
   const handleScroll = useCallback(() => {
     const el = scrollContainerRef.current;
     if (!el) return;
@@ -221,8 +223,15 @@ export function ChatWindow({
     setUserScrolledUp(!atBottom);
   }, []);
   useEffect(() => {
-    if (!userScrolledUp) scrollToBottom("instant");
-  }, [state.messages, userScrolledUp, scrollToBottom]);
+    if (hasTimelineContent && !userScrolledUp) scrollToBottom("instant");
+  }, [
+    hasTimelineContent,
+    state.commandOutputs,
+    state.messages,
+    state.noteEvents,
+    userScrolledUp,
+    scrollToBottom,
+  ]);
 
   // Focus management — when the agent transitions out of streaming/checking
   // and no element inside the composer is focused, snap focus back to the
