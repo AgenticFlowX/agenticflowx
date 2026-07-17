@@ -650,7 +650,10 @@ export function createMockTransport(): MockTransport {
 
   async function streamText(id: string, text: string): Promise<void> {
     // Split into ~word-sized chunks for realistic feel
-    const chunks = text.match(/.{1,6}/g) ?? [text];
+    // `.` does not match newlines without the `s` flag. Using it here silently
+    // flattened Markdown while streaming (for example, `Next:\n1.` became
+    // `Next:1.`), so the UI could no longer parse result-action sections.
+    const chunks = text.match(/[\s\S]{1,6}/g) ?? [text];
     for (const chunk of chunks) {
       await delay(streamSpeed);
       if (!mockStreaming || activeAssistantId !== id) return;
@@ -660,7 +663,7 @@ export function createMockTransport(): MockTransport {
   }
 
   async function streamThinking(id: string, text: string): Promise<void> {
-    const chunks = text.match(/.{1,8}/g) ?? [text];
+    const chunks = text.match(/[\s\S]{1,8}/g) ?? [text];
     for (const chunk of chunks) {
       await delay(streamSpeed * 0.5);
       emit({ type: "chat/thinkingDelta", id, delta: chunk });

@@ -5,6 +5,7 @@
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS]
  */
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ChatTimelineItem, ChatToolView } from "@afx/shared";
@@ -238,7 +239,8 @@ Still visible.`,
     expect(screen.getByText("1 turn")).toBeInTheDocument();
   });
 
-  it("shows an SDD guide card when assistant edits create spec documents", () => {
+  it("shows an SDD guide card when assistant edits create spec documents", async () => {
+    const user = userEvent.setup();
     const onDraft = vi.fn();
     const onOpenPreview = vi.fn();
     const onOpenWorkbench = vi.fn();
@@ -271,6 +273,14 @@ Next:
     expect(guide).toHaveTextContent("SDD guide");
     expect(guide).toHaveTextContent("billing-export");
     expect(guide).toHaveTextContent("spec.md");
+    expect(screen.queryByTestId("result-actions-row")).not.toBeInTheDocument();
+    await user.click(within(guide).getByRole("button", { name: "More SDD actions" }));
+    expect(
+      (await screen.findByText("/afx-design review billing-export")).closest('[role="menuitem"]'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("/afx-task verify billing-export").closest('[role="menuitem"]'),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(guide).getByRole("button", { name: /Preview/i }));
     expect(onOpenPreview).toHaveBeenCalledWith("docs/specs/billing-export/spec.md");
@@ -281,6 +291,57 @@ Next:
     // The recommended action advances the lifecycle (spec → design), drafted into chat.
     fireEvent.click(within(guide).getByRole("button", { name: /Author design/i }));
     expect(onDraft).toHaveBeenCalledWith("/afx-design author billing-export");
+  });
+
+  it("keeps a dismissed SDD guide hidden locally and recreates it for a new generation", () => {
+    localStorage.clear();
+    const firstMessages = [
+      msg("u1", "user", "create billing export spec", MAY_16),
+      msg("a1", "assistant", "Created the spec.", MAY_16 + 1_000, [
+        tool("write-spec", "write_file", "docs/specs/billing-export/spec.md"),
+      ]),
+    ];
+    const props = {
+      noteEvents: [],
+      commandOutputs: [],
+      onSendCommand: noop,
+      onInsertCommand: noop,
+    };
+    const { unmount } = render(<ConversationTimeline messages={firstMessages} {...props} />);
+
+    const firstGuide = screen.getByTestId("sdd-workflow-guide-card");
+    expect(firstGuide).toHaveAttribute("data-guide-id", "sdd-guide-a1");
+    fireEvent.click(within(firstGuide).getByRole("button", { name: "Dismiss SDD guide" }));
+    expect(screen.queryByTestId("sdd-workflow-guide-card")).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem("afx.chat.dismissedSddGuides.v1") ?? "[]")).toContain(
+      "sdd-guide-a1",
+    );
+
+    // A remount models reopening the same local conversation: the same guide
+    // remains dismissed because the dismissal is intentionally local-only.
+    unmount();
+    const reopened = render(<ConversationTimeline messages={firstMessages} {...props} />);
+    expect(screen.queryByTestId("sdd-workflow-guide-card")).not.toBeInTheDocument();
+
+    // A later assistant edit has a new guide id and must recreate the card.
+    reopened.rerender(
+      <ConversationTimeline
+        messages={[
+          ...firstMessages,
+          msg("u2", "user", "create invoice archive spec", MAY_16 + 2_000),
+          msg("a2", "assistant", "Created another spec.", MAY_16 + 3_000, [
+            tool("write-next-spec", "write_file", "docs/specs/invoice-archive/spec.md"),
+          ]),
+        ]}
+        {...props}
+      />,
+    );
+    expect(screen.getByTestId("sdd-workflow-guide-card")).toHaveAttribute(
+      "data-guide-id",
+      "sdd-guide-a2",
+    );
+    expect(screen.getByTestId("sdd-workflow-guide-card")).toHaveTextContent("invoice-archive");
+    localStorage.clear();
   });
 
   it("keeps notes and compaction rows standalone without adding turns", () => {

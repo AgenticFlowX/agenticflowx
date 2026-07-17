@@ -10,6 +10,7 @@
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-DATA]
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ModifiedFile } from "../lib/derive-modified-files";
@@ -88,7 +89,8 @@ describe("FilesPanelBody", () => {
     expect(screen.getByTestId("files-panel-pill")).toHaveAttribute("data-status", "running");
   });
 
-  it("renders SDD next-step actions for changed spec docs", () => {
+  it("renders settled SDD docs as one compact summary row with grouped actions", async () => {
+    const user = userEvent.setup();
     const onOpenPreview = vi.fn();
     const onOpenWorkbench = vi.fn();
     const onCommand = vi.fn();
@@ -102,13 +104,18 @@ describe("FilesPanelBody", () => {
       />,
     );
 
-    expect(screen.getByTestId("sdd-modified-guide")).toBeInTheDocument();
-    expect(screen.getByText("Spec")).toBeInTheDocument();
+    const guide = screen.getByTestId("sdd-modified-guide");
+    expect(guide).toHaveAttribute("data-status", "ok");
+    expect(guide).toHaveTextContent("1 changed doc");
+    expect(guide).toHaveClass("h-7", "max-h-7");
+    expect(within(guide).queryByText("spec.md")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview" }));
-    fireEvent.click(screen.getByRole("button", { name: "Open SDD Studio" }));
-    fireEvent.click(screen.getByRole("button", { name: "Refine spec" }));
-    fireEvent.click(screen.getByRole("button", { name: "Journal" }));
+    await user.click(within(guide).getByRole("button", { name: "Preview" }));
+    await user.click(within(guide).getByRole("button", { name: "Open SDD Studio" }));
+    await user.click(within(guide).getByRole("button", { name: "More SDD document actions" }));
+    await user.click(screen.getByRole("menuitem", { name: /Refine spec/ }));
+    await user.click(within(guide).getByRole("button", { name: "More SDD document actions" }));
+    await user.click(screen.getByRole("menuitem", { name: "Journal" }));
 
     expect(onOpenPreview).toHaveBeenCalledWith("docs/specs/checkout-redesign/spec.md");
     expect(onOpenWorkbench).toHaveBeenCalledTimes(1);
@@ -119,15 +126,13 @@ describe("FilesPanelBody", () => {
     );
   });
 
-  it("keeps SDD guidance compact while signaling additional changed SDD docs", () => {
+  it("keeps per-document actions and exactly one journal action in More", async () => {
+    const user = userEvent.setup();
     render(
       <FilesPanelBody
         files={[
           file("docs/specs/checkout-redesign/spec.md"),
           file("docs/specs/checkout-redesign/design.md"),
-          file("docs/specs/checkout-redesign/tasks.md"),
-          file("docs/specs/checkout-redesign/journal.md"),
-          file("docs/specs/checkout-redesign/checkout-redesign.md"),
         ]}
         onOpenFile={vi.fn()}
         onOpenPreview={vi.fn()}
@@ -137,9 +142,42 @@ describe("FilesPanelBody", () => {
     );
 
     const guide = screen.getByTestId("sdd-modified-guide");
-    expect(guide).toHaveTextContent("5 changed docs");
-    expect(guide).toHaveTextContent("+2 more SDD docs");
-    expect(within(guide).queryByText("journal.md")).not.toBeInTheDocument();
+    expect(guide).toHaveTextContent("2 changed docs");
+    expect(within(guide).queryByText("spec.md")).not.toBeInTheDocument();
+    expect(within(guide).queryByText("design.md")).not.toBeInTheDocument();
+
+    await user.click(within(guide).getByRole("button", { name: "More SDD document actions" }));
+    expect(screen.getByRole("menuitem", { name: /Refine spec.*spec\.md/ })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /Refine design.*design\.md/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem", { name: "Journal" })).toHaveLength(1);
+  });
+
+  it("withholds actions for unsettled docs and reports running and error states", () => {
+    const props = {
+      onOpenFile: vi.fn(),
+      onOpenPreview: vi.fn(),
+      onOpenWorkbench: vi.fn(),
+      onCommand: vi.fn(),
+    };
+    const { rerender } = render(
+      <FilesPanelBody
+        files={[file("docs/specs/checkout-redesign/spec.md", "running")]}
+        {...props}
+      />,
+    );
+
+    let guide = screen.getByTestId("sdd-modified-guide");
+    expect(guide).toHaveAttribute("data-status", "running");
+    expect(guide).toHaveTextContent("1 doc updating");
+    expect(within(guide).queryByRole("button")).not.toBeInTheDocument();
+
+    rerender(
+      <FilesPanelBody files={[file("docs/specs/checkout-redesign/spec.md", "error")]} {...props} />,
+    );
+    guide = screen.getByTestId("sdd-modified-guide");
+    expect(guide).toHaveAttribute("data-status", "error");
+    expect(guide).toHaveTextContent("1 doc needs attention");
+    expect(within(guide).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("does not render SDD guide for non-SDD markdown", () => {

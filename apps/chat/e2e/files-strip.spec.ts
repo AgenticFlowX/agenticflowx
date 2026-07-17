@@ -35,6 +35,19 @@ async function fireScenario(page: Page, label: string): Promise<void> {
   await page.keyboard.press("Escape");
 }
 
+async function clearDebugLog(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("tab", { name: "Log" }).click();
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.getByText("No messages yet")).toBeVisible();
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+}
+
+async function openDebugLog(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click({ force: true });
+  await page.getByRole("tab", { name: "Log" }).click();
+}
+
 function modifiedPanelHeader(page: Page) {
   return page.locator("#composer-panel-modified-files");
 }
@@ -133,6 +146,70 @@ test.describe("Modified files strip (FR-10)", () => {
     await expect(modifiedPanelHeader(page)).toBeVisible({
       timeout: 5_000,
     });
+  });
+
+  // E2E-08: source navigation stays in the file pills while SDD follow-ups use
+  // one fixed-height summary row and a grouped overflow menu.
+  test("changed SDD docs keep one compact action row with grouped follow-ups", async ({ page }) => {
+    await page.goto("/");
+    await fireScenario(page, "SDD guide");
+    await expect(page.getByTestId("sdd-workflow-guide-card")).toBeVisible({ timeout: 10_000 });
+
+    const changedDocs = page.getByTestId("sdd-modified-guide");
+    await expect(changedDocs).toHaveCount(1);
+    await expect(changedDocs).toContainText("2 changed docs");
+    await expect(changedDocs).toHaveAttribute("data-status", "ok");
+    await expect(changedDocs.getByText("spec.md")).toHaveCount(0);
+    await expect(changedDocs.getByText("design.md")).toHaveCount(0);
+    const compactBox = await changedDocs.boundingBox();
+    expect(compactBox).not.toBeNull();
+    expect(compactBox?.height).toBeLessThanOrEqual(28);
+
+    // Isolate explicit user actions from the scenario's automatic Preview.
+    await clearDebugLog(page);
+
+    await page
+      .getByRole("button", {
+        name: "Open docs/specs/checkout-redesign/spec.md at line 1",
+      })
+      .click();
+    await changedDocs.getByRole("button", { name: "Preview" }).click();
+
+    const composer = page.locator("#afx-chat-composer");
+    const more = changedDocs.getByRole("button", { name: "More SDD document actions" });
+    await more.click();
+    await expect(page.getByRole("menuitem", { name: /Refine spec.*spec\.md/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: /Refine design.*design\.md/ })).toBeVisible();
+    await expect(page.getByRole("menuitem", { name: "Journal" })).toHaveCount(1);
+    await page.getByRole("menuitem", { name: /Refine spec.*spec\.md/ }).click();
+    await expect(composer).toHaveValue("/afx-spec refine checkout-redesign ");
+    await more.click();
+    await page.getByRole("menuitem", { name: "Journal" }).click();
+    await expect(composer).toHaveValue("/afx-session capture --links checkout-redesign ");
+
+    await changedDocs.getByRole("button", { name: "Open SDD Studio" }).click();
+
+    await openDebugLog(page);
+    const openFileEntries = page.getByRole("button", {
+      name: "Toggle entry chat/openFile",
+    });
+    await expect(openFileEntries).toHaveCount(2);
+
+    await openFileEntries.nth(0).click();
+    const sourcePayload = openFileEntries.nth(0).locator("..").locator("pre");
+    await expect(sourcePayload).toContainText('"path": "docs/specs/checkout-redesign/spec.md"');
+    await expect(sourcePayload).toContainText('"line": 1');
+    await expect(sourcePayload).not.toContainText('"mode"');
+
+    await openFileEntries.nth(1).click();
+    const previewPayload = openFileEntries.nth(1).locator("..").locator("pre");
+    await expect(previewPayload).toContainText('"path": "docs/specs/checkout-redesign/spec.md"');
+    await expect(previewPayload).toContainText('"mode": "afxPreview"');
+
+    const studioEntries = page.getByRole("button", {
+      name: "Toggle entry chat/openWorkbench",
+    });
+    await expect(studioEntries).toHaveCount(1);
   });
 });
 

@@ -18,13 +18,21 @@
  */
 import { useState } from "react";
 
-import { BookOpenCheck, ChevronDown, Layers3, PenLine, StickyNote } from "lucide-react";
+import { BookOpenCheck, ChevronDown, Layers3, MoreHorizontal, StickyNote } from "lucide-react";
 
 import {
   classifySddDocumentPath,
   sddJournalActionForPath,
   sddPrimaryActionForPath,
 } from "@afx/shared";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@afx/ui/components/dropdown-menu";
 import { cn } from "@afx/ui/lib/utils";
 
 import type { ModifiedFile } from "../lib/derive-modified-files";
@@ -112,93 +120,119 @@ function SddModifiedGuide({
   onOpenWorkbench?: () => void;
   onCommand?: (command: string, mode?: "insert" | "send") => void;
 }) {
-  const visibleFiles = files.slice(0, 3);
-  const overflowFiles = files.length - visibleFiles.length;
+  const settledFiles = files.filter((file) => file.status === "ok");
+  const previewFile = settledFiles[0];
+  const documentActions = settledFiles.flatMap((file) => {
+    const action = sddPrimaryActionForPath(file.path);
+    return action ? [{ ...action, path: file.path }] : [];
+  });
+  const journalAction = previewFile ? sddJournalActionForPath(previewFile.path) : null;
+  const status = files.some((file) => file.status === "running")
+    ? "running"
+    : files.some((file) => file.status === "error")
+      ? "error"
+      : "ok";
+  const errorCount = files.filter((file) => file.status === "error").length;
+  const summary =
+    status === "running"
+      ? `${files.length} ${files.length === 1 ? "doc" : "docs"} updating`
+      : status === "error"
+        ? `${errorCount} ${errorCount === 1 ? "doc needs" : "docs need"} attention`
+        : `${files.length} changed ${files.length === 1 ? "doc" : "docs"}`;
+
   return (
     <section
       data-testid="sdd-modified-guide"
-      aria-label="SDD next steps"
-      className="rounded-md border border-border/60 border-l-2 border-l-afx-brand/50 bg-background/40 p-1.5"
+      data-status={status}
+      aria-label="SDD changed document actions"
+      className="flex h-7 max-h-7 min-w-0 items-center gap-1 rounded-md border border-border/60 border-l-2 border-l-afx-brand/50 bg-background/40 px-1"
     >
-      <div className="mb-1 flex min-w-0 items-center gap-1.5">
-        <StickyNote size={12} className="shrink-0 text-afx-brand" aria-hidden />
+      <div className="flex min-w-0 flex-1 items-center gap-1" aria-live="polite">
+        <StickyNote
+          size={11}
+          className={cn(
+            "shrink-0",
+            status === "running"
+              ? "text-afx-brand-soft"
+              : status === "error"
+                ? "text-amber-500"
+                : "text-afx-success",
+          )}
+          aria-hidden
+        />
         <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.13em] text-afx-brand-soft">
-          SDD next
+          SDD
         </span>
-        <span className="min-w-0 truncate text-[10px] text-muted-foreground">
-          {files.length} changed {files.length === 1 ? "doc" : "docs"}
-        </span>
-        {onOpenWorkbench ? (
-          <button
-            type="button"
-            onClick={onOpenWorkbench}
-            className="ml-auto inline-flex h-5 shrink-0 items-center gap-1 rounded-sm border border-border/60 bg-background/70 px-1.5 font-mono text-[10px] text-foreground/80 hover:bg-muted"
-            aria-label="Open SDD Studio"
-          >
-            <Layers3 size={10} aria-hidden />
-            Studio
-          </button>
-        ) : null}
+        <span className="min-w-0 truncate text-[10px] text-muted-foreground">{summary}</span>
       </div>
-      <ul className="flex flex-col gap-1">
-        {visibleFiles.map((file) => {
-          const info = classifySddDocumentPath(file.path);
-          const primary = sddPrimaryActionForPath(file.path);
-          const journal = sddJournalActionForPath(file.path);
-          if (!info) return null;
-          return (
-            <li
-              key={file.path}
-              className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-1.5 gap-y-1 rounded-sm bg-background/55 px-1.5 py-1"
+      {previewFile && onOpenPreview ? (
+        <GuideActionButton
+          label="Preview"
+          icon={BookOpenCheck}
+          onClick={() => onOpenPreview(previewFile.path)}
+        />
+      ) : null}
+      {previewFile && onOpenWorkbench ? (
+        <GuideActionButton
+          label="Studio"
+          ariaLabel="Open SDD Studio"
+          icon={Layers3}
+          onClick={onOpenWorkbench}
+        />
+      ) : null}
+      {onCommand && (documentActions.length > 0 || journalAction) ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="More SDD document actions"
+              className="inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm border border-border/60 bg-background/70 px-1.5 font-mono text-[10px] text-foreground/80 hover:bg-muted"
             >
-              <span className="rounded-sm border border-border/60 px-1 font-mono text-[9px] uppercase text-muted-foreground">
-                {info.label}
-              </span>
-              <span className="min-w-0 truncate text-[11px] text-foreground/90" title={file.path}>
-                {file.path.split("/").pop() ?? file.path}
-              </span>
-              <span className="col-span-2 flex min-w-0 flex-wrap gap-1">
-                {onOpenPreview ? (
-                  <GuideActionButton
-                    label="Preview"
-                    icon={BookOpenCheck}
-                    onClick={() => onOpenPreview(file.path)}
-                  />
-                ) : null}
-                {primary && onCommand ? (
-                  <GuideActionButton
-                    label={primary.label}
-                    icon={PenLine}
-                    onClick={() => onCommand(primary.command, primary.mode)}
-                  />
-                ) : null}
-                {journal && onCommand ? (
-                  <GuideActionButton
-                    label="Journal"
-                    icon={StickyNote}
-                    onClick={() => onCommand(journal.command, journal.mode)}
-                  />
-                ) : null}
-              </span>
-            </li>
-          );
-        })}
-        {overflowFiles > 0 ? (
-          <li className="rounded-sm border border-border/60 bg-background/45 px-1.5 py-1 font-mono text-[10px] text-muted-foreground">
-            +{overflowFiles} more SDD {overflowFiles === 1 ? "doc" : "docs"}
-          </li>
-        ) : null}
-      </ul>
+              <MoreHorizontal size={10} aria-hidden />
+              <span className="truncate">More</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 max-w-[calc(100vw-1rem)]">
+            <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-[0.12em]">
+              Changed SDD documents
+            </DropdownMenuLabel>
+            {documentActions.map((action) => (
+              <DropdownMenuItem
+                key={`${action.path}:${action.command}`}
+                className="flex min-w-0 items-center justify-between gap-2"
+                onClick={() => onCommand(action.command, action.mode)}
+              >
+                <span className="truncate">{action.label}</span>
+                <span className="max-w-28 truncate font-mono text-[9px] text-muted-foreground">
+                  {action.path.split("/").pop() ?? action.path}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            {documentActions.length > 0 && journalAction ? <DropdownMenuSeparator /> : null}
+            {journalAction ? (
+              <DropdownMenuItem
+                className="flex items-center gap-2"
+                onClick={() => onCommand(journalAction.command, journalAction.mode)}
+              >
+                <StickyNote size={11} aria-hidden />
+                Journal
+              </DropdownMenuItem>
+            ) : null}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </section>
   );
 }
 
 function GuideActionButton({
   label,
+  ariaLabel,
   icon: Icon,
   onClick,
 }: {
   label: string;
+  ariaLabel?: string;
   icon: typeof StickyNote;
   onClick: () => void;
 }) {
@@ -206,7 +240,8 @@ function GuideActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-5 min-w-0 items-center gap-1 rounded-sm border border-border/60 bg-background/70 px-1.5 font-mono text-[10px] text-foreground/80 hover:bg-muted"
+      aria-label={ariaLabel}
+      className="inline-flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm border border-border/60 bg-background/70 px-1.5 font-mono text-[10px] text-foreground/80 hover:bg-muted"
     >
       <Icon size={10} aria-hidden />
       <span className="truncate">{label}</span>

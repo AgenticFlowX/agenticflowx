@@ -85,19 +85,14 @@ export function deriveSddWorkflowGuide(
   const primaryAction = sddPrimaryActionForPath(primary.path);
   const journalAction = sddJournalActionForPath(primary.path);
   const nextStepAction = nextStepActionForKind(primary.kind, feature);
-  const preferredResultAction = resultActions.find(
-    (action) => action.status !== "unknown" && actionMatchesKind(action, primary.kind),
-  );
-  const resultAlternatives = resultActions
-    .filter((action) => action.status !== "unknown")
-    .map(toGuideAction);
 
-  // Same-document follow-ups: refine, journal, and any agent-surfaced actions.
+  // One action owner per SDD turn: same-document follow-ups and parsed agent
+  // actions live in the guide overflow. EventBody suppresses the separate
+  // Run Next rail whenever this guide exists.
   const followUps = dedupeActions([
-    ...(preferredResultAction ? [toGuideAction(preferredResultAction)] : []),
     ...(primaryAction ? [primaryAction] : []),
     ...(journalAction ? [journalAction] : []),
-    ...resultAlternatives,
+    ...resultActions.filter((action) => action.status !== "unknown").map(toGuideAction),
   ]);
 
   // Phase-aware: recommend advancing to the next lifecycle step (spec → design →

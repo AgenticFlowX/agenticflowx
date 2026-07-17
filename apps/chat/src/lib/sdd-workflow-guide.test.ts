@@ -50,10 +50,13 @@ Next:
         primary: true,
       }),
     ]);
-    // The same-document refine is demoted to an alternative, alongside agent actions.
+    // The guide is the single action owner for SDD turns, including parsed
+    // agent actions that would otherwise render in a separate Run Next rail.
     const alternativeCommands = guide?.alternatives.map((action) => action.command);
     expect(alternativeCommands).toContain("/afx-spec refine billing-export");
+    expect(alternativeCommands).toContain("/afx-session capture --links billing-export");
     expect(alternativeCommands).toContain("/afx-design review billing-export");
+    expect(alternativeCommands).toContain("/afx-task verify billing-export");
   });
 
   it("uses result actions to choose the current SDD phase when several docs changed", () => {
@@ -103,9 +106,12 @@ Next:
       path: "docs/specs/billing-export/tasks.md",
       primary: true,
     });
-    // The agent-surfaced verify action remains available as an alternative.
+    // Agent-surfaced actions stay reachable in the guide overflow.
     expect(guide?.alternatives.map((action) => action.command)).toContain(
       "/afx-task verify billing-export",
+    );
+    expect(guide?.alternatives.map((action) => action.command)).toContain(
+      "/afx-task status billing-export",
     );
   });
 

@@ -28,6 +28,7 @@ import {
   Scissors,
   Terminal,
   UserRound,
+  X,
 } from "lucide-react";
 
 import type { ChatMessageView, ChatTimelineItem, ChatToolView } from "@afx/shared";
@@ -1019,11 +1020,13 @@ function EventBody({
             onSendCommand={onSendCommand}
             onInsertCommand={onInsertCommand}
           />
-          <ResultActions
-            actions={resultActions}
-            onSend={(command) => onSendCommand(command)}
-            onInsert={(command) => onInsertCommand(command)}
-          />
+          {sddGuide ? null : (
+            <ResultActions
+              actions={resultActions}
+              onSend={(command) => onSendCommand(command)}
+              onInsert={(command) => onInsertCommand(command)}
+            />
+          )}
           <AssistantMeta message={event.message} />
         </div>
       );
@@ -1101,7 +1104,9 @@ function SddWorkflowGuideCard({
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
 }) {
-  if (!guide) return null;
+  const [dismissedGuideIds, setDismissedGuideIds] =
+    useState<ReadonlySet<string>>(readDismissedSddGuideIds);
+  if (!guide || dismissedGuideIds.has(guide.id)) return null;
   const visibleFiles = guide.files.slice(0, 3);
   const overflowFiles = guide.files.length - visibleFiles.length;
   const overflowActions = guide.alternatives.slice(0, 6);
@@ -1109,6 +1114,7 @@ function SddWorkflowGuideCard({
   return (
     <section
       data-testid="sdd-workflow-guide-card"
+      data-guide-id={guide.id}
       aria-label="SDD workflow guide"
       className="my-2 rounded-md border border-border/60 border-l-2 border-l-afx-brand/50 bg-background/40 p-2 shadow-sm"
     >
@@ -1122,6 +1128,21 @@ function SddWorkflowGuideCard({
         <span className="rounded-sm border border-border/70 px-1 font-mono text-[9px] uppercase text-muted-foreground">
           {guide.currentStep}
         </span>
+        <button
+          type="button"
+          className="ml-auto inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+          aria-label="Dismiss SDD guide"
+          title="Dismiss this SDD guide"
+          onClick={() => {
+            const next = new Set(dismissedGuideIds);
+            next.add(guide.id);
+            const bounded = new Set([...next].slice(-50));
+            writeDismissedSddGuideIds(bounded);
+            setDismissedGuideIds(bounded);
+          }}
+        >
+          <X size={12} aria-hidden />
+        </button>
       </div>
       <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
         {visibleFiles.map((file) => (
@@ -1221,6 +1242,28 @@ function SddWorkflowGuideCard({
       </div>
     </section>
   );
+}
+
+const DISMISSED_SDD_GUIDES_KEY = "afx.chat.dismissedSddGuides.v1";
+
+function readDismissedSddGuideIds(): ReadonlySet<string> {
+  try {
+    const raw = globalThis.localStorage?.getItem(DISMISSED_SDD_GUIDES_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((value): value is string => typeof value === "string"));
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedSddGuideIds(ids: ReadonlySet<string>): void {
+  try {
+    globalThis.localStorage?.setItem(DISMISSED_SDD_GUIDES_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Restricted webviews may deny storage; in-memory dismissal still works.
+  }
 }
 
 function SddGuideCommandButton({

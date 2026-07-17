@@ -195,6 +195,24 @@ describe("createMockTransport", () => {
     );
     t.dispose();
   });
+
+  it("preserves Markdown newlines while streaming the SDD guide scenario", async () => {
+    vi.useFakeTimers();
+    const t = createMockTransport();
+    const deltas: string[] = [];
+    t.setStreamSpeed(1);
+    t.on("chat/messageDelta", (msg) => deltas.push(msg.delta));
+
+    t.scenarios["sdd-guide-actions"]?.();
+    await vi.runAllTimersAsync();
+
+    expect(deltas.join("")).toContain(
+      "Next:\n1. /afx-design review checkout-redesign\n2. /afx-task verify checkout-redesign",
+    );
+    t.dispose();
+    vi.useRealTimers();
+  });
+
   it("disconnected scenario fires runtime status running=false", () => {
     const t = createMockTransport();
     let running: boolean | undefined;
