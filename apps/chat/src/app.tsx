@@ -139,6 +139,18 @@ export default function App({ transport }: AppProps) {
           }
         });
       }),
+      bridgeOn("chat/draftSet", (msg) => {
+        setActiveTab("chat");
+        handleDraftChange(msg.content);
+        window.requestAnimationFrame(() => {
+          const el = document.getElementById("afx-chat-composer");
+          if (el instanceof HTMLTextAreaElement) {
+            el.focus();
+            const end = el.value.length;
+            el.setSelectionRange(end, end);
+          }
+        });
+      }),
       bridgeOn("chat/toast", (msg) => {
         const duration = msg.durationMs;
         if (msg.tone === "success") {

@@ -276,6 +276,40 @@ describe("chat App", () => {
     );
   });
 
+  it("replaces the composer draft when Pi sets editor text", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+        },
+      });
+      emitChatState(transport);
+    });
+
+    const composer = await screen.findByRole("textbox", { name: "Chat composer" });
+    fireEvent.change(composer, { target: { value: "keep this old draft" } });
+    expect(composer).toHaveValue("keep this old draft");
+
+    act(() => {
+      transport.emit({ type: "chat/draftSet", content: "Review this exact prompt" });
+    });
+
+    await waitFor(() => expect(composer).toHaveValue("Review this exact prompt"));
+    expect(composer).toHaveFocus();
+    expect((composer as HTMLTextAreaElement).selectionStart).toBe(
+      "Review this exact prompt".length,
+    );
+  });
+
   /**
    * @see docs/specs/213-app-chat-history/spec.md [FR-1] [FR-3] [FR-5]
    * @see docs/specs/213-app-chat-history/design.md [DES-TEST]

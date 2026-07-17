@@ -1133,6 +1133,15 @@ export type AgentToChat =
    */
   | { type: "chat/draftAppend"; content: string }
   /**
+   * Replace the chat composer draft without sending it. Pi extensions use this
+   * for `set_editor_text`; unlike `chat/draftAppend`, an empty string clears the
+   * current draft and content is preserved exactly.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-1]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
+   */
+  | { type: "chat/draftSet"; content: string }
+  /**
    * Active AFX document context for the composer doc-actions strip and the
    * mode-suggest onboarding strip. Posted by `sprint-context.ts` whenever the
    * active editor changes. `format` distinguishes sprint single-doc files from

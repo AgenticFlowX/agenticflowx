@@ -46,6 +46,15 @@ describe("chat-foundation shared protocol", () => {
     expect(message.commands[0]?.source).toBe("skill");
   });
 
+  it("supports replacing the composer draft from a runtime UI request", () => {
+    const message: AgentToChat = {
+      type: "chat/draftSet",
+      content: "Review this exact prompt",
+    };
+
+    expect(message.content).toBe("Review this exact prompt");
+  });
+
   it("carries auth method on existing model-selection messages", () => {
     const select: ChatToAgent = {
       type: "chat/setModel",

@@ -467,7 +467,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   let webview: vscode.Webview | null = null;
   let chatReady = false;
-  const pendingDraftAppends: string[] = [];
+  const pendingDraftMutations: Array<
+    { type: "chat/draftAppend"; content: string } | { type: "chat/draftSet"; content: string }
+  > = [];
   const pendingSettingsTargets: SettingsOpenTarget[] = [];
   const pendingToasts: Array<{
     tone: "success" | "info" | "error";
@@ -857,18 +859,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
   function markChatReady(): void {
     chatReady = true;
-    flushPendingDraftAppends();
+    flushPendingDraftMutations();
     flushPendingSettingsTargets();
     flushPendingToasts();
     postTelemetryState();
     void scheduleOAuthProactiveRefresh();
   }
 
-  function flushPendingDraftAppends(): void {
+  function flushPendingDraftMutations(): void {
     if (!webview || !chatReady) return;
-    if (pendingDraftAppends.length === 0) return;
-    for (const content of pendingDraftAppends.splice(0, pendingDraftAppends.length)) {
-      post({ type: "chat/draftAppend", content });
+    if (pendingDraftMutations.length === 0) return;
+    for (const mutation of pendingDraftMutations.splice(0, pendingDraftMutations.length)) {
+      post(mutation);
     }
   }
 
@@ -1846,7 +1848,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
           return;
         }
         case "set_editor_text": {
-          uiLog.debug("set_editor_text", { text: evt.text });
+          const mutation = { type: "chat/draftSet" as const, content: evt.text };
+          if (!webview || !chatReady) {
+            pendingDraftMutations.push(mutation);
+          } else {
+            post(mutation);
+          }
           return;
         }
         default: {
@@ -4156,7 +4163,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const insertion = content.trim();
       if (!insertion) return Promise.resolve();
       if (!webview || !chatReady) {
-        pendingDraftAppends.push(insertion);
+        pendingDraftMutations.push({ type: "chat/draftAppend", content: insertion });
         return Promise.resolve();
       }
       post({ type: "chat/draftAppend", content: insertion });

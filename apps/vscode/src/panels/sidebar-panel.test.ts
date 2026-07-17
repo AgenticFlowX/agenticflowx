@@ -4027,6 +4027,29 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.onStderr).toHaveBeenCalledOnce();
   });
 
+  it("buffers Pi set_editor_text requests until chat is ready, then replaces the draft", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    listener?.({
+      type: "ui_request",
+      id: "set-editor-1",
+      method: "set_editor_text",
+      text: "Review this exact prompt",
+    });
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/draftSet" }),
+    );
+
+    inbound.fire({ type: "chat/ready" });
+    await flushAsyncWork(2);
+
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "chat/draftSet",
+      content: "Review this exact prompt",
+    });
+  });
+
   describe("runCommand", () => {
     it("allows read-only shell execution in Explore mode", () => {
       mockAfxConfiguration({ "mode.active": "explore" });
