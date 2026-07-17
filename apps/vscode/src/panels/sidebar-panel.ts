@@ -1071,12 +1071,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   /**
-   * Reactive auth-error recovery. On the first provider auth
-   * failure in a turn, restart the runtime once through the single restart owner
+   * Reactive auth-error recovery. For an AFX-managed provider, the first auth
+   * failure in a turn restarts the runtime once through the single restart owner
    * (`runtimeMonitor.restart`) — the respawn re-resolves credentials via
    * getSelectedProviderKey (refresh-on-read), so no explicit refresh call is
-   * needed — then replay the failed prompt exactly once. A second consecutive
-   * auth_error, or a missing replayable prompt, fails the turn closed with no
+   * needed — then replays the failed prompt exactly once. External runtimes own
+   * their credentials, so they fail closed with runtime-specific sign-in guidance
+   * instead of claiming that an AFX refresh can repair them. A second consecutive
+   * managed auth_error, or a missing replayable prompt, also fails closed with no
    * silent cross-method fallback.
    *
    * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
@@ -1085,6 +1087,17 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function recoverFromAuthError(evt: Extract<AgentEvent, { type: "auth_error" }>): void {
     const requestId = state.currentRequestId ?? undefined;
     clearTurnStartTimeout();
+
+    if (currentModel?.source === "external-agent") {
+      const runtimeLabel =
+        currentModel.instanceLabel ?? currentModel.instanceId ?? "External agent";
+      const remediation =
+        currentModel.instanceId === "pi"
+          ? piAuthFailureRemediation(runtimeLabel, currentModel.provider)
+          : `Authentication failed in ${runtimeLabel}. This external runtime owns its credentials; AFX Settings sign-in does not apply. Sign in through ${runtimeLabel}, then retry — or switch the model picker to a model under API Providers.`;
+      failActiveTurn(requestId, `${evt.message}\n\n${remediation}`);
+      return;
+    }
 
     // Second consecutive auth failure in the same turn, or nothing to replay:
     // fail closed and prompt for the failing method rather than retry forever.
@@ -4197,6 +4210,28 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
     },
   };
+}
+
+/**
+ * Pi owns both subscription credentials and provider API keys, but `/login`
+ * only repairs subscription-backed providers. Keep recovery guidance aligned
+ * with the selected provider instead of sending API-key users into OAuth.
+ *
+ * @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-7]
+ */
+function piAuthFailureRemediation(runtimeLabel: string, provider: string): string {
+  const prefix = `Authentication failed in ${runtimeLabel}. This external runtime owns its credentials; AFX Settings sign-in does not apply.`;
+  const fallback = "Or switch the model picker to a model under API Providers.";
+
+  if (provider === "openai-codex" || provider === "github-copilot") {
+    return `${prefix} Open Pi CLI in a terminal, run /login, then retry. ${fallback}`;
+  }
+
+  if (provider === "anthropic") {
+    return `${prefix} In Pi, run /login for a Claude subscription or configure ANTHROPIC_API_KEY for API access, then retry. ${fallback}`;
+  }
+
+  return `${prefix} Configure the ${provider} provider API key or environment in Pi, then retry. ${fallback}`;
 }
 
 // -----------------------------------------------------------------------------

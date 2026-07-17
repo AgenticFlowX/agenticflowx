@@ -111,7 +111,8 @@ export function applyAfxOverrides(
     try {
       const config = {
         ...(override.baseUrl ? { baseUrl: override.baseUrl } : {}),
-        ...(override.apiKeyEnv ? { apiKey: override.apiKeyEnv } : {}),
+        // Pi >= 0.77 treats bare strings as literal keys; env lookups require `$NAME`.
+        ...(override.apiKeyEnv ? { apiKey: `$${override.apiKeyEnv}` } : {}),
       };
       if (Object.keys(config).length === 0) continue;
       pi.registerProvider(id, config);

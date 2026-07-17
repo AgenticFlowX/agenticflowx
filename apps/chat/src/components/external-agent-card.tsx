@@ -101,7 +101,7 @@ export function ExternalAgentCard({
               {status === "connected" ? (
                 <>
                   <CircleCheck size={12} className="text-afx-success" />
-                  <span>Connected</span>
+                  <span>RPC connected</span>
                 </>
               ) : status === "disabled" ? (
                 <span className="text-muted-foreground">RPC disabled</span>
@@ -109,6 +109,13 @@ export function ExternalAgentCard({
                 <span className="text-muted-foreground">Not detected</span>
               )}
             </div>
+            {id === "pi" ? (
+              <p className="rounded-sm border border-afx-info/30 bg-afx-info/5 px-2 py-2 text-[10px] text-muted-foreground">
+                Pi owns provider credentials. Use /login for subscriptions, or configure the
+                provider API key or environment in Pi. AFX provider connections do not apply to this
+                runtime.
+              </p>
+            ) : null}
             {onToggleEnabled ? (
               <div className="flex items-center justify-between gap-3 rounded-sm border bg-muted/30 px-2 py-2">
                 <div className="min-w-0">

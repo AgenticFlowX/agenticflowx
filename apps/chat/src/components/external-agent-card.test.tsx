@@ -22,6 +22,10 @@ describe("ExternalAgentCard", () => {
     );
 
     expect(screen.getByText(/3 models/i)).toBeInTheDocument();
+    expect(screen.getByText(/rpc connected/i)).toBeInTheDocument();
+    expect(screen.getByText(/pi owns provider credentials/i)).toHaveTextContent(
+      /\/login for subscriptions.*provider api key or environment/i,
+    );
     fireEvent.click(screen.getByRole("button", { name: /detect/i }));
     expect(onDetectBinary).toHaveBeenCalledOnce();
   });

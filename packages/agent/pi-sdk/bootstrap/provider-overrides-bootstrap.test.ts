@@ -95,7 +95,7 @@ describe("applyAfxOverrides", () => {
     });
     expect(pi.registerProvider).toHaveBeenCalledTimes(1);
     expect(pi.registerProvider).toHaveBeenCalledWith("openai-codex", {
-      apiKey: OPENAI_CODEX_KEY_ENV,
+      apiKey: `$${OPENAI_CODEX_KEY_ENV}`,
     });
     expect(result.overridden).toEqual(["openai-codex"]);
     expect(result.errors).toEqual([]);

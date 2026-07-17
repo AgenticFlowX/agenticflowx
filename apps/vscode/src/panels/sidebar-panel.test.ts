@@ -1740,6 +1740,150 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("restarts and replays an SDK turn once after a provider auth error", async () => {
+    mockAfxConfiguration();
+    const sdkModel: AgentModel = {
+      provider: "openai-codex",
+      id: "gpt-5.5",
+      name: "GPT-5.5",
+      reasoning: true,
+      contextWindow: 400_000,
+      maxTokens: 128_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      instanceLabel: "API Providers",
+      authMethod: "subscription",
+    };
+    agent.setModel.mockResolvedValue(sdkModel);
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const { inbound, postMessage } = setupWithView({ runtimeMonitor });
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "sdk-model",
+      provider: sdkModel.provider,
+      modelId: sdkModel.id,
+      instanceId: sdkModel.instanceId,
+    });
+    await flushAsyncWork(3);
+    inbound.fire({ type: "chat/ready" });
+    inbound.fire({ type: "chat/send", requestId: "sdk-auth", content: "hello" });
+    await flushAsyncWork(2);
+
+    listener?.({ type: "auth_error", provider: "openai-codex", message: "401 unauthorized" });
+    await flushAsyncWork(4);
+
+    expect(runtimeMonitor.restart).toHaveBeenCalledWith("sdk-auth");
+    expect(agent.send).toHaveBeenCalledTimes(2);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Reconnecting your provider",
+      }),
+    );
+  });
+
+  it("does not claim AFX can refresh credentials owned by external Pi", async () => {
+    mockAfxConfiguration();
+    const externalModel: AgentModel = {
+      provider: "openai-codex",
+      id: "gpt-5.5",
+      name: "GPT-5.5",
+      reasoning: true,
+      contextWindow: 400_000,
+      maxTokens: 128_000,
+      source: "external-agent",
+      instanceId: "pi",
+      instanceLabel: "Pi CLI",
+    };
+    agent.setModel.mockResolvedValue(externalModel);
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const { inbound, postMessage } = setupWithView({ runtimeMonitor });
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "external-model",
+      provider: externalModel.provider,
+      modelId: externalModel.id,
+      instanceId: externalModel.instanceId,
+    });
+    await flushAsyncWork(3);
+    inbound.fire({ type: "chat/send", requestId: "external-auth", content: "hello" });
+    await flushAsyncWork(2);
+
+    listener?.({ type: "auth_error", provider: "openai-codex", message: "401 unauthorized" });
+    await flushAsyncWork(2);
+
+    expect(runtimeMonitor.restart).not.toHaveBeenCalled();
+    expect(agent.send).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "external-auth",
+        message: expect.stringMatching(/pi cli.*owns its credentials.*\/login.*api providers/is),
+      }),
+    );
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: "Reconnecting your provider",
+      }),
+    );
+  });
+
+  it("directs external Pi API-key models to provider configuration instead of /login", async () => {
+    mockAfxConfiguration();
+    const externalModel: AgentModel = {
+      provider: "openai",
+      id: "gpt-5.4",
+      name: "GPT-5.4",
+      reasoning: true,
+      contextWindow: 400_000,
+      maxTokens: 128_000,
+      source: "external-agent",
+      instanceId: "pi",
+      instanceLabel: "Pi CLI",
+    };
+    agent.setModel.mockResolvedValue(externalModel);
+    const runtimeMonitor = makeRuntimeMonitorMock();
+    const { inbound, postMessage } = setupWithView({ runtimeMonitor });
+    const listener = firstAgentEventListener();
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "external-api-model",
+      provider: externalModel.provider,
+      modelId: externalModel.id,
+      instanceId: externalModel.instanceId,
+    });
+    await flushAsyncWork(3);
+    inbound.fire({ type: "chat/send", requestId: "external-api-auth", content: "hello" });
+    await flushAsyncWork(2);
+
+    listener?.({ type: "auth_error", provider: "openai", message: "401 unauthorized" });
+    await flushAsyncWork(2);
+
+    expect(runtimeMonitor.restart).not.toHaveBeenCalled();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "external-api-auth",
+        message: expect.stringMatching(
+          /configure the openai provider api key or environment in pi/is,
+        ),
+      }),
+    );
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "external-api-auth",
+        message: expect.stringMatching(/\/login/i),
+      }),
+    );
+  });
+
   it("keeps context-overflow turns alive while Pi compacts and retries", async () => {
     const { inbound, postMessage } = setupWithView();
     const listener = firstAgentEventListener();
