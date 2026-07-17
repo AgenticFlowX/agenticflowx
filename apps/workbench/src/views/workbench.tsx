@@ -1573,7 +1573,7 @@ function studioSignals({
   const specContent = row?.specPath ? content[row.specPath] : "";
   const designContent = row?.designPath ? content[row.designPath] : "";
   const combined = `${specContent}\n${designContent}`;
-  if (/open\s+questions?/i.test(combined)) {
+  if (hasUnresolvedOpenQuestions(combined)) {
     signals.push({
       tone: "warning",
       label: "Questions to resolve",
@@ -1609,6 +1609,60 @@ function studioSignals({
   }
 
   return signals.slice(0, 5);
+}
+
+function hasUnresolvedOpenQuestions(markdown: string): boolean {
+  const heading = /^(#{1,6})\s+Open Questions\b[^\n]*$/gim;
+  let match: RegExpExecArray | null;
+
+  while ((match = heading.exec(markdown)) !== null) {
+    const headingLevel = match[1]?.length ?? 2;
+    const sectionStart = match.index + match[0].length;
+    const remaining = markdown.slice(sectionStart);
+    const nextHeading = remaining.match(new RegExp(`^#{1,${headingLevel}}\\s+`, "m"));
+    const section = remaining
+      .slice(0, nextHeading?.index ?? remaining.length)
+      .replace(/<!--[^]*?-->/g, "")
+      .trim();
+
+    if (openQuestionSectionHasUnresolvedRows(section)) return true;
+  }
+
+  return false;
+}
+
+function openQuestionSectionHasUnresolvedRows(section: string): boolean {
+  if (!section) return false;
+  if (
+    /^(?:[-*]\s*)?(?:none|n\/a|no open questions|all (?:questions )?resolved)[.!]?$/i.test(section)
+  ) {
+    return false;
+  }
+
+  const rows = section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|") && line.endsWith("|"))
+    .map((line) =>
+      line
+        .slice(1, -1)
+        .split("|")
+        .map((cell) => cell.trim()),
+    );
+  const headers = rows[0]?.map((cell) => cell.toLowerCase()) ?? [];
+  const statusIndex = headers.findIndex((cell) => /^(?:status|state)$/.test(cell));
+  const tableRows = rows.slice(2).filter((row) => row.some(Boolean));
+
+  if (tableRows.length > 0) {
+    if (statusIndex < 0) return true;
+    return tableRows.some(
+      (row) => !/^(?:resolved|closed|answered|done|n\/a)$/i.test(row[statusIndex] ?? ""),
+    );
+  }
+
+  const checkboxes = [...section.matchAll(/^\s*[-*]\s+\[([ xX])\]\s+/gm)];
+  if (checkboxes.length > 0) return checkboxes.some((item) => item[1] === " ");
+  return true;
 }
 
 function signalIcon(tone: StudioSignal["tone"]) {
@@ -1918,7 +1972,12 @@ function SignalPanel({
               <p className="min-w-0 flex-1 truncate text-xs font-semibold text-foreground">
                 {signal.label}
               </p>
-              <span className="shrink-0 rounded-sm border border-current/20 px-1 py-0.5 font-mono text-[8px] uppercase tracking-[0.08em] opacity-80">
+              <span
+                className={cn(
+                  "shrink-0 rounded-sm border border-current/20 px-1 py-0.5 font-mono text-[8px] uppercase tracking-[0.08em] opacity-80",
+                  compact && "sr-only",
+                )}
+              >
                 {signalPriorityLabel(signal.tone)}
               </span>
             </div>

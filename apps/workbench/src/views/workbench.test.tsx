@@ -282,6 +282,58 @@ describe("Workbench", () => {
     );
   });
 
+  it("does not flag an Open Questions table when every row is resolved", () => {
+    const completeTasks: FeatureTasksData = {
+      ...FEATURE_TASKS,
+      completed: 2,
+      total: 2,
+      workSessions: [
+        {
+          date: "2026-06-04T11:03:56.000Z",
+          task: "1.1",
+          action: "Verified",
+          filesModified: "spec.md",
+          agent: true,
+          human: true,
+        },
+      ],
+    };
+    renderWorkbench({
+      pipeline: [
+        {
+          ...PIPELINE_ROW,
+          designStatus: "Living",
+          tasksStatus: "Complete",
+          completed: 2,
+          total: 2,
+          featureStatus: "Complete",
+        },
+      ],
+      featureTasks: [completeTasks],
+    });
+
+    dispatchDocContent(
+      PIPELINE_ROW.specPath!,
+      `${SPEC_CONTENT}\n## Open Questions\n\n| # | Question | Status |\n| --- | --- | --- |\n| 1 | Storage path | Resolved |`,
+    );
+
+    const queue = screen.getByTestId("sdd-coach-signal-queue");
+    expect(within(queue).getByText("All clear")).toBeInTheDocument();
+    expect(within(queue).queryByText("Questions to resolve")).not.toBeInTheDocument();
+  });
+
+  it("flags an Open Questions table when a row remains open", () => {
+    renderWorkbench();
+    dispatchDocContent(
+      PIPELINE_ROW.specPath!,
+      `${SPEC_CONTENT}\n## Open Questions\n\n| # | Question | Status |\n| --- | --- | --- |\n| 1 | Storage path | Open |`,
+    );
+
+    expect(
+      within(screen.getByTestId("sdd-coach-signal-queue")).getByText("Questions to resolve"),
+    ).toBeInTheDocument();
+  });
+
   it("opens the SDD feature picker and switches features", async () => {
     const user = userEvent.setup();
     renderWorkbench({
