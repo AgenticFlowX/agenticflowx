@@ -10,8 +10,7 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run --config vitest.config.unit.ts --coverage",
     "test:watch": "vitest --config vitest.config.unit.ts",
-    "test:e2e": "playwright test",
-    "screenshot:ui": "node ./scripts/capture-screenshots.mjs"
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@afx/shared": "workspace:*",
