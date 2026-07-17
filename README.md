@@ -60,6 +60,10 @@ AFX Viewer turns repo markdown into an interactive work surface. Open a spec, de
 Use it to refine, author, validate, review, approve, execute a task, or send a section back to chat without losing the source markdown.
 
 <p align="center">
+  <img src="https://agenticflowx.github.io/assets/readme-previewer-annotated.png" alt="Annotated AFX Viewer rendering a real public AFX spec (App Workbench Canvas): the file path, on-page document actions, as-built notes, references that resolve via @see, and a live Quality Pulse plus Refinement Coach grading all 18 sections" width="100%">
+</p>
+
+<p align="center">
   <img src="https://agenticflowx.github.io/assets/viewer-2.webp" alt="AFX Viewer rendering a design document with workflow actions and section commands" width="100%">
 </p>
 
