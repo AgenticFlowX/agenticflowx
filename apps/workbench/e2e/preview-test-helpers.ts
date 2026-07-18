@@ -13,8 +13,11 @@ import { type Locator, type Page, type TestInfo, expect } from "@playwright/test
 import { type MarkdownFence, nextMarkdownFence } from "../src/lib/markdown-fence";
 
 export const REPO_ROOT = resolve(process.cwd(), "../..");
-export const SCREENSHOT_DIR = resolve(REPO_ROOT, "artifacts/workbench/screenshots");
-export const CORPUS_SCREENSHOT_DIR = resolve(REPO_ROOT, "artifacts/workbench/corpus-screenshots");
+export const SCREENSHOT_DIR = resolve(REPO_ROOT, "apps/vscode-e2e/artifacts/workbench/screenshots");
+export const CORPUS_SCREENSHOT_DIR = resolve(
+  REPO_ROOT,
+  "apps/vscode-e2e/artifacts/workbench/corpus-screenshots",
+);
 
 export interface MarkdownHeading {
   level: number;

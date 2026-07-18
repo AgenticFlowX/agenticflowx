@@ -13,7 +13,7 @@ const LONG_SPEC = "dapi-394-warm-container-app-poc-with-approval-gates-and-long-
 const TASK_COMMAND = `/afx-sprint task ${LONG_SPEC} convert Refs lines to canonical @see comments`;
 const DESIGN_COMMAND = `/afx-sprint design ${LONG_SPEC} add explicit Key Decisions table or N/A note`;
 const SPEC_COMMAND = `/afx-sprint spec ${LONG_SPEC} --approve`;
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/screenshots");
 
 async function fireLongNextScenario(page: Page) {
   await page.goto("/");

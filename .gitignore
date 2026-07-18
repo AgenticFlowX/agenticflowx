@@ -30,9 +30,11 @@ coverage/
 # Release artifacts
 *.vsix
 
-# Local dev artifacts (screenshots, profiling). Kept at repo root so they sit
-# outside any app source tree and don't get picked up by app builds.
-artifacts/
+# Local E2E artifacts (screenshots, video, profiling). The active output lives
+# with the VS Code E2E harness; keep the legacy root ignored until old runs are
+# cleaned up separately.
+/apps/vscode-e2e/artifacts/
+/artifacts/
 
 # OS/editor
 .DS_Store

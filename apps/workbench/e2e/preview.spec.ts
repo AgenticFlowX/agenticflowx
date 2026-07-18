@@ -16,7 +16,7 @@ import {
   type PreviewFixture,
 } from "../src/lib/preview-fixtures.test-data";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/workbench/screenshots");
 
 const AFX_SPEC_PATH = "docs/specs/user-auth/spec.md";
 const AFX_SPEC_CONTENT = `---

@@ -13,6 +13,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "../vscode-e2e/artifacts/test-results/chat",
   // A curated still pass deliberately walks several independent surfaces at
   // retina resolution. Keep this separate from the 30s product-E2E budget.
   timeout: isExtensionCapture ? 240_000 : 30_000,

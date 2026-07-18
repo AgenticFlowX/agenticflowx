@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 
 import { type Page, type TestInfo, expect, test } from "@playwright/test";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/screenshots");
 
 async function selectMode(page: Page, label: "Code" | "Explore" | "Spec"): Promise<void> {
   await page.getByRole("button", { name: "Workspace mode" }).click();

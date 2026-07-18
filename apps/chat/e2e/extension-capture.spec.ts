@@ -4,7 +4,8 @@
  * Renders the production chat webview bundle headless with MockTransport fixture
  * data and captures the surfaces the site uses. These are deterministic visual
  * assets, not Electron extension-host or live-provider/OAuth proof. The historic
- * `capture:extension` command and output root stay stable for downstream users.
+ * The `capture:extension` command stays stable while output is owned by the
+ * VS Code E2E harness.
  * Stills are deviceScaleFactor 2 (retina).
  *
  * Run via `pnpm capture:extension` (see root package.json).
@@ -20,7 +21,7 @@ import { expect, test } from "@playwright/test";
 import type { Browser, Page } from "@playwright/test";
 
 const REPO_ROOT = resolve(process.cwd(), "../..");
-const CAPTURE_ROOT = resolve(REPO_ROOT, "artifacts/extension-captures");
+const CAPTURE_ROOT = resolve(REPO_ROOT, "apps/vscode-e2e/artifacts/extension-captures");
 const CHAT_DIR = resolve(CAPTURE_ROOT, "chat");
 const VIDEO_DIR = resolve(CAPTURE_ROOT, "video");
 const TEMP_DIR = resolve(CAPTURE_ROOT, ".tmp");

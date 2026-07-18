@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 
 import { type Page, type TestInfo, expect, test } from "@playwright/test";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/screenshots");
 
 async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });

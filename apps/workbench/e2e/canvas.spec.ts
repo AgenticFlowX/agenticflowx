@@ -9,7 +9,7 @@ import { resolve } from "node:path";
 
 import { type Locator, expect, test } from "@playwright/test";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/workbench/screenshots");
 const SPEC_PATH = "docs/specs/demo/spec.md";
 const LARGE_SPEC_PATH = "docs/specs/213-app-chat-history/design.md";
 const LARGE_SPEC_CONTENT = readFileSync(resolve(process.cwd(), "../../", LARGE_SPEC_PATH), "utf8");

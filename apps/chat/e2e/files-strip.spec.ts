@@ -15,12 +15,11 @@
 import { type Page, type TestInfo, expect, test } from "@playwright/test";
 
 /**
- * Snapshot helper — writes a screenshot to `test-results/<name>.png` (Playwright
- * creates parent dirs automatically) AND attaches it to the HTML report so the
- * artifact survives outside the volatile per-run trace directory.
+ * Snapshot helper — writes through Playwright's configured E2E artifact root
+ * and attaches the image to the report.
  */
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
-  const path = `test-results/${name}`;
+  const path = testInfo.outputPath(name);
   const body = await page.screenshot({ fullPage: false, path });
   await testInfo.attach(name, { body, contentType: "image/png" });
 }

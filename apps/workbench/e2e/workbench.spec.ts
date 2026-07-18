@@ -19,7 +19,7 @@ const TAB_LABELS = [
   "Board",
   "Notes",
 ];
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/workbench/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/workbench/screenshots");
 const REAL_SPEC_PATH = "docs/specs/410-warranty-claims/spec.md";
 const SDD_STUDIO_VIEWPORTS = [
   { name: "bottom-panel", width: 760, height: 360 },

@@ -12,6 +12,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: "../vscode-e2e/artifacts/test-results/workbench",
   // Capture tests render several real documents and retina screenshots; they
   // are an asset pipeline, not part of the 30s product-E2E budget.
   timeout: isExtensionCapture ? 240_000 : 30_000,

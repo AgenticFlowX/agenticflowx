@@ -10,7 +10,7 @@ import { resolve } from "node:path";
 
 import { type Locator, expect, test } from "@playwright/test";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/screenshots");
 
 async function switchGeometry(toggle: Locator): Promise<{
   trackX: number;

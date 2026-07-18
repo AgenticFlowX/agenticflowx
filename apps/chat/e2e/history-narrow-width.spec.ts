@@ -12,7 +12,7 @@ import { resolve } from "node:path";
 
 import { type Locator, type Page, type TestInfo, expect, test } from "@playwright/test";
 
-const SCREENSHOT_DIR = resolve(process.cwd(), "../../artifacts/chat/screenshots");
+const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/screenshots");
 
 // The sidebar is resized by panel drag, not the viewport; the webview fills the
 // viewport, so a narrow viewport == a narrow container for the container queries.

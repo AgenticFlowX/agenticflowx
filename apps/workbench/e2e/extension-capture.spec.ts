@@ -21,7 +21,7 @@ import type { Browser, Page } from "@playwright/test";
 import { bootInPreviewMode, postPreview } from "./preview-test-helpers";
 
 const REPO_ROOT = resolve(process.cwd(), "../..");
-const CAPTURE_ROOT = resolve(REPO_ROOT, "artifacts/extension-captures");
+const CAPTURE_ROOT = resolve(REPO_ROOT, "apps/vscode-e2e/artifacts/extension-captures");
 const WORKBENCH_DIR = resolve(CAPTURE_ROOT, "workbench");
 const PREVIEWER_DIR = resolve(CAPTURE_ROOT, "previewer");
 const VIDEO_DIR = resolve(CAPTURE_ROOT, "video");
