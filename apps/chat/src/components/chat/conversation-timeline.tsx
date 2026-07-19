@@ -2,6 +2,8 @@
  * Conversation timeline event adapter and rows.
  *
  * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-COMPONENTS] [DES-MESSAGES-EVENT-FLOW]
+ * @see docs/specs/213-app-chat-history/spec.md [FR-15] [FR-16]
+ * @see docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-UI] [DES-PERSISTENT-FLOW]
  */
 import {
   type ReactNode,
@@ -155,11 +157,13 @@ function hasVisibleAssistantMessage(message: ChatMessageView): boolean {
  * guide card renders only under that turn, so it never stacks down the history.
  */
 const LatestSddGuideContext = createContext<string | null>(null);
+const TimelineReadOnlyContext = createContext(false);
 
 export const ConversationTimeline = memo(function ConversationTimeline({
   messages,
   noteEvents,
   commandOutputs,
+  readOnly = false,
   onSendCommand,
   onInsertCommand,
   onOpenPreview,
@@ -168,6 +172,8 @@ export const ConversationTimeline = memo(function ConversationTimeline({
   messages: ChatTimelineItem[];
   noteEvents: ConversationNoteEventView[];
   commandOutputs: ConversationCommandOutputView[];
+  /** Persisted History uses the live timeline renderer without interactive workflow actions. */
+  readOnly?: boolean;
   onSendCommand: (command: string) => void;
   onInsertCommand: (command: string) => void;
   onOpenPreview?: (path: string) => void;
@@ -235,6 +241,7 @@ export const ConversationTimeline = memo(function ConversationTimeline({
   let latestSddGuideMessageId: string | null = null;
   for (const event of events) {
     if (
+      !readOnly &&
       event.kind === "assistant" &&
       event.message.content &&
       deriveSddWorkflowGuide(event.message, []) != null
@@ -248,31 +255,33 @@ export const ConversationTimeline = memo(function ConversationTimeline({
   );
 
   return (
-    <LatestSddGuideContext.Provider value={latestSddGuideMessageId}>
-      {hasErrorEvent ? (
-        <span role="alert" className="sr-only">
-          Conversation contains an error event.
-        </span>
-      ) : null}
-      <ol
-        className="relative flex flex-col"
-        role="log"
-        aria-live="polite"
-        aria-relevant="additions"
-        aria-atomic="false"
-      >
-        {groups.map((group) => (
-          <DayGroup
-            key={group.id}
-            group={group}
-            onSendCommand={onSendCommand}
-            onInsertCommand={onInsertCommand}
-            onOpenPreview={onOpenPreview}
-            onOpenWorkbench={onOpenWorkbench}
-          />
-        ))}
-      </ol>
-    </LatestSddGuideContext.Provider>
+    <TimelineReadOnlyContext.Provider value={readOnly}>
+      <LatestSddGuideContext.Provider value={latestSddGuideMessageId}>
+        {hasErrorEvent && !readOnly ? (
+          <span role="alert" className="sr-only">
+            Conversation contains an error event.
+          </span>
+        ) : null}
+        <ol
+          className="relative flex flex-col"
+          role="log"
+          aria-live={readOnly ? "off" : "polite"}
+          aria-relevant="additions"
+          aria-atomic="false"
+        >
+          {groups.map((group) => (
+            <DayGroup
+              key={group.id}
+              group={group}
+              onSendCommand={onSendCommand}
+              onInsertCommand={onInsertCommand}
+              onOpenPreview={onOpenPreview}
+              onOpenWorkbench={onOpenWorkbench}
+            />
+          ))}
+        </ol>
+      </LatestSddGuideContext.Provider>
+    </TimelineReadOnlyContext.Provider>
   );
 });
 
@@ -420,10 +429,14 @@ function DayGroup({
 }
 
 function DayHeader({ label, turnCount }: { label: string; turnCount: number }) {
+  const readOnly = useContext(TimelineReadOnlyContext);
   return (
     <div
       data-testid="timeline-day-header"
-      className="sticky top-0 z-40 flex items-center gap-2 rounded-md border border-border/50 bg-background px-2.5 py-1.5 shadow-sm"
+      className={cn(
+        "sticky z-40 flex items-center gap-2 rounded-md border border-border/50 bg-background px-2.5 py-1.5 shadow-sm",
+        readOnly ? "top-11" : "top-0",
+      )}
     >
       <span
         className="size-1.5 rounded-full bg-afx-brand-soft shadow-[0_0_6px_var(--afx-brand-soft)]"
@@ -500,12 +513,15 @@ function TurnContextBar({
   event: Extract<TurnEvent, { kind: "user" }>;
   onJumpToMessage: () => void;
 }) {
+  const readOnly = useContext(TimelineReadOnlyContext);
   const fullPrompt = normalizePrompt(event.message.content);
   const prompt = summarizePrompt(event.message.content);
   if (!fullPrompt) return null;
 
   return (
-    <div className="sticky top-[2.3rem] z-30 h-0 overflow-visible">
+    <div
+      className={cn("sticky z-30 h-0 overflow-visible", readOnly ? "top-[5rem]" : "top-[2.3rem]")}
+    >
       <button
         type="button"
         data-testid="timeline-turn-context"
@@ -993,6 +1009,7 @@ function EventBody({
   onOpenWorkbench?: () => void;
 }) {
   const isLatestSddGuideTurn = event.id === useContext(LatestSddGuideContext);
+  const readOnly = useContext(TimelineReadOnlyContext);
   if (event.kind === "user") {
     return (
       <div className="mt-1 rounded-md bg-muted/40 px-2.5 py-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
@@ -1003,11 +1020,13 @@ function EventBody({
   if (event.kind === "assistant") {
     if (event.message.content) {
       const sanitizedContent = stripLegacyUiActionBlocks(event.message.content);
-      const resultActions = event.message.streaming ? [] : parseResultActions(sanitizedContent);
+      const resultActions =
+        readOnly || event.message.streaming ? [] : parseResultActions(sanitizedContent);
       // Only the latest SDD-editing turn owns the guide card (see D2 / P0-3).
-      const sddGuide = isLatestSddGuideTurn
-        ? deriveSddWorkflowGuide(event.message, resultActions)
-        : null;
+      const sddGuide =
+        !readOnly && isLatestSddGuideTurn
+          ? deriveSddWorkflowGuide(event.message, resultActions)
+          : null;
       const visibleContent =
         resultActions.length > 0 ? stripResultActionSections(sanitizedContent) : sanitizedContent;
       return (

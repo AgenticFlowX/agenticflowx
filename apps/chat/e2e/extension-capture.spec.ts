@@ -68,6 +68,21 @@ test("captures curated chat browser-mock screenshots", async ({ baseURL, browser
       "true",
     );
     await capture(page, "chat-history.png", SCREENSHOT_VIEWPORT);
+
+    // Read-only History detail reuses the live Chat timeline so calls/results
+    // appear once and narrow sidebars retain the same day/turn structure.
+    await page.setViewportSize(SIDEBAR_VIEWPORT);
+    await page
+      .getByRole("button", { name: /Segment model picker/ })
+      .first()
+      .click();
+    const historyTranscript = page.getByLabel("Session transcript");
+    await expect(historyTranscript.getByRole("log")).toHaveAttribute("aria-live", "off");
+    await expect(historyTranscript.locator('[data-timeline-event="tool"]')).toHaveCount(2);
+    await expect(historyTranscript.getByText("edit", { exact: true })).toHaveCount(1);
+    await capture(page, "chat-history-transcript-read-only.png", SIDEBAR_VIEWPORT);
+
+    await page.setViewportSize(SCREENSHOT_VIEWPORT);
     await page.getByRole("tab", { name: "Chat" }).click();
 
     // The desktop landing capture is Code mode; capture the distinct read-only mode.

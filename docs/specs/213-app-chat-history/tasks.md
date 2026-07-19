@@ -3,9 +3,9 @@ afx: true
 type: TASKS
 status: Draft
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-02T10:07:25.000Z"
+updated_at: "2026-07-19T00:48:00.000Z"
 tags: ["app", "chat", "history", "sessions", "persistence", "reopen"]
 spec: spec.md
 design: design.md
@@ -25,6 +25,7 @@ design: design.md
 - **6.x** - Bridge routing and Chat rehydration
 - **7.x** - History UI persistent list and transcript viewer
 - **8.x** - Persistent-session verification
+- **9.x** - Read-only conversation-timeline parity remediation
 
 ---
 
@@ -211,6 +212,38 @@ design: design.md
 
 ---
 
+## Phase 9: Read-Only Conversation-Timeline Parity Remediation
+
+### 9.1 Share Persisted Transcript Mapping
+
+<!-- files: packages/shared/src/transcript-to-timeline.ts, packages/shared/src/transcript-to-timeline.test.ts, apps/vscode/src/services/history/transcript-to-timeline.ts, apps/vscode/src/services/history/transcript-to-timeline.test.ts -->
+<!-- @see docs/specs/213-app-chat-history/spec.md [FR-15] [FR-16] [NFR-6] | docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-FLOW] [DES-PERSISTENT-DATA] -->
+
+- [x] Export one pure `transcriptToTimeline` mapper from `@afx/shared` for read-only History and reopen rehydration
+- [x] Pair matching tool calls/results into one tool view while retaining unmatched results, bash output, and bash executions in chronological order
+- [x] Keep a tool call without a persisted result incomplete instead of presenting it as successfully completed
+- [x] Keep the VS Code history mapper as a compatibility re-export and prove identical host/webview mapping semantics
+
+### 9.2 Render Past Sessions Through The Read-Only Chat Timeline
+
+<!-- files: apps/chat/src/views/session-browser.tsx, apps/chat/src/components/chat/conversation-timeline.tsx, apps/chat/src/components/chat/conversation-timeline.test.tsx -->
+<!-- @see docs/specs/213-app-chat-history/spec.md [FR-15] [FR-21] [NFR-1] [NFR-7] | docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-UI] -->
+
+- [x] Replace the bespoke transcript-row renderer with `ConversationTimeline` in explicit read-only mode
+- [x] Preserve Chat-supported prose, compaction, tool status/output, unmatched results, and bash while suppressing result actions, SDD guides, error alerts, and live announcements
+- [x] Keep sticky History controls reachable, the read-only footer bottom-aligned for short transcripts, and timeline content horizontally contained at narrow widths
+
+### 9.3 Verify Transcript Parity And Regression Boundaries
+
+<!-- files: packages/shared/src/transcript-to-timeline.test.ts, apps/chat/src/components/chat/conversation-timeline.test.tsx, apps/chat/e2e/session-history.spec.ts, apps/chat/e2e/history-narrow-width.spec.ts -->
+<!-- @see docs/specs/213-app-chat-history/spec.md [FR-15] [FR-16] [FR-21] [NFR-1] [NFR-6] [NFR-7] | docs/specs/213-app-chat-history/design.md [DES-PERSISTENT-TEST] -->
+
+- [x] Assert one visible execution per matched tool call/result and one visible row for each unmatched result or bash execution
+- [x] Assert read-only suppression, recorded Next-prose retention, reopen parity, and active-session non-mutation
+- [x] Assert narrow wrapping, no horizontal overflow, stable transcript/header/footer geometry, and keyboard-reachable controls
+
+---
+
 ## Implementation Flow
 
 ```text
@@ -227,6 +260,10 @@ Route bridge + rehydrate Chat
 Render persistent History UI
     ↓
 Verify live + persisted History states
+    ↓
+Unify read-only and reopened transcript mapping
+    ↓
+Verify Chat renderer parity and narrow containment
 ```
 
 ---
@@ -242,6 +279,7 @@ Verify live + persisted History states
 | 6.x  | [FR-15], [FR-16], [FR-19], [FR-20]                                                                                  | [DES-PERSISTENT-BRIDGE], [DES-PERSISTENT-FLOW]                       |
 | 7.x  | [FR-14], [FR-15], [FR-16], [FR-17], [FR-18], [FR-19], [FR-20], [FR-21], [FR-22]                                     | [DES-PERSISTENT-UI]                                                  |
 | 8.x  | [FR-13], [FR-14], [FR-15], [FR-16], [FR-19], [FR-20], [FR-21], [FR-22], [NFR-5], [NFR-6], [NFR-7], [NFR-8], [NFR-9] | [DES-PERSISTENT-TEST]                                                |
+| 9.x  | [FR-15], [FR-16], [FR-21], [NFR-1], [NFR-6], [NFR-7]                                                                | [DES-PERSISTENT-FLOW], [DES-PERSISTENT-UI], [DES-PERSISTENT-TEST]    |
 
 ---
 
@@ -259,11 +297,18 @@ Verify live + persisted History states
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
 <!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
 
-| Date       | Task          | Action     | Files Modified                                                                                                                                                                                                                                                                                                                                                                                                                              | Agent | Human |
-| ---------- | ------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
-| 2026-05-02 | 1.1           | Scaffolded | docs/specs/213-app-chat-history/                                                                                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
-| 2026-06-02 | 4.1-8.1       | Coded      | packages/shared/src/{agent,messages,messages.test}.ts, packages/agent/pi/src/{session-store,rpc-manager}.ts, packages/agent/pi-sdk/src/{options,sdk-rpc-manager}.ts, apps/vscode/src/{agent-factory,extension,multiplex-agent-manager,panels/sidebar-panel,services/history/\*}.ts, apps/chat/src/{app,views/session-browser}.tsx, packages/transport/src/{mock,mock.test}.ts, apps/chat/e2e/{session-history,history-narrow-width}.spec.ts | [x]   | [x]   |
-| 2026-06-02 | 5.1, 6.1, 8.1 | Reviewed   | packages/agent/pi/src/session-store.ts, packages/agent/pi/src/session-store.test.ts, packages/agent/pi/src/rpc-manager.ts, packages/agent/pi-sdk/src/sdk-rpc-manager.ts, apps/vscode/src/panels/sidebar-panel.ts, packages/shared/src/messages.test.ts, packages/transport/src/mock.ts                                                                                                                                                      | [x]   | [x]   |
-| 2026-06-02 | 8.1           | Verified   | docs/specs/213-app-chat-history/{spec,design,tasks}.md, sprint archival record, artifacts/chat/screenshots/\*.png                                                                                                                                                                                                                                                                                                                           | [x]   | [x]   |
-| 2026-06-02 | 8.1           | Reviewed   | docs/specs/213-app-chat-history/{spec,design,tasks}.md, sprint archival record                                                                                                                                                                                                                                                                                                                                                              | [x]   | [x]   |
-| 2026-06-02 | 7.4, 8.1      | Coded      | apps/chat/src/views/session-browser.tsx, apps/chat/e2e/session-history.spec.ts, docs/specs/213-app-chat-history/{spec,design,tasks}.md                                                                                                                                                                                                                                                                                                      | [x]   | [x]   |
+| Date                     | Task          | Action     | Files Modified                                                                                                                                                                                                                                                                                                                                                                                                                              | Agent | Human |
+| ------------------------ | ------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ----- |
+| 2026-05-02               | 1.1           | Scaffolded | docs/specs/213-app-chat-history/                                                                                                                                                                                                                                                                                                                                                                                                            | [x]   | [x]   |
+| 2026-06-02               | 4.1-8.1       | Coded      | packages/shared/src/{agent,messages,messages.test}.ts, packages/agent/pi/src/{session-store,rpc-manager}.ts, packages/agent/pi-sdk/src/{options,sdk-rpc-manager}.ts, apps/vscode/src/{agent-factory,extension,multiplex-agent-manager,panels/sidebar-panel,services/history/\*}.ts, apps/chat/src/{app,views/session-browser}.tsx, packages/transport/src/{mock,mock.test}.ts, apps/chat/e2e/{session-history,history-narrow-width}.spec.ts | [x]   | [x]   |
+| 2026-06-02               | 5.1, 6.1, 8.1 | Reviewed   | packages/agent/pi/src/session-store.ts, packages/agent/pi/src/session-store.test.ts, packages/agent/pi/src/rpc-manager.ts, packages/agent/pi-sdk/src/sdk-rpc-manager.ts, apps/vscode/src/panels/sidebar-panel.ts, packages/shared/src/messages.test.ts, packages/transport/src/mock.ts                                                                                                                                                      | [x]   | [x]   |
+| 2026-06-02               | 8.1           | Verified   | docs/specs/213-app-chat-history/{spec,design,tasks}.md, sprint archival record, artifacts/chat/screenshots/\*.png                                                                                                                                                                                                                                                                                                                           | [x]   | [x]   |
+| 2026-06-02               | 8.1           | Reviewed   | docs/specs/213-app-chat-history/{spec,design,tasks}.md, sprint archival record                                                                                                                                                                                                                                                                                                                                                              | [x]   | [x]   |
+| 2026-06-02               | 7.4, 8.1      | Coded      | apps/chat/src/views/session-browser.tsx, apps/chat/e2e/session-history.spec.ts, docs/specs/213-app-chat-history/{spec,design,tasks}.md                                                                                                                                                                                                                                                                                                      | [x]   | [x]   |
+| 2026-07-19T00:25:48.000Z | 9.1           | Coded      | packages/shared/src/transcript-to-timeline.ts, host compatibility re-export, shared/host/transport tests                                                                                                                                                                                                                                                                                                                                    | [x]   | [ ]   |
+| 2026-07-19T00:25:48.000Z | 9.1           | Verified   | shared mapper 2/2 (bash output retained; incomplete calls stay non-green); host 3/3; transport 40/40                                                                                                                                                                                                                                                                                                                                        | [x]   | [ ]   |
+| 2026-07-19T00:25:48.000Z | 9.2           | Coded      | apps/chat/src/views/session-browser.tsx, apps/chat/src/components/chat/conversation-timeline.tsx, component tests                                                                                                                                                                                                                                                                                                                           | [x]   | [ ]   |
+| 2026-07-19T00:25:48.000Z | 9.2-9.3       | Verified   | focused History 5/5 at desktop, 240px, and 320px; full Chat 500/500; curated capture 2/2                                                                                                                                                                                                                                                                                                                                                    | [x]   | [ ]   |
+| 2026-07-19T00:25:48.000Z | 9.1-9.3       | Completed  | shared mapper, read-only Chat parity, bash-output retention, incomplete-call status, bottom-aligned footer, and narrow containment                                                                                                                                                                                                                                                                                                          | [x]   | [ ]   |
+| 2026-07-19T00:48:00.000Z | 9.3           | Verified   | `pnpm verify` 22/22: Chat 500/500, Shared 103/103, VS Code 475/475; build 4/4                                                                                                                                                                                                                                                                                                                                                               | [x]   | [ ]   |
+| 2026-07-19T00:48:00.000Z | 9.3           | Verified   | full E2E: Chat 72/72, Workbench 64 passed + 1 intentional optional-corpus skip, VS Code 31/31; curated capture 2/2                                                                                                                                                                                                                                                                                                                          | [x]   | [ ]   |

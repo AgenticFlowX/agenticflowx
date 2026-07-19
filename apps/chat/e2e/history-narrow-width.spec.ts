@@ -17,6 +17,7 @@ const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/chat/scre
 // The sidebar is resized by panel drag, not the viewport; the webview fills the
 // viewport, so a narrow viewport == a narrow container for the container queries.
 const WIDTHS = [230, 250, 280, 320];
+const TRANSCRIPT_WIDTHS = [240, 320];
 
 async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
@@ -103,21 +104,51 @@ test("history: sub-tab labels swap between full and short forms by width", async
 test("history: transcript footer and tool rows stay single-line at narrow width", async ({
   page,
 }, testInfo) => {
-  await page.setViewportSize({ width: 240, height: 1000 });
-  await page.goto("/");
-  await page.getByRole("tab", { name: "History" }).click();
+  for (const width of TRANSCRIPT_WIDTHS) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.goto("/");
+    await page.getByRole("tab", { name: "History" }).click();
 
-  await page
-    .getByRole("button", { name: /Segment model picker/ })
-    .first()
-    .click();
-  const transcript = page.getByLabel("Session transcript");
-  await expect(transcript.getByText("Read-only")).toBeVisible();
+    await page
+      .getByRole("button", { name: /Segment model picker/ })
+      .first()
+      .click();
+    const transcript = page.getByLabel("Session transcript");
+    await expect(transcript.getByText("Read-only")).toBeVisible();
+    await expect(transcript.getByRole("log")).toHaveAttribute("aria-live", "off");
 
-  // Footer: the action button shows the short "Reopen" label and is not clipped.
-  const reopen = transcript.getByRole("button", { name: "Reopen & continue" });
-  expect(await visibleText(reopen)).toBe("Reopen");
-  expect(await fitsHorizontally(reopen)).toBe(true);
+    // The persisted call/result pair is one row and the bash entry is another;
+    // neither the timeline nor the page may introduce horizontal scrolling.
+    const toolRows = transcript.locator('[data-timeline-event="tool"]');
+    await expect(toolRows).toHaveCount(2);
+    await expect(transcript.getByText("edit", { exact: true })).toHaveCount(1);
+    for (const row of await toolRows.all()) {
+      const box = await row.boundingBox();
+      expect(box, `tool row has bounds @${width}px`).not.toBeNull();
+      expect(box?.x ?? -1, `tool row starts in viewport @${width}px`).toBeGreaterThanOrEqual(0);
+      expect(
+        (box?.x ?? 0) + (box?.width ?? width + 1),
+        `tool row ends in viewport @${width}px`,
+      ).toBeLessThanOrEqual(width);
+    }
+    const pageOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(pageOverflow, `page has no horizontal overflow @${width}px`).toBeLessThanOrEqual(1);
 
-  await capture(page, testInfo, "history-narrow-transcript-240");
+    // Transcript controls remain sticky, while timeline day headers offset
+    // below the sticky title bar rather than covering it.
+    await expect(transcript.locator("header")).toHaveCSS("position", "sticky");
+    await expect(transcript.locator("footer")).toHaveCSS("position", "sticky");
+    const dayHeader = transcript.getByTestId("timeline-day-header");
+    await expect(dayHeader).toHaveCSS("position", "sticky");
+    await expect(dayHeader).toHaveCSS("top", "44px");
+
+    // Footer: the action button shows the short "Reopen" label and is not clipped.
+    const reopen = transcript.getByRole("button", { name: "Reopen & continue" });
+    expect(await visibleText(reopen)).toBe(width < 280 ? "Reopen" : "Reopen & continue");
+    expect(await fitsHorizontally(reopen)).toBe(true);
+
+    await capture(page, testInfo, `history-narrow-transcript-${width}`);
+  }
 });

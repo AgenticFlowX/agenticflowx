@@ -38,17 +38,19 @@ describe("transcriptToTimeline", () => {
       { role: "bash", createdAt: 2, bash: { command: "false", exitCode: 1 } },
       { role: "compaction", text: "summary", createdAt: 3 },
     ]);
-    expect(tools.find((t) => t.summary === "ls")?.status).toBe("ok");
-    expect(tools.find((t) => t.summary === "false")?.status).toBe("error");
+    expect(tools.find((t) => t.args?.["command"] === "ls")?.status).toBe("ok");
+    expect(tools.find((t) => t.args?.["command"] === "false")?.status).toBe("error");
+    expect(messages.filter((message) => message.role === "assistant")).toHaveLength(2);
     expect(messages).toContainEqual(
       expect.objectContaining({ role: "compactionSummary", summary: "summary" }),
     );
   });
 
   it("treats a tool result without a matching call as a standalone failed tool", () => {
-    const { tools } = transcriptToTimeline([
+    const { messages, tools } = transcriptToTimeline([
       { role: "tool", createdAt: 1, toolResult: { toolCallId: "x", toolName: "read", ok: false } },
     ]);
     expect(tools[0]).toMatchObject({ toolCallId: "x", toolName: "read", status: "error" });
+    expect(messages[0]).toMatchObject({ role: "assistant", tools: [tools[0]] });
   });
 });

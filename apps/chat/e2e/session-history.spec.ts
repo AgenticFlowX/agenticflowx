@@ -85,6 +85,22 @@ test("history: lists sessions, searches, opens a transcript, and reopens", async
   ).toBeVisible();
   await expect(transcript.getByText("Added a filter input above the groups.")).toBeVisible();
   await expect(transcript.getByText("pnpm verify")).toBeVisible();
+  await expect(transcript.getByText("Packages: 11 passed", { exact: true })).toBeVisible();
+  await expect(transcript.locator('[data-timeline-event="tool"]')).toHaveCount(2);
+  await expect(transcript.getByText("edit", { exact: true })).toHaveCount(1);
+  await expect(transcript.locator('[data-timeline-marker="assistant"]')).toHaveCount(2);
+  const transcriptViewport = await transcript.locator("xpath=..").boundingBox();
+  const transcriptFooter = await transcript.locator(":scope > footer").boundingBox();
+  expect(transcriptViewport).not.toBeNull();
+  expect(transcriptFooter).not.toBeNull();
+  if (!transcriptViewport || !transcriptFooter) {
+    throw new Error("Expected transcript viewport and footer geometry.");
+  }
+  expect(
+    transcriptViewport.y +
+      transcriptViewport.height -
+      (transcriptFooter.y + transcriptFooter.height),
+  ).toBeLessThanOrEqual(16);
 
   // Copy Session Recap produces marketing/release-friendly Markdown without
   // leaking local session handles or full cwd paths.
@@ -108,6 +124,12 @@ test("history: lists sessions, searches, opens a transcript, and reopens", async
   await expect(
     page.getByLabel("Conversation").getByText("Added a filter input above the groups."),
   ).toBeVisible();
+  await expect(
+    page.getByLabel("Conversation").getByText("Packages: 11 passed", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Conversation").locator('[data-timeline-event="tool"]')).toHaveCount(
+    2,
+  );
   await capture(page, testInfo, "history-after-reopen");
 
   expect(consoleErrors, consoleErrors.join("\n")).toEqual([]);

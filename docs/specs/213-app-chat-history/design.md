@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Draft
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-02T10:07:25.000Z"
+updated_at: "2026-07-19T00:25:48.000Z"
 tags: ["app", "chat", "history", "sessions", "persistence", "reopen"]
 spec: spec.md
 ---
@@ -501,7 +501,7 @@ Route files back to `210-app-chat` only if this child spec is no longer useful.
 | Memoized derivation         | `[NFR-4]`   | `[DES-DATA]`                                                               | `useMemo` for `events`, `filtered`, and `sections`                                       | Type/lint coverage                         |
 | Persisted store source      | `[FR-13]`   | `[DES-PERSISTENT-STORE]`                                                   | `packages/agent/pi/src/session-store.ts`, `piSessionRoots`, both Pi adapters             | `session-store.test.ts`                    |
 | Session list                | `[FR-14]`   | `[DES-PERSISTENT-FLOW]`, `[DES-PERSISTENT-UI]`                             | `HistoryService.listSessions`, `session/list` bridge, `SessionBrowser`                   | HistoryService, app, and e2e tests         |
-| Read-only transcript        | `[FR-15]`   | `[DES-PERSISTENT-FLOW]`, `[DES-PERSISTENT-DATA]`                           | `getTranscript`, `history/load`, `history/loaded`, `TranscriptView`                      | JSONL fixture and e2e tests                |
+| Read-only transcript        | `[FR-15]`   | `[DES-PERSISTENT-FLOW]`, `[DES-PERSISTENT-DATA]`, `[DES-PERSISTENT-UI]`    | `getTranscript`, shared transcript-to-timeline mapper, read-only `ConversationTimeline`  | Mapper, component, and e2e parity tests    |
 | Reopen and rehydrate        | `[FR-16]`   | `[DES-PERSISTENT-FLOW]`, `[DES-PERSISTENT-BRIDGE]`                         | guarded `switchSession`, `transcript-to-timeline.ts`, `chat/state` rehydration           | Reopen integration and e2e tests           |
 | Branch marker               | `[FR-17]`   | `[DES-PERSISTENT-STORE]`, `[DES-PERSISTENT-UI]`                            | `forkedFrom` marker in `SessionRow`; full `hasBranches` deferred                         | fixture and e2e coverage                   |
 | Persisted list search       | `[FR-18]`   | `[DES-PERSISTENT-UI]`                                                      | `SessionBrowser` local query filter                                                      | app and Playwright tests                   |
@@ -1353,13 +1353,19 @@ post { type: "history/loaded", sessionPath, entries } sidebar-panel.ts:3263
         ▼  host → webview bridge
 bridgeOn("history/loaded") → if opened.session.path === msg.sessionPath
                                 setOpened({ ...prev, entries: msg.entries })
-  TranscriptView renders entries read-only via TranscriptRow per AgentTranscriptEntry
+  shared transcript-to-timeline mapper pairs calls/results and preserves standalone activity
+  TranscriptView renders the mapped items through ConversationTimeline in read-only mode
   (footer label "Read-only"; switchSession is NEVER called here — NFR-7)
 ```
 
-`TranscriptView` renders each entry by `entry.role` directly off the shared shape — `text` for
-user/assistant/compaction, `toolCalls[].name` and `toolResult?.toolName` for tool rows, and
-`bash?.command` / `bash?.exitCode` for bash rows. No timeline mapping runs on the read-only path.
+The read-only and reopen paths consume the same pure transcript-to-timeline mapping. Assistant tool
+calls are reconciled with matching results by `toolCallId`, so one execution appears once with its
+final status/output. Unmatched tool results and standalone bash executions become synthetic,
+content-empty assistant timeline items with attached `ChatToolView`s at their original chronological
+position; they are never discarded merely because no assistant call row exists. The read-only path
+passes those items to `ConversationTimeline` with `readOnly` enabled. That mode preserves the same
+supported assistant prose, compaction, tool status, and output as Chat while suppressing result
+actions, SDD guides, host commands, and live-region announcements.
 
 ### Reopen & continue (`history/reopen`)
 
@@ -1473,14 +1479,14 @@ handleHistoryCommand("session/delete")                sidebar-panel.ts:3291
 
 ### Surface map
 
-| Surface                      | Where                                                                           | Renders                                                                                                            |
-| ---------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| History tab shell + header   | `apps/chat/src/app.tsx` (`TabsContent value="history"`)                         | `History` heading, "Browse and reopen past conversations." sub-line, **Past sessions \| Current session** sub-tabs |
-| Past sessions surface        | `apps/chat/src/views/session-browser.tsx` (`SessionBrowser`)                    | search row + Refresh, stats bar, day-grouped session rows                                                          |
-| Session row                  | `session-browser.tsx` (`SessionRow`)                                            | icon square, truncated label, fork marker, meta line, project chip, hover-reveal delete                            |
-| Read-only transcript         | `session-browser.tsx` (`TranscriptView` + `TranscriptRow`)                      | back / title / Copy session recap / delete header, role-based rows, sticky `Read-only` footer + Reopen             |
-| Status / empty / unsupported | `session-browser.tsx` (`StatusBlock`)                                           | loading, "Managed by the runtime", "No past conversations yet", "No sessions match …"                              |
-| Current session work-log     | `apps/chat/src/views/history.tsx` (`History`) — see `[DES-HISTORY-MOCKUP-LIVE]` | the live in-session timeline (separate feature, not persistent)                                                    |
+| Surface                      | Where                                                                           | Renders                                                                                                               |
+| ---------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| History tab shell + header   | `apps/chat/src/app.tsx` (`TabsContent value="history"`)                         | `History` heading, "Browse and reopen past conversations." sub-line, **Past sessions \| Current session** sub-tabs    |
+| Past sessions surface        | `apps/chat/src/views/session-browser.tsx` (`SessionBrowser`)                    | search row + Refresh, stats bar, day-grouped session rows                                                             |
+| Session row                  | `session-browser.tsx` (`SessionRow`)                                            | icon square, truncated label, fork marker, meta line, project chip, hover-reveal delete                               |
+| Read-only transcript         | `session-browser.tsx` (`TranscriptView`) + shared `ConversationTimeline`        | back / title / Copy session recap / delete header, Chat-parity read-only timeline, sticky `Read-only` footer + Reopen |
+| Status / empty / unsupported | `session-browser.tsx` (`StatusBlock`)                                           | loading, "Managed by the runtime", "No past conversations yet", "No sessions match …"                                 |
+| Current session work-log     | `apps/chat/src/views/history.tsx` (`History`) — see `[DES-HISTORY-MOCKUP-LIVE]` | the live in-session timeline (separate feature, not persistent)                                                       |
 
 ### History tab shell (sub-tabs)
 
@@ -1561,21 +1567,29 @@ Shown when `opened` is set. A `@container` section (`aria-label="Session transcr
   button (`Copy` → `Check` for 1.2s) that writes deterministic Markdown to the clipboard, and a
   `Trash2` delete button (`aria-label="Delete session"`) that removes the session and returns to the list.
 - **Body** — `LoaderCircle` "Loading transcript…" while `entries === null`; "This session has no
-  messages." when empty; otherwise an `<ol>` of `TranscriptRow`s. Rows are keyed by `role`
-  (`AgentTranscriptEntry.role: "user" | "assistant" | "tool" | "bash" | "compaction"`):
-
-| `role`       | Glyph          | Renders                                                                             |
-| ------------ | -------------- | ----------------------------------------------------------------------------------- |
-| `user`       | `UserRound`    | `entry.text` (whitespace-pre-wrap)                                                  |
-| `assistant`  | `Sparkles`     | `entry.text` plus each `entry.toolCalls[].name` as a `Hammer` mono line             |
-| `bash`       | `Terminal`     | `entry.bash?.command`; `exit {n}` in red when `entry.bash.exitCode` is nonzero      |
-| `tool`       | `Hammer`       | `entry.toolResult?.toolName`; `failed` in red when `entry.toolResult?.ok === false` |
-| `compaction` | `Cpu` (italic) | `entry.text` (the summary line) — the fall-through branch                           |
+  messages." when empty; otherwise map `AgentTranscriptEntry[]` through
+  `@afx/shared`'s `transcriptToTimeline(entries)` and render its messages with
+  `<ConversationTimeline readOnly />`. The host compatibility module
+  `apps/vscode/src/services/history/transcript-to-timeline.ts` re-exports the same mapper for reopen,
+  preventing preview/rehydration drift.
+- **Execution cardinality** — a matching `toolResult.toolCallId` completes the originating assistant
+  tool view, so the call/result pair renders once. Unmatched tool results and `bash` entries become
+  content-empty assistant items carrying a tool at the original transcript position; bash uses
+  `toolName: "bash"` with `args.command` and exit-code-derived status.
+- **Read-only policy** — `ConversationTimeline` sets `aria-live="off"`, suppresses streaming/error live
+  alerts, result actions, and SDD workflow guides. It retains supported assistant prose, including
+  literal `Next:` sections, because History must display recorded content rather than turn it into
+  runnable suggestions.
 
 - **Sticky footer** — left: a mono `Read-only` tag; right: a primary **Reopen & continue** button
   (`ExternalLink`) that collapses to **Reopen** below the `@[280px]` width (FR-21). Reopen sends
   `{ type: "history/reopen", sessionPath: session.path }`, clears `opened`, and fires `onReopened`
   (which the shell uses to switch back to the Chat tab — FR-16).
+
+The transcript body uses the same message-column containment as live Chat. At narrow container
+widths, text and tool summaries wrap inside the available column, no row creates horizontal page
+overflow, and the sticky header/footer remain reachable without changing the Past/Current sub-tab
+geometry.
 
 **Copy session recap (FR-22):** `buildSessionRecap(session, entries)` formats the already-loaded
 read-only transcript into Markdown:
@@ -1655,22 +1669,19 @@ marker (only when forkedFrom set) · [room-led]=clickable PROJECT CHIP
 |                                                                  |
 | (*) Done. The row delete collapses to w-0 until group-hover,     |
 |     and the transcript header gets a Trash2 button.              |
-|        [tool] Edit                                               |
-|        [tool] Read                                               |
-|     $ pnpm --filter apps/chat build                              |
-|     [tool] Bash                                exit 1            |
+|     [tool] Edit                                 complete          |
+|     [tool] Read                                 complete          |
+|     [tool] Bash  pnpm --filter apps/chat build  exit 1            |
 | (cpu) Compacted earlier turns to free context.                   |
 +------------------------------------------------------------------+
 | READ-ONLY                                   [open] Reopen & cont.|
 +------------------------------------------------------------------+
 
-Legend: (o)=user (UserRound) · (*)=assistant (Sparkles), with
-[tool]=toolCalls[].name (Hammer) lines · $=bash (Terminal),
-red `exit N` when exitCode != 0 · [tool] row=tool result
-(toolResult.toolName), red `failed` when ok === false ·
-(cpu)=compaction summary (italic). Footer = sticky `Read-only`
-tag + Reopen (ExternalLink). Header back=[<] (ChevronLeft),
-[trash]=delete session.
+Legend: (o)=user · (*)=assistant · [tool]=the same Chat execution row used by
+the live timeline. Matching calls/results appear once with final status; unmatched
+results and bash remain visible once at their transcript position. There are no
+runnable result/SDD actions or live announcements in read-only mode. (cpu)=compaction
+summary. Footer = sticky `Read-only` tag + Reopen. Header back=[<], [trash]=delete.
 ```
 
 #### [DES-HISTORY-MOCKUP-PERSISTENT-NARROW] Narrow Width (~230px container query)
@@ -1704,6 +1715,8 @@ Container queries (FR-21), all keyed on the @container width:
     (chip text is hidden … @[280px]:inline).
   - Stats bar (flex flex-wrap) wraps the projects segment to a
     second line.
+  - Timeline prose and tool summaries wrap inside the message column;
+    the page has no horizontal overflow.
   - Transcript footer Reopen button shrinks "Reopen & continue"
     to "Reopen" below @[280px].
 This is a per-surface @container query (Settings-style short
@@ -1725,16 +1738,17 @@ plan does not exist; normalization is covered by the dependency-free fs reader t
 The "HistoryService cache" coverage target is deferred (`[NFR-8]`) — the service
 reads fresh and has no cache to test.
 
-| Coverage target                                                                                                                       | Test path / approach                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| fs reader: list normalization, cwd scoping, multi-root merge/dedupe, newest-first, `piSessionRoots`                                   | `packages/agent/pi/src/session-store.test.ts`                     |
-| fs reader: transcript leaf-branch resolution, trailing metadata rows, role mapping (user/assistant/tool/bash), and session-path guard | `packages/agent/pi/src/session-store.test.ts`                     |
-| `HistoryService`: `supported:false` fallback, fresh reads (no cache), delete delegation, `getTranscript` error → `[]`                 | `apps/vscode/src/services/history/history-service.test.ts`        |
-| Transcript → chat timeline mapping (messages, tool pairing, bash exit codes, compaction)                                              | `apps/vscode/src/services/history/transcript-to-timeline.test.ts` |
-| History UI e2e: list, aggregate stats, reveal-in-OS chip, search, read-only transcript, copy recap, reopen, delete → empty state      | `apps/chat/e2e/session-history.spec.ts`                           |
-| Narrow-width e2e: sub-tab label swap, single-line header/rows/footer down to 220px (container queries)                                | `apps/chat/e2e/history-narrow-width.spec.ts`                      |
-| Boundary lint: no `@earendil-works/*` import in `apps/chat/src` or `apps/vscode/src`                                                  | `pnpm verify` (`no-restricted-imports`)                           |
-| Deferred (`[NFR-8]`): HistoryService cache + `onProgress` streaming list — not implemented                                            | — (no test; see `[DES-DEC]` List freshness row)                   |
+| Coverage target                                                                                                                                      | Test path / approach                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| fs reader: list normalization, cwd scoping, multi-root merge/dedupe, newest-first, `piSessionRoots`                                                  | `packages/agent/pi/src/session-store.test.ts`                           |
+| fs reader: transcript leaf-branch resolution, trailing metadata rows, role mapping (user/assistant/tool/bash), and session-path guard                | `packages/agent/pi/src/session-store.test.ts`                           |
+| `HistoryService`: `supported:false` fallback, fresh reads (no cache), delete delegation, `getTranscript` error → `[]`                                | `apps/vscode/src/services/history/history-service.test.ts`              |
+| Shared transcript mapping: paired call/result cardinality, unmatched results, bash command/exit status, compaction, and host compatibility re-export | `packages/shared/src/transcript-to-timeline.test.ts`, host mapper tests |
+| Read-only timeline: Chat-renderer parity, no result/SDD actions, `aria-live=off`, no error alert, and recorded Next prose retained                   | `apps/chat/src/components/chat/conversation-timeline.test.tsx`          |
+| History UI e2e: list, aggregate stats, reveal-in-OS chip, Chat-parity transcript cardinality, copy recap, reopen, delete → empty state               | `apps/chat/e2e/session-history.spec.ts`                                 |
+| Narrow-width e2e: sub-tab label swap, contained timeline wrapping, no horizontal overflow, and reachable sticky controls down to 220px               | `apps/chat/e2e/history-narrow-width.spec.ts`                            |
+| Boundary lint: no `@earendil-works/*` import in `apps/chat/src` or `apps/vscode/src`                                                                 | `pnpm verify` (`no-restricted-imports`)                                 |
+| Deferred (`[NFR-8]`): HistoryService cache + `onProgress` streaming list — not implemented                                                           | — (no test; see `[DES-DEC]` List freshness row)                         |
 
 ---
 
@@ -1742,16 +1756,17 @@ reads fresh and has no cache to test.
 
 ## [DES-HISTORY-REFS] File Reference Map
 
-| Task | File                                                                                                           | Required @see                                                                                                    |
-| ---- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1.x  | `apps/chat/src/views/history.tsx`                                                                              | `design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-COMPONENT-OVERLAY]`                                            |
-| 1.x  | `apps/chat/src/lib/history-events.ts`                                                                          | `design.md [DES-DATA]`                                                                                           |
-| 2.x  | `apps/chat/src/components/chat/chat-controller.tsx` future history store slot                                  | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`                                        |
-| 2.x  | future `ChatHistoryPanel` / `ChatHistoryLoadAction` / `ChatHistoryExportAction`                                | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`; persistence behavior TBD in this spec |
-| 4.x  | `packages/shared/src/agent.ts`, `packages/shared/src/messages.ts`                                              | `design.md [DES-PERSISTENT-DATA] [DES-PERSISTENT-BRIDGE]`                                                        |
-| 5.x  | `packages/agent/pi/src/{session-store,rpc-manager}.ts`, `packages/agent/pi-sdk/src/sdk-rpc-manager.ts`         | `design.md [DES-PERSISTENT-STORE] [DES-PERSISTENT-API] [DES-PERSISTENT-FLOW]`                                    |
-| 5.x  | `apps/vscode/src/services/history/history-service.ts`                                                          | `design.md [DES-PERSISTENT-API] [DES-PERSISTENT-FLOW]`                                                           |
-| 7.x  | `apps/chat/src/app.tsx`, `apps/chat/src/views/session-browser.tsx` persistent session list/transcript surfaces | `design.md [DES-PERSISTENT-UI]`                                                                                  |
+| Task | File                                                                                                                                                                      | Required @see                                                                                                    |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1.x  | `apps/chat/src/views/history.tsx`                                                                                                                                         | `design.md [DES-HISTORY-MOCKUP-LIVE] [DES-HISTORY-COMPONENT-OVERLAY]`                                            |
+| 1.x  | `apps/chat/src/lib/history-events.ts`                                                                                                                                     | `design.md [DES-DATA]`                                                                                           |
+| 2.x  | `apps/chat/src/components/chat/chat-controller.tsx` future history store slot                                                                                             | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`                                        |
+| 2.x  | future `ChatHistoryPanel` / `ChatHistoryLoadAction` / `ChatHistoryExportAction`                                                                                           | `docs/specs/216-app-chat-window-componentization/design.md [DES-HISTORY]`; persistence behavior TBD in this spec |
+| 4.x  | `packages/shared/src/agent.ts`, `packages/shared/src/messages.ts`                                                                                                         | `design.md [DES-PERSISTENT-DATA] [DES-PERSISTENT-BRIDGE]`                                                        |
+| 5.x  | `packages/agent/pi/src/{session-store,rpc-manager}.ts`, `packages/agent/pi-sdk/src/sdk-rpc-manager.ts`                                                                    | `design.md [DES-PERSISTENT-STORE] [DES-PERSISTENT-API] [DES-PERSISTENT-FLOW]`                                    |
+| 5.x  | `apps/vscode/src/services/history/history-service.ts`                                                                                                                     | `design.md [DES-PERSISTENT-API] [DES-PERSISTENT-FLOW]`                                                           |
+| 7.x  | `apps/chat/src/app.tsx`, `apps/chat/src/views/session-browser.tsx`, `apps/chat/src/components/chat/conversation-timeline.tsx` persistent session list/transcript surfaces | `design.md [DES-PERSISTENT-UI]`                                                                                  |
+| 9.x  | `packages/shared/src/transcript-to-timeline.ts`, host compatibility re-export, History/timeline parity tests                                                              | `design.md [DES-PERSISTENT-FLOW] [DES-PERSISTENT-UI] [DES-PERSISTENT-TEST]`                                      |
 
 ---
 

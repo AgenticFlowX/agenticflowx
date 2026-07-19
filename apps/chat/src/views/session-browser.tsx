@@ -17,22 +17,23 @@ import {
   ExternalLink,
   Folder,
   GitBranch,
-  Hammer,
   LoaderCircle,
   MessageSquareText,
   RefreshCw,
   Search,
-  Sparkles,
-  Terminal,
   Trash2,
-  UserRound,
 } from "lucide-react";
 
-import type { AgentSessionInfo, AgentTranscriptEntry } from "@afx/shared";
+import {
+  type AgentSessionInfo,
+  type AgentTranscriptEntry,
+  transcriptToTimeline,
+} from "@afx/shared";
 import { Button } from "@afx/ui/components/button";
 import { Input } from "@afx/ui/components/input";
 import { cn } from "@afx/ui/lib/utils";
 
+import { ConversationTimeline } from "../components/chat/conversation-timeline";
 import { toast } from "../components/toast";
 import { bridgeOn, bridgeSend } from "../lib/bridge";
 
@@ -442,6 +443,10 @@ function TranscriptView({
   onDelete: () => void;
 }) {
   const [copied, setCopied] = useState(false);
+  const timelineMessages = useMemo(
+    () => (entries === null ? [] : transcriptToTimeline(entries).messages),
+    [entries],
+  );
 
   async function copyRecap(): Promise<void> {
     if (entries === null) return;
@@ -456,7 +461,7 @@ function TranscriptView({
   }
 
   return (
-    <section className="@container flex flex-col" aria-label="Session transcript">
+    <section className="@container flex min-h-full flex-col" aria-label="Session transcript">
       <header className="sticky top-0 z-10 -mx-2 flex items-center gap-1.5 border-b bg-background/95 px-2 py-2 backdrop-blur">
         <Button
           variant="ghost"
@@ -495,7 +500,7 @@ function TranscriptView({
         </Button>
       </header>
 
-      <div className="py-3">
+      <div className="flex-1 py-3">
         {entries === null ? (
           <StatusBlock
             icon={<LoaderCircle className="size-5 animate-spin text-afx-brand-soft" />}
@@ -507,11 +512,14 @@ function TranscriptView({
             title="This session has no messages."
           />
         ) : (
-          <ol className="flex flex-col gap-3">
-            {entries.map((entry, i) => (
-              <TranscriptRow key={i} entry={entry} />
-            ))}
-          </ol>
+          <ConversationTimeline
+            readOnly
+            messages={timelineMessages}
+            noteEvents={[]}
+            commandOutputs={[]}
+            onSendCommand={ignoreTimelineCommand}
+            onInsertCommand={ignoreTimelineCommand}
+          />
         )}
       </div>
 
@@ -538,76 +546,4 @@ function TranscriptView({
   );
 }
 
-function TranscriptRow({ entry }: { entry: AgentTranscriptEntry }) {
-  if (entry.role === "user") {
-    return (
-      <li className="flex gap-2.5">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full border bg-muted/40 text-muted-foreground">
-          <UserRound size={13} />
-        </span>
-        <p className="min-w-0 whitespace-pre-wrap break-words pt-0.5 text-[13px] text-foreground">
-          {entry.text}
-        </p>
-      </li>
-    );
-  }
-  if (entry.role === "assistant") {
-    return (
-      <li className="flex gap-2.5">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-afx-brand-soft/30 bg-afx-brand/10 text-afx-brand-soft">
-          <Sparkles size={13} />
-        </span>
-        <div className="min-w-0 flex-1 pt-0.5">
-          {entry.text ? (
-            <p className="whitespace-pre-wrap break-words text-[13px] text-foreground">
-              {entry.text}
-            </p>
-          ) : null}
-          {entry.toolCalls?.length ? (
-            <div className="mt-1 flex flex-col gap-0.5">
-              {entry.toolCalls.map((tc) => (
-                <span
-                  key={tc.id}
-                  className="flex min-w-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground"
-                >
-                  <Hammer size={11} className="shrink-0 text-afx-brand-soft/70" />
-                  <span className="truncate">{tc.name}</span>
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </li>
-    );
-  }
-  if (entry.role === "bash") {
-    return (
-      <li className="ml-8 flex min-w-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-        <Terminal size={11} className="shrink-0 text-afx-brand-soft/70" />
-        <code className="min-w-0 truncate">{entry.bash?.command}</code>
-        {entry.bash?.exitCode !== undefined && entry.bash.exitCode !== 0 ? (
-          <span className="shrink-0 whitespace-nowrap text-red-400">
-            exit {entry.bash.exitCode}
-          </span>
-        ) : null}
-      </li>
-    );
-  }
-  if (entry.role === "tool") {
-    return (
-      <li className="ml-8 flex min-w-0 items-center gap-1.5 font-mono text-[10px] text-muted-foreground">
-        <Hammer size={11} className="shrink-0 text-afx-brand-soft/70" />
-        <span className="min-w-0 truncate">{entry.toolResult?.toolName}</span>
-        {entry.toolResult?.ok === false ? (
-          <span className="shrink-0 whitespace-nowrap text-red-400">failed</span>
-        ) : null}
-      </li>
-    );
-  }
-  return (
-    <li className="ml-8 flex min-w-0 items-center gap-1.5 text-[10px] italic text-muted-foreground">
-      <Cpu size={11} className="shrink-0" />
-      <span className="min-w-0 truncate">{entry.text}</span>
-    </li>
-  );
-}
+function ignoreTimelineCommand(): void {}

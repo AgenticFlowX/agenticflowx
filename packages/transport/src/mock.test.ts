@@ -659,6 +659,26 @@ describe("createMockTransport — history (12-history)", () => {
     expect(got).toBe(true);
   });
 
+  it("history/reopen preserves each matched tool and bash entry exactly once", () => {
+    const t = createMockTransport();
+    let timelineTools: string[] = [];
+    let snapshotTools: string[] = [];
+    t.on("chat/state", (message) => {
+      timelineTools = message.messages.flatMap((item) =>
+        "tools" in item ? (item.tools ?? []).map((tool) => tool.toolName) : [],
+      );
+      snapshotTools = message.tools.map((tool) => tool.toolName);
+    });
+
+    t.send({ type: "history/reopen", sessionPath: "/sessions/sess-picker.jsonl" });
+
+    expect({ timelineTools, snapshotTools }).toEqual({
+      timelineTools: ["edit", "bash"],
+      snapshotTools: ["edit", "bash"],
+    });
+    t.dispose();
+  });
+
   it("session/delete removes the row and re-lists", () => {
     const t = createMockTransport();
     let count = 0;

@@ -293,6 +293,38 @@ Next:
     expect(onDraft).toHaveBeenCalledWith("/afx-design author billing-export");
   });
 
+  it("renders persisted history read-only without announcements or workflow actions", () => {
+    render(
+      <ConversationTimeline
+        readOnly
+        messages={[
+          msg("u1", "user", "create billing export spec", MAY_16),
+          msg(
+            "a1",
+            "assistant",
+            `Created the spec.
+
+Next:
+1. /afx-design review billing-export`,
+            MAY_16 + 1_000,
+            [tool("write-spec", "write_file", "docs/specs/billing-export/spec.md")],
+          ),
+        ]}
+        noteEvents={[]}
+        commandOutputs={[]}
+        onSendCommand={noop}
+        onInsertCommand={noop}
+      />,
+    );
+
+    expect(screen.getByRole("log")).toHaveAttribute("aria-live", "off");
+    expect(screen.getByTestId("timeline-day-header")).toHaveClass("top-11");
+    expect(screen.getByText("Next:")).toBeInTheDocument();
+    expect(screen.getByText("/afx-design review billing-export")).toBeInTheDocument();
+    expect(screen.queryByTestId("sdd-workflow-guide-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("result-actions-row")).not.toBeInTheDocument();
+  });
+
   it("keeps a dismissed SDD guide hidden locally and recreates it for a new generation", () => {
     localStorage.clear();
     const firstMessages = [

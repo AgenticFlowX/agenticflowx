@@ -27,6 +27,7 @@ import {
   type WorkspaceMode,
   consoleSink,
   createLogger,
+  transcriptToTimeline,
 } from "@afx/shared";
 
 import type { LogEntry, MockTransport, ScenarioFn } from "./types";
@@ -413,6 +414,7 @@ export function createMockTransport(): MockTransport {
     },
     {
       role: "bash",
+      text: "Packages: 11 passed\nTests: 499 passed",
       createdAt: Date.now() - 5 * HOUR + 3000,
       bash: { command: "pnpm verify", exitCode: 0 },
     },
@@ -2184,17 +2186,10 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       return;
     }
     if (msg.type === "history/reopen") {
-      const reopened: ChatTimelineItem[] = MOCK_TRANSCRIPT.filter(
-        (e) => e.role === "user" || e.role === "assistant",
-      ).map((e, i) => ({
-        id: `reopen-${i}`,
-        role: e.role === "user" ? "user" : "assistant",
-        content: e.text ?? "",
-        createdAt: e.createdAt,
-      }));
+      const { messages: reopened, tools } = transcriptToTimeline(MOCK_TRANSCRIPT);
       trackedMessages.length = 0;
       trackedMessages.push(...reopened);
-      emit({ type: "chat/state", isStreaming: false, messages: reopened, tools: [] });
+      emit({ type: "chat/state", isStreaming: false, messages: reopened, tools });
       emitRuntimeSettings();
       return;
     }
