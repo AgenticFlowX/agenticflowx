@@ -41,10 +41,17 @@ async function assertSddGuide(page: Page) {
 
 async function assertGuideLayout(page: Page, width: number) {
   const guide = page.getByTestId("sdd-workflow-guide-card");
-  const box = await guide.boundingBox();
+  const toolCard = page.locator('[data-timeline-event="tool"] .afx-surface-card').last();
+  const [box, toolBox] = await Promise.all([guide.boundingBox(), toolCard.boundingBox()]);
   expect(box).not.toBeNull();
+  expect(toolBox).not.toBeNull();
   expect(box?.x ?? -1).toBeGreaterThanOrEqual(0);
   expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(width + 1);
+  expect(Math.abs((box?.x ?? 0) - (toolBox?.x ?? 0))).toBeLessThanOrEqual(1);
+  expect(
+    Math.abs((box?.x ?? 0) + (box?.width ?? 0) - ((toolBox?.x ?? 0) + (toolBox?.width ?? 0))),
+  ).toBeLessThanOrEqual(1);
+  expect(box?.height ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(110);
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
   ).toBe(true);
@@ -81,6 +88,7 @@ for (const viewport of [
   { name: "l02-400x760", width: 400, height: 760 },
   { name: "l03-480x820", width: 480, height: 820 },
   { name: "narrow", width: 390, height: 844 },
+  { name: "sidebar-656x1104", width: 656, height: 1104 },
 ] as const) {
   test(`SDD guide card is visible and actionable in ${viewport.name}`, async ({
     page,

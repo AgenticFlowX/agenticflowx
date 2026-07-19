@@ -1135,21 +1135,21 @@ function SddWorkflowGuideCard({
       data-testid="sdd-workflow-guide-card"
       data-guide-id={guide.id}
       aria-label="SDD workflow guide"
-      className="my-2 rounded-md border border-border/60 border-l-2 border-l-afx-brand/50 bg-background/40 p-2 shadow-sm"
+      className="my-1 ml-7 rounded-md border border-border/45 border-l-2 border-l-afx-brand/35 bg-background/20 px-2 py-1.5"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-afx-brand-soft">
           SDD guide
         </span>
-        <span className="min-w-0 truncate text-xs font-medium text-foreground">
+        <span className="min-w-0 truncate text-[11px] text-muted-foreground">
           {guide.eventLabel}: {guide.feature}
         </span>
-        <span className="rounded-sm border border-border/70 px-1 font-mono text-[9px] uppercase text-muted-foreground">
+        <span className="hidden shrink-0 rounded-sm border border-border/60 px-1 font-mono text-[9px] uppercase text-muted-foreground sm:inline-flex">
           {guide.currentStep}
         </span>
         <button
           type="button"
-          className="ml-auto inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+          className="ml-auto inline-flex size-5 shrink-0 items-center justify-center rounded-sm text-muted-foreground/60 hover:bg-muted hover:text-foreground"
           aria-label="Dismiss SDD guide"
           title="Dismiss this SDD guide"
           onClick={() => {
@@ -1163,12 +1163,13 @@ function SddWorkflowGuideCard({
           <X size={12} aria-hidden />
         </button>
       </div>
-      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-1">
-        {visibleFiles.map((file) => (
+      <div className="mt-1 flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden">
+        {visibleFiles.map((file, index) => (
           <span
             key={file.path}
             className={cn(
-              "inline-flex min-w-0 max-w-[10rem] items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]",
+              "min-w-0 max-w-[10rem] items-center gap-1 rounded-sm border px-1.5 py-0.5 text-[10px]",
+              index === 0 ? "inline-flex" : "hidden sm:inline-flex",
               file.primary
                 ? "border-afx-brand/35 bg-background text-foreground"
                 : "border-border/60 bg-background/60 text-muted-foreground",
@@ -1179,13 +1180,18 @@ function SddWorkflowGuideCard({
             <span className="min-w-0 truncate">{basename(file.path)}</span>
           </span>
         ))}
+        {guide.files.length > 1 ? (
+          <span className="shrink-0 rounded-sm border border-border/50 px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground sm:hidden">
+            +{guide.files.length - 1} docs
+          </span>
+        ) : null}
         {overflowFiles > 0 ? (
-          <span className="rounded-sm border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+          <span className="hidden rounded-sm border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline-flex">
             +{overflowFiles} files
           </span>
         ) : null}
       </div>
-      <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1">
+      <div className="mt-1.5 flex min-w-0 flex-nowrap items-center gap-1">
         {guide.recommended ? (
           <SddGuideCommandButton
             action={guide.recommended}
@@ -1197,21 +1203,25 @@ function SddWorkflowGuideCard({
         {onOpenPreview ? (
           <button
             type="button"
-            className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+            className="inline-flex size-6 shrink-0 items-center justify-center gap-1 rounded-md border border-border/60 bg-background/60 font-mono text-[10px] text-foreground/80 hover:bg-muted sm:h-6 sm:w-auto sm:px-1.5"
+            aria-label={`Preview ${basename(guide.previewPath)} in AFX`}
+            title={`Preview ${guide.previewPath} in AFX`}
             onClick={() => onOpenPreview(guide.previewPath)}
           >
             <BookOpenCheck size={11} aria-hidden />
-            Preview
+            <span className="hidden sm:inline">Preview</span>
           </button>
         ) : null}
         {onOpenWorkbench ? (
           <button
             type="button"
-            className="inline-flex h-7 min-w-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+            className="inline-flex size-6 shrink-0 items-center justify-center gap-1 rounded-md border border-border/60 bg-background/60 font-mono text-[10px] text-foreground/80 hover:bg-muted sm:h-6 sm:w-auto sm:px-1.5"
+            aria-label="Open SDD Studio"
+            title="Open SDD Studio"
             onClick={onOpenWorkbench}
           >
             <Layers3 size={11} aria-hidden />
-            Studio
+            <span className="hidden sm:inline">Studio</span>
           </button>
         ) : null}
         {overflowActions.length > 0 ? (
@@ -1219,11 +1229,12 @@ function SddWorkflowGuideCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className="inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-border/70 bg-background/80 px-2 font-mono text-[10px] text-foreground/85 hover:bg-muted"
+                className="inline-flex size-6 shrink-0 items-center justify-center gap-1 rounded-md border border-border/60 bg-background/60 font-mono text-[10px] text-foreground/80 hover:bg-muted sm:h-6 sm:w-auto sm:px-1.5"
                 aria-label="More SDD actions"
+                title="More SDD actions"
               >
                 <MoreHorizontal size={11} aria-hidden />
-                More
+                <span className="hidden sm:inline">More</span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72 max-w-[calc(100vw-1.5rem)]">
@@ -1300,10 +1311,10 @@ function SddGuideCommandButton({
     <button
       type="button"
       className={cn(
-        "inline-flex h-7 min-w-0 max-w-full items-center gap-1 rounded-md border px-2 font-mono text-[10px] hover:bg-muted",
+        "inline-flex h-6 min-w-0 max-w-full items-center gap-1 rounded-md border px-1.5 font-mono text-[10px] hover:bg-muted",
         primary
-          ? "border-afx-brand/40 bg-afx-brand/10 text-foreground shadow-sm"
-          : "border-border/70 bg-background/80 text-foreground/85",
+          ? "border-afx-brand/35 bg-afx-brand/[0.07] text-foreground"
+          : "border-border/60 bg-background/60 text-foreground/85",
       )}
       title={action.command}
       onClick={() => runSddGuideAction(action, onSendCommand, onInsertCommand)}
