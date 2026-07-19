@@ -239,6 +239,71 @@ suite("AFX Extension — workspace mode (Code/Explore/Spec)", () => {
   });
 });
 
+interface GitChangeSmoke {
+  uri: vscode.Uri;
+}
+
+interface GitRepositorySmoke {
+  rootUri: vscode.Uri;
+  state: {
+    workingTreeChanges: readonly GitChangeSmoke[];
+    indexChanges: readonly GitChangeSmoke[];
+    mergeChanges: readonly GitChangeSmoke[];
+  };
+  status(): Promise<void>;
+}
+
+interface GitExtensionSmoke {
+  enabled: boolean;
+  getAPI(version: 1): { repositories: readonly GitRepositorySmoke[] };
+}
+
+suite("AFX Extension — native Git changes capability", () => {
+  test("built-in Git API detects an untracked file and git.openChange opens it", async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    assert.ok(root, "Expected an open workspace folder");
+    const gitExtension = vscode.extensions.getExtension<GitExtensionSmoke>("vscode.git");
+    assert.ok(gitExtension, "Expected the built-in vscode.git extension");
+    const git = gitExtension.isActive ? gitExtension.exports : await gitExtension.activate();
+    assert.strictEqual(git.enabled, true, "Expected built-in Git integration to be enabled");
+
+    const api = git.getAPI(1);
+    const repository = api.repositories.find((candidate) =>
+      isPathInside(root, candidate.rootUri.fsPath),
+    );
+    assert.ok(repository, `Expected a Git repository containing ${root}`);
+    const probeName = `.afx-git-changes-smoke-${process.pid}.md`;
+    const probePath = path.join(root, probeName);
+    const probeUri = vscode.Uri.file(probePath);
+
+    try {
+      fs.writeFileSync(probePath, "# AFX Git changes smoke\n", "utf8");
+      await repository.status();
+      await waitFor(
+        () =>
+          [
+            ...repository.state.workingTreeChanges,
+            ...repository.state.indexChanges,
+            ...repository.state.mergeChanges,
+          ].some((change) => change.uri.fsPath === probePath),
+        "Expected the built-in Git API to report the untracked smoke file",
+      );
+
+      const commands = await vscode.commands.getCommands(true);
+      assert.ok(commands.includes("git.openChange"), "git.openChange is not registered");
+      await vscode.commands.executeCommand("git.openChange", probeUri);
+      await waitFor(
+        () => vscode.window.tabGroups.activeTabGroup.activeTab?.label.includes(probeName) === true,
+        "Expected git.openChange to open the smoke file",
+      );
+    } finally {
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+      fs.rmSync(probePath, { force: true });
+      await repository.status();
+    }
+  });
+});
+
 suite("AFX Extension — markdown preview active document context", () => {
   suiteSetup(async () => {
     const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
@@ -289,6 +354,11 @@ function activeTabLooksLikeMarkdownPreview(): boolean {
   const input = activeTab?.input as { viewType?: string } | undefined;
   const viewType = input?.viewType ?? "";
   return viewType === "vscode.markdown.preview.editor" || viewType.includes("markdown.preview");
+}
+
+function isPathInside(candidatePath: string, rootPath: string): boolean {
+  const relative = path.relative(rootPath, candidatePath);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 async function waitFor(

@@ -3,11 +3,11 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-22T05:19:41.000Z"
+updated_at: "2026-07-18T16:59:49.000Z"
 approved_at: "2026-05-05T11:53:21.000Z"
-tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode]
+tags: [app, vscode, extension, webview, commands, agent, settings, mode, workspace-mode, git]
 spec: spec.md
 ---
 
@@ -105,10 +105,10 @@ The sidebar panel's webview message handler dispatches `ChatToAgent` variants to
 (`AgentManager`, settings, telemetry, shell). One additional case lives here for the composer
 modified-files strip and the mirrored active-file context preference:
 
-| Message                            | Handler                                                                                                                                                              |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `chat/openFile`                    | `vscode.window.showTextDocument(uri, { selection })` — relative paths resolved against workspace; `line` (1-indexed) reveals row                                     |
-| `chat/setIncludeActiveFileContext` | `vscode.workspace.getConfiguration("afx").update("context.includeActiveFileContext", enabled, vscode.ConfigurationTarget.Global)` then refresh the settings snapshot |
+| Message                            | Handler                                                                                                                                                                                                                                                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `chat/openFile`                    | Resolve absolute or relative paths across all workspace folders. Default/editor opens source with optional 1-indexed line selection; `afxPreview` opens Markdown in AFX Preview; `gitChanges` locates the current resource through the optional built-in `vscode.git` API and invokes `git.openChange` |
+| `chat/setIncludeActiveFileContext` | `vscode.workspace.getConfiguration("afx").update("context.includeActiveFileContext", enabled, vscode.ConfigurationTarget.Global)` then refresh the settings snapshot                                                                                                                                   |
 
 @see docs/specs/211-app-chat-composer/spec.md [FR-10]
 @see docs/specs/211-app-chat-composer/spec.md [FR-11]
@@ -303,12 +303,13 @@ Adding a keybinding:
 
 ## [DES-DEPS] Dependencies
 
-| Package             | Purpose                      |
-| ------------------- | ---------------------------- |
-| `@types/vscode`     | VSCode API type declarations |
-| `@afx/shared`       | Message types, AgentManager  |
-| `@afx/agent-pi`     | Pi CLI adapter factory       |
-| `@afx/agent-pi-sdk` | API-provider runtime adapter |
+| Package               | Purpose                                                                                 |
+| --------------------- | --------------------------------------------------------------------------------------- |
+| `@types/vscode`       | VSCode API type declarations                                                            |
+| `@afx/shared`         | Message types, AgentManager                                                             |
+| `@afx/agent-pi`       | Pi CLI adapter factory                                                                  |
+| `@afx/agent-pi-sdk`   | API-provider runtime adapter                                                            |
+| Built-in `vscode.git` | Optional Git resource discovery and native change editor; capability-checked at runtime |
 
 ---
 
@@ -326,6 +327,9 @@ Adding a keybinding:
 | Agent startup failure | Logged to OutputChannel; webview shows disconnected state; smoke test fails |
 | Extension UI request  | Sidebar maps request to VSCode UI and sends `respondToUiRequest()` response |
 | Webview dist missing  | Extension logs error; panel shows blank                                     |
+| Git unavailable       | Explain that Git changes are unavailable and offer Open File when possible  |
+| Clean/non-repo file   | Explain that no Git changes are available; never silently no-op             |
+| Git command failure   | Show a warning and offer Open File when possible                            |
 
 ---
 
@@ -337,6 +341,7 @@ Adding a keybinding:
 - `apps/vscode/src/agent-factory.test.ts` — configured runtime factory contract
 - `apps/vscode/src/multiplex-agent-manager.test.ts` — multi-runtime routing and session handoff
 - `apps/vscode/src/providers/*.test.ts` — @see navigation and right-click action behavior
+- `apps/vscode/src/panels/sidebar-panel.test.ts` — source/Preview/Git routing, line selection, multi-root resolution, changed/clean/unavailable Git fallbacks
 
 ---
 

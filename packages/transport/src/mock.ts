@@ -1060,6 +1060,29 @@ This is a long-running response on purpose so the queue stays visible while you 
     endAssistant(id);
   }
 
+  /** Standard Markdown edit used to exercise the AFX Preview file action. */
+  async function runToolEditMarkdownFile(): Promise<void> {
+    const id = startAssistant();
+    await delay(40);
+    const toolCallId = uid();
+    emit({
+      type: "chat/toolStart",
+      toolCallId,
+      toolName: "edit_file",
+      args: { path: "README.md", description: "Refresh release notes" },
+    });
+    await delay(60);
+    emit({
+      type: "chat/toolEnd",
+      toolCallId,
+      ok: true,
+      summary: "README.md — 2 lines changed",
+      firstChangedLine: 24,
+    });
+    await streamText(id, "Updated README.md with the latest release notes.");
+    endAssistant(id);
+  }
+
   async function runSddGuideActions(): Promise<void> {
     const feature = "checkout-redesign";
     const id = startAssistant();
@@ -1093,7 +1116,7 @@ Next:
 
   /**
    * Builds N realistic deep-path filenames so the Modified files panel can be
-   * stress-tested against THRESHOLD overflow with names that wrap and exceed
+   * stress-tested against the bounded `All N` inventory with names that exceed
    * the typical sidebar width. Mirrors the AFX monorepo's actual path shapes
    * (`apps/<app>/src/...`, `packages/<pkg>/src/...`) so the visual matches
    * what users will see in production.
@@ -1145,8 +1168,8 @@ Next:
 
   /**
    * Many-files edit scenario — fires N distinct edit tool calls in a single
-   * assistant turn so the Modified files panel exceeds `THRESHOLD` (6) and
-   * exercises the compact-by-default + `+N more` toggle.
+   * assistant turn so the Modified files panel exercises its bounded compact
+   * row and All-files overlay.
    *
    * Path mix is realistic AFX monorepo shapes (long `apps/*` / `packages/*`
    * paths) so the toggle is stress-tested against the kinds of filenames that
@@ -1177,8 +1200,55 @@ Next:
     }
     await streamText(
       id,
-      `Done. Touched ${paths.length} files in this turn — the Modified files panel should render compact-by-default with a "+N more" toggle regardless of count.`,
+      `Done. Touched ${paths.length} files in this turn — the Modified files panel should stay bounded and expose every path through All files.`,
     );
+    endAssistant(id);
+  }
+
+  /**
+   * Release-regression fixture matching the reported high-volume state:
+   * 34 modified files, including 21 SDD documents with colliding basenames.
+   *
+   * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+   * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+   */
+  async function runToolEditMixed3421(): Promise<void> {
+    const id = startAssistant();
+    // Edit the two recognisable script paths last so the latest-first compact
+    // row mirrors the reported release screenshot while the remaining paths
+    // stay available in the bounded All-files inventory.
+    const standardPaths = [
+      ...buildLongModifiedPaths(11),
+      "scripts/organize-evidence.js",
+      "scripts/create-dynamodb.sh",
+    ];
+    const sddNames = ["spec.md", "design.md", "tasks.md"] as const;
+    const sddPaths = Array.from({ length: 7 }, (_, index) => {
+      const feature = `modified-regression-${String(index + 1).padStart(2, "0")}`;
+      return sddNames.map((name) => `docs/specs/${feature}/${name}`);
+    }).flat();
+    const paths = [...standardPaths, ...sddPaths];
+
+    for (const [index, path] of paths.entries()) {
+      await delay(8);
+      const toolCallId = uid();
+      emit({
+        type: "chat/toolStart",
+        toolCallId,
+        toolName: "edit_file",
+        args: { path, description: `Regression edit ${path}` },
+      });
+      await delay(8);
+      emit({
+        type: "chat/toolEnd",
+        toolCallId,
+        ok: true,
+        summary: `${path} — 1 line changed`,
+        firstChangedLine: index + 1,
+      });
+    }
+
+    await streamText(id, "Done. Touched 34 files in this turn, including 21 SDD documents.");
     endAssistant(id);
   }
 
@@ -2504,10 +2574,12 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     "tool-bash": () => void runToolBash(),
     "tool-read-file": () => void runToolReadFile(),
     "tool-edit-file": () => void runToolEditFile(),
+    "tool-edit-markdown-file": () => void runToolEditMarkdownFile(),
     "tool-edit-many-files": () => void runToolEditManyFiles(8),
     "tool-edit-many-files-10": () => void runToolEditManyFiles(10),
     "tool-edit-many-files-20": () => void runToolEditManyFiles(20),
     "tool-edit-many-files-50": () => void runToolEditManyFiles(50),
+    "tool-edit-mixed-34-21": () => void runToolEditMixed3421(),
     "spec-doc-actions": () => runSpecDocActions(),
     "spec-doc-clear": () => clearDocContext(),
     "spec-doc-preview": () => emitSpecDocContext(),

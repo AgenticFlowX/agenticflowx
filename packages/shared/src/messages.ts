@@ -566,14 +566,21 @@ export type ChatToAgent =
    * User clicked a pill or header action that targets a workspace file. The
    * default mode opens the source editor via `vscode.window.showTextDocument`.
    * `mode: "afxPreview"` opens markdown through the standalone AFX preview.
-   * Relative paths are resolved against the workspace root. When `line` is
+   * `mode: "gitChanges"` asks the extension host to open the repository's
+   * current Git change for the file in VS Code's native change editor.
+   * Relative paths are resolved across the available workspace folders. When `line` is
    * supplied (1-indexed, forwarded from `ChatToolView.firstChangedLine`), the
    * host reveals that line via the editor selection.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
    */
-  | { type: "chat/openFile"; path: string; line?: number; mode?: "editor" | "afxPreview" }
+  | {
+      type: "chat/openFile";
+      path: string;
+      line?: number;
+      mode?: "editor" | "afxPreview" | "gitChanges";
+    }
   /**
    * Open the Workbench bottom panel from chat onboarding or result-adjacent UI.
    *

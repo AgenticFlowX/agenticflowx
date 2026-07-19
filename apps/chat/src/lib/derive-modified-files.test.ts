@@ -59,12 +59,12 @@ describe("deriveModifiedFiles", () => {
   it("collects Edit and Write tool calls and reports the latest assistant id", () => {
     const tl: ChatTimelineItem[] = [
       asst("a1", [
-        tool("Edit", { path: "src/x.ts" }, "ok"),
-        tool("Write", { filePath: "src/y.ts" }, "ok"),
+        tool("Edit", { path: "src/x.ts" }, "ok", "tc-1"),
+        tool("Write", { filePath: "src/y.ts" }, "ok", "tc-2"),
       ]),
     ];
     const out = deriveModifiedFiles(tl);
-    expect(out.files.map((f) => f.path).sort()).toEqual(["src/x.ts", "src/y.ts"]);
+    expect(out.files.map((f) => f.path)).toEqual(["src/y.ts", "src/x.ts"]);
     expect(out.latestEditingAssistantMessageId).toBe("a1");
   });
 
@@ -77,28 +77,27 @@ describe("deriveModifiedFiles", () => {
     expect(out.files[0]?.path).toBe("n/foo.ipynb");
   });
 
-  it("dedupes by path with most-recent-win across turns", () => {
+  it("replaces an older edit batch with the newest assistant edit batch", () => {
     const tl: ChatTimelineItem[] = [
-      asst("a1", [tool("Edit", { path: "src/x.ts" }, "ok", "tc-1")]),
+      asst("a1", [tool("Edit", { path: "src/old.ts" }, "ok", "tc-1")]),
       user("u2"),
-      asst("a2", [tool("Edit", { path: "src/x.ts" }, "running", "tc-2")]),
+      asst("a2", [tool("Edit", { path: "src/new.ts" }, "running", "tc-2")]),
     ];
     const out = deriveModifiedFiles(tl);
-    expect(out.files).toHaveLength(1);
-    expect(out.files[0]?.path).toBe("src/x.ts");
-    expect(out.files[0]?.toolCallId).toBe("tc-2");
-    expect(out.files[0]?.status).toBe("running");
+    expect(out.files.map((file) => file.path)).toEqual(["src/new.ts"]);
     expect(out.latestEditingAssistantMessageId).toBe("a2");
   });
 
-  it("orders files most-recent first", () => {
+  it("keeps the newest edit batch when later assistant messages do not edit", () => {
     const tl: ChatTimelineItem[] = [
       asst("a1", [tool("Edit", { path: "src/old.ts" })]),
       user("u2"),
       asst("a2", [tool("Edit", { path: "src/new.ts" })]),
+      asst("a3", [tool("Read", { path: "src/read-only.ts" })]),
     ];
     const out = deriveModifiedFiles(tl);
-    expect(out.files.map((f) => f.path)).toEqual(["src/new.ts", "src/old.ts"]);
+    expect(out.files.map((f) => f.path)).toEqual(["src/new.ts"]);
+    expect(out.latestEditingAssistantMessageId).toBe("a2");
   });
 
   it("falls through PATH_KEYS in order: path, filePath, file_path, notebook_path", () => {
@@ -165,6 +164,7 @@ describe("deriveModifiedFiles", () => {
       asst("a3", [tool("Read", { path: "z.ts" })]), // no edits in this turn
     ];
     const out = deriveModifiedFiles(tl);
+    expect(out.files.map((file) => file.path)).toEqual(["y.ts"]);
     expect(out.latestEditingAssistantMessageId).toBe("a2");
   });
 
@@ -182,25 +182,34 @@ describe("deriveModifiedFiles", () => {
     expect(out.files[0]?.line).toBeUndefined();
   });
 
-  it("most-recent-win dedupe also takes the latest tool's line", () => {
+  it("dedupes within the latest batch with the newest tool call winning and ordered first", () => {
     const tl: ChatTimelineItem[] = [
-      asst("a1", [tool("Edit", { path: "src/x.ts" }, "ok", "tc-1", { firstChangedLine: 10 })]),
-      user("u2"),
-      asst("a2", [tool("Edit", { path: "src/x.ts" }, "ok", "tc-2", { firstChangedLine: 99 })]),
+      asst("a1", [tool("Edit", { path: "src/historical.ts" }, "ok", "tc-old")]),
+      asst("a2", [
+        tool("Edit", { path: "src/x.ts" }, "ok", "tc-1", { firstChangedLine: 10 }),
+        tool("Write", { path: "src/y.ts" }, "ok", "tc-2", { firstChangedLine: 50 }),
+        tool("Edit", { path: "./src//x.ts" }, "error", "tc-3", {
+          firstChangedLine: 99,
+        }),
+      ]),
     ];
     const out = deriveModifiedFiles(tl);
-    expect(out.files[0]?.line).toBe(99);
+    expect(
+      out.files.map(({ path, toolCallId, status, line }) => ({ path, toolCallId, status, line })),
+    ).toEqual([
+      { path: "src/x.ts", toolCallId: "tc-3", status: "error", line: 99 },
+      { path: "src/y.ts", toolCallId: "tc-2", status: "ok", line: 50 },
+    ]);
   });
 
   it("dedupes path variants that differ only in normalization (./, double-slashes, backslashes)", () => {
     const tl: ChatTimelineItem[] = [
-      asst("a1", [tool("Edit", { path: "src/x.ts" })]),
-      user("u2"),
-      asst("a2", [tool("Edit", { path: "./src/x.ts" })]),
-      user("u3"),
-      asst("a3", [tool("Edit", { path: "src//x.ts" })]),
-      user("u4"),
-      asst("a4", [tool("Edit", { path: "src\\x.ts" })]),
+      asst("a1", [
+        tool("Edit", { path: "src/x.ts" }),
+        tool("Edit", { path: "./src/x.ts" }),
+        tool("Edit", { path: "src//x.ts" }),
+        tool("Edit", { path: "src\\x.ts" }),
+      ]),
     ];
     const out = deriveModifiedFiles(tl);
     expect(out.files).toHaveLength(1);

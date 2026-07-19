@@ -1,23 +1,15 @@
 /**
- * Modified Files strip — Playwright e2e against the browser dev harness.
+ * Modified Files panel regression coverage against the browser dev harness.
  *
- * The base suite uses the DebugPanel's "tool-edit-file" scenario to drive a
- * single edit tool call into the transcript and asserts the strip's
- * expand/collapse/dismiss behaviour. The compact-mode suite fires
- * "tool-edit-many-files" (8 distinct edits in one turn) to cross the
- * `THRESHOLD = 6` boundary in `files-panel.tsx` and exercise the
- * `+N more` / `Show less` toggle and per-turn remount-reset.
+ * The high-volume fixture mirrors the release report: 34 files, including 21
+ * SDD documents. The complete inventory is a portal, so opening it must not
+ * resize or push the composer.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-10] [NFR-7]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
- * @see docs/specs/420-dx-testing/spec.md [FR-1]
  */
-import { type Page, type TestInfo, expect, test } from "@playwright/test";
+import { type Locator, type Page, type TestInfo, expect, test } from "@playwright/test";
 
-/**
- * Snapshot helper — writes through Playwright's configured E2E artifact root
- * and attaches the image to the report.
- */
 async function attachScreenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
   const path = testInfo.outputPath(name);
   const body = await page.screenshot({ fullPage: false, path });
@@ -25,12 +17,8 @@ async function attachScreenshot(page: Page, testInfo: TestInfo, name: string): P
 }
 
 async function fireScenario(page: Page, label: string): Promise<void> {
-  // Open the floating Debug Panel popover
   await page.getByRole("button", { name: "Toggle Debug Panel" }).click();
-  // Click the scenario tile by its visible label (case-sensitive — buttons
-  // render the label string directly, e.g. "edit").
   await page.getByRole("button", { name: label, exact: true }).click();
-  // Close the popover so it doesn't cover the composer
   await page.keyboard.press("Escape");
 }
 
@@ -47,339 +35,353 @@ async function openDebugLog(page: Page): Promise<void> {
   await page.getByRole("tab", { name: "Log" }).click();
 }
 
-function modifiedPanelHeader(page: Page) {
+function modifiedPanelHeader(page: Page): Locator {
   return page.locator("#composer-panel-modified-files");
 }
 
-function modifiedFilePills(page: Page) {
+function compactFileButtons(page: Page): Locator {
   return page.getByTestId("files-panel-pill");
 }
 
-function modifiedToggle(page: Page) {
-  return page.getByTestId("files-panel-toggle");
+function allFilesTrigger(page: Page): Locator {
+  return page.getByTestId("files-panel-all-trigger");
 }
 
-const COMPACT_THRESHOLD = 4;
-const MANY_FILES_COUNT = 8;
+async function expectComposerGeometryUnchanged(page: Page, action: () => Promise<void>) {
+  const composer = page.locator("#afx-chat-composer");
+  const before = await composer.boundingBox();
+  expect(before).not.toBeNull();
+  await action();
+  const after = await composer.boundingBox();
+  expect(after).not.toBeNull();
+  expect(after?.x).toBeCloseTo(before?.x ?? 0, 0);
+  expect(after?.y).toBeCloseTo(before?.y ?? 0, 0);
+  expect(after?.width).toBeCloseTo(before?.width ?? 0, 0);
+  expect(after?.height).toBeCloseTo(before?.height ?? 0, 0);
+}
 
-test.describe("Modified files strip (FR-10)", () => {
-  test("is hidden on a fresh chat with no tool calls", async ({ page }) => {
+test.describe("Modified files panel (FR-10)", () => {
+  test("is hidden on a fresh chat with no edit tools", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByText(/Modified/i)).toHaveCount(0);
   });
 
-  test("appears expanded with a clickable pill after an edit tool call lands", async ({ page }) => {
+  test("opens a changed file at its first changed line", async ({ page }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
 
-    // Wait for the toolStart to land (~60ms) and the strip to render expanded.
     const header = modifiedPanelHeader(page);
     await expect(header).toBeVisible({ timeout: 5_000 });
-    // Default-expanded: aria-expanded=true, pill is visible.
-    await expect(header).toHaveAttribute("aria-expanded", "true");
     await expect(header).toContainText("· 1");
+    const file = page.getByRole("button", {
+      name: /Open apps\/chat\/src\/views\/chat\.tsx at line 142/i,
+    });
+    await expect(file).toBeVisible({ timeout: 5_000 });
+    await file.click();
 
-    // The "tool-edit-file" mock scenario edits apps/chat/src/views/chat.tsx.
-    const pill = modifiedFilePills(page);
-    await expect(pill).toHaveCount(1);
-    await expect(pill).toHaveText(/chat\.tsx/);
-    await expect(pill).toHaveAttribute("aria-label", /Open .*chat\.tsx/);
+    await openDebugLog(page);
+    const openFile = page.getByRole("button", { name: "Toggle entry chat/openFile" });
+    await expect(openFile).toHaveCount(1);
+    await openFile.click();
+    await expect(openFile.locator("..").locator("pre")).toContainText('"line": 142');
   });
 
-  test("collapses when the chevron is clicked and re-expands when clicked again", async ({
-    page,
-  }) => {
+  test("chrome collapse hides the whole body and re-expands it", async ({ page }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
     const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
-    await expect(header).toHaveAttribute("aria-expanded", "true");
+    await expect(header).toHaveAttribute("aria-expanded", "true", { timeout: 5_000 });
 
     await header.click();
     await expect(header).toHaveAttribute("aria-expanded", "false");
-    await expect(modifiedFilePills(page).first()).toBeHidden();
-
+    await expect(compactFileButtons(page)).toBeHidden();
     await header.click();
     await expect(header).toHaveAttribute("aria-expanded", "true");
-    await expect(modifiedFilePills(page)).toHaveCount(1);
+    await expect(compactFileButtons(page)).toHaveCount(1);
   });
 
-  test("renders the firstChangedLine forwarded by the tool result", async ({ page }) => {
+  test("dismiss remains scoped until a newer editing response", async ({ page }) => {
     await page.goto("/");
     await fireScenario(page, "edit");
     const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
-    // Pill is visible immediately (default-expanded). Wait for toolEnd to add the
-    // firstChangedLine to the tool view — only toolEnd carries it.
-    const pill = modifiedFilePills(page);
-    await expect(pill).toBeVisible({ timeout: 5_000 });
-    // Mock scenario emits firstChangedLine: 142 for the tool-edit-file edit.
-    await expect(pill).toHaveAttribute("aria-label", /at line 142/i, { timeout: 5_000 });
-    await expect(pill).toContainText(":142");
-  });
-
-  test("dismiss (✕) hides the strip until the next assistant turn produces an edit", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await fireScenario(page, "edit");
-    const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText(/Done\. I added a scroll-to-bottom button/).first()).toBeVisible({
       timeout: 10_000,
     });
-
-    // Dismiss after the first turn settles. The next assistant turn should
-    // clear this dismissal as soon as a fresh edit tool starts.
-    // Scope the close button by walking up from the visible toggle to its
-    // sibling close button inside the same header.
-    const closeBtn = header.locator(
-      "xpath=ancestor::section//button[@aria-label='Dismiss Modified']",
-    );
-    await expect(closeBtn).toBeVisible({ timeout: 5_000 });
-    await closeBtn.click();
+    const close = header.locator("xpath=ancestor::section//button[@aria-label='Dismiss Modified']");
+    await close.click();
     await expect(modifiedPanelHeader(page)).toHaveCount(0);
 
-    // Fire another edit turn — strip should reappear (same path → count stays 1).
     await fireScenario(page, "edit");
-    await expect(modifiedPanelHeader(page)).toBeVisible({
-      timeout: 5_000,
-    });
+    await expect(modifiedPanelHeader(page)).toBeVisible({ timeout: 5_000 });
   });
 
-  // E2E-08: source navigation stays in the file pills while SDD follow-ups use
-  // one fixed-height summary row and a grouped overflow menu.
-  test("changed SDD docs keep one compact action row with grouped follow-ups", async ({ page }) => {
+  test("SDD files appear once, retain workflow actions, and preview the newest success", async ({
+    page,
+  }) => {
     await page.goto("/");
     await fireScenario(page, "SDD guide");
     await expect(page.getByTestId("sdd-workflow-guide-card")).toBeVisible({ timeout: 10_000 });
 
-    const changedDocs = page.getByTestId("sdd-modified-guide");
-    await expect(changedDocs).toHaveCount(1);
-    await expect(changedDocs).toContainText("2 changed docs");
-    await expect(changedDocs).toHaveAttribute("data-status", "ok");
-    await expect(changedDocs.getByText("spec.md")).toHaveCount(0);
-    await expect(changedDocs.getByText("design.md")).toHaveCount(0);
-    const compactBox = await changedDocs.boundingBox();
-    expect(compactBox).not.toBeNull();
-    expect(compactBox?.height).toBeLessThanOrEqual(28);
+    const guide = page.getByTestId("sdd-modified-guide");
+    await expect(guide).toContainText("SDD · 2 docs");
+    await expect(guide).toHaveAttribute("data-status", "ok");
+    await expect(compactFileButtons(page)).toHaveCount(0);
+    await expect(guide.getByRole("button", { name: "Show all 2 modified files" })).toBeVisible();
+    const guideBox = await guide.boundingBox();
+    expect(guideBox?.height).toBeLessThanOrEqual(28);
 
-    // Isolate explicit user actions from the scenario's automatic Preview.
     await clearDebugLog(page);
-
-    await page
-      .getByRole("button", {
-        name: "Open docs/specs/checkout-redesign/spec.md at line 1",
-      })
+    await guide.getByRole("button", { name: "Show all 2 modified files" }).click();
+    const inventory = page.getByRole("dialog", { name: "All 2 modified files" });
+    await inventory
+      .getByRole("button", { name: "Open docs/specs/checkout-redesign/spec.md at line 1" })
       .click();
-    await changedDocs.getByRole("button", { name: "Preview" }).click();
+    await guide
+      .getByRole("button", { name: "Preview docs/specs/checkout-redesign/design.md" })
+      .click();
 
     const composer = page.locator("#afx-chat-composer");
-    const more = changedDocs.getByRole("button", { name: "More SDD document actions" });
+    const more = guide.getByRole("button", { name: "More SDD document actions" });
     await more.click();
-    await expect(page.getByRole("menuitem", { name: /Refine spec.*spec\.md/ })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: /Refine design.*design\.md/ })).toBeVisible();
-    await expect(page.getByRole("menuitem", { name: "Journal" })).toHaveCount(1);
-    await page.getByRole("menuitem", { name: /Refine spec.*spec\.md/ }).click();
+    await expect(page.getByText("SDD actions · 1 spec")).toBeVisible();
+    await expect(
+      page.getByRole("group", {
+        name: "SDD actions for docs/specs/checkout-redesign",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", {
+        name: "Refine spec for docs/specs/checkout-redesign",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", {
+        name: "Refine design for docs/specs/checkout-redesign",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Journal for docs/specs/checkout-redesign" }),
+    ).toHaveCount(1);
+    await page
+      .getByRole("menuitem", { name: "Refine spec for docs/specs/checkout-redesign" })
+      .click();
     await expect(composer).toHaveValue("/afx-spec refine checkout-redesign ");
-    await more.click();
-    await page.getByRole("menuitem", { name: "Journal" }).click();
-    await expect(composer).toHaveValue("/afx-session capture --links checkout-redesign ");
-
-    await changedDocs.getByRole("button", { name: "Open SDD Studio" }).click();
 
     await openDebugLog(page);
-    const openFileEntries = page.getByRole("button", {
-      name: "Toggle entry chat/openFile",
-    });
-    await expect(openFileEntries).toHaveCount(2);
-
-    await openFileEntries.nth(0).click();
-    const sourcePayload = openFileEntries.nth(0).locator("..").locator("pre");
-    await expect(sourcePayload).toContainText('"path": "docs/specs/checkout-redesign/spec.md"');
-    await expect(sourcePayload).toContainText('"line": 1');
-    await expect(sourcePayload).not.toContainText('"mode"');
-
-    await openFileEntries.nth(1).click();
-    const previewPayload = openFileEntries.nth(1).locator("..").locator("pre");
-    await expect(previewPayload).toContainText('"path": "docs/specs/checkout-redesign/spec.md"');
-    await expect(previewPayload).toContainText('"mode": "afxPreview"');
-
-    const studioEntries = page.getByRole("button", {
-      name: "Toggle entry chat/openWorkbench",
-    });
-    await expect(studioEntries).toHaveCount(1);
+    const entries = page.getByRole("button", { name: "Toggle entry chat/openFile" });
+    await expect(entries).toHaveCount(2);
+    await entries.nth(1).click();
+    await expect(entries.nth(1).locator("..").locator("pre")).toContainText('"mode": "afxPreview"');
+    await expect(entries.nth(1).locator("..").locator("pre")).toContainText(
+      '"path": "docs/specs/checkout-redesign/design.md"',
+    );
   });
 });
 
-test.describe("Modified files strip (FR-10) compact mode", () => {
-  test("compact mode shows only THRESHOLD pills + toggle when count > THRESHOLD", async ({
+test.describe("Modified files inspection actions", () => {
+  test("hover exposes Markdown source, AFX Preview, and Git changes", async ({
     page,
   }, testInfo) => {
     await page.goto("/");
-    await fireScenario(page, "edit ×8");
-
-    const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
-    await expect(header).toContainText(`· ${MANY_FILES_COUNT}`);
-
-    // Compact mode: only the first THRESHOLD pills render in the DOM.
-    await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD, { timeout: 5_000 });
-    const toggle = modifiedToggle(page);
-    await expect(toggle).toBeVisible();
-    await expect(toggle).toHaveText(`+${MANY_FILES_COUNT - COMPACT_THRESHOLD} more`);
-    await expect(toggle).toHaveAttribute("data-expanded", "false");
-    await attachScreenshot(page, testInfo, "files-strip-compact.png");
-  });
-
-  test("clicking +N more reveals all pills and changes toggle to 'Show less'", async ({
-    page,
-  }, testInfo) => {
-    await page.goto("/");
-    await fireScenario(page, "edit ×8");
-
-    const toggle = modifiedToggle(page);
-    await expect(toggle).toBeVisible({ timeout: 5_000 });
-    await toggle.click();
-
-    await expect(modifiedFilePills(page)).toHaveCount(MANY_FILES_COUNT);
-    await expect(toggle).toHaveText("Show less");
-    await expect(toggle).toHaveAttribute("data-expanded", "true");
-    await attachScreenshot(page, testInfo, "files-strip-expanded.png");
-  });
-
-  test("clicking Show less returns to compact (THRESHOLD pills + +N more)", async ({ page }) => {
-    await page.goto("/");
-    await fireScenario(page, "edit ×8");
-
-    const toggle = modifiedToggle(page);
-    await expect(toggle).toBeVisible({ timeout: 5_000 });
-    await toggle.click();
-    await toggle.click();
-
-    await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD);
-    await expect(toggle).toHaveText(/^\+\d+ more$/);
-    await expect(toggle).toHaveAttribute("data-expanded", "false");
-  });
-
-  test("chrome chevron still hides the entire body, expanded or compact", async ({ page }) => {
-    await page.goto("/");
-    await fireScenario(page, "edit ×8");
-
-    const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
-    await expect(header).toHaveAttribute("aria-expanded", "true");
-
-    // Compact body visible; chevron-collapse hides it; un-collapse keeps compact.
-    await header.click();
-    await expect(header).toHaveAttribute("aria-expanded", "false");
-    await expect(modifiedFilePills(page).first()).toBeHidden();
-    await header.click();
-    await expect(header).toHaveAttribute("aria-expanded", "true");
-    await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD);
-    await expect(modifiedToggle(page)).toHaveAttribute("data-expanded", "false");
-
-    // Expand via the +N more toggle, then chrome-collapse and re-show — state preserved.
-    await modifiedToggle(page).click();
-    await expect(modifiedToggle(page)).toHaveAttribute("data-expanded", "true");
-    await header.click();
-    await expect(modifiedFilePills(page).first()).toBeHidden();
-    await header.click();
-    await expect(modifiedFilePills(page)).toHaveCount(MANY_FILES_COUNT);
-    await expect(modifiedToggle(page)).toHaveAttribute("data-expanded", "true");
-  });
-
-  // Stress matrix: confirm the body stays at exactly THRESHOLD pills + toggle
-  // regardless of how many files arrive, and capture screenshots at each volume
-  // so a reviewer can verify the height budget visually with long realistic
-  // monorepo paths (e.g. `apps/workbench/src/lib/document-studio.tsx`).
-  for (const count of [10, 20, 50] as const) {
-    test(`compact body stays at THRESHOLD pills with long realistic paths × ${count}`, async ({
-      page,
-    }, testInfo) => {
-      await page.goto("/");
-      await fireScenario(page, `edit ×${count}`);
-
-      const header = modifiedPanelHeader(page);
-      await expect(header).toBeVisible({ timeout: 5_000 });
-      await expect(header).toContainText(`· ${count}`);
-
-      // The whole point of the change — body cap is constant regardless of count.
-      await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD, { timeout: 5_000 });
-      const toggle = modifiedToggle(page);
-      await expect(toggle).toBeVisible();
-      await expect(toggle).toHaveText(`+${count - COMPACT_THRESHOLD} more`);
-
-      await attachScreenshot(page, testInfo, `files-strip-compact-${count}.png`);
-
-      // Expand and confirm all N pills render, then snapshot the expanded view.
-      await toggle.click();
-      await expect(modifiedFilePills(page)).toHaveCount(count);
-      await expect(toggle).toHaveText("Show less");
-      await attachScreenshot(page, testInfo, `files-strip-expanded-${count}.png`);
-    });
-  }
-
-  // Narrow-viewport stress matrix — mirrors the constrained VSCode sidebar
-  // (~360 px wide) which is the geometry that motivated the compact-mode work
-  // in the first place. Capture screenshots so a reviewer can see how the panel
-  // behaves under the actual production width with realistic long names.
-  for (const count of [10, 20, 50] as const) {
-    test(`narrow sidebar (360×800) — compact body holds at THRESHOLD with ${count} files`, async ({
-      page,
-    }, testInfo) => {
-      await page.setViewportSize({ width: 360, height: 800 });
-      await page.goto("/");
-      await fireScenario(page, `edit ×${count}`);
-
-      const header = modifiedPanelHeader(page);
-      await expect(header).toBeVisible({ timeout: 5_000 });
-      await expect(header).toContainText(`· ${count}`);
-
-      // Still capped at THRESHOLD even when wrap behaviour is much harsher.
-      await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD, { timeout: 5_000 });
-      const toggle = modifiedToggle(page);
-      await expect(toggle).toBeVisible();
-      await expect(toggle).toHaveText(`+${count - COMPACT_THRESHOLD} more`);
-
-      await attachScreenshot(page, testInfo, `files-strip-narrow-compact-${count}.png`);
-
-      // Snapshot the expanded view at narrow width too — this is the "before"
-      // state of the bug; with the compact mode it's a deliberate user choice.
-      await toggle.click();
-      await expect(modifiedFilePills(page)).toHaveCount(count);
-      await attachScreenshot(page, testInfo, `files-strip-narrow-expanded-${count}.png`);
-    });
-  }
-
-  test("chrome close (✕) dismisses the panel and the next edit turn re-shows it in compact", async ({
-    page,
-  }) => {
-    await page.goto("/");
-    await fireScenario(page, "edit ×8");
-
-    const header = modifiedPanelHeader(page);
-    await expect(header).toBeVisible({ timeout: 5_000 });
-
-    // Expand first, then dismiss — confirms the dismiss path doesn't depend on compact mode.
-    await modifiedToggle(page).click();
-    await expect(modifiedToggle(page)).toHaveAttribute("data-expanded", "true");
-
-    // Wait for the assistant turn to settle before dismissing (mirrors the FR-10 dismiss test).
-    await expect(page.getByText(/Touched 8 files in this turn/).first()).toBeVisible({
+    await fireScenario(page, "edit markdown");
+    await expect(modifiedPanelHeader(page)).toBeVisible({ timeout: 5_000 });
+    // Wait for transcript streaming to settle before asserting pointer
+    // stability. While a response is still growing the popper legitimately
+    // tracks composer geometry, which is a different running-state concern.
+    await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0, {
       timeout: 10_000,
     });
-    const closeBtn = header.locator(
-      "xpath=ancestor::section//button[@aria-label='Dismiss Modified']",
-    );
-    await expect(closeBtn).toBeVisible({ timeout: 5_000 });
-    await closeBtn.click();
-    await expect(modifiedPanelHeader(page)).toHaveCount(0);
 
-    // Next turn re-shows the panel; remount must reset the body to compact (not expanded).
-    await fireScenario(page, "edit ×8");
-    await expect(modifiedPanelHeader(page)).toBeVisible({ timeout: 5_000 });
-    await expect(modifiedFilePills(page)).toHaveCount(COMPACT_THRESHOLD);
-    await expect(modifiedToggle(page)).toHaveAttribute("data-expanded", "false");
+    const source = page.getByRole("button", { name: "Open README.md at line 24" });
+    await source.hover();
+    let actions = page.getByRole("dialog", { name: "Actions for README.md" });
+    await expect(actions).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Open source" })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "AFX Preview" })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Git changes" })).toBeVisible();
+    await attachScreenshot(page, testInfo, "chat-modified-file-actions-markdown.png");
+
+    await actions.getByRole("button", { name: "AFX Preview" }).click();
+    await source.hover();
+    actions = page.getByRole("dialog", { name: "Actions for README.md" });
+    await actions.getByRole("button", { name: "Git changes" }).click();
+
+    await openDebugLog(page);
+    const entries = page.getByRole("button", { name: "Toggle entry chat/openFile" });
+    await expect(entries).toHaveCount(2);
+    await entries.nth(0).click();
+    await expect(entries.nth(0).locator("..").locator("pre")).toContainText('"mode": "afxPreview"');
+    await entries.nth(1).click();
+    await expect(entries.nth(1).locator("..").locator("pre")).toContainText('"mode": "gitChanges"');
   });
+
+  test("keyboard activation enters actions and Escape restores the trigger", async ({ page }) => {
+    await page.goto("/");
+    await fireScenario(page, "edit");
+    const trigger = page.getByRole("button", {
+      name: "Actions for apps/chat/src/views/chat.tsx",
+    });
+    await trigger.focus();
+    await trigger.press("Enter");
+
+    const actions = page.getByRole("dialog", {
+      name: "Actions for apps/chat/src/views/chat.tsx",
+    });
+    await expect(actions).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Open source" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(actions).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+});
+
+test.describe("Modified files 34/21 release regression", () => {
+  test("keeps two standard files plus one SDD summary and a grouped All inventory", async ({
+    page,
+  }, testInfo) => {
+    await page.goto("/");
+    await fireScenario(page, "edit 34/21");
+    const header = modifiedPanelHeader(page);
+    await expect(header).toContainText("· 34", { timeout: 10_000 });
+    await expect(compactFileButtons(page)).toHaveCount(2);
+    await expect(page.getByTestId("sdd-modified-guide")).toContainText("SDD · 21 docs");
+    await expect(allFilesTrigger(page)).toHaveAccessibleName("Show all 34 modified files");
+    await attachScreenshot(page, testInfo, "chat-modified-mixed-34-21.png");
+
+    await expectComposerGeometryUnchanged(page, async () => allFilesTrigger(page).click());
+    const inventory = page.getByRole("dialog", { name: "All 34 modified files" });
+    await expect(inventory.getByRole("heading", { name: "Files · 13" })).toBeVisible();
+    await expect(inventory.getByRole("heading", { name: "SDD · 21" })).toBeVisible();
+    await expect(inventory.getByTestId("files-panel-all-row")).toHaveCount(34);
+    await expect(inventory.getByText("modified-regression-01/spec.md")).toBeVisible();
+    await expect(inventory.getByText("modified-regression-04/spec.md")).toBeVisible();
+    const box = await inventory.boundingBox();
+    expect(box?.height).toBeLessThanOrEqual(321);
+  });
+
+  test("keeps every file reachable in a 50-file batch without resizing the composer", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto("/");
+    await fireScenario(page, "edit ×50");
+    await expect(modifiedPanelHeader(page)).toContainText("· 50", { timeout: 10_000 });
+    await expect(compactFileButtons(page)).toHaveCount(2);
+
+    await expectComposerGeometryUnchanged(page, async () => allFilesTrigger(page).click());
+    const inventory = page.getByRole("dialog", { name: "All 50 modified files" });
+    const rows = inventory.getByTestId("files-panel-all-row");
+    await expect(rows).toHaveCount(50);
+    await rows.last().scrollIntoViewIfNeeded();
+    await expect(rows.last()).toBeVisible();
+    expect((await inventory.boundingBox())?.height).toBeLessThanOrEqual(321);
+  });
+
+  test("keeps seven changed SDD specs identified in one keyboard-accessible narrow menu", async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await page.goto("/");
+    await fireScenario(page, "edit 34/21");
+    await expect(modifiedPanelHeader(page)).toContainText("· 34", { timeout: 10_000 });
+
+    const trigger = page
+      .getByTestId("sdd-modified-guide")
+      .getByRole("button", { name: "More SDD document actions" });
+    await trigger.focus();
+    await expectComposerGeometryUnchanged(page, async () => trigger.press("Enter"));
+
+    let menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+    await expect(menu.getByText("SDD actions · 7 specs")).toBeVisible();
+    await expect(menu.getByTestId("sdd-action-group")).toHaveCount(7);
+    await expect(page.getByRole("menu")).toHaveCount(1);
+    await expect(menu.getByRole("menuitem").first()).toBeFocused();
+
+    const menuBox = await menu.boundingBox();
+    expect(menuBox?.height).toBeLessThanOrEqual(321);
+    expect(menuBox?.width).toBeLessThanOrEqual(344);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+      360,
+    );
+    await attachScreenshot(page, testInfo, "chat-modified-sdd-actions-grouped-narrow.png");
+
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await trigger.press("Enter");
+    menu = page.getByRole("menu");
+    const firstGroup = menu.getByTestId("sdd-action-group").first();
+    const lastGroup = menu.getByTestId("sdd-action-group").last();
+    await firstGroup.scrollIntoViewIfNeeded();
+    await expect(firstGroup).toBeVisible();
+    await lastGroup.scrollIntoViewIfNeeded();
+    await expect(lastGroup).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(trigger).toBeFocused();
+
+    await trigger.press("Enter");
+    menu = page.getByRole("menu");
+    const ownerAction = menu.getByRole("menuitem", {
+      name: "Refine design for docs/specs/modified-regression-06",
+    });
+    const keyboardPath = [
+      "Refine spec for docs/specs/modified-regression-07",
+      "Refine design for docs/specs/modified-regression-07",
+      "Task status for docs/specs/modified-regression-07",
+      "Refine spec for docs/specs/modified-regression-06",
+      "Refine design for docs/specs/modified-regression-06",
+    ];
+    await expect(menu.getByRole("menuitem", { name: keyboardPath[0] })).toBeFocused();
+    for (const actionName of keyboardPath.slice(1)) {
+      await page.keyboard.press("ArrowDown");
+      await expect(menu.getByRole("menuitem", { name: actionName })).toBeFocused();
+    }
+    await expect(ownerAction).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(page.locator("#afx-chat-composer")).toHaveValue(
+      "/afx-design refine modified-regression-06 ",
+    );
+  });
+
+  for (const viewport of [
+    { width: 360, height: 800 },
+    { width: 390, height: 844 },
+    { width: 480, height: 820 },
+    { width: 656, height: 1104 },
+  ] as const) {
+    test(`${viewport.width}×${viewport.height} stays bounded with All open`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.goto("/");
+      await fireScenario(page, "edit 34/21");
+      await expect(modifiedPanelHeader(page)).toContainText("· 34", { timeout: 10_000 });
+      await expect(compactFileButtons(page)).toHaveCount(2);
+
+      const compactRow = page.getByTestId("files-panel-compact-list");
+      const compactBox = await compactRow.boundingBox();
+      expect(compactBox?.height).toBeLessThanOrEqual(24);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        viewport.width,
+      );
+
+      await expectComposerGeometryUnchanged(page, async () => allFilesTrigger(page).click());
+      const inventory = page.getByRole("dialog", { name: "All 34 modified files" });
+      await expect(inventory.getByTestId("files-panel-all-row")).toHaveCount(34);
+      const inventoryBox = await inventory.boundingBox();
+      expect(inventoryBox?.height).toBeLessThanOrEqual(Math.min(viewport.height * 0.45, 320) + 1);
+      const composerBox = await page.locator("#afx-chat-composer").boundingBox();
+      expect((composerBox?.y ?? 0) + (composerBox?.height ?? 0)).toBeLessThanOrEqual(
+        viewport.height,
+      );
+
+      if (viewport.width === 360) {
+        await attachScreenshot(page, testInfo, "chat-modified-all-files-narrow.png");
+        await allFilesTrigger(page).press("Escape");
+        await attachScreenshot(page, testInfo, "chat-modified-mixed-34-21-narrow.png");
+      }
+    });
+  }
 });

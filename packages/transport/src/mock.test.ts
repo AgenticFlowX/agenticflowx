@@ -77,6 +77,49 @@ describe("createMockTransport", () => {
     vi.useRealTimers();
   });
 
+  it("provides a mixed 34-file batch with 21 SDD documents for regression captures", async () => {
+    vi.useFakeTimers();
+    const t = createMockTransport();
+    let messages: Array<{ role?: string; tools?: Array<{ args?: Record<string, unknown> }> }> = [];
+    t.on("chat/state", (message) => {
+      messages = message.messages;
+    });
+
+    t.scenarios["tool-edit-mixed-34-21"]?.();
+    await vi.runAllTimersAsync();
+    t.send({ type: "chat/getState" });
+
+    const tools =
+      [...messages].reverse().find((message) => message.role === "assistant")?.tools ?? [];
+    const paths = tools.map((tool) => {
+      const path = tool.args?.["path"];
+      return typeof path === "string" ? path : "";
+    });
+    expect(paths).toHaveLength(34);
+    expect(paths.filter((path) => path.startsWith("docs/specs/"))).toHaveLength(21);
+    t.dispose();
+    vi.useRealTimers();
+  });
+
+  it("provides a standard Markdown edit for file-action captures", async () => {
+    vi.useFakeTimers();
+    const t = createMockTransport();
+    let messages: Array<{ role?: string; tools?: Array<{ args?: Record<string, unknown> }> }> = [];
+    t.on("chat/state", (message) => {
+      messages = message.messages;
+    });
+
+    t.scenarios["tool-edit-markdown-file"]?.();
+    await vi.runAllTimersAsync();
+    t.send({ type: "chat/getState" });
+
+    const tools =
+      [...messages].reverse().find((message) => message.role === "assistant")?.tools ?? [];
+    expect(tools[0]?.args?.["path"]).toBe("README.md");
+    t.dispose();
+    vi.useRealTimers();
+  });
+
   it("onLog fires for each message", () => {
     const t = createMockTransport();
     const entries: string[] = [];
@@ -122,6 +165,8 @@ describe("createMockTransport", () => {
       "tool-edit-many-files-10",
       "tool-edit-many-files-20",
       "tool-edit-many-files-50",
+      "tool-edit-mixed-34-21",
+      "tool-edit-markdown-file",
       "spec-doc-actions",
       "spec-doc-clear",
       "spec-doc-preview",

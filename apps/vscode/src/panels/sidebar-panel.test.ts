@@ -2233,13 +2233,14 @@ describe("sidebar-panel host bridge", () => {
     expect(executeCommand).toHaveBeenCalledWith("afx.openWorkbench");
   });
 
-  it("chat/openFile opens the source editor by default", () => {
+  it("chat/openFile opens the source editor by default", async () => {
     const showTextDocument = vi
       .spyOn(vscode.window, "showTextDocument")
       .mockResolvedValue(undefined as never);
     const { inbound } = setupWithView();
 
     inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md" });
+    await flushAsyncWork(2);
 
     expect(showTextDocument).toHaveBeenCalledWith(
       expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
@@ -2247,7 +2248,73 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
-  it("chat/openFile opens AFX Preview when requested", () => {
+  it("chat/openFile resolves a workspace-name-prefixed source path", async () => {
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      {
+        name: "client-a",
+        index: 0,
+        uri: vscode.Uri.file("/workspace/client-a"),
+      },
+      {
+        name: "client-b",
+        index: 1,
+        uri: vscode.Uri.file("/workspace/client-b"),
+      },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "client-b/docs/spec.md" });
+    await flushAsyncWork(2);
+
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/workspace/client-b/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile resolves a relative source path across all workspace folders", async () => {
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      {
+        name: "client-a",
+        index: 0,
+        uri: vscode.Uri.file("/workspace/client-a"),
+      },
+      {
+        name: "client-b",
+        index: 1,
+        uri: vscode.Uri.file("/workspace/client-b"),
+      },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockImplementation(async (uri) => {
+      if (uri.fsPath === "/workspace/client-b/docs/spec.md") {
+        return { type: vscode.FileType.File, ctime: 0, mtime: 0, size: 1 };
+      }
+      throw new Error("missing");
+    });
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "docs/spec.md", line: 12 });
+    await flushAsyncWork(2);
+
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/workspace/client-b/docs/spec.md" }),
+      expect.objectContaining({ preview: false, selection: expect.any(vscode.Range) }),
+    );
+  });
+
+  it("chat/openFile opens AFX Preview when requested", async () => {
     const showTextDocument = vi
       .spyOn(vscode.window, "showTextDocument")
       .mockResolvedValue(undefined as never);
@@ -2255,9 +2322,472 @@ describe("sidebar-panel host bridge", () => {
     const { inbound } = setupWithView({ openAfxPreview });
 
     inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "afxPreview" });
+    await flushAsyncWork(2);
 
     expect(openAfxPreview).toHaveBeenCalledWith(
       expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+    );
+    expect(showTextDocument).not.toHaveBeenCalled();
+  });
+
+  it("chat/openFile resolves AFX Preview across workspace folders", async () => {
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      {
+        name: "client-a",
+        index: 0,
+        uri: vscode.Uri.file("/workspace/client-a"),
+      },
+      {
+        name: "client-b",
+        index: 1,
+        uri: vscode.Uri.file("/workspace/client-b"),
+      },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockImplementation(async (uri) => {
+      if (uri.fsPath === "/workspace/client-b/docs/spec.md") {
+        return { type: vscode.FileType.File, ctime: 0, mtime: 0, size: 1 };
+      }
+      throw new Error("missing");
+    });
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const openAfxPreview = vi.fn();
+    const { inbound } = setupWithView({ openAfxPreview });
+
+    inbound.fire({ type: "chat/openFile", path: "docs/spec.md", mode: "afxPreview" });
+    await flushAsyncWork(2);
+
+    expect(openAfxPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/workspace/client-b/docs/spec.md" }),
+    );
+    expect(showTextDocument).not.toHaveBeenCalled();
+  });
+
+  it("chat/openFile opens a working-tree change in VS Code's native Git editor", async () => {
+    const changeUri = vscode.Uri.file("/repo/docs/spec.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: {
+            workingTreeChanges: [{ uri: changeUri }],
+            indexChanges: [],
+            mergeChanges: [],
+          },
+        },
+      ],
+    };
+    const activate = vi.fn(async () => ({ enabled: true, getAPI: () => gitApi }));
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: false,
+      exports: undefined,
+      activate,
+    } as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(activate).toHaveBeenCalledOnce();
+    expect(executeCommand).toHaveBeenCalledWith("git.openChange", changeUri);
+  });
+
+  it("chat/openFile opens a staged change in VS Code's native Git editor", async () => {
+    const changeUri = vscode.Uri.file("/repo/docs/spec.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: {
+            workingTreeChanges: [],
+            indexChanges: [{ uri: changeUri }],
+            mergeChanges: [],
+          },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(executeCommand).toHaveBeenCalledWith("git.openChange", changeUri);
+  });
+
+  it("chat/openFile opens a merge change in VS Code's native Git editor", async () => {
+    const changeUri = vscode.Uri.file("/repo/docs/spec.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: {
+            workingTreeChanges: [],
+            indexChanges: [],
+            mergeChanges: [{ uri: changeUri }],
+          },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(executeCommand).toHaveBeenCalledWith("git.openChange", changeUri);
+  });
+
+  it("chat/openFile opens an untracked change exposed by the Git API", async () => {
+    const changeUri = vscode.Uri.file("/repo/docs/new-spec.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: {
+            workingTreeChanges: [],
+            indexChanges: [],
+            mergeChanges: [],
+            untrackedChanges: [{ uri: changeUri }],
+          },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/new-spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(executeCommand).toHaveBeenCalledWith("git.openChange", changeUri);
+  });
+
+  it("chat/openFile resolves a deleted Git change in a secondary workspace folder", async () => {
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      {
+        name: "client-a",
+        index: 0,
+        uri: vscode.Uri.file("/workspace/client-a"),
+      },
+      {
+        name: "client-b",
+        index: 1,
+        uri: vscode.Uri.file("/workspace/client-b"),
+      },
+    ]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockRejectedValue(new Error("deleted"));
+    const changeUri = vscode.Uri.file("/workspace/client-b/docs/deleted.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/workspace/client-b"),
+          state: {
+            workingTreeChanges: [{ uri: changeUri }],
+            indexChanges: [],
+            mergeChanges: [],
+          },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const executeCommand = vi.spyOn(vscode.commands, "executeCommand").mockResolvedValue(undefined);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "docs/deleted.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(executeCommand).toHaveBeenCalledWith("git.openChange", changeUri);
+  });
+
+  it("chat/openFile offers the source file when Git integration is unavailable", async () => {
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue(undefined);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: Git changes are unavailable for spec.md.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile offers the source file when Git integration is disabled", async () => {
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: false, getAPI: vi.fn() },
+      activate: vi.fn(),
+    } as never);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: Git changes are unavailable for spec.md.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile reports a file outside Git repositories and offers its source", async () => {
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/other-repo"),
+          state: { workingTreeChanges: [], indexChanges: [], mergeChanges: [] },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: spec.md is not in a Git repository.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile reports a clean file and offers its source", async () => {
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: { workingTreeChanges: [], indexChanges: [], mergeChanges: [] },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: No Git changes found for spec.md.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile reports a native Git editor failure and offers the source", async () => {
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    const changeUri = vscode.Uri.file("/repo/docs/spec.md");
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: {
+            workingTreeChanges: [{ uri: changeUri }],
+            indexChanges: [],
+            mergeChanges: [],
+          },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    vi.spyOn(vscode.commands, "executeCommand").mockRejectedValue(
+      new Error("change editor unavailable"),
+    );
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(3);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: Could not open Git changes for spec.md.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile falls back when the Git API cannot be acquired", async () => {
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 1,
+    });
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: {
+        enabled: true,
+        getAPI: () => {
+          throw new Error("unsupported Git API");
+        },
+      },
+      activate: vi.fn(),
+    } as never);
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue("Open File" as never);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", mode: "gitChanges" });
+    await flushAsyncWork(3);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: Git changes are unavailable for spec.md.",
+      "Open File",
+    );
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/docs/spec.md" }),
+      undefined,
+    );
+  });
+
+  it("chat/openFile does not offer Open File when the source is missing", async () => {
+    vi.spyOn(vscode.workspace.fs, "stat").mockRejectedValue(new Error("missing"));
+    const gitApi = {
+      enabled: true,
+      repositories: [
+        {
+          rootUri: vscode.Uri.file("/repo"),
+          state: { workingTreeChanges: [], indexChanges: [], mergeChanges: [] },
+        },
+      ],
+    };
+    vi.spyOn(vscode.extensions, "getExtension").mockReturnValue({
+      isActive: true,
+      exports: { enabled: true, getAPI: () => gitApi },
+      activate: vi.fn(),
+    } as never);
+    const showInformationMessage = vi
+      .spyOn(vscode.window, "showInformationMessage")
+      .mockResolvedValue(undefined);
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    const { inbound } = setupWithView();
+
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/missing.md", mode: "gitChanges" });
+    await flushAsyncWork(2);
+
+    expect(showInformationMessage).toHaveBeenCalledWith(
+      "AgenticFlowX: No Git changes found for missing.md.",
     );
     expect(showTextDocument).not.toHaveBeenCalled();
   });

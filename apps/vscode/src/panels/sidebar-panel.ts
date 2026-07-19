@@ -151,6 +151,91 @@ export interface SidebarPanelDeps {
   customProvidersService?: CustomProvidersService;
 }
 
+interface VsCodeGitChange {
+  uri: vscode.Uri;
+}
+
+interface VsCodeGitRepository {
+  rootUri: vscode.Uri;
+  state: {
+    workingTreeChanges: readonly VsCodeGitChange[];
+    indexChanges: readonly VsCodeGitChange[];
+    mergeChanges: readonly VsCodeGitChange[];
+    /** Some Git-compatible providers expose untracked files separately. */
+    untrackedChanges?: readonly VsCodeGitChange[];
+  };
+}
+
+interface VsCodeGitApi {
+  readonly repositories: readonly VsCodeGitRepository[];
+}
+
+interface VsCodeGitExtensionExports {
+  readonly enabled: boolean;
+  getAPI(version: 1): VsCodeGitApi;
+}
+
+function chatFileCandidates(filePath: string): vscode.Uri[] {
+  const normalized = filePath.replace(/\\/g, "/");
+  if (path.isAbsolute(normalized)) {
+    return [vscode.Uri.file(path.normalize(normalized))];
+  }
+
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  if (folders.length === 0) return [vscode.Uri.file(path.normalize(normalized))];
+
+  const candidates: vscode.Uri[] = [];
+  const seen = new Set<string>();
+  const addCandidate = (folder: vscode.WorkspaceFolder, relativePath: string): void => {
+    const candidate = vscode.Uri.joinPath(folder.uri, relativePath);
+    const key = path.normalize(candidate.fsPath);
+    if (seen.has(key)) return;
+    seen.add(key);
+    candidates.push(candidate);
+  };
+  const [prefix, ...rest] = normalized.split("/");
+
+  for (const folder of folders) {
+    const folderName = folder.name || path.basename(folder.uri.fsPath);
+    if (prefix === folderName || prefix === path.basename(folder.uri.fsPath)) {
+      addCandidate(folder, rest.join("/"));
+    }
+  }
+  for (const folder of folders) {
+    addCandidate(folder, normalized);
+  }
+
+  return candidates;
+}
+
+async function resolveChatFileUri(
+  filePath: string,
+  changedUris: readonly vscode.Uri[] = [],
+): Promise<vscode.Uri> {
+  const candidates = chatFileCandidates(filePath);
+  const changedByPath = new Map(
+    changedUris.map((uri) => [path.normalize(uri.fsPath), uri] as const),
+  );
+  for (const candidate of candidates) {
+    const changedUri = changedByPath.get(path.normalize(candidate.fsPath));
+    if (changedUri) return changedUri;
+  }
+  for (const candidate of candidates) {
+    try {
+      await vscode.workspace.fs.stat(candidate);
+      return candidate;
+    } catch {
+      // Continue probing the remaining workspace folders.
+    }
+  }
+  return candidates[0] ?? vscode.Uri.file(path.normalize(filePath));
+}
+
+function isUriWithinRoot(uri: vscode.Uri, rootUri: vscode.Uri): boolean {
+  const relative = path.relative(path.normalize(rootUri.fsPath), path.normalize(uri.fsPath));
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
 /**
  * Active AFX document context payload — composer doc-actions strip trigger.
  *
@@ -2133,26 +2218,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
       case "chat/openFile": {
-        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const abs = path.isAbsolute(msg.path)
-          ? msg.path
-          : root
-            ? path.join(root, msg.path)
-            : msg.path;
-        const uri = vscode.Uri.file(abs);
-        if (msg.mode === "afxPreview" && openAfxPreview) {
-          openAfxPreview(uri);
-          return;
-        }
-        const lineIndex =
-          typeof msg.line === "number" && Number.isFinite(msg.line) && msg.line > 0
-            ? msg.line - 1
-            : undefined;
-        const options: vscode.TextDocumentShowOptions | undefined =
-          lineIndex !== undefined
-            ? { selection: new vscode.Range(lineIndex, 0, lineIndex, 0), preview: false }
-            : undefined;
-        void vscode.window.showTextDocument(uri, options);
+        void handleOpenFile(msg.path, msg.line, msg.mode);
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
@@ -2324,6 +2390,105 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         inboundLog.warn("unknown inbound", { msg: _never });
       }
     }
+  }
+
+  async function handleOpenFile(
+    filePath: string,
+    line: number | undefined,
+    mode: "editor" | "afxPreview" | "gitChanges" | undefined,
+  ): Promise<void> {
+    if (mode === "gitChanges") {
+      const fallbackUri = await resolveChatFileUri(filePath);
+      const unavailableMessage = `AgenticFlowX: Git changes are unavailable for ${path.basename(fallbackUri.fsPath)}.`;
+      const extension = vscode.extensions.getExtension<VsCodeGitExtensionExports>("vscode.git");
+      if (!extension) {
+        await offerOpenFileFallback(fallbackUri, line, unavailableMessage);
+        return;
+      }
+      let api: VsCodeGitApi | undefined;
+      try {
+        const git = extension.isActive ? extension.exports : await extension.activate();
+        api = git?.enabled ? git.getAPI(1) : undefined;
+      } catch {
+        // The user-facing fallback below covers activation and API failures.
+      }
+      if (!api) {
+        await offerOpenFileFallback(fallbackUri, line, unavailableMessage);
+        return;
+      }
+      const changes = api.repositories.flatMap((repository) => [
+        ...repository.state.workingTreeChanges,
+        ...repository.state.indexChanges,
+        ...repository.state.mergeChanges,
+        ...(repository.state.untrackedChanges ?? []),
+      ]);
+      const uri = await resolveChatFileUri(
+        filePath,
+        changes.map((change) => change.uri),
+      );
+      const requestedPath = path.normalize(uri.fsPath);
+      const change = changes.find((entry) => path.normalize(entry.uri.fsPath) === requestedPath);
+      if (change) {
+        try {
+          await vscode.commands.executeCommand("git.openChange", change.uri);
+        } catch {
+          await offerOpenFileFallback(
+            uri,
+            line,
+            `AgenticFlowX: Could not open Git changes for ${path.basename(uri.fsPath)}.`,
+          );
+        }
+      } else if (!api.repositories.some((repository) => isUriWithinRoot(uri, repository.rootUri))) {
+        await offerOpenFileFallback(
+          uri,
+          line,
+          `AgenticFlowX: ${path.basename(uri.fsPath)} is not in a Git repository.`,
+        );
+      } else {
+        await offerOpenFileFallback(
+          uri,
+          line,
+          `AgenticFlowX: No Git changes found for ${path.basename(uri.fsPath)}.`,
+        );
+      }
+      return;
+    }
+
+    const uri = await resolveChatFileUri(filePath);
+    if (mode === "afxPreview" && openAfxPreview) {
+      openAfxPreview(uri);
+      return;
+    }
+    await openSourceFile(uri, line);
+  }
+
+  function sourceOpenOptions(line: number | undefined): vscode.TextDocumentShowOptions | undefined {
+    const lineIndex =
+      typeof line === "number" && Number.isFinite(line) && line > 0 ? line - 1 : undefined;
+    return lineIndex !== undefined
+      ? { selection: new vscode.Range(lineIndex, 0, lineIndex, 0), preview: false }
+      : undefined;
+  }
+
+  async function openSourceFile(uri: vscode.Uri, line: number | undefined): Promise<void> {
+    await vscode.window.showTextDocument(uri, sourceOpenOptions(line));
+  }
+
+  async function offerOpenFileFallback(
+    uri: vscode.Uri,
+    line: number | undefined,
+    message: string,
+  ): Promise<void> {
+    const exists = await vscode.workspace.fs.stat(uri).then(
+      () => true,
+      () => false,
+    );
+    if (!exists) {
+      await vscode.window.showInformationMessage(message);
+      return;
+    }
+    const choice = await vscode.window.showInformationMessage(message, "Open File");
+    if (choice === "Open File") await openSourceFile(uri, line);
   }
 
   async function handleSend(

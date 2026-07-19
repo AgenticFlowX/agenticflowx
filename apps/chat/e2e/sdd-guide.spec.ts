@@ -94,8 +94,9 @@ for (const viewport of [
 }
 
 // E2E-20: one assistant turn writes two lifecycle documents. The browser-level
-// contract is one consolidated timeline guide and one host Preview request,
-// even though both write_file calls update the transcript independently.
+// contract is one consolidated timeline guide and one host Preview request for
+// the newest successful SDD document, even though both write_file calls update
+// the transcript independently.
 test("multiple generated SDD docs produce one guide and one automatic Preview open", async ({
   page,
 }) => {
@@ -104,8 +105,12 @@ test("multiple generated SDD docs produce one guide and one automatic Preview op
   const guides = page.getByTestId("sdd-workflow-guide-card");
   await expect(guides).toHaveCount(1);
   const guide = guides.first();
-  await expect(guide.getByTitle("docs/specs/checkout-redesign/spec.md")).toBeVisible();
-  await expect(guide.getByTitle("docs/specs/checkout-redesign/design.md")).toBeVisible();
+  await expect(
+    guide.getByTitle("docs/specs/checkout-redesign/spec.md", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    guide.getByTitle("docs/specs/checkout-redesign/design.md", { exact: true }),
+  ).toBeVisible();
 
   await openDebugLog(page);
   const previewEntries = page.getByRole("button", {
@@ -115,7 +120,7 @@ test("multiple generated SDD docs produce one guide and one automatic Preview op
   await previewEntries.first().click();
 
   const payload = previewEntries.first().locator("..").locator("pre");
-  await expect(payload).toContainText('"path": "docs/specs/checkout-redesign/spec.md"');
+  await expect(payload).toContainText('"path": "docs/specs/checkout-redesign/design.md"');
   await expect(payload).toContainText('"mode": "afxPreview"');
 });
 

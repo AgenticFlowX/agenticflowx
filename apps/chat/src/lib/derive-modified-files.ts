@@ -1,8 +1,8 @@
 /**
- * Derive the list of files modified by agent edit/write tool calls in the current
- * chat transcript. Pure helper consumed by the composer's `FilesStrip`.
+ * Derive the list of files modified by agent edit/write tool calls in the newest
+ * assistant edit batch. Pure helper consumed by the composer's `FilesPanelBody`.
  *
- * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-10] [NFR-5]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
  */
 import type { ChatTimelineItem, ChatToolView } from "@afx/shared";
@@ -16,7 +16,7 @@ export interface ModifiedFile {
   /**
    * First line changed by this tool call (1-indexed) when the underlying tool
    * reports it (e.g. pi-mono `edit.result.details.firstChangedLine`). Used by
-   * the FilesStrip pill click to jump the editor selection.
+   * the FilesPanel source control to jump the editor selection.
    */
   line?: number;
 }
@@ -47,19 +47,26 @@ function normalizePath(p: string): string {
 }
 
 export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): DerivedModifiedFiles {
-  const byPath = new Map<string, ModifiedFile>();
-  let latestEditingAssistantMessageId: string | null = null;
-
-  timeline.forEach((item, index) => {
-    if (item.role !== "assistant") return;
+  for (let index = timeline.length - 1; index >= 0; index -= 1) {
+    const item = timeline[index];
+    if (!item) continue;
+    if (item.role !== "assistant") continue;
     const tools = item.tools ?? [];
-    for (const t of tools) {
+    const files: ModifiedFile[] = [];
+    const seenPaths = new Set<string>();
+
+    // Walk newest-first so the latest call for a normalized path wins and the
+    // resulting batch retains tool recency without a second sorting key.
+    for (let toolIndex = tools.length - 1; toolIndex >= 0; toolIndex -= 1) {
+      const t = tools[toolIndex];
+      if (!t) continue;
       if (!isEditTool(t)) continue;
       const rawPath = extractPath(t.args);
       if (!rawPath) continue;
       const filePath = normalizePath(rawPath);
-      if (!filePath) continue;
-      byPath.set(filePath, {
+      if (!filePath || seenPaths.has(filePath)) continue;
+      seenPaths.add(filePath);
+      files.push({
         path: filePath,
         toolCallId: t.toolCallId,
         status: t.status,
@@ -67,12 +74,14 @@ export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): Deri
         lastTurnIndex: index,
         line: t.firstChangedLine,
       });
-      latestEditingAssistantMessageId = item.id;
     }
-  });
 
-  const files = [...byPath.values()].sort((a, b) => b.lastTurnIndex - a.lastTurnIndex);
-  return { files, latestEditingAssistantMessageId };
+    if (files.length > 0) {
+      return { files, latestEditingAssistantMessageId: item.id };
+    }
+  }
+
+  return { files: [], latestEditingAssistantMessageId: null };
 }
 
 function isEditTool(t: ChatToolView): boolean {

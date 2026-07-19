@@ -434,7 +434,7 @@ After.`,
     ).toBe(true);
   });
 
-  it("auto-opens AFX preview once when a fresh assistant edit touches an SDD document", () => {
+  it("auto-opens AFX preview once after a fresh SDD edit succeeds", () => {
     const transport = createControllableTransport();
     initTransport(transport);
     renderHook(() => useChatController());
@@ -454,6 +454,14 @@ After.`,
       });
     });
 
+    expect(transport.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/openFile", mode: "afxPreview" }),
+    );
+
+    act(() => {
+      transport.emit({ type: "chat/toolEnd", toolCallId: "t1", ok: true });
+    });
+
     expect(transport.send).toHaveBeenCalledWith({
       type: "chat/openFile",
       path: "docs/specs/billing-export/spec.md",
@@ -470,6 +478,115 @@ After.`,
       );
     });
     expect(openPreviewCalls).toHaveLength(1);
+  });
+
+  it("does not reopen a historical SDD preview after a newer non-SDD edit batch", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "sdd-1",
+        toolName: "write_file",
+        args: { path: "docs/specs/billing-export/spec.md" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "sdd-1", ok: true });
+    });
+
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a2", role: "assistant", createdAt: 2 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "code-1",
+        toolName: "edit_file",
+        args: { path: "apps/chat/src/app.tsx" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "code-1", ok: true });
+    });
+
+    const openPreviewCalls = vi.mocked(transport.send).mock.calls.filter(([message]) => {
+      return (
+        typeof message === "object" &&
+        message !== null &&
+        "type" in message &&
+        message.type === "chat/openFile" &&
+        "mode" in message &&
+        message.mode === "afxPreview"
+      );
+    });
+    expect(openPreviewCalls).toHaveLength(1);
+  });
+
+  it("waits for the latest SDD batch to settle before previewing its newest successful file", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "sdd-older",
+        toolName: "write_file",
+        args: { path: "docs/specs/billing-export/spec.md" },
+      });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "sdd-newer",
+        toolName: "write_file",
+        args: { path: "docs/specs/billing-export/design.md" },
+      });
+    });
+
+    act(() => {
+      transport.emit({ type: "chat/toolEnd", toolCallId: "sdd-older", ok: true });
+    });
+    expect(transport.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/openFile", mode: "afxPreview" }),
+    );
+
+    act(() => {
+      transport.emit({ type: "chat/toolEnd", toolCallId: "sdd-newer", ok: false });
+    });
+    expect(transport.send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "docs/specs/billing-export/spec.md",
+      mode: "afxPreview",
+    });
+  });
+
+  it("exposes a modified-file Git changes action through the chat bridge", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    const { result } = renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "code-1",
+        toolName: "edit_file",
+        args: { path: "apps/chat/src/app.tsx" },
+      });
+    });
+
+    const panel = result.current.composerPanelStackConfig.panels.find(
+      (candidate) => candidate.id === "modified-files",
+    );
+    const props = panel?.props as { onOpenGitChanges?: (path: string) => void } | undefined;
+
+    act(() => {
+      props?.onOpenGitChanges?.("apps/chat/src/app.tsx");
+    });
+
+    expect(transport.send).toHaveBeenCalledWith({
+      type: "chat/openFile",
+      path: "apps/chat/src/app.tsx",
+      mode: "gitChanges",
+    });
   });
 
   it("exposes derived flags and region slices instead of raw writers", () => {

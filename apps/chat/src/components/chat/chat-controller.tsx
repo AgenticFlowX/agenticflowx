@@ -1119,6 +1119,10 @@ export function useChatController({
     bridgeSend({ type: "chat/openFile", path: p, mode: "afxPreview" });
   });
 
+  const handleOpenGitChanges = useStableCallback((p: string) => {
+    bridgeSend({ type: "chat/openFile", path: p, mode: "gitChanges" });
+  });
+
   const handleOpenWorkbench = useStableCallback(() => {
     bridgeSend({ type: "chat/openWorkbench", requestId: createChatUid() });
   });
@@ -1126,7 +1130,9 @@ export function useChatController({
   useEffect(() => {
     if (!latestEditingAssistantMessageId) return;
     if (lastAutoOpenedSddPreviewRef.current === latestEditingAssistantMessageId) return;
-    const changedSddFile = modifiedFiles.find((file) => classifySddDocumentPath(file.path));
+    const changedSddFiles = modifiedFiles.filter((file) => classifySddDocumentPath(file.path));
+    if (changedSddFiles.some((file) => file.status === "running")) return;
+    const changedSddFile = changedSddFiles.find((file) => file.status === "ok");
     if (!changedSddFile) return;
     lastAutoOpenedSddPreviewRef.current = latestEditingAssistantMessageId;
     handleOpenAfxPreview(changedSddFile.path);
@@ -1606,6 +1612,7 @@ export function useChatController({
           files: modifiedFiles,
           onOpenFile: handleOpenModifiedFile,
           onOpenPreview: handleOpenAfxPreview,
+          onOpenGitChanges: handleOpenGitChanges,
           onOpenWorkbench: handleOpenWorkbench,
           onCommand: (command: string, mode?: "insert" | "send") => {
             if (mode === "send") {
@@ -1782,6 +1789,7 @@ export function useChatController({
     dispatchHostAction,
     filesPanelVisible,
     handleOpenAfxPreview,
+    handleOpenGitChanges,
     handleOpenModifiedFile,
     handleOpenWorkbench,
     intentMinimized,

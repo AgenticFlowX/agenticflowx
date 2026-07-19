@@ -113,6 +113,59 @@ test("captures curated chat browser-mock screenshots", async ({ baseURL, browser
       await capture(page, file, viewport);
     }
 
+    // Modified-files release review: the reported 34-file/21-SDD state must
+    // stay bounded, de-duplicate SDD documents, and retain every path in the
+    // portalled All-files inventory without moving the composer.
+    await page.setViewportSize(SCREENSHOT_VIEWPORT);
+    await openChat(page, baseURL);
+    await openModifiedFilesScenario(page, "edit 34/21", 34);
+    const modifiedPanel = page.locator("#composer-panel-modified-files");
+    await expect(modifiedPanel).toContainText("· 34");
+    await expect(page.getByTestId("files-panel-pill")).toHaveCount(2);
+    await expect(page.getByTestId("files-panel-pill").nth(0)).toContainText("create-dynamodb.sh");
+    await expect(page.getByTestId("files-panel-pill").nth(1)).toContainText("organize-evidence.js");
+    await expect(page.getByTestId("sdd-modified-guide")).toContainText("SDD · 21 docs");
+    await capture(page, "chat-modified-mixed-34-21.png", SCREENSHOT_VIEWPORT);
+
+    await page.setViewportSize(MOBILE_VIEWPORT);
+    await expectComposerInViewport(page);
+    await capture(page, "chat-modified-mixed-34-21-narrow.png", MOBILE_VIEWPORT);
+
+    const sddActionsTrigger = page
+      .getByTestId("sdd-modified-guide")
+      .getByRole("button", { name: "More SDD document actions" });
+    await sddActionsTrigger.click();
+    const sddActions = page.getByRole("menu");
+    await expect(sddActions.getByText("SDD actions · 7 specs")).toBeVisible();
+    await expect(sddActions.getByTestId("sdd-action-group")).toHaveCount(7);
+    await capture(page, "chat-modified-sdd-actions-grouped-narrow.png", MOBILE_VIEWPORT);
+    await page.keyboard.press("Escape");
+
+    const composerBeforeAll = await page.locator("#afx-chat-composer").boundingBox();
+    const allFilesTrigger = page.getByRole("button", { name: "Show all 34 modified files" });
+    await allFilesTrigger.click();
+    const allFiles = page.getByRole("dialog", { name: "All 34 modified files" });
+    await expect(allFiles.getByTestId("files-panel-all-row")).toHaveCount(34);
+    await expect(allFiles.getByRole("heading", { name: "Files · 13" })).toBeVisible();
+    await expect(allFiles.getByRole("heading", { name: "SDD · 21" })).toBeVisible();
+    const composerAfterAll = await page.locator("#afx-chat-composer").boundingBox();
+    expect(composerAfterAll).toEqual(composerBeforeAll);
+    await expectComposerInViewport(page);
+    await capture(page, "chat-modified-all-files-narrow.png", MOBILE_VIEWPORT);
+
+    // Markdown inspection keeps the filename as the source fast path while a
+    // hover/focus action surface exposes Preview and native Git changes.
+    await page.setViewportSize(SIDEBAR_VIEWPORT);
+    await openChat(page, baseURL);
+    await openModifiedFilesScenario(page, "edit markdown", 1);
+    const markdownSource = page.getByRole("button", { name: "Open README.md at line 24" });
+    await markdownSource.hover();
+    const markdownActions = page.getByRole("dialog", { name: "Actions for README.md" });
+    await expect(markdownActions.getByRole("button", { name: "Open source" })).toBeVisible();
+    await expect(markdownActions.getByRole("button", { name: "AFX Preview" })).toBeVisible();
+    await expect(markdownActions.getByRole("button", { name: "Git changes" })).toBeVisible();
+    await capture(page, "chat-modified-file-actions-markdown.png", SIDEBAR_VIEWPORT);
+
     // Spec stepper.
     await page.setViewportSize(SCREENSHOT_VIEWPORT);
     await openChat(page, baseURL);
@@ -417,18 +470,39 @@ async function openSddGuideScenario(page: Page) {
   await expect(page.getByText(/Next:1\./)).toHaveCount(0);
 }
 
+async function openModifiedFilesScenario(page: Page, label: string, expectedCount: number) {
+  await page.getByRole("button", { name: "Toggle Debug Panel" }).click();
+  await page.getByRole("button", { name: label, exact: true }).click();
+  await page.keyboard.press("Escape");
+  const panel = page.locator("#composer-panel-modified-files");
+  await expect(panel).toContainText(`· ${expectedCount}`, { timeout: 10_000 });
+  await expect(page.getByRole("button", { name: "Stop" })).toHaveCount(0, {
+    timeout: 10_000,
+  });
+}
+
 async function frameCombinedSddState(page: Page) {
   const guide = page.getByTestId("sdd-workflow-guide-card");
   const changedDocs = page.getByTestId("sdd-modified-guide");
   await expect(guide).toBeVisible();
   await expect(guide.getByRole("button", { name: /Plan tasks/i })).toBeVisible();
   await expect(changedDocs).toBeVisible();
-  await expect(changedDocs).toContainText("2 changed docs");
+  await expect(changedDocs).toContainText("SDD · 2 docs");
   await expect(page.getByRole("button", { name: "Dismiss Modified" })).toBeVisible();
 
   await guide.scrollIntoViewIfNeeded();
   await expectHorizontallyContained(page, guide);
   await expectHorizontallyContained(page, changedDocs);
+}
+
+async function expectComposerInViewport(page: Page) {
+  const composer = await page.locator("#afx-chat-composer").boundingBox();
+  expect(composer).not.toBeNull();
+  const viewport = page.viewportSize();
+  if (!composer || !viewport) throw new Error("Expected fixed composer and viewport geometry.");
+  expect(composer.x).toBeGreaterThanOrEqual(-1);
+  expect(composer.x + composer.width).toBeLessThanOrEqual(viewport.width + 1);
+  expect(composer.y + composer.height).toBeLessThanOrEqual(viewport.height + 1);
 }
 
 async function openSpecStepperScenario(page: Page) {
