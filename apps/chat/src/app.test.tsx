@@ -154,6 +154,7 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
     experimental: {
       canvasEnabled: false,
       canvasPath: ".afx/project.canvas",
+      workbenchHiddenViews: [],
     },
     diagnostics: { logLevel: "info" },
     telemetry: {
@@ -163,6 +164,7 @@ function createSettingsSnapshot(mode: WorkspaceMode = "code"): SettingsSnapshot 
     },
     about: {
       extensionVersion: "2.0.0",
+      bundledAfxSkillsVersion: "v2.6.1",
       bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
     },
   };
@@ -1846,6 +1848,8 @@ describe("chat App", () => {
     );
     // Support group: About + telemetry toggle
     await user.click(screen.getByRole("button", { name: "Support" }));
+    expect(screen.getByText("Bundled AFX skills")).toBeInTheDocument();
+    expect(screen.getByText("v2.6.1")).toBeInTheDocument();
     expect(screen.getByText("Bundled Pi npm")).toBeInTheDocument();
     expect(screen.getByText("@earendil-works/pi-coding-agent@0.80.2")).toBeInTheDocument();
     expect(screen.getByRole("switch", { name: "Anonymous UI analytics" })).toBeChecked();
@@ -2973,5 +2977,47 @@ describe("chat App", () => {
     });
     expect(composer).toHaveFocus();
     expect(composer.selectionStart).toBe(`/afx-sprint design ${longSpec} --approve `.length);
+  });
+});
+
+describe("Workbench view visibility settings", () => {
+  it("disables the Canvas visibility toggle with a hint while the Canvas capability is off", () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+    act(() => {
+      emitChatState(transport, {}, null, "code", {
+        experimental: {
+          canvasEnabled: false,
+          canvasPath: ".afx/project.canvas",
+          workbenchHiddenViews: [],
+        },
+      });
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+
+    const canvasToggle = screen.getByRole("switch", { name: "Canvas" });
+    expect(canvasToggle).toBeDisabled();
+    expect(screen.getByText("Enable Canvas above to show this tab.")).toBeInTheDocument();
+    // The other view toggles stay live.
+    expect(screen.getByRole("switch", { name: "Board" })).toBeEnabled();
+
+    // Turning the capability on re-enables the visibility toggle.
+    act(() => {
+      transport.emit({
+        type: "agent/settingsSnapshot",
+        requestId: "canvas-on",
+        snapshot: {
+          ...createSettingsSnapshot(),
+          experimental: {
+            canvasEnabled: true,
+            canvasPath: ".afx/project.canvas",
+            workbenchHiddenViews: [],
+          },
+        },
+      });
+    });
+    expect(screen.getByRole("switch", { name: "Canvas" })).toBeEnabled();
+    expect(screen.queryByText("Enable Canvas above to show this tab.")).not.toBeInTheDocument();
   });
 });

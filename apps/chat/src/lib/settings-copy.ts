@@ -357,6 +357,11 @@ export const EXPERIMENTAL = {
   canvasPathHint:
     "Created on first save. The file stays plain JSON Canvas so other tools can read it.",
   openWorkbenchLabel: "Open Workbench",
+  viewsTitle: "Workbench views",
+  viewsDescription:
+    "Choose which tabs appear in the compact Workbench. Hiding a view never removes its files or editor commands.",
+  showAllViewsLabel: "Show all",
+  canvasViewNeedsCanvasHint: "Enable Canvas above to show this tab.",
 } as const;
 
 // ─── Support group ────────────────────────────────────────────────────────────

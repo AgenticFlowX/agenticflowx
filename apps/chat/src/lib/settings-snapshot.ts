@@ -8,7 +8,7 @@
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-SETTINGS] [DES-DATA]
  */
 import { API_PROVIDER_IDS, PROVIDER_DETAILS } from "@afx/shared";
-import type { AgentModel, SettingsSnapshot, WorkspaceMode } from "@afx/shared";
+import type { AgentModel, SettingsSnapshot, WorkbenchViewId, WorkspaceMode } from "@afx/shared";
 
 /**
  * Inputs used to synthesize a SettingsSnapshot for the chat webview.
@@ -18,6 +18,7 @@ import type { AgentModel, SettingsSnapshot, WorkspaceMode } from "@afx/shared";
  */
 export interface SettingsSnapshotInput {
   extensionVersion?: string;
+  bundledAfxSkillsVersion?: string;
   availableModels?: readonly AgentModel[];
   logLevel?: string;
   mode?: WorkspaceMode;
@@ -36,6 +37,7 @@ export interface SettingsSnapshotInput {
   intentSlot?: 1 | 2 | 3 | 4;
   intentMinimized?: boolean;
   canvasEnabled?: boolean;
+  workbenchHiddenViews?: WorkbenchViewId[];
   telemetryEnabled?: boolean;
   vscodeTelemetryEnabled?: boolean;
 }
@@ -99,6 +101,7 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
     experimental: {
       canvasEnabled: input.canvasEnabled ?? false,
       canvasPath: ".afx/project.canvas",
+      workbenchHiddenViews: input.workbenchHiddenViews ?? [],
     },
     diagnostics: { logLevel: input.logLevel?.trim() || "info" },
     telemetry: {
@@ -108,6 +111,7 @@ export function composeSettingsSnapshot(input: SettingsSnapshotInput): SettingsS
     },
     about: {
       extensionVersion: input.extensionVersion?.trim() || "?",
+      bundledAfxSkillsVersion: input.bundledAfxSkillsVersion?.trim() || "?",
       bundledPiNpmVersion: input.bundledPiNpmVersion?.trim() || "?",
     },
   };

@@ -59,11 +59,13 @@ import type {
   QueueMode,
   SettingsSnapshot,
   ThinkingLevel,
+  WorkbenchViewId,
   WorkspaceMode,
 } from "@afx/shared";
 import type { CustomProviderPreset, CustomProviderSummary } from "@afx/shared";
 import {
   PRESET_CUSTOM_BLANK,
+  WORKBENCH_VIEW_IDS,
   createCheckingAgentRuntimeStatus,
   getIntentPrompt,
   normalizeIntentSlot,
@@ -198,6 +200,18 @@ const DEFAULT_TELEMETRY_SETTINGS: SettingsSnapshot["telemetry"] = {
 const DEFAULT_EXPERIMENTAL_SETTINGS: NonNullable<SettingsSnapshot["experimental"]> = {
   canvasEnabled: false,
   canvasPath: ".afx/project.canvas",
+  workbenchHiddenViews: [],
+};
+
+const WORKBENCH_VIEW_LABELS: Record<WorkbenchViewId, string> = {
+  workbench: "SDD Studio",
+  pipeline: "Pipeline",
+  documents: "Documents",
+  analytics: "Analytics",
+  journal: "Journal",
+  board: "Board",
+  notes: "Notes",
+  canvas: "Canvas",
 };
 
 const DEFAULT_CONTEXT_SETTINGS: SettingsSnapshot["context"] = {
@@ -275,6 +289,7 @@ export default function Settings({
   const pendingContextMutations = useRef<Map<string, string>>(new Map());
   const pendingTelemetryMutations = useRef<Map<string, string>>(new Map());
   const pendingExperimentalMutations = useRef<Map<string, string>>(new Map());
+  const pendingVisibilityRollbacks = useRef<Map<string, WorkbenchViewId[]>>(new Map());
   const pendingSkillsMutations = useRef<Map<string, string>>(new Map());
   const skills = snapshot?.skills;
   const workspaceTrustNeedsDecision = Boolean(
@@ -316,6 +331,7 @@ export default function Settings({
         const experimentalLabel = pendingExperimentalMutations.current.get(msg.requestId);
         if (experimentalLabel) {
           pendingExperimentalMutations.current.delete(msg.requestId);
+          pendingVisibilityRollbacks.current.delete(msg.requestId);
           toast.success(experimentalLabel);
         }
         const skillsLabel = pendingSkillsMutations.current.get(msg.requestId);
@@ -419,6 +435,21 @@ export default function Settings({
         pendingModeMutations.current.delete(msg.requestId);
         pendingTelemetryMutations.current.delete(msg.requestId);
         pendingExperimentalMutations.current.delete(msg.requestId);
+        const visibilityRollback = pendingVisibilityRollbacks.current.get(msg.requestId);
+        pendingVisibilityRollbacks.current.delete(msg.requestId);
+        if (visibilityRollback) {
+          setSnapshot((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  experimental: {
+                    ...(previous.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS),
+                    workbenchHiddenViews: visibilityRollback,
+                  },
+                }
+              : previous,
+          );
+        }
         pendingSkillsMutations.current.delete(msg.requestId);
         toast.error(`${label} failed`, msg.message);
       }),
@@ -1186,6 +1217,50 @@ export default function Settings({
       requestId: trackExperimentalMutation(`Canvas ${enabled ? "enabled" : "disabled"}`),
       enabled,
     });
+  }
+  function setWorkbenchViewVisible(viewId: WorkbenchViewId, visible: boolean): void {
+    const previous = experimentalSettings.workbenchHiddenViews;
+    const hidden = visible
+      ? previous.filter((id) => id !== viewId)
+      : WORKBENCH_VIEW_IDS.filter((id) => id === viewId || previous.includes(id));
+    const requestId = trackExperimentalMutation(
+      `${WORKBENCH_VIEW_LABELS[viewId]} ${visible ? "shown" : "hidden"}`,
+    );
+    pendingVisibilityRollbacks.current.set(requestId, previous);
+    setSnapshot((current) =>
+      current
+        ? {
+            ...current,
+            experimental: {
+              ...(current.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS),
+              workbenchHiddenViews: hidden,
+            },
+          }
+        : current,
+    );
+    bridgeSend({
+      type: "experimental/setWorkbenchHiddenViews",
+      requestId,
+      hidden,
+    });
+  }
+  function showAllWorkbenchViews(): void {
+    const previous = experimentalSettings.workbenchHiddenViews;
+    if (previous.length === 0) return;
+    const requestId = trackExperimentalMutation("All Workbench views shown");
+    pendingVisibilityRollbacks.current.set(requestId, previous);
+    setSnapshot((current) =>
+      current
+        ? {
+            ...current,
+            experimental: {
+              ...(current.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS),
+              workbenchHiddenViews: [],
+            },
+          }
+        : current,
+    );
+    bridgeSend({ type: "experimental/setWorkbenchHiddenViews", requestId, hidden: [] });
   }
   function openOutputLogs(): void {
     bridgeSend({ type: "chat/showLogs", requestId: uid() });
@@ -2209,6 +2284,46 @@ export default function Settings({
               settingKey="afx.experimental.canvas"
               hint={EXPERIMENTAL.canvasPathHint}
             />
+            <div className="rounded-sm border bg-muted/15 p-2">
+              <div className="mb-2 flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-[11px] font-semibold text-foreground">
+                    {EXPERIMENTAL.viewsTitle}
+                  </p>
+                  <p className="text-[10px] leading-relaxed text-muted-foreground">
+                    {EXPERIMENTAL.viewsDescription}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  disabled={!snapshot || experimentalSettings.workbenchHiddenViews.length === 0}
+                  onClick={showAllWorkbenchViews}
+                >
+                  {EXPERIMENTAL.showAllViewsLabel}
+                </Button>
+              </div>
+              <div className="grid gap-1 sm:grid-cols-2">
+                {WORKBENCH_VIEW_IDS.map((viewId) => {
+                  // The Canvas tab only renders when the Canvas capability is on
+                  // (FR-20 keeps the hidden set independent), so a visibility
+                  // toggle would be a dead control while Canvas is disabled.
+                  const needsCanvas = viewId === "canvas" && !experimentalSettings.canvasEnabled;
+                  return (
+                    <SwitchRow
+                      key={viewId}
+                      id={`experimental-view-${viewId}`}
+                      label={WORKBENCH_VIEW_LABELS[viewId]}
+                      description={needsCanvas ? EXPERIMENTAL.canvasViewNeedsCanvasHint : ""}
+                      checked={!experimentalSettings.workbenchHiddenViews.includes(viewId)}
+                      onCheckedChange={(visible) => setWorkbenchViewVisible(viewId, visible)}
+                      disabled={!snapshot || needsCanvas}
+                    />
+                  );
+                })}
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
@@ -2291,6 +2406,11 @@ export default function Settings({
             <div className="mt-2 flex flex-col gap-2 border-t pt-2">
               <p className="text-[11px] font-semibold text-foreground">{SUPPORT.aboutTitle}</p>
               <ConfigField label="Version" value={snapshot?.about.extensionVersion ?? "?"} />
+              <ConfigField
+                label="Bundled AFX skills"
+                value={snapshot?.about.bundledAfxSkillsVersion ?? "?"}
+                hint="The tagged AgenticFlowX skill-pack version bundled into the extension resources."
+              />
               <ConfigField
                 label="Bundled Pi npm"
                 value={snapshot?.about.bundledPiNpmVersion ?? "?"}
