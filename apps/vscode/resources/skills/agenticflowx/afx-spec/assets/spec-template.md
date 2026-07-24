@@ -126,7 +126,3 @@ Explicitly listing what this feature does NOT include:
 | Term   | Definition   |
 | ------ | ------------ |
 | {Term} | {Definition} |
-
-```
-
-```

@@ -4,7 +4,6 @@ description: Release workflow — version bump, changelog, tag, and GitHub relea
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,release,versioning,changelog,github"
   afx-argument-hint: "[patch|minor|major]"
 ---

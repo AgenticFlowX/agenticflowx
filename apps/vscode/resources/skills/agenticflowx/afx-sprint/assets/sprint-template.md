@@ -190,7 +190,7 @@ export interface {EntityName} {
 - {Rollout steps, if any}
 - {Rollback plan}
 
-### Open Technical Questions
+### [DES-QUESTIONS] Open Technical Questions
 
 | #   | Question             | Status |
 | --- | -------------------- | ------ |
@@ -224,16 +224,16 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design s
 <!-- files: path/to/file.ts, path/to/other.ts -->
 <!-- @see docs/specs/{feature}/{feature}.md [FR-1] [DES-ARCH] -->
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 #### 1.2 {Task Group Name}
 
 <!-- files: path/to/another.ts -->
 <!-- @see docs/specs/{feature}/{feature}.md [FR-2] [DES-DATA] -->
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ### Phase 2: {Phase Name}
 
@@ -244,8 +244,8 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design s
 <!-- files: path/to/third-file.ts -->
 <!-- @see docs/specs/{feature}/{feature}.md [FR-3] [DES-API] -->
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ### Cross-Reference Index
 
@@ -263,7 +263,7 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Design s
 ## 4. Work Sessions
 
 <!-- IMPORTANT: This section MUST remain the LAST section in {feature}.md. Do not add content below it. -->
-<!-- Task execution log — append-only, updated by /afx-sprint code, /afx-task pick, /afx-task code, /afx-task complete -->
+<!-- Task execution log — append-only, updated by /afx-sprint code, /afx-task pick, /afx-task code, /afx-task verify, /afx-task complete -->
 <!-- Columns: Date (YYYY-MM-DD) | Task (WBS ID) | Action (Picked/Coded/Completed/Verified/Reviewed) | Files Modified | Agent ([x] or []) | Human ([x] or []) -->
 
 | Date | Task | Action | Files Modified | Agent | Human |

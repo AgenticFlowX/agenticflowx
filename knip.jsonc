@@ -4,6 +4,8 @@
     "apps/workbench/src/components/coming-soon.tsx",
     "apps/workbench/src/lib/documents.ts",
     "apps/workbench/src/lib/pipeline.ts",
+    // Vendored from the pinned AFX release; packaging and runtime tests cover these resources.
+    "apps/vscode/resources/skills/**",
   ],
   "ignoreExportsUsedInFile": true,
   "workspaces": {

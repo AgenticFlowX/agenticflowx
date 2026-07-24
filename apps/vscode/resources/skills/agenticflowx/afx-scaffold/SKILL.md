@@ -4,7 +4,6 @@ description: Scaffold spec directories, research docs, and ADRs from canonical t
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,scaffolding,feature,spec,research,adr"
   afx-argument-hint: "spec | research | adr"
 ---
@@ -76,7 +75,7 @@ Templates are co-located with the skill that owns each artifact type.
 If implementation is requested, respond with:
 
 ```text
-Out of scope for /afx-scaffold (scaffolding mode). Use /afx-dev code after spec approval.
+Out of scope for /afx-scaffold (scaffolding mode). Use /afx-task code after spec approval.
 ```
 
 ---
@@ -87,7 +86,7 @@ All timestamps MUST use ISO 8601 with millisecond precision: `YYYY-MM-DDTHH:MM:S
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-scaffold`**: Feature scope decision during scaffolding.
 

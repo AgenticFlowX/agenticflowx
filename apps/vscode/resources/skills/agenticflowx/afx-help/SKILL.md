@@ -2,9 +2,10 @@
 name: afx-help
 description: AFX command reference — lists all available commands, role-based workflow guides, and quick-start cheatsheet
 license: MIT
+allowed-tools: Read Grep Glob Bash
+compatibility: Requires Node.js 18+ for the optional afx-doc-query and afx-validate helpers; skills fall back to targeted search without it.
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,help,reference,guides"
 ---
 
@@ -17,6 +18,8 @@ AFX (AgenticFlowX) command reference.
 **Read config** using two-tier resolution: `.afx/.afx.yaml` (managed defaults) + `.afx.yaml` (user overrides).
 
 If neither file exists, use defaults. See `.afx/.afx.yaml` for all available options.
+
+For targeted artifact reads, use the optional helper and runtime fallback contract in `references/query-helper.md`.
 
 ## Usage
 
@@ -71,11 +74,9 @@ Since this is a read-only help skill, no files are modified. However, after exec
 
 1. Ensure you provided the user with actionable next steps rather than just a massive text dump.
 
-### Proactive Journal Capture
+### Surfacing Notable Findings
 
-When this skill detects a high-impact error or confusion event, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
-
-**Triggers for `/afx-help`**: User is repeatedly lost or commands are failing consecutively.
+`/afx-help` is read-only and never writes `journal.md` or any file. If the user is repeatedly lost or commands are failing consecutively, surface that in the response and recommend `/afx-session note` so they can capture it. Do not write the journal directly.
 
 ---
 
@@ -155,11 +156,22 @@ Evolve   # Post-ship change path: /afx-next, then sprint/spec/debug based on wor
 /afx-sprint graduate <feature>             # Evolve into spec.md/design.md/tasks.md when scope grows
 ```
 
+### Dash (Low-Ceremony Structured Work)
+
+```bash
+/afx-dash new <feature> [context]           # Create Purpose + Tasks for bounded work
+/afx-dash refine [feature] [context]        # Adjust Purpose or Tasks
+/afx-dash code [feature] [task-id]          # Implement through shared afx-task mechanics
+/afx-dash verify [feature|task-id]          # Verify task evidence
+/afx-dash graduate <feature> --to sprint|full # Preserve work while increasing structure
+```
+
 ### Task Verification
 
 ```bash
 /afx-task verify <task-id>     # Verify implementation evidence against spec/design/task
-/afx-task brief <task-id>      # Get implementation summary
+/afx-task summary <task-id>    # Preferred implementation summary command
+/afx-task brief <task-id>      # Compatible alias for summary
 /afx-task review <name>        # Review task plan for gaps and sequencing risk
 ```
 

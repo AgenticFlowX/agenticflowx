@@ -4,7 +4,6 @@ description: Session context transfer — save detailed context bundles for agen
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,context,session,handoff,continuity"
   afx-argument-hint: "save | load | history | impact"
 ---
@@ -48,12 +47,12 @@ If neither file exists, use defaults.
 If implementation is requested, respond with:
 
 ```text
-Out of scope for /afx-context (context transfer mode). Use /afx-dev code to implement.
+Out of scope for /afx-context (context transfer mode). Use /afx-task code to implement.
 ```
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-context`**: Cross-feature impact detected.
 
@@ -319,7 +318,7 @@ The full context bundle content, followed by:
 
 Next (ranked):
 
-1. /afx-dev code # Context-driven: Continue implementation
+1. /afx-task code # Context-driven: Continue implementation
 2. /afx-task pick # Context-driven: Pick up from task queue
 3. /afx-session recap {feature} # Context-driven: Review more context
    ──
@@ -451,7 +450,7 @@ Analyze cross-feature impact when specs change.
 
 **Estimated effort**: 2-4 hours
 
-Next: /afx-dev code # Start migration if approved
+Next: /afx-task code # Start migration if approved
 ```
 
 ---

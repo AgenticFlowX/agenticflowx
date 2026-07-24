@@ -4,12 +4,8 @@ description: Research workflow — discovery, comparison, summarization, and pro
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,research,discovery,analysis,adr"
   afx-argument-hint: "explore | compare | summarize | finalize"
-  modeSlugs:
-    - focus-research
-    - architect
 ---
 
 # /afx-research
@@ -67,16 +63,16 @@ Research artifacts preserve investigation history. When research is finalized in
 If user asks for implementation, respond with:
 
 ```text
-Out of scope for /afx-research (research-only mode). Use /afx-dev code after a spec/ADR decision is finalized.
+Out of scope for /afx-research (research-only mode). Use /afx-task code after a spec/ADR decision is finalized.
 ```
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-research`**: Research finding that invalidates assumption, technology limitation discovered.
 
-**Prompt-capture triggers** (propose + confirm via `/afx-session capture`): a finding that invalidates a spec assumption or changes a design direction. After updating the research doc, run the [Significance Check](../afx-session/SKILL.md#significance-check-context-aware-gate) first — skip silently for cosmetic edits. Only call `/afx-session capture --trigger design-pivot|missed-req --links <research-slug>` when the finding genuinely shifts direction. See [Prompt Capture Triggers](../afx-session/SKILL.md#prompt-capture-triggers-propose--confirm).
+**Prompt-capture triggers** (propose + confirm via `/afx-session capture`): a finding that invalidates a spec assumption or changes a design direction. After updating the research doc, run the [Significance Check](../afx-session/references/proactive-capture.md) first — skip silently for cosmetic edits. Only call `/afx-session capture --trigger design-pivot|missed-req --links <research-slug>` when the finding genuinely shifts direction. See [Prompt Capture Triggers](../afx-session/references/proactive-capture.md).
 
 ## Post-Action Checklist (MANDATORY)
 
@@ -99,7 +95,6 @@ All research artifacts created by this skill MUST follow `assets/research-templa
 ---
 afx: true
 type: RES
-status: Living
 owner: "@handle"
 created_at: "YYYY-MM-DDTHH:MM:SS.mmmZ"
 updated_at: "YYYY-MM-DDTHH:MM:SS.mmmZ"

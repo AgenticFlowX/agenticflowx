@@ -207,7 +207,7 @@ export interface Filters {
 
 ---
 
-## File Reference Map
+## [DES-REFS] File Reference Map
 
 Track implementation files and their required `@see` references for traceability.
 
@@ -228,7 +228,7 @@ Track implementation files and their required `@see` references for traceability
 
 ---
 
-## Open Technical Questions
+## [DES-QUESTIONS] Open Technical Questions
 
 | #   | Question             | Status |
 | --- | -------------------- | ------ |

@@ -1,0 +1,400 @@
+{
+  "schema_version": 1,
+  "pack": "agenticflowx",
+  "generatedBy": "generated from SKILL.md frontmatter; edit skills, not this file",
+  "aliases": {
+    "/afx-task summary": "/afx-task brief",
+    "/afx-dash graduate --to standard": "/afx-dash graduate --to full"
+  },
+  "removedRoutes": [
+    "/afx-dev code"
+  ],
+  "skills": [
+    {
+      "id": "afx-adr",
+      "description": "ADR management \u2014 create, review, list, and supersede Architecture Decision Records",
+      "subcommands": [
+        "create",
+        "review",
+        "accept",
+        "list",
+        "supersede"
+      ],
+      "argumentHint": "create | review | accept | list | supersede",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "adr",
+        "architecture",
+        "decisions"
+      ]
+    },
+    {
+      "id": "afx-check",
+      "description": "Quality gates and compliance \u2014 trace execution paths, audit annotations, verify cross-references, and run all checks against spec requirements",
+      "subcommands": [
+        "path",
+        "trace",
+        "links",
+        "schema",
+        "deps",
+        "coverage",
+        "all"
+      ],
+      "argumentHint": "path | trace | links | schema | deps | coverage | all",
+      "mutationClass": "read",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "check",
+        "quality",
+        "compliance",
+        "traceability"
+      ]
+    },
+    {
+      "id": "afx-context",
+      "description": "Session context transfer \u2014 save detailed context bundles for agent handoff, load previous context, track spec evolution, and analyze cross-feature impact",
+      "subcommands": [
+        "save",
+        "load",
+        "history",
+        "impact"
+      ],
+      "argumentHint": "save | load | history | impact",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "context",
+        "session",
+        "handoff",
+        "continuity"
+      ]
+    },
+    {
+      "id": "afx-dash",
+      "description": "AFX Dash \u2014 low-ceremony structured work between ad-hoc chat and a full Sprint. Use for surgical coding, known-scope bug fixes, focused refactors, small UI/API adjustments, bounded config/dependency work, test improvements, and local performance fixes. Triggers on \"keep it simple\", \"give this a little structure before coding\", \"create purpose and tasks then implement\", \"something above a plan but not a full spec\", or \"make an AFX dash for this\".",
+      "subcommands": [
+        "new",
+        "refine",
+        "code",
+        "verify",
+        "graduate"
+      ],
+      "argumentHint": "new | refine | code | verify | graduate",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "dash",
+        "surgical",
+        "bugfix",
+        "refactor",
+        "lightweight"
+      ]
+    },
+    {
+      "id": "afx-design",
+      "description": "Design authoring \u2014 generate, validate, review, and approve technical design documents (design.md)",
+      "subcommands": [
+        "author",
+        "refine",
+        "validate",
+        "review",
+        "approve"
+      ],
+      "argumentHint": "author | refine | validate | review | approve",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "design",
+        "architecture",
+        "validation",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "afx-dev",
+      "description": "Advanced diagnostics \u2014 debug issues, refactor code, review against specs, run tests, and optimize performance",
+      "subcommands": [
+        "debug",
+        "refactor",
+        "review",
+        "test",
+        "optimize"
+      ],
+      "argumentHint": "debug | refactor | review | test | optimize",
+      "mutationClass": "code-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "development",
+        "debug",
+        "refactor",
+        "review",
+        "test",
+        "optimize"
+      ]
+    },
+    {
+      "id": "afx-discover",
+      "description": "Project discovery \u2014 find infrastructure scripts, automation tools, deployment workflows, and development capabilities in your codebase",
+      "subcommands": [
+        "infra",
+        "scripts",
+        "tools",
+        "capabilities"
+      ],
+      "argumentHint": "infra | scripts | tools | capabilities",
+      "mutationClass": "read",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "discovery",
+        "infrastructure",
+        "tools",
+        "capabilities"
+      ]
+    },
+    {
+      "id": "afx-hello",
+      "description": "Verify AFX installation and environment \u2014 detect AI provider, confirm skill availability, and show project health snapshot",
+      "subcommands": [],
+      "argumentHint": "",
+      "mutationClass": "read",
+      "contextProfile": "metadata",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "diagnostics",
+        "environment",
+        "onboarding"
+      ]
+    },
+    {
+      "id": "afx-help",
+      "description": "AFX command reference \u2014 lists all available commands, role-based workflow guides, and quick-start cheatsheet",
+      "subcommands": [],
+      "argumentHint": "",
+      "mutationClass": "read",
+      "contextProfile": "metadata",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "help",
+        "reference",
+        "guides"
+      ]
+    },
+    {
+      "id": "afx-next",
+      "description": "Context-aware guidance \u2014 analyzes git state, active tasks, and session history to recommend the best next action",
+      "subcommands": [],
+      "argumentHint": "",
+      "mutationClass": "read",
+      "contextProfile": "metadata",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "context",
+        "guidance",
+        "golden-thread"
+      ]
+    },
+    {
+      "id": "afx-release",
+      "description": "Release workflow \u2014 version bump, changelog, tag, and GitHub release",
+      "subcommands": [
+        "patch",
+        "minor",
+        "major"
+      ],
+      "argumentHint": "[patch|minor|major]",
+      "mutationClass": "external-write",
+      "contextProfile": "full",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "release",
+        "versioning",
+        "changelog",
+        "github"
+      ]
+    },
+    {
+      "id": "afx-report",
+      "description": "Traceability reporting \u2014 orphaned code detection, spec-to-code coverage mapping, and stale spec detection",
+      "subcommands": [
+        "orphans",
+        "coverage",
+        "stale"
+      ],
+      "argumentHint": "orphans | coverage | stale",
+      "mutationClass": "read",
+      "contextProfile": "metadata",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "report",
+        "metrics",
+        "health",
+        "coverage"
+      ]
+    },
+    {
+      "id": "afx-research",
+      "description": "Research workflow \u2014 discovery, comparison, summarization, and promotion of research artifacts to ADR/spec",
+      "subcommands": [
+        "explore",
+        "compare",
+        "summarize",
+        "finalize"
+      ],
+      "argumentHint": "explore | compare | summarize | finalize",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "research",
+        "discovery",
+        "analysis",
+        "adr"
+      ]
+    },
+    {
+      "id": "afx-scaffold",
+      "description": "Scaffold spec directories, research docs, and ADRs from canonical templates",
+      "subcommands": [
+        "spec",
+        "research",
+        "adr"
+      ],
+      "argumentHint": "spec | research | adr",
+      "mutationClass": "docs-write",
+      "contextProfile": "metadata",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "scaffolding",
+        "feature",
+        "spec",
+        "research",
+        "adr"
+      ]
+    },
+    {
+      "id": "afx-session",
+      "description": "Session discussion capture \u2014 smart notes, session logging, context recaps, and ADR promotion",
+      "subcommands": [
+        "note",
+        "log",
+        "recap",
+        "promote",
+        "capture"
+      ],
+      "argumentHint": "note | log | recap | promote | capture",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "session",
+        "notes",
+        "discussion",
+        "journal"
+      ]
+    },
+    {
+      "id": "afx-spec",
+      "description": "Spec management \u2014 validate structure, review quality, manage approval lifecycle for spec.md",
+      "subcommands": [
+        "create",
+        "refine",
+        "discuss",
+        "validate",
+        "review",
+        "approve"
+      ],
+      "argumentHint": "create | refine | discuss | validate | review | approve",
+      "mutationClass": "docs-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "spec",
+        "requirements",
+        "validation",
+        "lifecycle"
+      ]
+    },
+    {
+      "id": "afx-sprint",
+      "description": "Single-document SDD for fast, surgical feature work \u2014 carries spec + design + tasks in one file, graduates to 4-file when scope grows",
+      "subcommands": [
+        "new",
+        "refine",
+        "spec",
+        "design",
+        "task",
+        "code",
+        "verify",
+        "graduate"
+      ],
+      "argumentHint": "new | refine | spec | design | task | code | verify | graduate",
+      "mutationClass": "docs-write",
+      "contextProfile": "full",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "sprint",
+        "fast",
+        "prototype",
+        "single-doc",
+        "spec",
+        "design",
+        "task"
+      ]
+    },
+    {
+      "id": "afx-task",
+      "description": "Implementation lifecycle \u2014 plan tasks, pick work, implement code, verify, complete, and sync with GitHub",
+      "subcommands": [
+        "plan",
+        "refine",
+        "pick",
+        "code",
+        "verify",
+        "complete",
+        "sync",
+        "summary",
+        "brief",
+        "review",
+        "validate",
+        "status"
+      ],
+      "argumentHint": "plan | refine | pick | code | verify | complete | sync | summary | brief | review | validate | status",
+      "mutationClass": "code-write",
+      "contextProfile": "targeted",
+      "owner": "@rix",
+      "tags": [
+        "workflow",
+        "task",
+        "implementation",
+        "coding",
+        "verification",
+        "lifecycle"
+      ]
+    }
+  ]
+}

@@ -1,7 +1,6 @@
 ---
 afx: true
 type: JOURNAL
-status: Living
 owner: "@owner"
 created_at: "{YYYY-MM-DDTHH:MM:SS.mmmZ}"
 updated_at: "{YYYY-MM-DDTHH:MM:SS.mmmZ}"
@@ -71,8 +70,8 @@ tags: ["{feature}", "journal"]
 - `type:prompt-capture` `{YYYY-MM-DDTHH:MM:SS.mmmZ}` `[tag1, tag2]`
 - trigger: {kind}
 - triggered-change: {FR-X, DES-X, ...}
-- agent: {claude-code | codex | copilot | gemini-code-assist | other | unknown}
-- model: {claude-opus-4-7 | claude-sonnet-4-6 | gpt-5-codex | gemini-2.5-pro | ... | unknown}
+- agent: {claude-code | codex | copilot | other | unknown}
+- model: {claude-opus-4-7 | claude-sonnet-4-6 | gpt-5-codex | ... | unknown}
 
 **User prompt** (verbatim):
 
@@ -111,18 +110,18 @@ Each discussion has:
 
 Prompt captures preserve **verbatim** user prompts + focused agent-reply excerpts at pivotal moments — complementing summary-style Discussions. Appended by `/afx-session capture`.
 
-| Field                 | Purpose                                                                                                                                                  |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `type:prompt-capture` | Inline marker distinguishing from discussion entries                                                                                                     |
-| ISO 8601 timestamp    | When the exchange happened                                                                                                                               |
-| `[tags]`              | Auto-generated from content keywords                                                                                                                     |
-| `trigger`             | Kind: `new-fr`, `new-nfr`, `removed-fr`, `design-pivot`, `missed-req`, `scope-cut`, `ambiguity-resolved`, `question-resolved`, `other`                   |
-| `triggered-change`    | Anchors affected (FR-X, DES-X, task X.Y) — lets future agents trace why an anchor exists                                                                 |
-| `agent`               | Agent identity: `claude-code`, `codex`, `copilot`, `gemini-code-assist`, `other`, or `unknown`. Follows the git co-author convention.                    |
-| `model`               | Model identifier: e.g., `claude-opus-4-7`, `claude-sonnet-4-6`, `gpt-5-codex`, `gemini-2.5-pro`, or `unknown`. Lets reviewers filter by capability tier. |
-| **User prompt**       | Exact text from the conversation, quoted as a markdown blockquote                                                                                        |
-| **Agent reply**       | Focused excerpt (1–5 sentences) covering the decision; `[...]` for omissions                                                                             |
-| **Outcome**           | Bullet list of concrete file/anchor changes the prompt produced                                                                                          |
+| Field                 | Purpose                                                                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `type:prompt-capture` | Inline marker distinguishing from discussion entries                                                                                   |
+| ISO 8601 timestamp    | When the exchange happened                                                                                                             |
+| `[tags]`              | Auto-generated from content keywords                                                                                                   |
+| `trigger`             | Kind: `new-fr`, `new-nfr`, `removed-fr`, `design-pivot`, `missed-req`, `scope-cut`, `ambiguity-resolved`, `question-resolved`, `other` |
+| `triggered-change`    | Anchors affected (FR-X, DES-X, task X.Y) — lets future agents trace why an anchor exists                                               |
+| `agent`               | Agent identity: `claude-code`, `codex`, `copilot`, `other`, or `unknown`. Follows the git co-author convention.                        |
+| `model`               | Model identifier: e.g., `claude-opus-4-7`, `claude-sonnet-4-6`, `gpt-5-codex`, or `unknown`. Lets reviewers filter by capability tier. |
+| **User prompt**       | Exact text from the conversation, quoted as a markdown blockquote                                                                      |
+| **Agent reply**       | Focused excerpt (1–5 sentences) covering the decision; `[...]` for omissions                                                           |
+| **Outcome**           | Bullet list of concrete file/anchor changes the prompt produced                                                                        |
 
 IDs use `{PREFIX}-P{NNN}` to distinguish from discussion IDs (`{PREFIX}-D{NNN}`). Append-only, chronological, never rewrite.
 

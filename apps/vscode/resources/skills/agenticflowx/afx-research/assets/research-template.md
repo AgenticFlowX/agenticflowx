@@ -1,7 +1,6 @@
 ---
 afx: true
 type: RES
-status: Living
 owner: "@owner"
 created_at: "{YYYY-MM-DDTHH:MM:SS.mmmZ}"
 updated_at: "{YYYY-MM-DDTHH:MM:SS.mmmZ}"

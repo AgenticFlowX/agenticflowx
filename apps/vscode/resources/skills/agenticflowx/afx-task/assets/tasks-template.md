@@ -1,7 +1,6 @@
 ---
 afx: true
 type: TASKS
-status: Draft
 owner: "@owner"
 version: "1.0"
 created_at: "{YYYY-MM-DDTHH:MM:SS.mmmZ}"
@@ -40,8 +39,8 @@ References use **Node IDs** for traceability:
 
 ### 0.1 {Cleanup Task Name}
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ---
 
@@ -53,16 +52,16 @@ References use **Node IDs** for traceability:
 <!-- files: path/to/file.ts, path/to/other.ts -->
 <!-- @see docs/specs/{feature}/design.md [DES-SECTION] | docs/specs/{feature}/spec.md [FR-X] -->
 
-- [ ] {Task item}
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ### 1.2 {Task Group Name}
 <!-- files: path/to/another.ts -->
 <!-- @see docs/specs/{feature}/design.md [DES-SECTION] | docs/specs/{feature}/spec.md [FR-X] -->
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ---
 
@@ -72,13 +71,13 @@ References use **Node IDs** for traceability:
 
 ### 2.1 {Task Group Name}
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ### 2.2 {Task Group Name}
 
-- [ ] {Task item}
-- [ ] {Task item}
+- [ ] {Completion criterion}
+- [ ] {Completion criterion}
 
 ---
 
@@ -114,7 +113,8 @@ Phase N: {Continue as needed}
 
 ## Notes
 
-- Tasks are marked complete (`[x]`) as implementation progresses
+- Each `### N.N` heading is one dispatchable task group
+- A task group is complete when all of its completion criteria are marked (`[x]`)
 - GitHub issue numbers are added when issues are created
 - Cross-references help trace requirements → design → implementation
 
@@ -123,7 +123,7 @@ Phase N: {Continue as needed}
 ## Work Sessions
 
 <!-- IMPORTANT: This section MUST remain the LAST section in tasks.md. Do not add content below it. -->
-<!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task complete -->
+<!-- Task execution log — append-only, updated by /afx-task pick, /afx-task code, /afx-task verify, /afx-task complete -->
 <!-- Columns: Date (YYYY-MM-DD) | Task (WBS ID) | Action (Picked/Coded/Completed/Verified/Reviewed) | Files Modified (comma-separated or -) | Agent ([x] or []) | Human ([x] or []) -->
 
 | Date | Task | Action | Files Modified | Agent | Human |

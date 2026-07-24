@@ -4,12 +4,8 @@ description: Design authoring — generate, validate, review, and approve techni
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,design,architecture,validation,lifecycle"
   afx-argument-hint: "author | refine | validate | review | approve"
-  modeSlugs:
-    - focus-review-design
-    - architect
 ---
 
 # /afx-design
@@ -113,11 +109,11 @@ spec: spec.md
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-design`**: Design decision with significant trade-offs, architecture change from original spec intent, approval with conditions.
 
-**Prompt-capture triggers** (propose + confirm via `/afx-session capture`): new `[DES-X]` section added, Key Decisions table entry changed, architecture pivot. After applying the edit, run the [Significance Check](../afx-session/SKILL.md#significance-check-context-aware-gate) first — skip silently for cosmetic edits. Only call `/afx-session capture --trigger design-pivot --links <DES-anchor>` when the change encodes a real decision or reversal. See [Prompt Capture Triggers](../afx-session/SKILL.md#prompt-capture-triggers-propose--confirm).
+**Prompt-capture triggers** (propose + confirm via `/afx-session capture`): new `[DES-X]` section added, Key Decisions table entry changed, architecture pivot. After applying the edit, run the [Significance Check](../afx-session/references/proactive-capture.md) first — skip silently for cosmetic edits. Only call `/afx-session capture --trigger design-pivot --links <DES-anchor>` when the change encodes a real decision or reversal. See [Prompt Capture Triggers](../afx-session/references/proactive-capture.md).
 
 ---
 
@@ -200,7 +196,7 @@ After EVERY `/afx-design` action, suggest the next command:
 
 ### Interactive Lifecycle Actions (MANDATORY)
 
-When the agent detects a lifecycle gate is actionable after completing work, use `ask_followup_question` to present options as clickable buttons instead of text-only suggestions.
+When the agent detects a lifecycle gate is actionable after completing work, use the host's structured-choice capability when available (otherwise numbered text options) to present the options.
 
 **Trigger conditions:**
 
@@ -262,7 +258,7 @@ All `design.md` files MUST contain these `##` sections with their `[DES-ID]` anc
 | 11  | `## [DES-TEST] Testing Strategy`            | `[DES-TEST]`    |
 | 12  | `## [DES-ROLLOUT] Migration / Rollout Plan` | `[DES-ROLLOUT]` |
 
-Optional: `## File Reference Map`, `## Open Technical Questions`
+Optional: `## [DES-REFS] File Reference Map`, `## [DES-QUESTIONS] Open Technical Questions`. Any other custom H2 follows the same anchored form and uses a unique `[DES-*]` ID.
 
 ### Node ID Format
 
@@ -365,7 +361,7 @@ Validation: user-authentication (design.md)
 
 Frontmatter: ✓ Valid (DESIGN, spec backlink present)
 Node IDs: ✓ All sections have [DES-ID], no duplicates
-Template Sections: ✓ All 9 required sections present
+Template Sections: ✓ All 12 required sections present
 Traceability: ✓ 12 @see links to spec requirements
 
 Status: PASSED

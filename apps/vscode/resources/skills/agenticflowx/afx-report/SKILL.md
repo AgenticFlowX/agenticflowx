@@ -2,15 +2,11 @@
 name: afx-report
 description: Traceability reporting — orphaned code detection, spec-to-code coverage mapping, and stale spec detection
 license: MIT
+allowed-tools: Read Grep Glob Bash
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,report,metrics,health,coverage"
   afx-argument-hint: "orphans | coverage | stale"
-  modeSlugs:
-    - focus-review-spec
-    - focus-review-tasks
-    - architect
 ---
 
 # /afx-report
@@ -55,7 +51,7 @@ If neither file exists, use defaults.
 If fixes are requested, respond with:
 
 ```text
-Out of scope for /afx-report (read-only reporting mode). Use /afx-dev code to fix orphans or /afx-check trace to audit.
+Out of scope for /afx-report (read-only reporting mode). Use /afx-task code to fix orphans or /afx-check trace to audit.
 ```
 
 ### Timestamp Format (MANDATORY)
@@ -68,11 +64,9 @@ Since this is a read-only reporting skill, no files are modified. However, after
 
 1. Ensure the output strictly follows the markdown schema provided in the examples.
 
-### Proactive Journal Capture
+### Surfacing Notable Findings
 
-When this skill detects a high-impact health decline, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
-
-**Triggers for `/afx-report`**: Substantial drop in test coverage or highly out-of-date core specs discovered.
+`/afx-report` is read-only and never writes `journal.md` or any file. When it detects a high-impact health decline (substantial drop in test coverage or highly out-of-date core specs), surface it prominently in the report and recommend `/afx-session note` so the user can capture it. Do not write the journal directly.
 
 ---
 
@@ -158,7 +152,7 @@ For each orphan, add @see reference:
 Next (ranked):
 
 1. /afx-check trace notification.service.ts:1 # Context-driven: Fix first orphan
-2. /afx-dev code # Context-driven: Add @see links
+2. /afx-task code # Context-driven: Add @see links
 3. /afx-report health # Context-driven: Re-check after fixes
    ──
 4. /afx-next # Re-orient after report
@@ -240,7 +234,7 @@ Next (ranked):
 
 1. /afx-task pick docs/specs/user-auth # Context-driven: Implement uncovered
 2. /afx-task list 7 # Context-driven: See Phase 7 tasks
-3. /afx-dev code # Context-driven: Start implementation
+3. /afx-task code # Context-driven: Start implementation
    ──
 4. /afx-next # Re-orient after report
 5. /afx-session note "<note>" # Capture findings

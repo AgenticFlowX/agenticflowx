@@ -1,10 +1,10 @@
 ---
 name: afx-hello
-description: Verify AFX installation and environment — detect AI provider, confirm skill availability, and show project health snapshot
+description: Verify AFX installation and environment — detect the AI provider, confirm skill availability, and show a project health snapshot. Use for onboarding, troubleshooting, or a quick multi-provider vibe check. Triggers on "is AFX working?", "hello AFX", "vibe check", or "verify AFX install".
 license: MIT
+allowed-tools: Read Grep Glob Bash
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,diagnostics,environment,onboarding"
 ---
 
@@ -47,11 +47,9 @@ Since this is a read-only diagnostics skill, no files are modified. However, aft
 
 1. Verify all checks are completed as listed in the Output Format.
 
-### Proactive Journal Capture
+### Surfacing Notable Findings
 
-When this skill detects a high-impact diagnostic failure event, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
-
-**Triggers for `/afx-hello`**: Critical environment configuration gap discovered.
+`/afx-hello` is read-only and never writes `journal.md` or any file. When it finds a critical environment configuration gap, surface it in the diagnostics output and recommend `/afx-session note` so the user can capture it. Do not write the journal directly.
 
 ---
 
@@ -112,8 +110,8 @@ When invoked, perform these checks and report results:
 | ----------- | ----- |
 | Total Specs | 12    |
 | Draft       | 3     |
-| Approved    | 7     |
-| Living      | 2     |
+| Approved    | 9     |
+| Superseded  | 0     |
 
 ### Quick Start
 

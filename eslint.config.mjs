@@ -32,6 +32,8 @@ export default tseslint.config(
       "**/.turbo/**",
       "**/coverage/**",
       "apps/vscode/resources/pi-sdk/**",
+      // Vendored from the pinned AgenticFlowX release and verified independently.
+      "apps/vscode/resources/skills/**",
       "pnpm-lock.yaml",
       // Shadcn-generated files — owned by the registry, regenerated via `shadcn add`.
       // Lint and filename rules don't apply; manual edits should stay minimal.
@@ -64,6 +66,7 @@ export default tseslint.config(
       "**/vite.config.*",
       "**/playwright.config.*",
       "scripts/conventions/**",
+      "scripts/legal/**",
       "apps/vscode/__mocks__/**",
       "apps/chat/e2e/**",
       "apps/workbench/e2e/**",

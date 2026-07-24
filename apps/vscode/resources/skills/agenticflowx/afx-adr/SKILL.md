@@ -4,7 +4,6 @@ description: ADR management — create, review, list, and supersede Architecture
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,adr,architecture,decisions"
   afx-argument-hint: "create | review | accept | list | supersede"
 ---
@@ -50,7 +49,7 @@ If neither file exists, use defaults.
 If implementation is requested, respond with:
 
 ```text
-Out of scope for /afx-adr (decision management mode). Use /afx-dev code after the ADR is accepted.
+Out of scope for /afx-adr (decision management mode). Use /afx-task code after the ADR is accepted.
 ```
 
 ---
@@ -61,7 +60,7 @@ All timestamps MUST use ISO 8601 with millisecond precision: `YYYY-MM-DDTHH:MM:S
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-adr`**: ADR accepted that changes architecture, ADR superseded.
 

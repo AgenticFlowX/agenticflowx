@@ -2,13 +2,10 @@
 name: afx-next
 description: Context-aware guidance — analyzes git state, active tasks, and session history to recommend the best next action
 license: MIT
+allowed-tools: Read Grep Glob Bash
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,context,guidance,golden-thread"
-  modeSlugs:
-    - focus-next
-    - architect
 ---
 
 # /afx-next
@@ -23,6 +20,8 @@ The "Golden Thread" command. intelligently analyzes your current context (git st
 - `paths.adr` - Where global ADR files live (default: `docs/adr`)
 
 If neither file exists, use defaults.
+
+For low-context status inspection, follow `../afx-help/references/query-helper.md`; use targeted search when the optional runtime is absent.
 
 ## Usage
 
@@ -76,9 +75,9 @@ Since this is a read-only advisor skill, no files are modified. However, after e
 
 1. Strictly follow the Analysis Logic to provide context-aware command suggestions.
 
-### Proactive Journal Capture
+### Surfacing Notable Findings
 
-When this skill detects a high-impact context switch or critical gap, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+`/afx-next` is read-only and never writes `journal.md` or any file. When it detects a high-impact context switch or critical gap, surface it in the suggestion and recommend `/afx-session note` so the user can capture it. Do not write the journal directly.
 
 **Triggers for `/afx-next`**: Major context loss detected, multiple incomplete tasks found.
 

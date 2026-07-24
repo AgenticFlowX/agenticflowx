@@ -4,15 +4,8 @@ description: Advanced diagnostics — debug issues, refactor code, review agains
 license: MIT
 metadata:
   afx-owner: "@rix"
-  afx-status: Living
   afx-tags: "workflow,development,debug,refactor,review,test,optimize"
   afx-argument-hint: "debug | refactor | review | test | optimize"
-  modeSlugs:
-    - focus-code
-    - focus-debug
-    - focus-refactor
-    - code
-    - debug
 ---
 
 # /afx-dev
@@ -69,7 +62,7 @@ Out of scope for /afx-dev (development mode). Use /afx-spec refine, /afx-design 
 
 ### Proactive Journal Capture
 
-When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/SKILL.md#proactive-capture-protocol-mandatory).
+When this skill detects a high-impact context change, auto-capture to `journal.md` per the [Proactive Capture Protocol](../afx-session/references/proactive-capture.md).
 
 **Triggers for `/afx-dev`**: Architecture change during refactor, scope cut during implementation, tech debt discovery, spec deviation found during coding.
 
@@ -133,7 +126,7 @@ Next (ranked):
 
 ### Timestamp Format (MANDATORY)
 
-When creating or updating Session Log entries, frontmatter (`updated_at`, `created_at`), and Work Sessions rows, all timestamps MUST use ISO 8601 with millisecond precision: `YYYY-MM-DDTHH:MM:SS.mmmZ` (e.g., `2025-12-17T14:30:00.000Z`). Never write short formats like `2025-12-17 14:30`. **To get the current timestamp**, run `date -u +"%Y-%m-%dT%H:%M:%S.000Z"` via the Bash tool — do NOT guess or use midnight (`T00:00:00.000Z`).
+Timestamps use ISO 8601 millisecond precision — see `../afx-help/references/timestamp-rule.md`.
 
 ---
 
@@ -146,7 +139,7 @@ When creating or updating Session Log entries, frontmatter (`updated_at`, `creat
 | Artifact             | When to Update                              |
 | -------------------- | ------------------------------------------- |
 | GitHub Session Log   | Always (date, task, action, files modified) |
-| Task Checkboxes      | Always for task-based work                  |
+| Completion Criteria  | Always for task-based work                  |
 | Discovered Issues    | If edge cases or issues found               |
 | `@see` links in code | Always for new code                         |
 
@@ -177,373 +170,17 @@ These artifacts serve as your "save game" - enabling any agent to resume exactly
 
 ---
 
-## Subcommands
-
----
-
-## 1. debug
-
-Debug issues while maintaining traceability to requirements.
-
-### Usage
-
-```bash
-/afx-dev debug [error-description]
-```
-
-### Context
-
-- **Error**: $ARGUMENTS
-- **Role**: Debug Coordinator
-
-### Process
-
-1. **Trace Error**:
-   - UI → Action → Service → DB.
-   - Identify where the break is.
-
-2. **Check Spec**:
-   - Is the code doing what `design.md` says?
-   - Is `design.md` wrong? or Code wrong?
-
-3. **Fix**:
-   - IF code wrong: Fix code to match spec.
-   - IF spec wrong: Update spec (via `/afx-check links` or manual), then fix code.
-
-4. **Verify**:
-   - Run `/afx-check path`.
-
-### Output
-
-- **Root Cause**: Explanation of what went wrong.
-- **Fix**: Code changes made.
-- **Spec Update**: If required.
-
-### Debug Checklist
-
-```markdown
-## Debug Report: {error}
-
-### Error Location
-
-- Layer: {UI/Action/Service/Repository/DB}
-- File: {path}
-- Line: {number}
-
-### Root Cause
-
-{Explanation}
-
-### Spec Alignment
-
-- Design says: {what design.md specifies}
-- Code does: {what code actually does}
-- Verdict: {Code wrong / Spec wrong / Both}
-
-### Fix Applied
-
-- {Description of fix}
-- Files modified: {list}
-
-### Verification
-
-- [ ] `/afx-check path` passes
-- [ ] Tests pass
-- [ ] Build succeeds
-- [ ] **Traceability**: Session Log updated, Discovered Issues documented (See [Bidirectional Traceability](#bidirectional-traceability-mandatory))
-
-Next: /afx-check path {feature-path} # Verify the fix
-```
-
----
-
-## 2. refactor
-
-Refactor code while preserving spec alignment.
-
-### Usage
-
-```bash
-/afx-dev refactor [scope]
-```
-
-### Process
-
-1. **Baseline**: Ensure current code matches `design.md`.
-
-2. **Plan**: Propose structure changes.
-
-3. **Check Spec Impact**:
-   - Does this change the Design?
-   - IF YES: Update `design.md` FIRST. **(OVERWRITE the old state. DO NOT append history. Log the _reason_ for the change in `journal.md`.)**
-
-4. **Execute**: Refactor code.
-
-5. **Update Links**: Ensure `@see` links point to new/correct sections.
-
-### Refactor Rules
-
-1. **Spec-First**: If refactoring changes architecture, update design.md before code. Always overwrite rather than appending history.
-2. **Journal History**: Document _why_ the refactor was needed and what alternatives were considered in `journal.md`.
-3. **Link Preservation**: All `@see` links must remain valid after refactoring.
-4. **No Behavior Change**: Unless explicitly requested, refactoring should not change behavior.
-
-### Output
-
-```markdown
-## Refactor Report: {scope}
-
-### Changes Made
-
-- {Change 1}
-- {Change 2}
-
-### Spec Impact
-
-- design.md updated: Yes/No
-- New sections added: {list}
-
-### Links Updated
-
-- {old-link} → {new-link}
-
-### Verification
-
-- [ ] All @see links valid
-- [ ] Tests pass
-- [ ] Build succeeds
-- [ ] **Traceability**: Session Log updated (See [Bidirectional Traceability](#bidirectional-traceability-mandatory))
-
-Next: /afx-check path {feature-path} # Verify refactored code
-```
-
----
-
-## 3. review
-
-Review code for AFX compliance (traceability, patterns) and functionality.
-
-### Usage
-
-```bash
-/afx-dev review [scope]
-```
-
-### Context
-
-- **Scope**: $ARGUMENTS (file, path, or PR)
-
-### Process
-
-1. **Traceability Check**:
-   - Do exported functions have `@see` links?
-   - Do annotations (TODO/FIXME) have `@see` links?
-
-2. **Alignment Check**:
-   - Does implementation match `design.md` patterns?
-
-3. **Safety Check**:
-   - Any `setTimeout` or mocks?
-   - Any swallowed errors?
-
-4. **Verification**:
-   - Run `/afx-check path` on the scope.
-
-### Output
-
-```markdown
-## Code Review: {scope}
-
-### Traceability
-
-| Item                | Status    | Issue     |
-| ------------------- | --------- | --------- |
-| @see on exports     | Pass/Fail | {details} |
-| @see on annotations | Pass/Fail | {details} |
-
-### Spec Alignment
-
-| Pattern   | Expected         | Actual    | Status         |
-| --------- | ---------------- | --------- | -------------- |
-| {pattern} | {from design.md} | {in code} | Match/Mismatch |
-
-### Safety
-
-| Check               | Status    | Location    |
-| ------------------- | --------- | ----------- |
-| No setTimeout mocks | Pass/Fail | {file:line} |
-| No swallowed errors | Pass/Fail | {file:line} |
-
-### Recommendations
-
-1. {Recommendation 1}
-2. {Recommendation 2}
-
-### Verdict
-
-- **Compliance Score**: {X}/10
-- **Ready for merge**: Yes/No
-- **Traceability**: Discovered Issues documented (See [Bidirectional Traceability](#bidirectional-traceability-mandatory))
-
-Next: /afx-dev code # Address the recommendations (if any)
-```
-
-Or if ready:
-
-```
-Next: /afx-task pick docs/specs/{feature}   # Proceed to next task
-```
-
----
-
-## 4. test
-
-Generate or run tests based on spec requirements.
-
-### Usage
-
-```bash
-/afx-dev test [scope]
-```
-
-### Context
-
-- **Scope**: $ARGUMENTS
-
-### Process
-
-1. **Identify Requirements**: Read `spec.md` and `design.md` for the scope.
-
-2. **Check Coverage**: Compare existing tests vs requirements.
-
-3. **Generate/Run**:
-   - `npx nx test [scope]`
-   - Create new tests for missing scenarios.
-
-4. **Link**: Ensure test descriptions reference spec scenarios if possible.
-
-### Test Generation Rules
-
-1. **Spec-Driven**: Tests should cover scenarios from `spec.md` acceptance criteria.
-2. **Layer Coverage**: Unit tests for repository/service, integration for actions.
-3. **Mock Boundaries**: Mock at repository layer for service tests, mock at service for action tests.
-
-### Output
-
-````markdown
-## Test Report: {scope}
-
-### Coverage Analysis
-
-| Requirement        | Test Exists | Status  |
-| ------------------ | ----------- | ------- |
-| FR-1: Create claim | Yes         | Passing |
-| FR-2: Upload photo | No          | Missing |
-
-### Tests Run
-
-```bash
-npx nx test {package}
-```
-
-Results: {X} passed, {Y} failed, {Z} skipped
-
-### Tests Generated
-
-- `{test-file}.test.ts` - {description}
-
-### Recommendations
-
-1. Add test for {missing scenario}
-2. Fix failing test: {test name}
-
-### Traceability
-
-- [ ] Session Log updated
-- [ ] Task checkbox marked (if task-based)
-- [ ] Discovered Issues documented (See [Bidirectional Traceability](#bidirectional-traceability-mandatory))
-
-Next: /afx-check path {feature-path} # Verify after tests pass
-
-```
-
-Or if tests fail:
-
-```
-
-Next: /afx-dev debug # Investigate test failures
-````
-
----
-
-## 5. optimize
-
-Optimize performance based on constraints.
-
-### Usage
-
-```bash
-/afx-dev optimize [target]
-```
-
-### Process
-
-1. **Identify Constraint**: Read `spec.md` (Requirements) or `research/*.md` (Decisions).
-
-2. **Measure**: Profile current state.
-
-3. **Optimize**: Improve code.
-
-4. **Document**: If new patterns emerge, record in `research/` or `design.md`.
-
-5. **Link**: Add `@see` to optimization research or relevant design section.
-
-### Optimization Rules
-
-1. **Measure First**: Always profile before optimizing.
-2. **Document Decisions**: Record optimization decisions in `research/` if significant.
-3. **Avoid Premature**: Only optimize what's measurably slow.
-
-### Output
-
-````markdown
-## Optimization Report: {target}
-
-### Baseline Measurement
-
-- Metric: {what was measured}
-- Before: {value}
-
-### Changes Made
-
-- {Change 1}: {expected impact}
-- {Change 2}: {expected impact}
-
-### Results
-
-- After: {value}
-- Improvement: {X}%
-
-### Documentation
-
-- [ ] Added to design.md: {section}
-- [ ] Created research doc: {path}
-
-### @see Links Added
-
-```typescript
-// OPTIMIZE: Query batching for claim list
-// @see docs/specs/user-auth/research/performance-tuning.md
-```
-
-### Traceability
-
-- [ ] Session Log updated
-- [ ] Task checkbox marked (if task-based)
-- [ ] Discovered Issues documented (See [Bidirectional Traceability](#bidirectional-traceability-mandatory))
-
-Next: /afx-check path {feature-path} # Verify optimization
-````
+## Subcommand Routing
+
+Each subcommand's full procedure, process steps, output templates, and examples live in its reference file. Load the matching reference only when running that subcommand.
+
+| Subcommand         | Purpose                                                                    | Reference              |
+| ------------------ | -------------------------------------------------------------------------- | ---------------------- |
+| `debug [error]`    | Debug issues while maintaining traceability to requirements                | `references/debug.md`    |
+| `refactor [scope]` | Refactor code while preserving spec alignment                              | `references/refactor.md` |
+| `review [scope]`   | Review code for AFX compliance (traceability, patterns) and functionality  | `references/review.md`   |
+| `test [scope]`     | Generate or run tests based on spec requirements                           | `references/test.md`     |
+| `optimize [target]`| Optimize performance based on constraints                                  | `references/optimize.md` |
 
 ---
 
@@ -554,7 +191,3 @@ Next: /afx-check path {feature-path} # Verify optimization
 | `/afx-task`    | Owns task lifecycle and coding; `/afx-dev` handles diagnostics |
 | `/afx-check`   | Quality gates to run after dev work                            |
 | `/afx-session` | Capture discussions about implementation                       |
-
-```
-
-```
