@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "0.1"
+version: "0.2"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-17T13:51:34.000Z"
+updated_at: "2026-07-19T03:16:29.000Z"
 tags: ["app", "workbench", "impact-lens", "traceability", "intent-ledger"]
 depends_on:
   [
@@ -14,6 +14,7 @@ depends_on:
     "200-app-vscode",
     "220-app-workbench",
     "227-app-workbench-shell",
+    "229-app-workbench-canvas",
   ]
 ---
 
@@ -24,6 +25,7 @@ depends_on:
 - **Parent shell**: [docs/specs/220-app-workbench/spec.md](../220-app-workbench/spec.md)
 - **Shell/tab route**: [docs/specs/227-app-workbench-shell/spec.md](../227-app-workbench-shell/spec.md)
 - **Existing host `@see` providers**: [docs/specs/203-app-vscode-see-navigation/spec.md](../203-app-vscode-see-navigation/spec.md)
+- **Editable spatial planning sibling**: [docs/specs/229-app-workbench-canvas/spec.md](../229-app-workbench-canvas/spec.md)
 
 ---
 
@@ -33,6 +35,11 @@ Impact Lens is the planned Workbench surface for reverse traceability: from a
 spec/design/task/source node to linked code, tests, stale references, orphan
 candidates, and verification context. This child spec reserves the Workbench
 lane where the sprint brief graduates into the `afx-vscode` repo.
+
+Impact Lens does not own user-authored canvas documents or declared
+`depends_on` editing. Canvas owns those editable planning/spec maps. Impact
+Lens owns computed reverse source/test/evidence relationships and may later
+reuse Canvas graph projection components in a read-only configuration.
 
 ---
 
@@ -58,16 +65,17 @@ Developers reviewing AI/agent-created code and maintainers validating AFX tracea
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                          | Priority    |
-| ---- | ------------------------------------------------------------------------------------ | ----------- |
-| FR-1 | Add an Impact Lens tab to the Workbench shell                                        | Must Have   |
-| FR-2 | Display reverse traceability metrics and prioritized issues                          | Must Have   |
-| FR-3 | Support node-to-source and source-to-node exploration                                | Must Have   |
-| FR-4 | Show ghost-file, ghost-node, stale, orphan, missing, and unverified states           | Must Have   |
-| FR-5 | Open linked docs/source through existing Workbench/VSCode actions                    | Must Have   |
-| FR-6 | Accept typed Impact Lens payloads through shared Workbench protocol                  | Must Have   |
-| FR-7 | Provide explicit loading, refreshing, partial, empty, fatal, and verification states | Must Have   |
-| FR-8 | Route agent verification through existing agent/sidebar boundaries                   | Should Have |
+| ID   | Requirement                                                                                                                                                                         | Priority    |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
+| FR-1 | Add an Impact Lens tab to the Workbench shell                                                                                                                                       | Must Have   |
+| FR-2 | Display reverse traceability metrics and prioritized issues                                                                                                                         | Must Have   |
+| FR-3 | Support node-to-source and source-to-node exploration                                                                                                                               | Must Have   |
+| FR-4 | Show ghost-file, ghost-node, stale, orphan, missing, and unverified states                                                                                                          | Must Have   |
+| FR-5 | Open linked docs/source through existing Workbench/VSCode actions                                                                                                                   | Must Have   |
+| FR-6 | Accept typed Impact Lens payloads through shared Workbench protocol                                                                                                                 | Must Have   |
+| FR-7 | Provide explicit loading, refreshing, partial, empty, fatal, and verification states                                                                                                | Must Have   |
+| FR-8 | Route agent verification through existing agent/sidebar boundaries                                                                                                                  | Should Have |
+| FR-9 | Consume reusable graph projection components only after Canvas stabilizes them, while keeping Impact Lens data read-only and preventing writes to canvas files or spec dependencies | Should Have |
 
 ### Non-Functional Requirements
 
@@ -100,6 +108,7 @@ Developers reviewing AI/agent-created code and maintainers validating AFX tracea
 
 - Full GraphDB, Time Machine, AST symbol graph, embeddings index, or PR blast-radius simulator.
 - Automatically inserting or rewriting `@see` annotations.
+- Authoring freeform canvases, editing declared `depends_on`, or persisting user-authored spatial maps; these belong to `229-app-workbench-canvas`.
 - Owning generic Analytics widgets; that belongs to `226-app-workbench-analytics`.
 
 ---
@@ -119,6 +128,7 @@ Developers reviewing AI/agent-created code and maintainers validating AFX tracea
 - `203-app-vscode-see-navigation` for existing forward `@see` parsing/navigation behavior.
 - `100-package-shared` for typed payloads and protocol additions.
 - A future pure Intent Ledger/indexer package or service.
+- `229-app-workbench-canvas` for optional future reuse of its React Flow projection, not its editable document store.
 
 ---
 

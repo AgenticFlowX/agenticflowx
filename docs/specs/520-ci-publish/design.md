@@ -1,12 +1,12 @@
 ---
 afx: true
 type: DESIGN
-status: Living
+status: Approved
 owner: "@rixrix"
-version: "1.2"
+version: "1.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
-tags: ["ci", "publish", "vsix", "traceability"]
+updated_at: "2026-07-19T03:56:24.000Z"
+tags: ["ci", "publish", "vsix", "traceability", "licensing", "third-party-notices"]
 spec: spec.md
 ---
 
@@ -30,8 +30,10 @@ spec: spec.md
     build-vsix:
       1. pnpm install
       2. pnpm build               ← build all packages + apps
-      3. pnpm exec vsce package   ← produces afx-agenticflowx-*.vsix
-      4. gh release upload        ← attach VSIX to GitHub Release
+      3. pnpm legal:check         ← verify artifact-aware notices are current
+      4. pnpm exec vsce package   ← produces afx-agenticflowx-*.vsix
+      5. inspect VSIX legal files ← LICENSE.txt + NOTICE + THIRD_PARTY_NOTICES.md
+      6. gh release upload        ← attach VSIX to GitHub Release
 ```
 
 ### [DES-CI-PUBLISH-DISTRIBUTION] Distribution
@@ -56,9 +58,12 @@ OpenVSX Registry     → manual upload by developer after downloading VSIX
 
 ## [DES-FILES] File Structure
 
-| File                               | Purpose                                    |
-| ---------------------------------- | ------------------------------------------ |
-| `.github/workflows/build-vsix.yml` | VSIX packaging + GitHub Release attachment |
+| File                                    | Purpose                                                                    |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `.github/workflows/build-vsix.yml`      | VSIX packaging + GitHub Release attachment                                 |
+| `NOTICE`                                | Concise named project acknowledgments copied into the extension package    |
+| `THIRD_PARTY_NOTICES.md`                | Generated exact shipped third-party license and NOTICE evidence            |
+| `scripts/legal/third-party-notices.mjs` | Artifact-aware deterministic inventory/check owned by `430-dx-enforcement` |
 
 ---
 
@@ -84,16 +89,22 @@ OpenVSX Registry     → manual upload by developer after downloading VSIX
 
 ## [DES-ERR] Error Handling
 
-| Scenario                  | Handling                                                                 |
-| ------------------------- | ------------------------------------------------------------------------ |
-| VSIX packaging fails      | `vsce package` exits non-zero; `gh release upload` step skipped          |
-| `gh release upload` fails | VSIX not attached to release; re-run workflow or upload `.vsix` manually |
+| Scenario                                  | Handling                                                                     |
+| ----------------------------------------- | ---------------------------------------------------------------------------- |
+| VSIX packaging fails                      | `vsce package` exits non-zero; `gh release upload` step skipped              |
+| Notice inventory is stale/unknown/missing | Legal check exits non-zero before packaging; no release artifact is uploaded |
+| Packaged legal file missing               | Archive assertion fails and blocks upload even when source files exist       |
+| `gh release upload` fails                 | VSIX not attached to release; re-run workflow or upload `.vsix` manually     |
 
 ---
 
 ## [DES-TEST] Testing Strategy
 
-The publish workflow is validated by creating a test release and confirming the VSIX file appears as a GitHub Release asset. No automated tests for the workflow itself.
+Before any upload, CI opens the produced VSIX and asserts the exact archive paths
+`extension/LICENSE.txt`, `extension/NOTICE`, and
+`extension/THIRD_PARTY_NOTICES.md`. The artifact-aware generator is run in
+check mode against the tagged lockfile and built source-map/copied-asset inputs.
+A test release still verifies the final GitHub Release attachment and install.
 
 ---
 
@@ -119,6 +130,7 @@ Delete the GitHub Release if the VSIX is incorrect. Re-tag and re-release with a
 | VSIX workflow               | `.github/workflows/build-vsix.yml`                          | `[DES-ARCH]`, `[DES-CI-PUBLISH-DISTRIBUTION]` |
 | VSIX packaging command      | `.github/workflows/build-vsix.yml` `pnpm exec vsce package` | `[DES-ARCH]`                                  |
 | GitHub Release asset upload | `.github/workflows/build-vsix.yml` `gh release upload`      | `[DES-CI-PUBLISH-DISTRIBUTION]`               |
+| Legal artifact gate         | `.github/workflows/build-vsix.yml`, VSIX archive assertion  | `[DES-ARCH]`, `[DES-TEST]`                    |
 | Manual marketplace upload   | release asset download step                                 | `[DES-CI-PUBLISH-DISTRIBUTION]`               |
 
 ---
@@ -128,3 +140,4 @@ Delete the GitHub Release if the VSIX is incorrect. Re-tag and re-release with a
 | Task | File                               | Required @see                                                |
 | ---- | ---------------------------------- | ------------------------------------------------------------ |
 | —    | `.github/workflows/build-vsix.yml` | `spec.md [FR-1]` + `design.md [DES-CI-PUBLISH-DISTRIBUTION]` |
+| —    | `NOTICE`, `THIRD_PARTY_NOTICES.md` | `spec.md [FR-4]` + `design.md [DES-TEST]`                    |

@@ -1,99 +1,145 @@
 ---
 afx: true
 type: DESIGN
-status: Living
+status: Draft
 owner: "@rix"
-version: "1.0"
+version: "1.5"
 created_at: "2026-06-03T07:28:52.000Z"
-updated_at: "2026-06-06T11:03:56.000Z"
-tags: ["app", "workbench", "canvas", "json-canvas", "ideation", "experimental"]
+updated_at: "2026-07-22T19:40:39.000Z"
+tags:
+  [
+    "app",
+    "workbench",
+    "canvas",
+    "json-canvas",
+    "react-flow",
+    "planning",
+    "spec-map",
+    "architecture-map",
+    "media-preview",
+    "auto-layout",
+    "low-high-fidelity",
+    "progressive-profiles",
+    "universal-canvas",
+    "beginner",
+    "custom-editor",
+    "realtime",
+    "experimental",
+  ]
 spec: spec.md
 ---
 
 # App Workbench Canvas — Technical Design
 
-> **As-built.** Where the original canvas sprint plan diverged from shipped code, this design records reality; divergences are called out inline.
-
 ## [DES-OVR] Overview
 
-<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-11] [FR-19] -->
+<!-- @see spec.md [FR-1] [FR-2] [FR-3] [FR-4] [FR-11] [FR-19] [FR-24] [FR-25] [FR-31] [FR-32] [FR-33] [FR-34] [FR-35] [FR-36] [FR-37] [FR-38] [FR-40] [FR-43] [FR-44] -->
 
-A gated Workbench tab renders an infinite canvas whose runtime state is a JSON Canvas object loaded from and saved to `.afx/project.canvas`. The surface is a thin custom React layer — a CSS-transform viewport (`canvas-surface.tsx`), absolutely-positioned node divs that wrap the existing Workbench markdown renderer (`canvas-node.tsx`), a corner resize handle, and an SVG edge layer (`canvas-edges.tsx`) — with no third-party graph library. The host (`apps/vscode`) reads/watches the single file (`canvas-data.ts`) and persists writes through the existing `afxSaveFile` bridge; reads arrive through the existing `afxUpdate` workbench-state path. JSON Canvas is the only data model, so the file round-trips losslessly to Obsidian and the feature stays disposable behind `afx.experimental.canvas`.
+Canvas is a portable JSON Canvas planning system with optional AFX enhancement, rendered by
+`@xyflow/react`. JSON Canvas remains the authoritative portable document; a
+pure adapter projects it into controlled React Flow nodes/edges and applies
+view changes without dropping standard, unknown, or namespaced fields.
 
-> **As-built note:** autosave is an inline debounced `useEffect` inside `views/canvas.tsx` (650 ms), **not** a separate `useAutosave()` hook as the sprint component diagram sketched. The model hook is `useCanvasModel`; the orchestrator `Canvas` owns selection, save status, external-edit guard, and the autosave effect.
+AFX enhancement is optional, not an installation prerequisite or a separate
+format. The same application starts in an Essentials profile for beginners and
+non-AFX workspaces, expands into Architecture tools for topology and rich
+composition, and exposes AFX integrations only when their capabilities exist.
+Profiles affect affordance density, onboarding, and command visibility; they do
+not mutate the document or make existing content disappear.
+
+One document engine serves the bottom-panel Workbench tab and an optional
+editor-area custom text editor. A host canvas library discovers the legacy
+`.afx/project.canvas`, `.afx/canvases/*.canvas`, and explicitly opened
+workspace-local `.canvas` files. A revision-aware document service combines
+open text buffers with filesystem state, sequences writes, publishes manual
+changes in real time, and exposes truthful dirty/saving/error/conflict state.
+
+The post-2.4.0 north star evolves that stable document surface into an
+architecture workbench: whole-workspace spec topology, rendered spec/Markdown,
+file, image, safe URL, Note, and Board nodes; low- and high-fidelity composition;
+rich semantic styling; and previewable auto-layout. The intended spatial freedom
+and polish are comparable to Miro/Jamboard/Figma, but the domain remains software
+architecture and SDD. This paragraph describes planned scope, not current-release
+completion.
 
 ## [DES-ARCH] Architecture
 
-<!-- @see spec.md [FR-3] [FR-12] [FR-19] [NFR-1] [NFR-5] -->
+<!-- @see spec.md [FR-3] [FR-4] [FR-11] [FR-12] [FR-19] [FR-20] [FR-24] [FR-25] [FR-26] [FR-30] [FR-31] [FR-32] [FR-34] [FR-35] [FR-36] [FR-37] [FR-40] [FR-43] [FR-44] [NFR-1] [NFR-4] [NFR-5] [NFR-9] [NFR-12] [NFR-13] -->
 
 ### System Context
 
 ```text
-.afx/project.canvas  (single JSON Canvas file — the only source of truth)
-        ▲   │
-  write │   │ read + watch
- (debounced)│
-        │   ▼
-apps/vscode (extension host)
-  services/canvas-data.ts
-    - createCanvasDataProvider: read .afx/project.canvas on init + fs watch
-    - getCanvasUpdateFields() → afxUpdate { canvasEnabled, canvas? }
-    - markSavedContent(content) echo-suppresses self-writes
-  panels/workbench-panel.ts
-    - computeCanvasEnabled() ← afx.experimental.canvas
-    - join canvasFields into afxUpdate; afxSaveFile creates .afx/ on first canvas write
-    - afxPickMarkdownFile dialog → afxMarkdownFilePicked
-  package.json contributes.configuration → afx.experimental.canvas (boolean, default false)
-        │
-        │  WorkbenchInbound.afxUpdate { canvasEnabled?: boolean, canvas?: CanvasFilePayload }
-        ▼
-packages/shared
-  workbench-types.ts   <- JSON Canvas types + CanvasFilePayload
-  workbench-protocol.ts <- afxUpdate canvasEnabled/canvas; afxPickMarkdownFile/afxMarkdownFilePicked
-  messages.ts          <- SettingsExperimentalSnapshot; experimental/setCanvasEnabled; chat/openWorkbench
-        │
-        ▼
-apps/workbench (React webview)
-  context/workbench-context.tsx   <- store canvasEnabled + canvas payload (reducer clears canvas when flag off)
-  app.tsx                          <- gated Canvas tab (canvasEnabled)
-  views/canvas.tsx                 <- orchestrator: parse → model, autosave, selection, file fetch, error guards
-  components/canvas/
-    canvas-surface.tsx             <- viewport (pan/zoom), world layer host
-    canvas-node.tsx                <- node frame: drag, resize, inline md, node menu, group/link read-only
-    canvas-edges.tsx               <- SVG edge layer + labels + retarget endpoints
-    canvas-toolbar.tsx             <- add (text/note/label/group/file) / color / fit / zoom / send-selection
-    use-canvas-model.ts            <- JSONCanvas {nodes,edges} state + mutations
-  lib/json-canvas.ts               <- parse/serialize/validate (lossless)
-
-apps/chat (Settings webview — FR-22)
-  views/settings.tsx               <- Experimental group: Canvas switch, path field, Open Workbench
-  lib/settings-copy.ts             <- EXPERIMENTAL copy block
-  lib/settings-snapshot.ts         <- experimental { canvasEnabled, canvasPath } snapshot shape
+workspace TextDocuments + filesystem
+  .afx/project.canvas
+  .afx/canvases/*.canvas
+  explicit workspace-local *.canvas
+  docs/specs/**/{spec,design,tasks}.md + single-document Sprints
+             │ change/save/close + fs watch
+             ▼
+apps/vscode
+  WorkbenchFileState       open-buffer overlay + content revision
+  WorkbenchRefreshCoordinator  single-flight/latest-wins updates
+  WorkbenchMutationCoordinator per-path FIFO + revision/conflict guard
+  CanvasLibraryService     discover/create/rename/duplicate/delete/select
+  CanvasDocumentService    durable sessions, staged edits, save timers, history/revisions
+  CanvasReferenceService   revisioned visible/on-demand source subscriptions
+  SpecDependencyIndexer    four-file + Sprint depends_on resolution/cycles
+  WorkspaceArchitectureIndex  complete spec topology + search/filter/focus
+  CanvasReferenceService host-mediated revisioned Markdown/image/Board/Note data
+  CanvasContentPreviewService bounded URL metadata + expanded preview requests
+  CanvasLayoutService      preview/apply architecture layout requests
+  AfxCanvasEditorProvider  editor-area CustomTextEditorProvider
+             │ typed snapshots/results
+             ▼
+@afx/shared
+  CanvasDescriptor / CanvasLibraryPayload / CanvasDocumentSnapshot
+  WorkbenchMutationResult / SpecDependencyGraph / WorkbenchViewId
+             │
+             ▼
+packages/canvas-engine
+  lossless JSON Canvas parse/serialize + ID-based mutation reducer
+             │
+             ▼
+apps/workbench
+  CanvasApp(surface = "workbench" | "editor")
+  CanvasDocumentClient      session projection + local viewport/selection/inspectors
+  CanvasProfileController   Essentials | Architecture | AFX affordance policy
+  JsonCanvasReactFlowAdapter lossless controlled projection
+  ReactFlowCanvas           shared nodes/edges/toolbars/inspectors
+  CanvasLibrary             compact document switcher and lifecycle actions
+  PlanningGuide             blank/ideas/feature/roadmap/next-spec starters
+  SpecMapTools              import/refresh/detach declared dependencies
+  ArchitectureExplorer      search/filter/traverse/isolate whole-workspace graph
+  PreviewNodes              spec/file/image/link/note/board renderers
+  LayoutPreview             staged auto-layout diff + apply/cancel
 ```
 
 ### Component Diagram
 
 ```text
-┌──────────────────────────── views/canvas.tsx (Canvas) ───────────────────────┐
-│  useCanvasModel(parsed.canvas, acceptedContent) ── JSONCanvas, selection,dirty │
-│  inline useEffect (650 ms debounce) → send(afxSaveFile)                        │
-│  saveStatus = error | saving | saved  ·  external-edit guard  ·  fileContents  │
-│  ┌── canvas-toolbar.tsx ──────────────────────────────────────────────────┐   │
-│  │  [Card][Note][Label][Group]  [color▾][Doc▾]  [Chat N]   [Fit][- 100% +] │   │
-│  └────────────────────────────────────────────────────────────────────────┘   │
-│  ┌── canvas-surface.tsx (world: translate(x,y) scale(z), 0.25–3×) ─────────┐   │
-│  │   ┌── canvas-edges.tsx (SVG layer; Q-curves; labels; retarget ends) ──┐ │   │
-│  │   └────────────────────────────────────────────────────────────────────┘ │
-│  │   ┌── canvas-node.tsx × N (abs-positioned; drag/resize/menu) ──────────┐ │   │
-│  │   │  text/note/label · <MinimalMarkdown/> · file chip · group/link RO  │ │   │
-│  │   └────────────────────────────────────────────────────────────────────┘ │
-│  └────────────────────────────────────────────────────────────────────────┘   │
-└────────────────────────────────────────────────────────────────────────────────┘
+CanvasApp
+├─ CanvasLibrary / profile + mode selector / save state
+├─ CanvasDocumentClient
+│  ├─ immediate ID-based operation staging to durable host session
+│  ├─ acknowledged revisions + independent local viewport/selection
+│  └─ external update: auto-apply clean | conflict dirty/pending
+├─ ReactFlowProvider
+│  └─ ReactFlowCanvas
+│     ├─ controlled nodes/edges + selection/change reducers
+│     ├─ AfxTextNode / AfxFileNode / AfxLinkNode / AfxGroupNode
+│     ├─ AfxCanvasEdge + EdgeInspector + reconnect
+│     ├─ NodeResizer / NodeToolbar / Background / Controls / MiniMap
+│     ├─ lasso / keyboard / snap / fit / auto-pan / copy-paste
+│     └─ frames / alignment / z-order / locks / presentation mode
+├─ PlanningGuide / NextSpecConfirmation / ArchitectureExplorer
+├─ ContentPreviewController / safe host preview cache
+├─ LayoutPreview / Apply as one undo transaction
+└─ SpecMapTools / DependencyIssues / NoteBoardAttachments
 ```
 
 ## [DES-UI] User Interface & UX
 
-<!-- @see spec.md [FR-5] [FR-6] [FR-9] [FR-10] [FR-15] [FR-16] [FR-17] [FR-23] -->
+<!-- @see spec.md [FR-5] [FR-6] [FR-9] [FR-10] [FR-15] [FR-16] [FR-17] [FR-23] [FR-34] [FR-35] [FR-36] [FR-37] [FR-38] [FR-39] [FR-40] [FR-41] [FR-42] [FR-43] [FR-44] [NFR-12] -->
 
 > Global design tokens (Tailwind, shadcn primitives, brand color `afx-brand`, `afx-surface-*`) live in `CLAUDE.md` and `@afx/ui`; only canvas-local composition is described here. Surface map IDs: `[Canvas.Toolbar]`, `[Canvas.Viewport]`, `[Canvas.Node]`, `[Canvas.Edge]`, `[Canvas.NodeMenu]`, `[Canvas.SaveStatus]`.
 
@@ -128,9 +174,29 @@ AFX Workbench / Canvas
 |                         ⌗  Empty canvas                                         |
 |              Drop a thought to begin. Nothing here is required —                |
 |              this is scratch space that can become specs later.                |
-|              Saved to .afx/project.canvas · openable in any JSON Canvas tool    |
+|              Saved as standard .canvas · openable in any JSON Canvas tool       |
 +--------------------------------------------------------------------------------+
 ```
+
+For a workspace without `.afx/`, the final line uses the selected workspace-local
+`.canvas` path and never implies AFX setup is required. The first-run action row is
+`[Add card] [Add file] [Add link] [Use starter]`; advanced architecture and AFX
+commands stay available through profile switching and command search rather than
+crowding the empty state.
+
+### Progressive tool profiles
+
+| Profile          | First-class users                        | Default surface                                                                                                                                                     | Capability behavior                                                                                             |
+| ---------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| **Essentials**   | Beginners, non-AFX, general planning     | Card/text, file/image, link, group, basic connector/color, select/move/resize, undo/redo, search, fit, save/open/export, and starter templates in plain language.   | Default everywhere. No AFX capability is required; unsupported content remains a standard portable card.        |
+| **Architecture** | Architects, advanced planners            | Essentials plus workspace explorer, semantic relationships, frames, alignment/distribution, palettes, legends, layout preview, minimap, rich edge/group inspectors. | Available independently of AFX; spec-specific indexing appears only when canonical specs are actually detected. |
+| **AFX**          | AFX/SDD authors and workflow power users | Architecture plus Notes, Boards, Chat context, Spec/Sprint handoff, dependency refresh, Impact Lens evidence, and explicit allowlisted AFX actions.                 | Shown only when capabilities are present or explicitly requested; missing capabilities explain enablement.      |
+
+The profile selector is a user preference, stored outside JSON Canvas content and
+remembered per document/surface. It never auto-switches because a file contains AFX
+metadata. Opening a canvas authored in a more advanced profile renders all content
+in Essentials; advanced controls may be collapsed, but no node, edge, frame, label,
+or status is hidden. Core commands and command search work in every profile.
 
 ### Surface Map — node context menu `[Canvas.NodeMenu]`
 
@@ -145,36 +211,53 @@ text/note node selected       file node selected            label node
 +----------------------+
 ```
 
-### Interaction notes (as built)
+### [DES-CANVAS-INTERACTIONS] React Flow interactions
 
-- **Add nodes**: toolbar `Card` (text), `Note` (`afxNodeKind:"note"`, color "3"), `Label` (`afxNodeKind:"label"`, compact), `Group` (group node); keyboard `t` add text, `l` add label, `f` add selected doc (handled in `canvas.tsx`, not the toolbar).
-- **Add file node**: `Doc▾` popover (native-select of markdown docs + path input) or `Browse` → `afxPickMarkdownFile` → `afxMarkdownFilePicked`; content renders inline read-only via `afxFetchDocContent`/`afxDocContent`.
-- **Move / resize**: pointer-drag the node body (coords divided by zoom); drag the bottom-right `ResizeHandle` to resize. Both write geometry to the model and mark dirty.
-- **Link**: per-node connection handles + "Drag to connect" enter link-drag; click/drag to a target creates an edge (`toEnd:"arrow"`, computed sides); double-click an edge label to edit; drag an endpoint to retarget; trash to delete.
-- **Pan / zoom**: drag empty background to pan (`isCanvasInteractionTarget` guards nodes/inputs); wheel to zoom (clamp 0.25–3×, step 0.08); shift+wheel pans; `Fit to view` recenters to node bounds.
-- **Color**: toolbar color popover (`CANVAS_COLOR_SWATCHES`) → `updateNodeColor` on the selection.
-- **Save status** `[Canvas.SaveStatus]`: `CanvasSaveOverlay` shows saved / saving / error (debounced; reflects the last `afxSaveFile` round-trip; error on save failure).
+- **Progressive profiles**: Essentials, Architecture, and AFX integrations filter tool presentation through one command registry and capability matrix. Commands have stable IDs, visible disabled reasons, keyboard routes, and identical domain mutations regardless of entry point. The startup default is capability-aware: when `capabilities.afx` is detected and no profile is stored for the document, the client state upgrades to the AFX profile (state-only — `localStorage` is written only by an explicit user choice, which then persists per document). The architecture explorer mounts in every profile because it doubles as canvas search (`Ctrl+F`, "Find on canvas").
+- **Universal baseline**: text/file/link/group/image-backed file authoring, connectors, color, undo/redo, search, open/save/export, external refresh, and errors work without `.afx/`, specs, Chat, Notes, Boards, or skills.
+- **Library and mode**: a compact document switcher owns create/rename/duplicate/delete/open; Freeform and Spec Map change available tools, never the file format.
+- **Add and organize**: node toolbar, drag/drop, multi-file picker, copy/paste, duplicate, lasso, multi-select, snap, grouping, keyboard delete, and undo/redo operate on controlled React Flow state.
+- **Move and resize**: React Flow node changes and `NodeResizer` update JSON Canvas geometry through the adapter; `nodrag`, `nopan`, and `nowheel` protect embedded controls and Markdown readers.
+- **Connect and inspect**: handles validate connections; reconnectable custom edges use `BaseEdge` plus the built-in bezier/straight/step/smooth-step path helpers. An edge toolbar edits route, stroke, marker, label, and color for one or many selected edges.
+- **Viewport**: `Background`, `Controls`, fit view/selection, auto-pan, and an optional compact `MiniMap` are responsive. Visible-element rendering is enabled only after profiling.
+- **Planning**: starter templates create ordinary editable JSON Canvas records. Next Spec previews selected nodes/relationships and the exact Chat command before sending.
+- **Architecture exploration**: workspace search, filters, traversal, focus/isolate, breadcrumbs, overview/minimap, dependency diagnostics, and direct source opening remain usable without replacing the editable canvas.
+- **Rich content**: spec/Markdown, image, URL, Note, and Board nodes share a loading/ready/stale/error/blocked shell. Expanded reading opens the existing owner surface; the canvas keeps only portable references and optional inert presentation metadata.
+- **Composition**: low-fidelity cards and flows can graduate into presentation frames with alignment/distribution, z-order, locks, annotations, semantic shapes, palettes, legends, reusable templates, and read/present mode.
+- **Auto-layout**: selection or full-canvas arrange opens a preview overlay. The user can compare, adjust options, cancel without mutation, or apply one undoable geometry transaction; pinned/manual/group geometry is protected by default.
+- **AFX actions**: standard node content remains meaningful outside AFX. Namespaced actions appear as explicit overlays, never execute on load, and respect allowlists, capabilities, workspace trust, and confirmation policy.
+- **Save state**: clean → dirty → saving → saved is request-correlated; error stays dirty/retryable, conflict suspends autosave, and a stale result cannot clear newer work.
 
 ## [DES-DEC] Key Decisions
 
-<!-- @see spec.md [FR-4] [FR-13] [FR-18] [NFR-1] [NFR-3] [NFR-4] -->
+<!-- @see spec.md [FR-3] [FR-4] [FR-11] [FR-20] [FR-21] [FR-24] [FR-25] [FR-26] [FR-30] [FR-31] [FR-32] [FR-33] [FR-34] [FR-35] [FR-36] [FR-37] [FR-38] [FR-40] [FR-43] [FR-44] [NFR-1] [NFR-3] [NFR-4] [NFR-8] [NFR-9] [NFR-11] [NFR-12] [NFR-13] -->
 
-| Decision                     | Options Considered                               | Choice                                                     | Rationale                                                                                                                                                                                                                                                                                                                                         |
-| ---------------------------- | ------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Rendering engine             | React Flow; tldraw; `json-canvas-viewer`; custom | **Custom DOM+SVG**                                         | JSON Canvas stays the single source of truth (no model mapping, no round-trip bugs); zero deps; full styling control to reuse AFX cards; disposable behind a flag.                                                                                                                                                                                |
-| `json-canvas-viewer` library | Use now; use later; not at all                   | **Later, for Impact Lens only**                            | Source review confirmed it is view-only (load-once, pan/zoom/click) — cannot author. Its React node slots fit the future read-only impact map, not this editor.                                                                                                                                                                                   |
-| Storage shape                | One file; per-feature canvases; hidden DB        | **One file `.afx/project.canvas`**                         | Reads as the workspace/project map; mirrors `.afx/notes.md`; zero config; nothing to organize (NFR-7).                                                                                                                                                                                                                                            |
-| Format                       | Strict JSON Canvas 1.0; AFX-extended `.canvas`   | **Strict 1.0 + one namespaced extension field**            | Portable to Obsidian/any tool. **As-built reconciliation:** the sprint promised "no AFX-proprietary fields," but text nodes persist `afxNodeKind` ("note"/"label"). It is sanctioned because it round-trips losslessly via `CanvasExtensionFields` and other tools ignore unknown fields (NFR-3 unharmed). No proprietary _node types_ are added. |
-| Persistence path             | New `afxSaveCanvas` msg; reuse `afxSaveFile`     | **Reuse `afxSaveFile`**                                    | The whole small file is rewritten on debounced save; reads piggyback on `afxUpdate` like notes.                                                                                                                                                                                                                                                   |
-| Node content rendering       | New renderer; reuse `markdown-render`            | **Reuse `MinimalMarkdown`**                                | Keeps nodes "live" (actions, chat bridge) for free.                                                                                                                                                                                                                                                                                               |
-| Authoring scope              | text/file only; + group; full                    | **text/file + note/label/group, color, rename, edge edit** | **As-built reconciliation:** the sprint scoped group authoring out ("render + round-trip only"); shipped code authors group nodes (`addGroup`), note/label variants, color, rename, and edge retarget/delete (FR-23). `link`-node authoring remains out.                                                                                          |
-| Default state                | On; on for owner; off behind flag                | **Off behind `afx.experimental.canvas`**                   | Cheap to validate, cheap to remove; answers the usage question with data.                                                                                                                                                                                                                                                                         |
+| Decision             | Options Considered                                                    | Choice                                                                          | Rationale                                                                                                                          |
+| -------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Rendering engine     | Custom DOM/SVG; tldraw; React Flow                                    | **Controlled `@xyflow/react` projection**                                       | Mature graph interaction and accessibility while JSON Canvas stays authoritative; see ADR-0009.                                    |
+| Storage              | Single file; hidden DB; canvas library                                | **Legacy Project Canvas + `.afx/canvases/*.canvas` + explicit workspace files** | Backward-compatible, portable, and suitable for distinct ideas, features, roadmaps, and spec maps.                                 |
+| Format               | React Flow snapshot; proprietary node types; AFX-enhanced JSON Canvas | **Standard JSON Canvas core plus optional namespaced AFX metadata**             | Other tools retain readable standard content; AFX adds safe executable overlays without file-format lock-in.                       |
+| Editor area          | Separate preview-like panel; custom text editor; Workbench only       | **Optional `CustomTextEditorProvider` sharing the Canvas app**                  | Native editor tab/file identity, live text-document changes, undo/save integration, and no duplicate renderer.                     |
+| Persistence          | Generic fire-and-forget save; canvas-specific acknowledged save       | **Request/revision/result state machine with per-path FIFO**                    | Prevents false success, stale overwrites, tab-switch loss, and multi-instance races.                                               |
+| Modes                | Separate formats/renderers; one behavior                              | **Freeform and Spec Map toolsets over one format**                              | Users can switch tools without destructive conversion; declared dependency data stays distinguishable from manual content.         |
+| Dependency ownership | Canvas; Impact Lens; shared writable graph                            | **Canvas: declared spec relations; Impact Lens: computed reverse evidence**     | Avoids duplicate writable owners while allowing future reuse of the graph projection.                                              |
+| Embedded content     | Copy source; direct webview fetch; host-backed references             | **Standard references plus host-mediated sanitized previews**                   | Keeps source ownership and portability while allowing rendered Markdown, local images, URL metadata, Notes, and Boards.            |
+| Layout ownership     | Always automatic; always manual; previewed hybrid                     | **Manual-first, preview/apply auto-layout with pins**                           | Architecture maps need powerful reformatting without destroying intentional spatial meaning.                                       |
+| Fidelity             | One generic card set; proprietary design format; standard+overlays    | **Portable JSON Canvas core plus inert presentation metadata**                  | Low/high-fidelity composition can be richer in AFX while remaining useful when extensions are ignored.                             |
+| AFX actions          | Auto-run metadata; no actions; explicit overlays                      | **Allowlisted explicit actions only**                                           | A canvas file is untrusted input; standard content opens everywhere and consequential mutations require preview/confirmation.      |
+| Progressive UX       | One dense toolbar; separate products; progressive profiles            | **Essentials → Architecture → AFX over one command registry**                   | Beginners get a complete general canvas while advanced/AFX depth remains discoverable without file conversion or content loss.     |
+| Document lifetime    | React-local debounce; retained webview; host URI session              | **Durable host session with immediate operation staging**                       | A tab/view unmount cannot destroy the only copy of an accepted edit or its save timer; every operation receives a terminal result. |
+| Reference refresh    | Raw-path cache; full eager fetch; revisioned source subscription      | **Owner/path/subpath/revision subscriptions, visible/on demand**                | Prevents stale/cross-root content, supports `.md`/`.markdown`, and keeps whole-workspace maps bounded.                             |
+| Rollout              | Replace immediately; parallel permanent engines; gated migration      | **Incremental replacement behind `afx.experimental.canvas`**                    | Persistence and adapter parity can be proven before deleting custom interaction code.                                              |
 
 ## [DES-DATA] Data Model
 
-<!-- @see spec.md [FR-4] [FR-13] [FR-18] [FR-23] [NFR-3] -->
+<!-- @see spec.md [FR-4] [FR-13] [FR-18] [FR-20] [FR-24] [FR-25] [FR-26] [FR-28] [FR-30] [FR-31] [FR-33] [FR-34] [FR-35] [FR-36] [FR-37] [FR-38] [FR-39] [FR-40] [FR-41] [FR-43] [FR-44] [NFR-3] [NFR-8] [NFR-11] [NFR-13] -->
 
-The on-disk file and the in-memory state are the same JSON Canvas 1.0 object. No database. Verbatim from `packages/shared/src/workbench-types.ts` (canvas region):
+The authoritative document is JSON Canvas 1.0. React Flow node/edge objects are
+derived view models and are never persisted directly. The shared types retain
+the standard records and permit unknown fields so AFX can round-trip documents
+from other tools.
 
 ```typescript
 export type CanvasColor = string; // preset "1".."6" OR hex "#rrggbb"
@@ -227,21 +310,137 @@ export interface JSONCanvas extends CanvasExtensionFields {
   edges?: CanvasEdge[];
 }
 
-// Bridge payload (host → webview): the raw file + its path, mirroring notesFilePath.
-export interface CanvasFilePayload {
-  path: string; // ".afx/project.canvas"
-  content: string; // raw JSON text (parsed in the webview)
-  exists: boolean; // false on first run (no file yet)
+export interface AfxCanvasMetadata {
+  afxSchemaVersion?: 1;
+  afxCanvasKind?: "freeform" | "spec-map";
+  afxPresentation?: { title?: string; palette?: string; frameOrder?: string[] };
+}
+export interface AfxCanvasNodeMetadata {
+  afxNodeKind?: "note" | "label" | "spec" | "board" | "architecture" | "frame";
+  afxSource?: {
+    kind: "spec" | "file" | "image" | "url" | "note" | "board";
+    path?: string; // portable path relative to the owning workspace root
+    workspaceRootHint?: string; // optional logical folder name; never an absolute machine URI
+    subpath?: string;
+    url?: string;
+  };
+  afxStyle?: {
+    shape?: string;
+    border?: string;
+    opacity?: number;
+    icon?: string;
+    textRole?: string;
+  };
+  afxLayout?: { pinned?: boolean; rank?: number; lane?: string };
+  afxFrame?: { collapsed?: boolean; presentationOrder?: number };
+}
+export interface AfxCanvasEdgeMetadata {
+  afxEdgeStyle?: {
+    route?: "bezier" | "straight" | "step" | "smoothstep";
+    stroke?: "solid" | "dashed" | "dotted";
+  };
+  afxEdgeOrigin?: "manual" | "declared-dependency";
+  afxDependency?: { sourcePath: string; targetPath: string };
+  afxDetachedDependency?: { sourcePath: string; targetPath: string }; // suppress regenerated duplicate
+}
+export interface AfxCanvasAction {
+  version: 1;
+  kind: "open" | "chat" | "note" | "spec" | "sprint" | "afx-command";
+  command?: string; // allowlisted and never executed automatically
+}
+export interface CanvasDescriptor {
+  id: string;
+  path: string;
+  name: string;
+  kind: "freeform" | "spec-map";
+  workspaceFolder: string;
+  revision: string;
+  updatedAt?: string;
+  legacy?: boolean;
+}
+export interface CanvasDocumentSnapshot {
+  descriptor: CanvasDescriptor;
+  content: string;
+  exists: boolean;
+  dirtySource: boolean;
+  valid: boolean;
+}
+export interface CanvasLibraryPayload {
+  items: CanvasDescriptor[];
+  activePath?: string;
+  activeDocument?: CanvasDocumentSnapshot;
+}
+export type CanvasToolProfile = "essentials" | "architecture" | "afx";
+export interface CanvasClientViewState {
+  profile: CanvasToolProfile; // user preference; never serialized into JSON Canvas
+  mode: "freeform" | "spec-map";
+  viewport: { x: number; y: number; zoom: number };
+  selectedIds: string[];
+}
+export interface CanvasReferenceKey {
+  ownerRootId: string; // protocol/session identity only; not persisted in the canvas
+  path: string;
+  subpath?: string;
+}
+export interface CanvasReferenceSnapshot {
+  key: CanvasReferenceKey;
+  revision: string;
+  state: "loading" | "ready" | "stale" | "missing" | "blocked" | "error";
+  content?: string;
 }
 ```
 
 ### Lossless round-trip rule
 
-`lib/json-canvas.ts` parses with a permissive schema that **preserves any unknown fields** (spread-through), so authoring tools' extensions and node types AFX does not author (`link`) survive a save. `parseJSONCanvas` empty/whitespace → `emptyCanvas()`; `JSON.parse` failure → typed `JSONCanvasParseError`; non-object root → throws; validators assert presence of required keys only (never strip). `serializeJSONCanvas` writes `JSON.stringify({...canvas, nodes, edges}, null, 2)` + trailing newline — pretty-printed, no field stripping (FR-13/18).
+`@afx/canvas-engine` parses with a permissive schema that **preserves every
+unknown field**. Standard records remain readable when all `afx*` fields are
+ignored. AFX validates action metadata separately and treats it as untrusted;
+parse/import/external refresh cannot execute an action. Adapter tests project to
+React Flow and back before serialization, including parallel edges and absolute
+group geometry. Render caches, fetched URL metadata, and derived spec/Board/Note
+summaries are transient host state; they are never required to understand the
+standard `file`, `link`, `text`, or `group` record. Optional `afx*` presentation,
+layout, and provenance fields remain inert in other JSON Canvas tools.
 
-### Model mutations (`use-canvas-model.ts`)
+### Durable document and view-state ownership
 
-`useCanvasModel(initialCanvas, resetKey)` returns: `canvas, dirty, selectedIds, setClean, selectOnly, toggleSelected, clearSelection, addText, addNote, addLabel, addGroup, addFile, updateText, renameNode, move, resize, connect, labelEdge, retargetEdge, removeEdge, colorSelected, removeNode`. Pure mutators (exported, JSON-Canvas-shaped, id-stable `n-`/`e-`): `addTextNode`, `addLabelNode`, `addFileNode`, `addGroupNode`, `updateTextNode`, `renameNode`, `moveNode`, `resizeNode`, `connectNodes` (self-loop guard; `toEnd:"arrow"` + computed sides), `updateEdgeLabel`, `retargetEdge`, `deleteEdge`, `updateNodeColor`, `deleteNode`, plus geometry helpers `nodeCenter`, `canvasBounds`, `parsePointFromViewport`.
+`CanvasDocumentService` owns one durable session per canonical canvas URI. The
+session retains the latest accepted JSON Canvas content, session/sequence cursor,
+revision, pending result set, save scheduling, last-valid external snapshot, and
+conflict even when no Workbench tab or editor webview is mounted. Each completed
+semantic mutation sends an `afxCanvasEdit` immediately; for continuous geometry,
+drag/resize changes stay visual during the gesture and publish at gesture end. The
+host applies the first open-`TextDocument` edit immediately and coalesces disk-only
+Workbench persistence for 650 ms, never leaving the only queued copy in React-local
+state. It emits exactly one success/superseded/conflict/error result per sequence
+and broadcasts the authoritative revision.
+
+`CanvasDocumentClient` projects that session into React Flow and owns only
+surface-local viewport, selection, open inspectors, minimap visibility, and input
+drafts that cannot yet form a domain operation. The host stores per-document
+profile/mode/viewport preferences independently from JSON Canvas bytes. Switching
+documents restores the correct named identity and state; same-document external
+replacement explicitly rebases compatible ID-based history or clears invalid
+entries with a visible explanation.
+
+Pure `@afx/canvas-engine` reducers apply ID-based node/edge changes, reconnect,
+style, template, dependency refresh/detach, layout, and AFX-action metadata before
+the client serializes the resulting portable document into the edit envelope.
+Detaching a generated dependency creates a new manual edge ID and a namespaced
+suppression key; refresh consumes that declaration as detached and cannot emit a
+second edge with the generated ID.
+
+### Referenced-content identity and lifetime
+
+The persisted file/link record stays portable. At runtime the host resolves it to
+`CanvasReferenceKey(ownerRootId, path, subpath)`. A content snapshot is valid only
+for the matching key and source revision; request IDs reject late responses. The
+client subscribes when a node is visible, expanded, selected for context, or
+explicitly previewed, and unsubscribes when those reasons disappear. Metadata may
+remain in a bounded LRU, but full Markdown/image payloads are never fetched eagerly
+for every node in a whole-workspace graph. Both `.md` and `.markdown` share the
+Markdown renderer. Generated cross-root nodes always use their own resolved owner,
+never the active canvas owner's root, for fetch, preview, and Open Source.
 
 ### Example `.afx/project.canvas`
 
@@ -285,170 +484,570 @@ export interface CanvasFilePayload {
 
 ## [DES-API] API Contracts
 
-<!-- @see spec.md [FR-11] [FR-12] [FR-15] [FR-16] [FR-19] [FR-20] -->
+<!-- @see spec.md [FR-11] [FR-12] [FR-15] [FR-16] [FR-19] [FR-20] [FR-24] [FR-26] [FR-30] [FR-31] [FR-32] [FR-34] [FR-35] [FR-36] [FR-37] [FR-40] [FR-42] [FR-43] [FR-44] -->
 
 ### Workbench bridge (`packages/shared/src/workbench-protocol.ts`)
 
-```text
-WorkbenchInbound (host → webview):
-  afxUpdate { ...workbench state..., canvasEnabled?: boolean, canvas?: CanvasFilePayload }  // FR-12/FR-19
-  afxDocContent { filePath, content }                       // file-node markdown content (FR-6/FR-20)
-  afxMarkdownFilePicked { filePath }                        // host file-picker result (FR-20)
+```typescript
+type CanvasMutation =
+  | {
+      type: "afxCanvasCreate";
+      requestId: string;
+      root: string;
+      name: string;
+      kind: CanvasKind;
+      template: CanvasTemplate;
+    }
+  | {
+      type: "afxCanvasRename";
+      requestId: string;
+      path: string;
+      name: string;
+      expectedRevision: string;
+    }
+  | {
+      type: "afxCanvasDuplicate";
+      requestId: string;
+      path: string;
+      name: string;
+      expectedRevision: string;
+    }
+  | { type: "afxCanvasDelete"; requestId: string; path: string; expectedRevision: string }
+  | {
+      type: "afxCanvasEdit";
+      requestId: string;
+      sessionId: string;
+      sequence: number;
+      documentId: string;
+      baseRevision: string;
+      content: string;
+    };
 
-WorkbenchOutbound (webview → host) — existing messages reused, no new write path:
-  afxSaveFile        { path: ".afx/project.canvas", content }  // debounced autosave (FR-11)
-  afxFetchDocContent { filePath }                              // request file-node markdown (FR-20)
-  afxPickMarkdownFile {}                                       // open host markdown picker (FR-20)
-  afxAppendNote      { text }                                  // promote text node (FR-15)
-  afxOpenChatCommand { command, mode: "send" }                // send to chat (FR-16) — as-built mode is "send"
-  afxOpenFile        { path, mode: "afxPreview" | "editor" }  // open file-node target
+type CanvasCommand =
+  | { type: "afxCanvasAttachClient"; documentId: string; clientId: string }
+  | { type: "afxCanvasDetachClient"; documentId: string; clientId: string }
+  | { type: "afxCanvasSelect"; path: string }
+  | { type: "afxOpenCanvasEditor"; path: string }
+  | { type: "afxPickCanvasFiles"; canSelectMany: true }
+  | {
+      type: "afxCanvasSetClientPreferences";
+      documentId: string;
+      clientId: string;
+      profile: CanvasToolProfile;
+      mode: "freeform" | "spec-map";
+    }
+  | {
+      type: "afxCanvasRefreshDependencies";
+      requestId: string;
+      path: string;
+      expectedRevision: string;
+    }
+  | { type: "afxCanvasIndexWorkspace"; requestId: string; roots: string[] }
+  | {
+      type: "afxCanvasSubscribeReferences";
+      requestId: string;
+      documentId: string;
+      references: CanvasReferenceKey[];
+    }
+  | {
+      type: "afxCanvasUnsubscribeReferences";
+      documentId: string;
+      references: CanvasReferenceKey[];
+    }
+  | { type: "afxCanvasFetchPreview"; requestId: string; source: CanvasPreviewSource }
+  | { type: "afxCanvasOpenAttachment"; source: "note" | "board" | "file"; path: string }
+  | {
+      type: "afxCanvasExport";
+      requestId: string;
+      path: string;
+      scope: "all" | "viewport" | "selection" | "frame";
+      format: "png" | "canvas";
+    };
+
+type WorkbenchInbound =
+  | { type: "afxUpdate"; canvasEnabled?: boolean; canvasLibrary?: CanvasLibraryPayload }
+  | {
+      type: "afxCanvasDocumentChanged";
+      document: CanvasDocumentSnapshot;
+      reason: "buffer" | "save" | "external";
+    }
+  | {
+      type: "afxCanvasEditResult";
+      requestId: string;
+      sessionId: string;
+      sequence: number;
+      documentId: string;
+      status: "success" | "superseded" | "conflict" | "error";
+      revision?: string;
+      message?: string;
+    }
+  | {
+      type: "afxCanvasReferenceSnapshot";
+      requestId?: string;
+      documentId: string;
+      snapshot: CanvasReferenceSnapshot;
+    }
+  | {
+      type: "afxCanvasPreviewResult";
+      requestId: string;
+      status: "success" | "error" | "blocked";
+      preview?: CanvasPreviewPayload;
+      message?: string;
+    }
+  | {
+      type: "afxCanvasArchitectureIndex";
+      requestId: string;
+      graph: SpecDependencyGraph;
+      revision: string;
+    }
+  | { type: "afxCanvasFilesPicked"; filePaths: string[] };
 ```
 
-> **As-built reconciliation:** (1) send-to-chat ships `mode: "send"` (the sprint plan said `"insert"`; the protocol allows both). (2) File-node insertion uses the `afxPickMarkdownFile`/`afxMarkdownFilePicked` host picker round-trip, which the sprint API contract omitted.
+All mutating messages resolve exactly once. Library lifecycle operations compare
+`expectedRevision`. Canvas edits form an immediate typed stream keyed by
+`documentId` + `sessionId`, ordered by `sequence`, and guarded by `baseRevision`.
+The host keeps the latest content per document/session, reports older queued edits
+as `superseded`, and a result from an older sequence cannot clear newer pending
+work. For an open `TextDocument`, the first edit is applied immediately through
+VS Code's document model; disk-only Workbench edits are host-coalesced for 650 ms.
+The queue and timer survive React unmount, and panel/editor disposal flushes or
+secures the latest edit before releasing the session. Continuous geometry changes
+publish one edit at gesture completion rather than flooding the stream.
+
+Reference snapshots are correlated by `documentId`, request ID when present,
+`CanvasReferenceKey`, and source revision. A snapshot with the wrong owner/path/
+subpath or an older revision is ignored. The legacy raw-path `afxDocContent`
+message is removed only after every Canvas consumer has migrated; it is never a
+fallback for cross-root generated nodes.
+
+Layout is a pure client/domain operation over an immutable geometry snapshot:
+`prepareLayout(canvas, selection, strategy, options)` returns proposed integer
+geometry and diagnostics; `applyLayout(previewId)` commits the exact preview as
+one history entry. Content preview and export requests are separately correlated,
+cancelable, and never mutate the JSON Canvas document as a side effect.
 
 ### Settings bridge (`packages/shared/src/messages.ts`) — FR-22
 
 ```text
-SettingsExperimentalSnapshot { canvasEnabled: boolean; canvasPath: string }   // in SettingsSnapshot.experimental?
+SettingsExperimentalSnapshot { canvasEnabled: boolean; canvasPath: string; workbenchHiddenViews: WorkbenchViewId[] }
 ChatToAgent (webview → host):  experimental/setCanvasEnabled { requestId, enabled }   // flip afx.experimental.canvas
+                               experimental/setWorkbenchHiddenViews { requestId, hidden } // bottom-panel tab visibility
                                chat/openWorkbench { requestId }                       // "Open Workbench" button
 chat/openSettings key union includes "afx.experimental.canvas"                        // deep-link the VS Code setting
 ```
 
 ## [DES-HOST] Extension Host Service
 
-<!-- @see spec.md [FR-3] [FR-12] [FR-19] [NFR-2] [NFR-5] -->
+<!-- @see spec.md [FR-3] [FR-11] [FR-12] [FR-19] [FR-20] [FR-24] [FR-26] [FR-30] [FR-31] [FR-32] [FR-34] [FR-35] [FR-36] [FR-37] [FR-40] [FR-42] [FR-43] [FR-44] [NFR-2] [NFR-4] [NFR-5] [NFR-9] [NFR-12] [NFR-13] -->
 
-`apps/vscode/src/services/canvas-data.ts` (verbatim as-built):
+`CanvasLibraryService` is URI-first and receives every workspace folder. It
+discovers the legacy path, AFX canvas directories, and explicitly opened local
+files; protects create/rename/delete collisions; and produces shortest-unique
+labels without discarding root identity.
 
-```typescript
-export const PROJECT_CANVAS_PATH = ".afx/project.canvas";
+`CanvasDocumentService` subscribes to `WorkbenchFileState`. Reads prefer an open
+`TextDocument.getText()` overlay and otherwise use `workspace.fs`. It stores the
+last valid parsed document separately from raw content so temporarily invalid
+JSON typed in a text editor shows an error without erasing the visible graph. A
+canonical-URI session owns accepted operations and save scheduling independently
+of webview lifetime; `retainContextWhenHidden` is not a data-safety mechanism.
 
-export interface CanvasDataProvider {
-  getCanvasUpdateFields(): Promise<{ canvasEnabled: boolean; canvas?: CanvasFilePayload }>;
-  getCanvasPayload(): Promise<CanvasFilePayload>;
-  markSavedContent(content: string): void; // echo-suppression entry point
-  onDidChange(cb: () => void): vscode.Disposable;
-  dispose(): void;
-}
+`WorkbenchMutationCoordinator` serializes by canonical URI, checks revision and
+dirty-buffer state, validates workspace containment, writes, then emits one
+terminal result and confirmed snapshot. File events are revisions, not
+single-content echo flags, so several canvases and editor instances remain safe.
 
-interface CanvasDataProviderOptions {
-  getWorkspaceRoot(): vscode.Uri | undefined;
-  isEnabled(): boolean; // reads afx.experimental.canvas
-  logger?: Logger; // OPTIONAL as-built
-}
+`AfxCanvasEditorProvider` registers an optional custom text editor for
+`*.canvas`. It opens explicitly through `vscode.openWith`; the contribution does
+not forcibly replace other JSON Canvas editors. The provider loads the same
+Workbench bundle with `data-afx-view="canvas-editor"`, sends the document URI and
+snapshot, observes TextDocument changes, and routes edits through the shared
+document/mutation services. Workbench and editor views never own separate file
+stores.
 
-export function createCanvasDataProvider(opts: CanvasDataProviderOptions): CanvasDataProvider;
-```
+### [DES-CANVAS-DOCUMENT-SERVICE] Document ownership
 
-- `getCanvasUpdateFields()` returns `{ canvasEnabled: false }` (no read/watch) when disabled; else `{ canvasEnabled: true, canvas: await getCanvasPayload() }`.
-- `getCanvasPayload()` reads `.afx/project.canvas`; missing/unreadable → `{ path: PROJECT_CANVAS_PATH, content: "", exists: false }`.
-- `markSavedContent(content)` stores `lastSavedContent`; the watcher echo-suppresses when `lastSavedContent === payload.content`.
-- `onDidChange()` returns a no-op disposable when disabled; else lazily creates `createFileSystemWatcher(PROJECT_CANVAS_PATH)` watching change/create/delete.
-- **Writes** use the existing `afxSaveFile` handler in `workbench-panel.ts`: for `.afx/project.canvas` it creates `.afx/` first (`fs.createDirectory`) and calls `markCanvasSaved(content)` → `canvasData.markSavedContent(content)` for echo-suppression. `computeCanvasEnabled()` reads `afx.experimental.canvas`; a config change stops/starts the watcher and re-pushes `afxUpdate`.
+One `CanvasDocumentService` session exists per canonical URI. It owns the open
+`TextDocument`, per-document/session latest-wins edit queue, sequence cursor, save
+timer, last clean disk fingerprint, last valid parsed snapshot, mode/profile
+preferences, and attached Workbench/editor clients. All accepted content edits
+are applied through `WorkspaceEdit`, so native dirty state,
+Save/Save All, undo, redo, revert, auto-save, hot exit, and text-editor edits
+remain part of VS Code's document model. Host save timers survive React
+unmounts and tab switches.
 
-> **As-built reconciliation vs sprint [DES-HOST]:** options are a named `CanvasDataProviderOptions` interface with `logger?` **optional** (sprint said required inline literal), and `markSavedContent(content)` is part of the public interface (sprint narrated echo-suppression in prose but omitted the method).
+`WorkspaceArchitectureIndex` incrementally indexes canonical four-file spec
+frontmatter, single-document Sprint frontmatter, and declared dependencies across
+every workspace root, keyed by stable URI. It paginates or streams explicit totals
+instead of silently truncating a fixed candidate list. It publishes searchable
+graph revisions and consumes optional Impact Lens evidence read-only.
+`CanvasReferenceService` resolves visible/on-demand file-backed spec/Markdown,
+image, Note, and Board sources from open buffers first; URL metadata is fetched
+only through the host with scheme, redirect, response-size, MIME, timeout, and
+cache limits. `CanvasLayoutService` owns optional worker execution and cancellation
+but returns geometry proposals only; the document controller owns apply/undo.
+
+Library creation (`canvas-library-service.ts create`) writes
+`.afx/canvases/<slug>.canvas` by default. When the webview sends
+`pickLocation: true` (New-canvas dialog checkbox), the host shows a native
+folder picker anchored at the workspace root: a dismissal returns the
+`cancelled` mutation code (rendered as a quiet no-op, not an error banner), a
+folder outside every workspace root returns `outside-workspace`, and a valid
+pick creates `<picked>/<slug>.canvas` through the same collision-guarded
+`requireMissing` coordinator write (FR-3). Discovery lists such files as
+`external` kind.
+
+Both hosts serve the library. The Workbench panel switches its own document in
+place; the editor host (`canvas-editor-provider.ts`) is bound to one
+TextDocument, so it maps the same operations to editor-tab semantics:
+create/duplicate/select open their result via `vscode.openWith` as a separate
+`afx.canvasEditor` tab (the switcher then snaps back to the tab's own
+document), rename opens the renamed file and disposes the stale tab, and
+delete disposes the tab whose backing file was removed.
+
+### Release-foundation repair contract
+
+The advanced Phase 17 program cannot begin until these observable contracts pass:
+
+1. A completed semantic mutation leaves the webview immediately as a typed
+   `afxCanvasEdit` carrying document/session/sequence/base revision and serialized
+   portable content; continuous geometry publishes at gesture completion. The
+   durable document session owns latest-wins coalescing (650 ms only for disk-only
+   Workbench persistence); tab switch/hide, editor close, provider disposal, or
+   React unmount cannot erase the latest edit, and disposal flushes/secures it.
+2. There is no fire-and-forget compatibility path that clears dirty state without
+   a matching terminal result. Success, superseded, conflict, and error outcomes
+   are request/session/sequence-correlated and remain inspectable.
+3. Reference content is subscribed by target-node owner/root, portable path,
+   subpath, and revision. Manual `.md`/`.markdown` changes invalidate only matching
+   consumers; late and cross-root payloads cannot overwrite another card.
+4. Spec discovery covers both canonical artifact shapes in all roots and reports
+   totals, duplicates, parse failures, unresolved targets, cycles, and any applied
+   operational limit. Generated nodes retain their own source identity for preview
+   and Open Source.
+5. Dependency refresh is a pure idempotent reconciliation. Detach allocates a fresh
+   manual ID and durable suppression/provenance; repeated refresh cannot recreate a
+   duplicate generated edge ID or remove manual geometry/style.
+6. Document-keyed history, mode, profile, title, viewport, selection, and pending
+   state do not leak between named canvases. Same-document external replacement
+   rebases compatible ID operations or invalidates history explicitly.
+7. The universal capability-off path and React Flow authoring parity are release
+   gates, including node color, link author/open, group label/background, multi-file
+   insertion, and selected-set Chat where AFX is available.
+
+### [DES-CANVAS-EDITOR-AREA] Editor-area integration
+
+`AfxCanvasEditorProvider` implements `CustomTextEditorProvider` with view type
+`afx.canvasEditor`, selector `*.canvas`, and `priority: "option"`. The provider
+is registered during extension activation; when the experiment is disabled it
+shows an enable/open-settings state instead of claiming the file. The explicit
+command uses `vscode.openWith` and the Workbench bundle boots with
+`data-afx-view="canvas-editor"`. Canonical content never lives in webview state
+and `retainContextWhenHidden` stays disabled.
+
+### [DES-CANVAS-MULTI-INSTANCE] Shared document, local view state
+
+Workbench plus any number of split editor instances subscribe to the same URI
+session and receive every authoritative document revision. Selection, viewport,
+open inspectors, and minimap visibility are local to each webview; their last
+values may be restored from host preferences. Closing one client cannot dispose
+another or discard staged work; closing the last client releases heavy render
+subscriptions only after pending operations and hot-exit/save state are secured.
+Different files have independent queues, dirty state, save timers, conflicts,
+history, mode, profile, title, and draft state.
+
+### [DES-CANVAS-DIRTY-CONFLICT] Manual edit and conflict rules
+
+`TextDocument.version` identifies an open document revision and a content hash
+identifies the last clean disk revision. A clean manual change broadcasts
+immediately. If a newer disk revision appears while the document is dirty or a
+mutation is pending, autosave is suspended and the surface offers Reload from
+Disk or Open as Text; AFX never silently force-overwrites. Temporarily malformed
+JSON retains the last valid graph and exposes the raw parse error until a valid
+revision arrives.
+
+If a valid external replacement arrives for the same document, the session
+rebases only history operations whose target IDs and preconditions remain valid.
+Incompatible undo/redo entries are removed as one explicit history-reset event;
+they are never replayed onto unrelated external content. A dirty/pending session
+still enters conflict and does not auto-rebase.
+
+### [DES-CANVAS-PROTOCOL] Canvas client protocol
+
+Canvas messages use host-issued `documentId`, `clientId`, `requestId`, and
+session identity; arbitrary webview write paths are not accepted. Pure client
+reducers consume React Flow changes, then publish a typed `afxCanvasEdit` envelope
+with monotonic `sequence`, `baseRevision`, and serialized portable content. The
+host returns one `success`, `superseded`, `conflict`, or `error` result and
+broadcasts the authoritative snapshot/save state. Only the newest compatible
+sequence may clear dirty state; conflict requires refresh or explicit resolution.
+
+Client attach returns capability flags and the last per-document client
+preferences. Profiles gate command presentation, not protocol authority: the host
+still validates every operation by workspace trust and capability. Reference
+subscriptions are reason-counted (`visible`, `expanded`, `context`, `preview`),
+cancel when the final reason is removed, and deliver only matching revisioned
+snapshots.
 
 ## [DES-SETTINGS] Chat Settings Experimental Surface
 
-<!-- @see spec.md [FR-1] [FR-22] -->
+<!-- @see spec.md [FR-1] [FR-22] [FR-24] [FR-32] -->
 
-> **New section — undocumented in the sprint.** The canvas experiment flag is toggled from the Chat Settings webview (dual-owned with `214-app-chat-settings`).
+Chat Settings owns presentation of the Canvas feature flag and Workbench view
+visibility; `214-app-chat-settings` remains the canonical Settings owner.
 
-- **`apps/chat/src/views/settings.tsx`** — a `SETTINGS_SECTIONS` entry `{ id: "experimental", label: "Experimental", shortLabel: "Exp" }` and an `<SettingsCard id="experimental" icon={Sparkles}>` containing: a `SwitchRow` bound to `experimentalSettings.canvasEnabled` whose `onCheckedChange` is `setExperimentalCanvasEnabled`; a read-only `ConfigField` showing `canvasPath` with `settingKey="afx.experimental.canvas"` (deep-link, not in-webview editable); and an "Open Workbench" `Button` firing `chat/openWorkbench`. `setExperimentalCanvasEnabled(enabled)` optimistically patches the local snapshot, then sends `experimental/setCanvasEnabled { requestId: trackExperimentalMutation("Canvas " + (enabled?"enabled":"disabled")), enabled }`. `pendingExperimentalMutations` (a `Map<requestId,label>`) resolves to a success toast on the next `agent/settingsSnapshot`, or an error toast on `chat/error`.
-- **`apps/chat/src/lib/settings-copy.ts`** — `export const EXPERIMENTAL = { groupTitle, groupDescription, canvasLabel:"Workbench Canvas", canvasDescription, canvasTooltip, canvasPathLabel, canvasPathHint, openWorkbenchLabel:"Open Workbench" }`.
-- **`apps/chat/src/lib/settings-snapshot.ts`** — `composeSettingsSnapshot` emits `experimental: { canvasEnabled: input.canvasEnabled ?? false, canvasPath: ".afx/project.canvas" }`. `canvasPath` is hard-coded; only `canvasEnabled` is mutable.
-- **Host side** (`apps/vscode/src/panels/sidebar-panel.ts`): `case "experimental/setCanvasEnabled"` → `handleSetExperimentalCanvasEnabled(requestId, enabled)` updates `afx.experimental.canvas` at `ConfigurationTarget.Global` and re-emits the settings snapshot; the chat snapshot carries `experimental: { canvasEnabled, canvasPath: ".afx/project.canvas" }`.
+- Canvas enablement is independent from Workbench Canvas-tab visibility. A
+  hidden tab does not disable `Open in Canvas Editor` or remove canvas files.
+- The path hint explains the legacy Project Canvas and plural
+  `.afx/canvases/` library instead of presenting one immutable path as the
+  complete model.
+- Experimental mutation tracking uses request IDs and rolls optimistic state
+  back on failure.
+- The eight Workbench view switches persist one workspace-scoped
+  `afx.experimental.workbenchHiddenViews` set. If all are hidden, Workbench renders
+  a recovery surface rather than a blank panel.
 
 > **214 dual-anchor:** the Settings Experimental group is owned by `214-app-chat-settings` [FR-14] (the settings surface) and the canvas feature by `229-app-workbench-canvas` [FR-22]. The three settings files dual-anchor both.
 
 ## [DES-FILES] File Structure
 
-<!-- @see spec.md [FR-1] [FR-3] [FR-22] [DES-ARCH] -->
+<!-- @see spec.md [FR-1] [FR-3] [FR-22] [FR-24] [FR-26] [FR-32] [FR-34] [FR-35] [FR-36] [FR-37] [FR-40] [FR-42] [DES-ARCH] -->
 
-| File                                                       | Purpose                                                                                                                                  |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/workbench/src/views/canvas.tsx`                      | Orchestrator: parse payload → model, selection, autosave, file fetch, error guards                                                       |
-| `apps/workbench/src/components/canvas/canvas-surface.tsx`  | `[Canvas.Viewport]` — pan/zoom world layer                                                                                               |
-| `apps/workbench/src/components/canvas/canvas-node.tsx`     | `[Canvas.Node]` — drag, resize, inline markdown, node menu, group/link read-only                                                         |
-| `apps/workbench/src/components/canvas/canvas-edges.tsx`    | `[Canvas.Edge]` — SVG edges, labels, retarget endpoints                                                                                  |
-| `apps/workbench/src/components/canvas/canvas-toolbar.tsx`  | `[Canvas.Toolbar]` — add/color/doc/fit/zoom/send-selection                                                                               |
-| `apps/workbench/src/components/canvas/use-canvas-model.ts` | In-memory `JSONCanvas` state + mutations + dirty                                                                                         |
-| `apps/workbench/src/lib/json-canvas.ts`                    | Parse / serialize / validate JSON Canvas 1.0 (lossless)                                                                                  |
-| `apps/workbench/src/app.tsx`                               | (edit) gated `Canvas` tab trigger + content                                                                                              |
-| `apps/workbench/src/context/workbench-context.tsx`         | (edit) store `canvasEnabled`/`canvas` payload; clear on flag off                                                                         |
-| `packages/shared/src/workbench-types.ts`                   | (edit) JSON Canvas types + `CanvasFilePayload`                                                                                           |
-| `packages/shared/src/workbench-protocol.ts`                | (edit) `afxUpdate` canvas fields; `afxPickMarkdownFile`/`afxMarkdownFilePicked`                                                          |
-| `packages/shared/src/messages.ts`                          | (edit) `SettingsExperimentalSnapshot`; `experimental/setCanvasEnabled`; `chat/openWorkbench`                                             |
-| `apps/vscode/src/services/canvas-data.ts`                  | Host read/watch of `.afx/project.canvas`; echo-suppressed publish                                                                        |
-| `apps/vscode/src/panels/workbench-panel.ts`                | (edit) join `canvasEnabled`/`canvas` into `afxUpdate`; `.afx/` creation; markdown picker                                                 |
-| `apps/vscode/src/panels/sidebar-panel.ts`                  | (edit) `experimental/setCanvasEnabled` handler + settings snapshot fields                                                                |
-| `apps/vscode/package.json`                                 | (edit) `contributes.configuration` → `afx.experimental.canvas` (boolean, default false). **JSON cannot carry `@see`; traced here only.** |
-| `apps/chat/src/views/settings.tsx`                         | (edit) Experimental group: Canvas switch, path field, Open Workbench (dual-anchor `214`)                                                 |
-| `apps/chat/src/lib/settings-copy.ts`                       | (edit) `EXPERIMENTAL` copy block (dual-anchor `214`)                                                                                     |
-| `apps/chat/src/lib/settings-snapshot.ts`                   | (edit) `experimental { canvasEnabled, canvasPath }` snapshot (dual-anchor `214`)                                                         |
+| File                                                                               | Purpose                                                                             |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `apps/workbench/src/views/canvas.tsx`                                              | Thin Workbench route mounting shared `CanvasApp`                                    |
+| `apps/workbench/src/views/canvas-editor.tsx`                                       | Editor-area boot target mounting shared `CanvasApp`                                 |
+| `apps/workbench/src/components/canvas/canvas-app.tsx`                              | Shared library/mode/document shell                                                  |
+| `apps/workbench/src/components/canvas/react-flow-canvas.tsx`                       | Controlled React Flow viewport and interactions                                     |
+| `apps/workbench/src/components/canvas/nodes/*`                                     | Memoized AFX text/file/link/group node renderers                                    |
+| `apps/workbench/src/components/canvas/edges/*`                                     | Custom edge renderer, toolbar, inspector, reconnect                                 |
+| `apps/workbench/src/components/canvas/canvas-library.tsx`                          | Multi-document switcher and lifecycle UI                                            |
+| `apps/workbench/src/components/canvas/planning-guide.tsx`                          | Ideas/feature/roadmap/next-spec starters and handoff                                |
+| `apps/workbench/src/components/canvas/spec-map-tools.tsx`                          | Dependency import, issues, refresh, detach                                          |
+| `apps/workbench/src/components/canvas/architecture-explorer.tsx`                   | Whole-workspace search, filters, traversal, focus/isolate                           |
+| `apps/workbench/src/components/canvas/nodes/{spec,image,url,note,board}-node.tsx`  | Rendered portable-reference node variants                                           |
+| `apps/workbench/src/components/canvas/layout-preview.tsx`                          | Auto-layout strategy/options comparison, apply/cancel                               |
+| `packages/canvas-engine/src/{layout,style,frames}.ts`                              | Pure layout proposals and portable presentation mutations                           |
+| `apps/workbench/src/hooks/use-canvas-document.ts`                                  | Revision/pending/conflict/history controller                                        |
+| `packages/canvas-engine/src/{json-canvas,mutations,reducer,revision}.ts`           | Framework-neutral lossless model and ID-based reducer                               |
+| `apps/workbench/src/lib/json-canvas-react-flow.ts`                                 | Pure JSON Canvas ↔ React Flow projection                                            |
+| `apps/vscode/src/services/workbench-file-state.ts`                                 | Open-buffer/disk snapshots and revisions                                            |
+| `apps/vscode/src/services/workbench-mutation-coordinator.ts`                       | Per-path ordered acknowledged mutations                                             |
+| `apps/vscode/src/services/canvas-library-service.ts`                               | Discovery and lifecycle operations                                                  |
+| `apps/vscode/src/services/canvas-document-service.ts`                              | Shared live document state and last-valid parsing                                   |
+| `apps/vscode/src/services/spec-dependency-indexer.ts`                              | Canonical `depends_on` graph                                                        |
+| `apps/vscode/src/services/canvas-reference-service.ts`                             | Revisioned visible/on-demand file/image/Note/Board source subscriptions             |
+| `apps/vscode/src/services/canvas-content-preview-service.ts`                       | Sanitized URL metadata and expanded preview requests                                |
+| `apps/vscode/src/services/workspace-architecture-index.ts`                         | Incremental whole-workspace topology                                                |
+| `apps/vscode/src/editors/canvas-editor-provider.ts`                                | Optional custom text editor provider                                                |
+| `packages/shared/src/{workbench-types,workbench-protocol,messages}.ts`             | Library, document, mutation, Settings, and editor contracts                         |
+| `apps/chat/src/{views/settings.tsx,lib/settings-copy.ts,lib/settings-snapshot.ts}` | Canvas flag and Workbench view visibility                                           |
+| `apps/vscode/package.json`                                                         | Canvas/custom-editor/settings contributions; JSON traceability lives in this design |
+| `NOTICE`, `THIRD_PARTY_NOTICES.md`                                                 | Open-source attribution and shipped third-party licenses                            |
 
 ## [DES-DEPS] Dependencies
 
-<!-- @see spec.md [NFR-1] -->
+<!-- @see spec.md [FR-40] [NFR-1] [NFR-3] [NFR-10] -->
 
-- No new runtime npm dependencies (NFR-1). Uses React, existing `@afx/ui` primitives, Lucide icons, and `MinimalMarkdown`.
-- Internal: `@afx/shared` types, `useWorkbench()` context, the `afxSaveFile`/`afxUpdate`/`afxFetchDocContent`/`afxPickMarkdownFile`/`afxOpenChatCommand`/`afxAppendNote`/`afxOpenFile` messages, and the settings `experimental/setCanvasEnabled`/`chat/openWorkbench` messages.
+- `@xyflow/react` is the required graph interaction dependency.
+- `@dagrejs/dagre` is optional only if measured dependency-map arrange behavior
+  is approved; otherwise the first release uses deterministic placement without
+  another runtime dependency.
+- ELK, Dagre, and an in-house deterministic layout are benchmark candidates for
+  the north-star compound/pinned-node layout matrix; no new engine is selected
+  until Open Question 11 is resolved with bundle, license, worker, and stress data.
+- Existing React, `@afx/ui`, Lucide, `MinimalMarkdown`, and `@afx/shared` remain.
+- Every shipped dependency must pass the license allowlist, bundle-size gate,
+  and NOTICE/third-party attribution generation before release.
 
 ## [DES-SEC] Security Considerations
 
-<!-- @see spec.md [FR-7] [FR-20] [NFR-5] -->
+<!-- @see spec.md [FR-7] [FR-20] [FR-30] [FR-33] [FR-35] [FR-36] [FR-37] [FR-42] [NFR-5] [NFR-8] [NFR-9] -->
 
-- File-node paths are workspace-relative and read by the host through `vscode.workspace.fs`; the webview never reads files directly (NFR-5). Non-markdown / unresolved / out-of-workspace paths render a `FileChip` placeholder, never an embed.
-- Inline markdown is rendered by `MinimalMarkdown`; no raw HTML execution beyond what that renderer permits.
-- "Send to chat" sends user-selected content only. Autosave writes only to `.afx/project.canvas`.
+- Every path resolves to a canonical URI inside an explicit workspace root;
+  absolute outside-workspace and traversal targets are rejected.
+- The webview never reads files directly. Inline Markdown uses the existing
+  sanitized renderer. Local images use host-issued webview URIs and MIME/size
+  validation; unsupported content remains a non-executing file card.
+- URL previews allow only `https`/`http`, cap redirects/time/bytes, sanitize
+  extracted metadata, never load returned HTML as a document, never run scripts,
+  and keep navigation behind an explicit Open URL action. CSP forbids arbitrary
+  frames and remote execution.
+- Canvas action metadata is untrusted. Only versioned allowlisted action kinds
+  render; no action executes on parse/open/refresh; workspace trust and host
+  capability are checked; consequential commands show exact context and confirm.
+- Dependency refresh reads declared metadata but cannot rewrite a spec.
+- Custom-editor CSP, nonce, local-resource roots, and command routing match the
+  hardened preview/webview boundary.
 
 ## [DES-ERR] Error Handling
 
-<!-- @see spec.md [FR-11] [FR-12] -->
+<!-- @see spec.md [FR-11] [FR-12] [FR-20] [FR-24] [FR-26] [FR-30] [FR-31] [FR-32] [FR-33] [FR-34] [FR-35] [FR-36] [FR-37] [FR-40] [FR-42] [FR-43] [FR-44] -->
 
-| Scenario                                      | Handling                                                                                                                                                                   |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `.afx/project.canvas` missing (first run)     | Treat as empty (`exists:false`); create `.afx/` + file on first save.                                                                                                      |
-| Malformed/invalid JSON                        | `parseCanvasForView` catches `JSONCanvasParseError` → empty model + a "Malformed canvas file" banner with Open file / Reload; **never auto-overwrite** (no `afxSaveFile`). |
-| File node points at missing/non-markdown path | `FileChip` placeholder ("file not found in workspace" / "preview disabled for non-markdown files"); no embed.                                                              |
-| Save (`afxSaveFile`) fails                    | `saveFailed` → `saveStatus:"error"` overlay; in-memory state kept; never lose edits silently.                                                                              |
-| External edit while open                      | `afxUpdate` re-publishes; if local dirty, stash into `pendingExternalContent` and show "External canvas update available" with Reload / Keep local; else accept directly.  |
-| Flag toggled off while tab open               | Reducer clears `canvas`; host stops watcher; tab hidden next render; files left intact.                                                                                    |
+| Scenario                              | Handling                                                                                                                     |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Missing canvas                        | Project Canvas opens empty; named creation writes only after collision-safe host confirmation.                               |
+| Temporarily malformed manual JSON     | Retain last valid graph, show raw-source error and Open Text action, suspend autosave, and accept the next valid revision.   |
+| Save failure                          | Keep dirty state/content/history, show error and Retry/Open Source; never acknowledge saved.                                 |
+| Newer manual edit while clean         | Apply the latest snapshot to all Workbench/editor consumers and preserve view-local viewport where possible.                 |
+| Newer manual edit while dirty/pending | Suspend autosave and show Reload External / Keep Local; Keep Local retries only against the new explicit base revision.      |
+| Stale acknowledgement                 | Ignore it for state-clearing purposes; log diagnostic correlation only.                                                      |
+| Last view closes with staged work     | Durable URI session retains the operation/timer and hands unsaved state to VS Code hot exit; no React cleanup clears it.     |
+| Stale/cross-root reference response   | Reject by document/key/revision; retain the matching prior card state and request the current owner source if still visible. |
+| Library collision/missing path        | Return one error result; do not overwrite/delete/rebind; keep dialog input available.                                        |
+| Unresolved/cyclic dependency          | Render an issue node/edge state and source action; refresh remains idempotent and never removes manual content.              |
+| Duplicate generated/detached edge     | Reject duplicate IDs, retain the manual edge, record a diagnostic, and recompute from declaration + detach suppression.      |
+| Invalid/untrusted AFX action          | Render inert explanatory UI; never send a host command.                                                                      |
+| AFX capability unavailable            | Keep universal controls active; hide or disable only the dependent command with a reason and Settings/recovery action.       |
+| Missing/unsupported preview source    | Keep the portable file/link card, show precise blocked/error state, and offer Open Source/Open URL where safe.               |
+| Remote URL timeout/redirect/MIME fail | Cancel the bounded request, do not cache attacker-controlled HTML, and show a retryable metadata-preview error.              |
+| Auto-layout failure/cancel            | Leave document/history unchanged; retain the prior preview options and explain unsupported compound constraints.             |
+| Workspace graph superseded            | Discard stale index results by revision; keep current canvas and manual relationships intact.                                |
+| Canvas tab hidden                     | Preserve files and editor-area capability; if all Workbench views are hidden, show Settings recovery.                        |
 
 ## [DES-TEST] Testing Strategy
 
-<!-- @see spec.md [FR-13] [FR-18] [FR-19] [FR-20] [NFR-3] [NFR-6] -->
+<!-- @see spec.md [FR-4] [FR-11] [FR-12] [FR-13] [FR-18] [FR-20] [FR-24] [FR-26] [FR-28] [FR-29] [FR-30] [FR-31] [FR-32] [FR-33] [FR-34] [FR-35] [FR-36] [FR-37] [FR-38] [FR-39] [FR-40] [FR-41] [FR-42] [FR-43] [FR-44] [NFR-1] [NFR-3] [NFR-4] [NFR-6] [NFR-7] [NFR-8] [NFR-9] [NFR-10] [NFR-11] [NFR-12] [NFR-13] -->
 
-As-built coverage (7 dedicated + 4 cross-cutting files):
-
-| Coverage                                                                                                                                                                                                                                                                                            | Test file                                                       |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Parser: empty → `{nodes:[],edges:[]}`, Obsidian round-trip (group/link/subpath/unknown fields survive), malformed → typed error                                                                                                                                                                     | `apps/workbench/src/lib/json-canvas.test.ts`                    |
-| Model mutations: add text/file/note/label/group, color, move/resize, rename, connect/label/retarget/delete edge, viewport→world                                                                                                                                                                     | `apps/workbench/src/components/canvas/use-canvas-model.test.ts` |
-| React: file-node fetch + non-md chip, autosave `afxSaveFile`, malformed banner (no save), external-update prompt, edge label/delete, node kinds + z-index, modified-wheel pan vs nested scroll, inline rename, picker insert, send-to-chat `mode:"send"`, multi-select "Chat N", additive selection | `apps/workbench/src/views/canvas.test.tsx`                      |
-| Host service: disabled → no read/watch, enabled read + `exists:false`, payload publish, one watcher + safe dispose, echo-suppression                                                                                                                                                                | `apps/vscode/src/services/canvas-data.test.ts`                  |
-| Host panel: gated watcher, `.afx/` creation on save, `canvasEnabled:false` on `afxReady`, `afxPickMarkdownFile`→`afxMarkdownFilePicked`                                                                                                                                                             | `apps/vscode/src/panels/workbench-panel.test.ts`                |
-| Manifest: `afx.experimental.canvas` boolean default false                                                                                                                                                                                                                                           | `apps/vscode/src/configuration-manifest.test.ts`                |
-| VS Code e2e: setting defaults false, updatable/readable                                                                                                                                                                                                                                             | `apps/vscode-e2e/src/extension.test.ts`                         |
-| Workbench Playwright: tab hidden by default; create/drag/resize/link/retarget/label/delete; file-node markdown; colors/resize-clamp/external-update; light-theme quietness; 144-node stress                                                                                                         | `apps/workbench/e2e/canvas.spec.ts`                             |
-| Settings UI (canvas toggle → `experimental/setCanvasEnabled`; open-setting deep-link)                                                                                                                                                                                                               | `apps/chat/src/app.test.tsx`                                    |
-| Shared protocol (experimental + markdown-picker messages)                                                                                                                                                                                                                                           | `packages/shared/src/messages.test.ts`                          |
-
-> **As-built reconciliation:** no per-component `*.test.tsx` exist (React coverage is all in `views/canvas.test.tsx`); there is no `afxAppendNote`/"promote" test (send-to-chat is the shipped verb); `workbench-panel.test.ts`, `app.test.tsx`, `messages.test.ts`, `configuration-manifest.test.ts`, `extension.test.ts` carry canvas assertions inside other-spec-owned files.
+| Layer                | Required proof                                                                                                                                                                                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Format/adapter       | Standard and Obsidian-compatible fixtures; unknown fields; all node types; z-order; groups; links; parallel edges; extension-ignore readability; JSON Canvas → React Flow → JSON Canvas property fixtures.                                       |
+| State machine        | Immediate stage + delayed persistence, tab switch/view unmount/editor close/hot exit, pending save, failure/retry, stale result, external conflict, per-document history/profile/mode/title, history rebase/reset, invalid-manual-JSON recovery. |
+| Host                 | Open-buffer overlay, saved/external watcher, latest-wins scans, stable URI session after last-client detach, multi-root node owner paths, containment, FIFO mutations, collision lifecycle, custom-editor multi-instance.                        |
+| References           | Owner/path/subpath/revision cache key, `.md` + `.markdown`, visible/on-demand subscribe/cancel, manual invalidation, stale/cross-root response rejection, bounded payload/cache diagnostics.                                                     |
+| Dependencies/actions | Four-file + Sprint discovery across roots with explicit totals; resolved/unresolved/duplicate/cycle; repeated idempotent refresh/detach/manual preservation/fresh IDs; allowlist/trust/confirmation and never-auto-run tests.                    |
+| React Flow           | Parity authoring for color/link/group/multi-file/multi-chat; lasso, pointer/touch/keyboard selection, reconnect, resize, edge routes/strokes/markers, fit, snap, auto-pan, controls/minimap, focus restoration, reduced motion.                  |
+| Profiles             | Essentials capability-off beginner script, Architecture depth script, AFX capability matrix, non-mutating profile switches, command search, hidden-control readability, narrow/touch/keyboard coverage.                                          |
+| E2E                  | Mocked bridge plus real extension-host immediate tab switch, editor close/hot exit, stale/failure retry, named/multi-root canvases, cross-root preview/open, external `.markdown`, repeated detach/refresh, packaged VSIX.                       |
+| Performance/release  | 150 nodes/200 edges interaction trace, bundle size, license allowlist, NOTICE/third-party notices, full verify/E2E/security gates.                                                                                                               |
+| North-star content   | Rendered spec/Markdown, general file, local image, URL metadata, Notes, and Boards across ready/loading/stale/error/blocked/manual-edit states.                                                                                                  |
+| North-star scenarios | Whole-workspace architecture, low/high fidelity, palettes, frames, nested groups, rich connector matrix, layout preview/cancel/apply/undo, export, 360 px/editor/desktop visual captures.                                                        |
+| Push limits          | Mixed-content 1,000-node/2,000-edge fixture, complete practical React Flow interaction matrix, incremental graph refresh, layout cancellation, memory/paint/input traces, deterministic re-open.                                                 |
 
 ## [DES-ROLLOUT] Migration / Rollout Plan
 
-<!-- @see spec.md [FR-21] [NFR-4] -->
+<!-- @see spec.md [FR-3] [FR-11] [FR-20] [FR-21] [FR-24] [FR-26] [FR-30] [FR-31] [FR-32] [FR-33] [FR-43] [FR-44] [NFR-1] [NFR-3] [NFR-4] [NFR-12] [NFR-13] -->
 
-- **Flag**: ships `afx.experimental.canvas: false`. No migration — the file is created on first use.
-- **Dogfood**: author enables the flag and uses it as the primary scratch surface.
-- **Kill criterion (pre-committed)**: if the author does not open the Canvas tab during a normal working week within ~4 weeks of dogfooding, remove the feature (delete the flag, `views/canvas.tsx` + `components/canvas/*`, the host service, the protocol fields, the Settings Experimental group). Removal is clean because JSON Canvas is the only model and the surface is isolated (NFR-4). Capture the decision in `journal.md`.
-- **Scope boundary (FR-21)**: this is an experimental in-IDE freeform ideation surface trialed behind a flag; knowledge-graph, backlink, and reverse-index features are out of scope.
+1. Land the durable URI document session and acknowledged operation protocol; prove
+   no loss on tab switch, unmount, editor close, hot exit, stale result, and failure.
+2. Replace raw-path preview caching and incomplete spec discovery with revisioned
+   reference subscriptions, four-file + Sprint multi-root indexing, and idempotent
+   dependency detach/refresh before advanced features.
+3. Build the lossless adapter and React Flow parity behind the existing flag;
+   keep the custom renderer available only until fixture and interaction gates pass.
+4. Add the library and editor-area provider without moving `.afx/project.canvas`.
+5. Establish Essentials as the complete capability-off default, then add
+   Architecture and AFX tool profiles over the same command registry/document.
+6. Add Freeform/Spec Map tools, planning starters, dependencies, actions, and edge inspector.
+7. Remove the custom interaction implementation after parity, conflict, E2E,
+   accessibility, performance, and interoperability approval.
+8. Keep `afx.experimental.canvas` default false during heavy dogfooding. Workbench
+   tab visibility is independent; editor-area opening remains explicit.
+9. Before packaging, update NOTICE and standard third-party notices for React
+   Flow and every added shipped dependency, include license details, run the
+   license allowlist/security gate, and verify the files are included in the VSIX.
+10. Treat whole-workspace architecture, rich rendered attachments, low/high
+    fidelity composition, and auto-layout as a post-2.4.0 north-star program.
+    Land it in independently reviewable phases; do not relabel current 2.4.0
+    evidence as proof of FR-34–FR-44.
 
-## [DES-CANVAS-LOC] Code Locator Map
+## [DES-CANVAS-PRO] Pro Canvas Identity, Toolbar & Live Semantics
+
+<!-- @see spec.md [FR-45] [FR-46] [FR-47] [FR-48] [FR-49] [FR-50] [FR-51] [NFR-7] [NFR-11] [NFR-12] -->
+
+The 2.4.x visual/UX upgrade layers identity and live semantics onto the React Flow projection without touching document bytes.
+
+### Toolbar clusters (FR-45)
+
+`react-flow-canvas.tsx` renders one toolbar composed of separator-divided clusters, in order: **history** (undo, redo) · **clipboard** (copy, paste, duplicate — each with a distinct lucide icon: `Copy`, `ClipboardPaste`, `CopyPlus`) · **insert** (add node, delete selection) · **view** (zoom out, live percentage button that resets to 100%, zoom in, fit, snap, minimap) · **tools** (architecture explorer, layout, composition, presentation) · **export**. Every `ToolButton` tooltip appends the shortcut hint when one exists (`⌘Z`, `⇧⌘Z`, `⌘C`, `⌘V`, `⌘D`, `F`, `Delete`) and mirrors it via `aria-keyshortcuts`. A selection chip (`N selected · Clear`) appears after the insert cluster when nodes or edges are selected. The zoom readout subscribes to viewport changes via `useStore`; clicking it sets zoom to 1.0 about the viewport center. Overflow behavior (horizontal scroll at narrow widths) and the ≥920 px label mode are unchanged.
+
+### Annotation nodes (FR-46)
+
+`afxNodeKind: "annotation"` joins `"note" | "label"` on `CanvasTextNode`. `canvas-flow-node.tsx` renders annotations as Meridian callout cards — serif-italic body and a brass number badge (1-based, document order via `annotationIndexById` in `json-canvas-react-flow.ts`). Any standard edge leaving an annotation node is projected with `data.leader = true` and rendered as a dashed leader arrow (`.afx-edge-leader` on the `BaseEdge` path). Add-annotation is reachable from the toolbar and the `add-annotation` command in the ⌘K registry. Export renders annotations as their text (standard text node path). No new file fields beyond the existing namespaced `afxNodeKind`.
+
+### Live edge state (FR-47)
+
+The projection (`json-canvas-react-flow.ts`) decorates an edge as `data.live = "refreshing" | "stale"` when its `afxDependency` provenance matches an in-flight Spec Map refresh (webview `pendingOperation`) or a host-reported stale dependency. `canvas-flow-edge.tsx` renders `live` edges with an animated dash offset (CSS `@keyframes`, disabled under `prefers-reduced-motion` in favor of a pulsing dot at the edge midpoint) and keeps `label` text on a legible background chip. Animation state never serializes.
+
+### Sub-flow containment (FR-48)
+
+Group drag containment is projection-side: `projectJSONCanvas` derives React Flow `parentId` relationships from `getCanvasGroupMembership` (geometric containment), positions children relative to their group, depth-sorts render order, and hides members of collapsed groups. The `parentId` exists only in the in-memory projection — `mergeFlowGeometry` converts positions back to absolute coordinates and no `parent` field ever reaches the file, so serialization remains geometry-only and Obsidian-compatible. Dropping a node inside/outside group bounds updates membership on the next projection.
+
+### Foreign node fallback (FR-49)
+
+`nodeTitle()` and the body renderer in `canvas-flow-node.tsx` guard the text-node fallthrough with an `isTextNode` check (`type === "text"` plus a runtime `typeof text === "string"` probe, since the permissive engine parse admits any `type` string with geometry). A foreign-typed node renders a fallback card titled `String(node.type)` with an "Unsupported node type … content is preserved and kept intact on save" body — mirroring `export.ts`'s foreign-node label and keeping NFR-3 losslessness visible to the user instead of crashing the unbounded React subtree.
+
+### Undo continuity (FR-50)
+
+The reprojection effect in `react-flow-canvas.tsx` distinguishes a `documentKey` switch (full history/selection/panel reset, unchanged) from a same-document canvas replacement. The latter flushes any pending geometry gesture, pushes the previous `canvasRef` snapshot onto `past` (capped at 100), clears `future`, and prunes node/edge selection to surviving ids — so Sync specs, starters, parent toolbar mutations, and external file edits are all undoable. Own edits are excluded by object identity: `canvas-app.tsx` stores the exact object the surface emitted through `onChange`, and `applyIncomingCanvasContent` returns the current state unchanged for own-echo content, so identity-equal props never double-push history.
+
+### Spec Map empty state (FR-51)
+
+`canvas-app.tsx` overlays `canvas-spec-map-empty` (absolute, pointer-events-none wrapper) when `mode === "spec-map"`, no operation is pending, and no edge carries `afxProvenance.kind === "declared-dependency"`. The card explains that Spec Map draws arrows from each spec's `depends_on` frontmatter, offers a "Sync specs now" button when a workspace source and revision exist, and otherwise instructs saving the canvas into the workspace. Floating placement keeps the surface layout stable per FR-45's no-layout-shift rule.
+
+### Node toolbar placement
+
+`NodeToolbar` renders below the node (`Position.Bottom`): the floating flow toolbar permanently occupies the surface's top strip, and top-placed node toolbars for top-row nodes were unreachable beneath it. The integration actions carry visible text ("Chat", "Notes") beside their icons, and a labeled "Chat" selection handoff sits next to the toolbar selection chip whenever nodes are selected.
+
+### Meridian identity (NFR-11, NFR-12)
+
+Node cards, controls, minimap, and background move to Meridian tokens: elevated card shadow + hover lift, brass (`--afx-brand`) selection ring (already themed), dotted background at reduced contrast per theme, minimap/Controls surfaces on `--background`/`--border`. All styling is webview CSS only — document bytes unchanged.
+
+## [DES-CANVAS-TARGET-LOC] Target Code Locator Map
+
+<!-- @see spec.md [FR-4] [FR-11] [FR-20] [FR-24] [FR-26] [FR-32] [FR-33] [FR-43] [FR-44] [NFR-3] [NFR-5] [NFR-12] [NFR-13] -->
+
+| Responsibility                                            | Target location                                                                                                              |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Portable domain, parser, serializer, mutations, revisions | `packages/canvas-engine/src/*`                                                                                               |
+| React Flow projection                                     | `apps/workbench/src/lib/json-canvas-react-flow.ts`                                                                           |
+| Shared document renderer/controller                       | `apps/workbench/src/components/canvas/{canvas-app,react-flow-canvas}.tsx`, `apps/workbench/src/hooks/use-canvas-document.ts` |
+| Library, planning, spec-map, and edge tools               | `apps/workbench/src/components/canvas/{canvas-library,planning-guide,spec-map-tools}.tsx`, `edges/*`                         |
+| Workbench and editor boot targets                         | `apps/workbench/src/views/canvas.tsx`, `apps/workbench/src/canvas-editor-app.tsx`, `apps/workbench/src/main.tsx`             |
+| Live source and ordered mutation foundation               | `apps/vscode/src/services/{workbench-file-state,workbench-refresh-coordinator,workbench-mutation-coordinator}.ts`            |
+| Canvas library/document/dependency host services          | `apps/vscode/src/services/{canvas-library-service,canvas-document-service,spec-dependency-indexer}.ts`                       |
+| Reference subscriptions and rich previews                 | `apps/vscode/src/services/{canvas-reference-service,canvas-content-preview-service}.ts`                                      |
+| Progressive profile/command presentation                  | `apps/workbench/src/components/canvas/{canvas-profile-selector,canvas-command-registry}.ts{x}`                               |
+| Custom editor                                             | `apps/vscode/src/editors/canvas-editor-provider.ts`                                                                          |
+| Shared contracts                                          | `packages/shared/src/{workbench-types,workbench-protocol,messages}.ts`                                                       |
+| Experiment/settings contributions                         | `apps/vscode/package.json`, `apps/chat/src/{views/settings.tsx,lib/settings-copy.ts,lib/settings-snapshot.ts}`               |
+| Attribution/package evidence                              | `NOTICE`, `THIRD_PARTY_NOTICES.md`, license inventory script and VSIX tests                                                  |
+
+## [DES-CANVAS-TARGET-TRACE] Target Trace Matrix
+
+<!-- @see spec.md [FR-1] [FR-44] [NFR-1] [NFR-13] -->
+
+| Requirements                           | Design owners                                                               | Primary implementation/tests                                                                  |
+| -------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| FR-1–FR-3, FR-19, FR-22, FR-24         | DES-ARCH, DES-SETTINGS, DES-HOST                                            | tab registry/settings, `CanvasLibraryService`, library component, manifest/host/component/E2E |
+| FR-4, FR-13, FR-14, FR-18              | DES-DATA, DES-DEC                                                           | `@afx/canvas-engine`, adapter fixtures, Obsidian/unknown-field property tests                 |
+| FR-5–FR-10, FR-17, FR-23, FR-28, FR-29 | DES-CANVAS-INTERACTIONS, DES-DATA                                           | shared React Flow surface/nodes/edges/inspector; pointer, touch, keyboard, responsive E2E     |
+| FR-11, FR-12, FR-31                    | DES-CANVAS-DOCUMENT-SERVICE, DES-CANVAS-DIRTY-CONFLICT, DES-CANVAS-PROTOCOL | live buffer overlay, host document sessions, FIFO mutations, save/conflict/failure tests      |
+| FR-15, FR-16, FR-27, FR-33             | DES-CANVAS-INTERACTIONS, DES-SEC                                            | explicit action overlays, planning guide, preview/allowlist/trust tests                       |
+| FR-20, FR-30                           | DES-HOST, DES-SEC                                                           | multi-root canonical resolver, referenced-document refresh, containment/ambiguity tests       |
+| FR-21, FR-26                           | DES-ARCH, DES-DEC                                                           | dependency index/import/refresh/detach and Impact Lens boundary tests                         |
+| FR-25                                  | DES-CANVAS-INTERACTIONS, DES-DATA                                           | non-destructive Freeform/Spec Map switching and round-trip tests                              |
+| FR-32                                  | DES-CANVAS-EDITOR-AREA, DES-CANVAS-MULTI-INSTANCE                           | custom editor manifest/provider, shared app boot, split/editor/Workbench coherence E2E        |
+| FR-34                                  | DES-ARCH, DES-HOST, DES-CANVAS-INTERACTIONS                                 | architecture index/explorer, search/filter/traversal, whole-workspace dependency E2E          |
+| FR-35–FR-37                            | DES-UI, DES-HOST, DES-SEC                                                   | content preview service and spec/file/image/URL/Note/Board node matrix                        |
+| FR-38–FR-39                            | DES-CANVAS-INTERACTIONS, DES-DATA                                           | frames/templates/alignment/style/palette/presentation component and visual E2E                |
+| FR-40                                  | DES-CANVAS-INTERACTIONS, DES-DATA, DES-ERR                                  | pure layout preview/apply/undo, pins/groups/manual-preservation and stress tests              |
+| FR-41–FR-42                            | DES-CANVAS-INTERACTIONS, DES-SEC, DES-API                                   | connector/group matrix and preflighted portable/image export scenarios                        |
+| FR-43–FR-44                            | DES-UI, DES-CANVAS-INTERACTIONS, DES-DEC                                    | progressive profile command registry, capability-off baseline, beginner/architecture/AFX E2E  |
+| NFR-1–NFR-3                            | DES-DEPS, DES-DATA, DES-ROLLOUT                                             | size/license gates, zero-migration fixtures, JSON Canvas interoperability                     |
+| NFR-4–NFR-5                            | DES-CANVAS-DOCUMENT-SERVICE, DES-CANVAS-DIRTY-CONFLICT, DES-SEC             | unmount/failure/concurrency/containment/host-boundary tests                                   |
+| NFR-6–NFR-7                            | DES-CANVAS-INTERACTIONS, DES-TEST                                           | 150-node/200-edge performance trace and accessibility matrix                                  |
+| NFR-8                                  | DES-SEC, DES-DATA                                                           | unknown/AFX metadata round-trip plus never-auto-run/trust/confirmation tests                  |
+| NFR-9                                  | DES-SEC, DES-HOST                                                           | URL/image/Markdown isolation, CSP, scheme/redirect/size/time/MIME abuse tests                 |
+| NFR-10–NFR-11                          | DES-TEST, DES-DATA                                                          | 1,000/2,000 push-limit traces plus deterministic layout/style/reopen property tests           |
+| NFR-12–NFR-13                          | DES-UI, DES-HOST, DES-TEST                                                  | first-run profile scripts, revisioned on-demand reference tests, explicit scale/cache metrics |
+
+## [DES-CANVAS-BASELINE-LOC] Legacy Code Locator Map
 
 <!-- @see spec.md [NFR-3] -->
+
+This map records the current custom-renderer baseline solely to make the
+replacement reviewable. It is not the target architecture.
 
 | Symbol                                                                                  | Location                                                   |
 | --------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
@@ -469,9 +1068,13 @@ As-built coverage (7 dedicated + 4 cross-cutting files):
 | `EXPERIMENTAL` copy                                                                     | `apps/chat/src/lib/settings-copy.ts`                       |
 | `composeSettingsSnapshot` experimental shape                                            | `apps/chat/src/lib/settings-snapshot.ts`                   |
 
-## [DES-CANVAS-TRACE] Functional Trace Matrix (1:1, bidirectional)
+## [DES-CANVAS-BASELINE-TRACE] Legacy Functional Trace Matrix
 
 <!-- @see spec.md [FR-1] [FR-22] [NFR-3] -->
+
+The rows below describe the already-shipped FR-1–FR-23 implementation. The
+target matrix above supersedes its architecture and test expectations for the
+React Flow migration.
 
 | Req   | Design                 | Source (file · symbol)                                                                                                            | Test                                                                                 |
 | ----- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -512,14 +1115,19 @@ As-built coverage (7 dedicated + 4 cross-cutting files):
 
 | File                                                                                                                                                           | Required `@see`                                                                                            |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `packages/canvas-engine/src/{json-canvas,mutations,reducer,revision}.ts`                                                                                       | `spec.md [FR-4] [FR-13] [FR-18] [NFR-3]` · `design.md [DES-DATA] [DES-CANVAS-PROTOCOL]`                    |
 | `packages/shared/src/workbench-types.ts`                                                                                                                       | `spec.md [FR-4] [FR-13] [FR-18]` · `design.md [DES-DATA]`                                                  |
 | `packages/shared/src/workbench-protocol.ts`                                                                                                                    | `spec.md [FR-19]` · `design.md [DES-API]`                                                                  |
 | `packages/shared/src/messages.ts`                                                                                                                              | `spec.md [FR-1] [FR-2]` (+ `214` dual-anchor) · `design.md [DES-SETTINGS] [DES-API]`                       |
 | `apps/vscode/src/services/canvas-data.ts`                                                                                                                      | `spec.md [FR-3] [FR-12] [FR-19]` · `design.md [DES-HOST]`                                                  |
+| `apps/vscode/src/services/canvas-{library,document}-service.ts`                                                                                                | `spec.md [FR-11] [FR-12] [FR-24] [FR-31]` · `design.md [DES-HOST] [DES-CANVAS-DOCUMENT-SERVICE]`           |
+| `apps/vscode/src/editors/canvas-editor-provider.ts`                                                                                                            | `spec.md [FR-32]` · `design.md [DES-CANVAS-EDITOR-AREA] [DES-CANVAS-MULTI-INSTANCE]`                       |
 | `apps/vscode/src/panels/workbench-panel.ts`                                                                                                                    | `spec.md [FR-3] [FR-12] [FR-19] [NFR-2] [NFR-5]` · `design.md [DES-HOST] [DES-ARCH] [DES-FILES]`           |
 | `apps/vscode/src/panels/sidebar-panel.ts`                                                                                                                      | `spec.md [FR-1] [FR-2]` (inline at the handler)                                                            |
 | `apps/vscode/package.json`                                                                                                                                     | `design.md [DES-FILES]` — `contributes.configuration` → `afx.experimental.canvas` (JSON, no inline `@see`) |
 | `apps/workbench/src/views/canvas.tsx`                                                                                                                          | `spec.md [FR-2] [FR-5] [FR-11] [FR-12] [FR-15] [FR-16] [FR-20]` · `design.md [DES-OVR] [DES-UI] [DES-ERR]` |
+| `apps/workbench/src/canvas-editor-app.tsx`                                                                                                                     | `spec.md [FR-32]` · `design.md [DES-CANVAS-EDITOR-AREA] [DES-CANVAS-MULTI-INSTANCE]`                       |
+| `apps/workbench/src/components/canvas/react-flow-canvas.tsx`                                                                                                   | `spec.md [FR-5] [FR-10] [FR-17] [FR-29]` · `design.md [DES-CANVAS-INTERACTIONS]`                           |
 | `apps/workbench/src/components/canvas/use-canvas-model.ts`                                                                                                     | `spec.md [FR-4] [FR-5] [FR-8] [FR-9] [FR-23]` · `design.md [DES-DATA]`                                     |
 | `apps/workbench/src/lib/json-canvas.ts`                                                                                                                        | `spec.md [FR-4] [FR-13] [FR-18] [NFR-3]` · `design.md [DES-DATA]`                                          |
 | `apps/workbench/src/app.tsx`                                                                                                                                   | inline `spec.md [FR-1] [FR-2]` · `design.md [DES-UI]` (header owned by `227`)                              |
@@ -531,4 +1139,5 @@ As-built coverage (7 dedicated + 4 cross-cutting files):
 | `apps/chat/src/views/settings.tsx`                                                                                                                             | `spec.md [FR-1] [FR-22]` (+ `214` dual-anchor) · `design.md [DES-SETTINGS]`                                |
 | `apps/chat/src/lib/settings-copy.ts`                                                                                                                           | `spec.md [FR-1] [FR-22]` (+ `214`) · `design.md [DES-SETTINGS]`                                            |
 | `apps/chat/src/lib/settings-snapshot.ts`                                                                                                                       | `spec.md [FR-1] [FR-22]` (+ `214`) · `design.md [DES-SETTINGS] [DES-DATA]`                                 |
+| `NOTICE`, `THIRD_PARTY_NOTICES.md`, license inventory script                                                                                                   | `spec.md [NFR-1] [NFR-8]` · `design.md [DES-DEPS] [DES-ROLLOUT]`                                           |
 | Tests (`json-canvas`, `use-canvas-model`, `canvas`, `canvas-data`, `workbench-panel`, `configuration-manifest`, `extension`, `canvas.spec`, `app`, `messages`) | per-file `spec.md [FR-…]` · `design.md [DES-TEST]`                                                         |

@@ -3,10 +3,22 @@ afx: true
 type: SPRINT
 status: Living
 owner: "@rixrix"
-version: "1.0"
+version: "1.1"
 created_at: "2026-04-28T02:36:26.000Z"
-updated_at: "2026-06-02T10:53:37.000Z"
-tags: ["430-dx-enforcement", "sprint", "dx", "security", "enforcement", "codeql", "code-scanning"]
+updated_at: "2026-07-19T06:52:10.000Z"
+tags:
+  [
+    "430-dx-enforcement",
+    "sprint",
+    "dx",
+    "security",
+    "enforcement",
+    "codeql",
+    "code-scanning",
+    "licensing",
+    "third-party-notices",
+    "vsix",
+  ]
 approval:
   spec: Approved
   design: Approved
@@ -93,7 +105,7 @@ Repository enforcement is partial. Existing primitives are wired (ESLint flat, P
 | FR-15 | Wire `gitleaks` in `.husky/pre-commit` (staged-only, fast) and as a CI job (`history` mode, weekly schedule + per-PR). Add `eslint-plugin-no-secrets` to lint stack.                                                                                                                                                                                                                                                                                                                                                                                          | Must Have   |
 | FR-16 | Add CI step `pnpm audit --audit-level=high --prod` that fails the PR on high/critical vulnerabilities.                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Must Have   |
 | FR-17 | Add OSV-Scanner CI job — supplements `pnpm audit` with broader OSV.dev coverage.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Must Have   |
-| FR-18 | Add license check (`license-checker-rseidelsohn` or equivalent) that fails CI on GPL-3.0/AGPL/unknown licenses in production deps. Maintain an explicit allowlist.                                                                                                                                                                                                                                                                                                                                                                                            | Must Have   |
+| FR-18 | Generate and verify an artifact-aware third-party inventory from every shipped VSIX bundle and copied runtime asset, not only the root package graph. Fail CI on GPL-3.0/AGPL/unknown/missing licenses, preserve exact upstream LICENSE/NOTICE text, maintain an explicit allowlist/override audit, and produce tracked standard third-party notices plus concise named acknowledgments.                                                                                                                                                                      | Must Have   |
 | FR-19 | Pin all GitHub Actions in `.github/workflows/*.yml` to commit SHAs (not version tags). Configure Dependabot to keep them current.                                                                                                                                                                                                                                                                                                                                                                                                                             | Must Have   |
 | FR-20 | Add `actionlint` CI job — lints workflow YAML for shellcheck issues, expression mistakes, missing permissions.                                                                                                                                                                                                                                                                                                                                                                                                                                                | Must Have   |
 | FR-21 | Add `eslint-plugin-security` (warn-then-error rollout) and `eslint-plugin-no-unsanitized` (immediate error) for webview packages.                                                                                                                                                                                                                                                                                                                                                                                                                             | Must Have   |
@@ -766,16 +778,16 @@ jobs:
 
 ### [DES-SUPPLY] Supply chain (FR-16, FR-17, FR-18, FR-19, FR-20, FR-28, FR-35)
 
-| Tool                          | Mechanism                                                                                  | Failure mode                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------- |
-| `pnpm audit`                  | CI step in `security` job: `pnpm audit --audit-level=high --prod`                          | Exit non-zero on high/critical CVE      |
-| OSV-Scanner                   | CI job `osv-scan` using `google/osv-scanner-action`                                        | Exit non-zero on any vuln               |
-| `license-checker-rseidelsohn` | CI step in `security` job, allowlist of permissive licenses                                | Exit non-zero on disallowed license     |
-| GH Actions SHA pinning        | Edit all `.github/workflows/*.yml` to use commit SHAs; comment `# v<x>` next to each       | One-time edit, maintained by Dependabot |
-| `actionlint`                  | New CI job `actionlint` using `reviewdog/action-actionlint`                                | Exit non-zero on workflow YAML issues   |
-| Dependabot                    | New `.github/dependabot.yml`: npm + github-actions ecosystems, weekly cadence, grouped PRs | Auto-PRs                                |
-| CodeQL                        | CI workflow `.github/workflows/codeql.yml` with job id `analyze` for JS/TS scanning        | Uploads code-scanning SARIF alerts      |
-| Frozen lockfile               | Already in CI (`pnpm install --frozen-lockfile`)                                           | (existing)                              |
+| Tool                            | Mechanism                                                                                                                                                              | Failure mode                                                             |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `pnpm audit`                    | CI step in `security` job: `pnpm audit --audit-level=high --prod`                                                                                                      | Exit non-zero on high/critical CVE                                       |
+| OSV-Scanner                     | CI job `osv-scan` using `google/osv-scanner-action`                                                                                                                    | Exit non-zero on any vuln                                                |
+| Artifact-aware notice generator | Parse production bundle source maps plus copied-asset inventory; resolve package roots; emit deterministic exact license/NOTICE text and named project acknowledgments | Exit non-zero on unknown, missing, stale, or disallowed license evidence |
+| GH Actions SHA pinning          | Edit all `.github/workflows/*.yml` to use commit SHAs; comment `# v<x>` next to each                                                                                   | One-time edit, maintained by Dependabot                                  |
+| `actionlint`                    | New CI job `actionlint` using `reviewdog/action-actionlint`                                                                                                            | Exit non-zero on workflow YAML issues                                    |
+| Dependabot                      | New `.github/dependabot.yml`: npm + github-actions ecosystems, weekly cadence, grouped PRs                                                                             | Auto-PRs                                                                 |
+| CodeQL                          | CI workflow `.github/workflows/codeql.yml` with job id `analyze` for JS/TS scanning                                                                                    | Uploads code-scanning SARIF alerts                                       |
+| Frozen lockfile                 | Already in CI (`pnpm install --frozen-lockfile`)                                                                                                                       | (existing)                                                               |
 
 ### [DES-APPSEC] Application-code security (FR-21, FR-22, FR-23)
 
@@ -1008,7 +1020,7 @@ trufflehog             (binary; via action only; CI-only)
 - **Workflow privilege**: each new CI job declares minimal `permissions:` (default `contents: read`). The `bundle-size` job needs `pull-requests: write` to comment; preserve.
 - **Pinned actions**: each action ref becomes a 40-char SHA. Comment `# v4` next to it for human readability. Dependabot maintains.
 - **Local gitleaks**: pre-commit hook depends on `gitleaks` being installed locally. Add a soft-fail (`command -v gitleaks >/dev/null || { echo "gitleaks not installed; skipping local scan — CI will catch"; exit 0; }`) so contributors without the binary aren't blocked. CI is the hard gate.
-- **License allowlist**: explicit allowlist (`MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0`) — adding GPL/AGPL deps fails CI. Manual exception process: append to `.license-allowlist.txt` with rationale comment.
+- **License allowlist**: explicit allowlist (`MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;BlueOak-1.0.0;OFL-1.1;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0`) — adding GPL/AGPL deps fails CI. `OFL-1.1` is required for the shipped JetBrains Mono assets. Audited overrides must identify exact package/version/source and rationale; generic license text may not replace package-specific notices such as Lucide's embedded Feather attribution.
 - **Secrets allowlist**: `.gitleaks.toml` may need entries for known false positives (test fixtures with fake JWTs). Audit on first run and add only documented exceptions.
 
 ### [DES-ERR] Error Handling
@@ -1344,15 +1356,25 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 
 > Ref: [FR-16], [FR-17], [FR-18], [FR-19], [FR-20], [FR-28], [FR-35], [DES-SUPPLY]
 
-#### 7.1 pnpm audit + license check
+#### 7.1 pnpm audit + baseline license policy
 
 <!-- files: .github/workflows/code-qa.yml, package.json -->
 <!-- @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-16] [FR-18] [NFR-2] [DES-SUPPLY] -->
 
-- [ ] Add `check:security` script: `pnpm audit --audit-level=high --prod && license-checker-rseidelsohn --production --onlyAllow '<allowlist>'`
+- [ ] Add `check:security` script: `pnpm audit --audit-level=high --prod` plus the artifact-aware notice verification from 7.7; do not treat a root-only `license-checker` result as shipped-artifact coverage
 - [ ] Install `license-checker-rseidelsohn` (devDep)
 - [ ] Wire into `verify:full`
 - [ ] Add CI `security` job invoking `pnpm check:security`
+
+#### 7.7 Artifact-aware third-party notices
+
+<!-- files: scripts/legal/**, NOTICE, THIRD_PARTY_NOTICES.md, package.json, apps/chat/vite.config.ts, apps/workbench/vite.config.ts -->
+<!-- @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-18] [NFR-2] [DES-SUPPLY] [DES-FILES] -->
+
+- [x] Generate deterministic notices from actual extension, Pi/provider, Chat, and Workbench bundle source-map inputs plus an explicit copied-asset inventory; record package/version/repository/license and exact upstream LICENSE/NOTICE content
+- [x] Add audited overrides only when shipped package artifacts omit required evidence; include Pi, JetBrains Mono, Lucide/Feather, and future React Flow/dnd/layout packages without guessing pre-install versions
+- [x] Keep JSON Canvas in a standards/project-acknowledgments section because AFX implements its open format rather than bundles a JSON Canvas runtime
+- [x] Fail tests/CI on disallowed, unknown, missing, stale, or non-reproducible evidence and on omissions from the tracked `NOTICE` / `THIRD_PARTY_NOTICES.md`
 
 #### 7.2 OSV-Scanner
 
@@ -1544,19 +1566,19 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 
 ### Cross-Reference Index
 
-| Phase / Tasks | Spec Requirements                               | Design Sections                             |
-| ------------- | ----------------------------------------------- | ------------------------------------------- |
-| 1.1 – 1.3     | FR-1, FR-2, FR-3, FR-31, FR-34                  | DES-OVR, DES-ARCH, DES-API                  |
-| 2.1 – 2.4     | FR-4, FR-23                                     | DES-LINT                                    |
-| 3.1 – 3.5     | FR-5, FR-6, FR-7                                | DES-NAMING                                  |
-| 4.1 – 4.3     | FR-8, FR-9                                      | DES-TS, DES-SHADCN (4.2)                    |
-| 5.1 – 5.4     | FR-10, FR-11, FR-12, FR-33                      | DES-LINT, DES-VARS, DES-DEPS (5.1)          |
-| 6.1 – 6.4     | FR-15                                           | DES-SECRETS, DES-LINT, DES-ERR (6.1)        |
-| 7.1 – 7.6     | FR-16, FR-17, FR-18, FR-19, FR-20, FR-28, FR-35 | DES-SUPPLY, DES-SEC (7.5), DES-APPSEC (7.6) |
-| 8.1 – 8.3     | FR-21, FR-22, FR-23                             | DES-APPSEC                                  |
-| 9.1 – 9.3     | FR-13, FR-14, FR-30                             | DES-TEST, DES-TESTPLAN (9.3)                |
-| 10.1 – 10.2   | FR-24, FR-25                                    | DES-WORKSPACE                               |
-| 11.1 – 11.6   | FR-26, FR-27, FR-29, FR-31, FR-32               | DES-DOCS, DES-ROLLOUT, DES-FILES (11.6)     |
+| Phase / Tasks | Spec Requirements                               | Design Sections                                              |
+| ------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| 1.1 – 1.3     | FR-1, FR-2, FR-3, FR-31, FR-34                  | DES-OVR, DES-ARCH, DES-API                                   |
+| 2.1 – 2.4     | FR-4, FR-23                                     | DES-LINT                                                     |
+| 3.1 – 3.5     | FR-5, FR-6, FR-7                                | DES-NAMING                                                   |
+| 4.1 – 4.3     | FR-8, FR-9                                      | DES-TS, DES-SHADCN (4.2)                                     |
+| 5.1 – 5.4     | FR-10, FR-11, FR-12, FR-33                      | DES-LINT, DES-VARS, DES-DEPS (5.1)                           |
+| 6.1 – 6.4     | FR-15                                           | DES-SECRETS, DES-LINT, DES-ERR (6.1)                         |
+| 7.1 – 7.7     | FR-16, FR-17, FR-18, FR-19, FR-20, FR-28, FR-35 | DES-SUPPLY, DES-SEC (7.5), DES-APPSEC (7.6), DES-FILES (7.7) |
+| 8.1 – 8.3     | FR-21, FR-22, FR-23                             | DES-APPSEC                                                   |
+| 9.1 – 9.3     | FR-13, FR-14, FR-30                             | DES-TEST, DES-TESTPLAN (9.3)                                 |
+| 10.1 – 10.2   | FR-24, FR-25                                    | DES-WORKSPACE                                                |
+| 11.1 – 11.6   | FR-26, FR-27, FR-29, FR-31, FR-32               | DES-DOCS, DES-ROLLOUT, DES-FILES (11.6)                      |
 
 NFR coverage: NFR-1 enforced by 1.1 (`turbo run --continue` parallel design); NFR-2 by deterministic tooling choices in DES-DEC; NFR-3 by the 11-PR atomic-revert plan in DES-ROLLOUT; NFR-4 by review during each PR; NFR-5 by 4.2 scope; NFR-6 by per-tool standard output (eslint, vitest, gitleaks); NFR-7 by tooling choices that emit machine-readable output (eslint JSON, vitest TAP, gitleaks SARIF).
 
@@ -1605,5 +1627,8 @@ These two anchors exist as scaffolding-completeness markers (`afx-design/assets/
 | 2026-04-28 | 4,5,9      | Deferred | High-violation TS strict + type-aware lint + FR-33 naming + size-limit budgets — need dedicated PRs                                                              | [x]   | [x]   |
 | 2026-04-28 | ALL        | Verified | pnpm verify exits non-zero only on 2 pre-existing failures (parsers coverage + knip orphan); ALL new enforcement layers pass                                     | [x]   | [x]   |
 | 2026-06-02 | 7.6        | Coded    | .github/workflows/codeql.yml + FR-35/DES-SUPPLY/Phase 7 traceability update for stale CodeQL alert refresh                                                       | [x]   | [x]   |
+| 2026-07-19 | 7.7        | Reviewed | Artifact-aware NOTICE/third-party-notice generator, copied-asset coverage, allowlist, exact-license, and VSIX evidence plan                                      | [x]   | [x]   |
+| 2026-07-19 | 7.7        | Coded    | scripts/legal/\*\*, NOTICE, THIRD_PARTY_NOTICES.md, package/VSIX scripts, Vite source maps, CI legal gates                                                       | [x]   | []    |
+| 2026-07-19 | 7.7        | Verified | 256 shipped components; React Flow/dnd-kit exact versions; legal 5/5; lint; deterministic check; 66-file VSIX exact-byte legal assertion                         | [x]   | []    |
 
 <!-- SPRINT-SECTION-END: SESSIONS -->

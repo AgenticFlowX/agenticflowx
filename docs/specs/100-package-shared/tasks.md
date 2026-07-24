@@ -1,12 +1,23 @@
 ---
 afx: true
 type: TASKS
-status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-23T11:03:30.000Z"
-tags: ["package", "shared", "protocol", "types", "agent", "logging"]
+updated_at: "2026-07-19T03:39:36.000Z"
+tags:
+  [
+    "package",
+    "shared",
+    "protocol",
+    "types",
+    "agent",
+    "logging",
+    "revisions",
+    "mutations",
+    "canvas",
+    "multi-root",
+  ]
 spec: spec.md
 design: design.md
 ---
@@ -15,14 +26,14 @@ design: design.md
 
 ---
 
-## Phase 1 — Initial package scaffold
+## Phase 1: Initial package scaffold
 
 - [x] Create `packages/shared/src/` structure
 - [x] Define message protocol types (`WebviewMessage`, `ExtensionMessage`)
 - [x] Export from `packages/shared/src/index.ts`
 - [x] Wire into `apps/vscode`, `apps/chat`, `apps/workbench`
 
-## Phase 2 — AgentManager abstraction (ADR-0002)
+## Phase 2: AgentManager abstraction (ADR-0002)
 
 - [x] Add `packages/shared/src/agent.ts` — `AgentManager`, `AgentEvent`, `AgentStatus`, `Disposable`, `Logger`
 - [x] Export `agent.ts` from `packages/shared/src/index.ts`
@@ -31,7 +42,7 @@ design: design.md
 - [x] Verify: `pnpm check:types` passes with zero errors
 - [x] Review fixes: add usage stats and extension UI request/response to `AgentManager`
 
-## Phase 3 — Structured logger (ADR-0003)
+## Phase 3: Structured logger (ADR-0003)
 
 - [x] Add `packages/shared/src/logger.ts` — `Logger`, `LogLevel`, `LogRecord`, `LogSink`, `createLogger`, sinks
 - [x] Add `packages/shared/src/logger.test.ts` — 25 tests covering level gating, lazy callbacks, child scope/field merge, sink formats, error+stack, faulty-sink isolation
@@ -44,13 +55,13 @@ design: design.md
 - [x] Add test fixture `apps/vscode/__tests__/fixtures/mock-logger.ts`; update `agent-factory.spec.ts` and `extension.spec.ts`
 - [x] Verify: `pnpm check-types` and `pnpm test` clean (29 tests in `@afx/shared`; 82 tests monorepo-wide)
 
-## Phase 4 — Active File Context Snapshot
+## Phase 4: Active File Context Snapshot
 
 - [x] Extend `SettingsSnapshot` with the durable active-file context preference
 - [x] Add `chat/setIncludeActiveFileContext` to the chat-to-host protocol
 - [x] Update shared protocol/design tests for the new snapshot field and toggle message
 
-## Phase 5 — Editor-Area Preview Protocol (FR-16)
+## Phase 5: Editor-Area Preview Protocol (FR-16)
 
 - [x] Add inbound `afxPreviewShow { filePath, content, isAfxHint? }` to `WorkbenchInbound`
 - [x] Extend `afxOpenFile.mode` to `"editor" | "preview" | "afxPreview"`
@@ -58,6 +69,49 @@ design: design.md
 - [x] Tighten `afxToggleSession.column` to `"agent" | "human"` and add optional `line?`
 - [x] Add outbound `afxToggleAllSessions` and `afxApproveSessions` for bulk Work Sessions signoff
 - [x] Document the new messages in design.md (`[DES-SHARED-WORKBENCH-PROTOCOL]`) with cross-references to 202/222/227
+
+---
+
+## Phase 6: Realtime Workbench Contracts
+
+### 6.1 Canonical Source Identity And Revision
+
+<!-- files: packages/shared/src/workbench-types.ts, packages/shared/src/index.ts, packages/shared/src/workbench-types.test.ts -->
+<!-- @see docs/specs/100-package-shared/spec.md [FR-18] | docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-IDENTITY] -->
+
+- [ ] Add framework-free workspace-root identity, source identity, content/disk revision, open-document version, and dirty-state types with barrel exports and compile fixtures.
+
+### 6.2 Correlated Mutation Results
+
+<!-- files: packages/shared/src/workbench-protocol.ts, packages/shared/src/index.ts, packages/shared/src/workbench-protocol.test.ts -->
+<!-- @see docs/specs/100-package-shared/spec.md [FR-17] | docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-MUTATIONS] -->
+
+- [ ] Add request-correlated success/conflict/error results and require target identity plus expected revision on every source-backed Workbench mutation.
+
+## Phase 7: Canvas And View Registry Contracts
+
+### 7.1 Plural Canvas And Custom Editor Protocol
+
+<!-- files: packages/shared/src/workbench-types.ts, packages/shared/src/workbench-protocol.ts, packages/shared/src/index.ts, packages/shared/src/workbench-protocol.test.ts -->
+<!-- @see docs/specs/100-package-shared/spec.md [FR-19] | docs/specs/100-package-shared/design.md [DES-SHARED-CANVAS-PROTOCOL] -->
+
+- [ ] Add Canvas descriptors, selected document snapshots, JSON Canvas extension metadata, library lifecycle messages, dependency refresh, editor-area open/ready/document/mutation/view-state messages, and acknowledged saves.
+
+### 7.2 Workbench Hidden View IDs
+
+<!-- files: packages/shared/src/workbench-types.ts, packages/shared/src/messages.ts, packages/shared/src/index.ts, packages/shared/src/messages.test.ts -->
+<!-- @see docs/specs/100-package-shared/spec.md [FR-20] | docs/specs/100-package-shared/design.md [DES-SHARED-VIEW-VISIBILITY] -->
+
+- [ ] Export the eight `WorkbenchViewId` values, carry the hidden-ID set in Settings snapshots, and add the `experimental/setWorkbenchHiddenViews` mutation without coupling it to Canvas capability.
+
+## Cross-Reference Index
+
+| Task | Spec Requirement          | Design Section                   |
+| ---- | ------------------------- | -------------------------------- |
+| 6.1  | [FR-18], [NFR-1], [NFR-3] | [DES-SHARED-WORKBENCH-IDENTITY]  |
+| 6.2  | [FR-17], [NFR-3]          | [DES-SHARED-WORKBENCH-MUTATIONS] |
+| 7.1  | [FR-19], [NFR-1], [NFR-3] | [DES-SHARED-CANVAS-PROTOCOL]     |
+| 7.2  | [FR-20], [NFR-3]          | [DES-SHARED-VIEW-VISIBILITY]     |
 
 ---
 

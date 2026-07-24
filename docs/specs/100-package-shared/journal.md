@@ -9,17 +9,17 @@ tags: ["package", "shared", "protocol", "types", "agent", "logging"]
 
 ## Discussion: AgentManager contract added (2026-04-26T08:05:52.000Z)
 
-### Context
+### Context — Realtime Workbench
 
 During the `packages/agent/pi` extraction work, it became clear that `sidebar-panel.ts` was importing `PiManager` directly — making Pi the only possible agent runtime. To decouple the extension host from Pi, a runtime-agnostic contract is needed in `@afx/shared` so that swapping to any future runtime requires only changing which factory is called in `extension.ts`.
 
-### Decision
+### Decision — Realtime Workbench
 
 Add `AgentManager`, `AgentEvent`, `AgentStatus`, `Disposable`, and `Logger` to `@afx/shared` as FR-6. All agent adapters (`packages/agent/pi`, future `packages/agent/future-runtime`, etc.) implement this interface. The extension host and sidebar panel depend only on `AgentManager` — never on `PiManager` or any adapter-specific type.
 
 `Disposable` and `Logger` are minimal structural interfaces that VSCode types satisfy structurally, keeping the shared package free of VSCode API imports.
 
-### Links
+### Links — Realtime Workbench
 
 - FR-6 added to `spec.md`
 - `agent.ts` added to `design.md` (DES-ARCH, DES-DATA, DES-API, DES-FILES, File Reference Map)
@@ -53,3 +53,29 @@ Migrated all 32 callsites across 11 files. Replaced `Logger { appendLine }` with
 - FR-6 added; spec bumped to v1.2; design.md adds `[DES-LOG]` section
 - 25 logger unit tests + 82 total workspace tests passing
 - New VSCode setting `afx.logLevel`; new env override `AFX_LOG_LEVEL`
+
+---
+
+## Discussion: Realtime Workbench And Canvas Contracts (2026-07-19T03:39:36.000Z)
+
+### Context
+
+Board, Notes, and Canvas currently combine disk-only snapshots with
+fire-and-forget writes. That prevents the webview from representing unsaved
+manual edits, stale revisions, multi-root identity, or failed writes honestly.
+The Canvas expansion also requires multiple files and a custom editor without
+making the shared package depend on VS Code or React Flow.
+
+### Decision
+
+Add framework-free source identity/revision contracts and a common correlated
+mutation result to `@afx/shared`. Extend the Workbench protocol with plural
+Canvas library/custom-editor messages and expose a hidden-ID Workbench view
+registry. The host remains the only URI resolver and writer; Canvas capability
+and Canvas tab visibility remain independent controls.
+
+### Links
+
+- `spec.md` [FR-17] through [FR-20]
+- `design.md` [DES-SHARED-WORKBENCH-IDENTITY], [DES-SHARED-WORKBENCH-MUTATIONS], [DES-SHARED-CANVAS-PROTOCOL], [DES-SHARED-VIEW-VISIBILITY]
+- `tasks.md` Phase 6 and Phase 7

@@ -1,12 +1,20 @@
 ---
 afx: true
 type: TASKS
-status: Living
 owner: "@rixrix"
-version: "0.1"
+version: "0.2"
 created_at: "2026-05-03T03:28:22.000Z"
-updated_at: "2026-05-09T12:21:59.000Z"
-tags: ["app", "workbench", "impact-lens", "traceability", "intent-ledger"]
+updated_at: "2026-07-19T03:39:36.000Z"
+tags:
+  [
+    "app",
+    "workbench",
+    "impact-lens",
+    "traceability",
+    "intent-ledger",
+    "read-only",
+    "canvas-projection",
+  ]
 spec: spec.md
 design: design.md
 ---
@@ -41,12 +49,25 @@ Tasks use hierarchical numbering and link to spec/design IDs.
 
 ---
 
+## Phase 2: Read-Only Canvas Projection Boundary
+
+### 2.1 Reuse Projection Without Writable Ownership
+
+<!-- files: apps/workbench/src/components/impact/impact-graph-projection.tsx, apps/workbench/src/components/impact/impact-graph-projection.test.tsx, apps/workbench/src/views/impact-lens.tsx -->
+<!-- @see docs/specs/228-app-workbench-impact-lens/spec.md [FR-9] | docs/specs/228-app-workbench-impact-lens/design.md [DES-IMPACT-CANVAS-BOUNDARY] -->
+
+- [ ] After the Canvas projection API stabilizes, adapt computed Impact data into read-only nodes/edges with local selection/viewport only, retain the accessible list fallback, and prove no Canvas/dependency mutation or AFX action path is reachable.
+
+---
+
 ## Implementation Flow
 
 ```
 Phase 0: Graduation Prep
     ↓
 Phase 1: MVP Implementation
+    ↓
+Phase 2: Optional read-only Canvas projection reuse
 ```
 
 ---
@@ -57,6 +78,10 @@ Phase 1: MVP Implementation
 | ---- | ---------------- | ---------------------------------------- |
 | 0.1  | [FR-1]           | [DES-ROLLOUT]                            |
 | 1.1  | [FR-1], [FR-8]   | [DES-IMPACT-MOCKUP], [DES-IMPACT-STATES] |
+
+| Task | Spec Requirement | Design Section               |
+| ---- | ---------------- | ---------------------------- |
+| 2.1  | [FR-9]           | [DES-IMPACT-CANVAS-BOUNDARY] |
 
 ---
 

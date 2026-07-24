@@ -3,11 +3,25 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.8"
+version: "1.9"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-24T03:51:51.000Z"
+updated_at: "2026-07-19T03:16:29.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
-tags: [package, shared, protocol, types, agent, logging, mode, workspace-mode, intent]
+tags:
+  [
+    package,
+    shared,
+    protocol,
+    types,
+    agent,
+    logging,
+    mode,
+    workspace-mode,
+    intent,
+    realtime,
+    revisions,
+    canvas,
+  ]
 ---
 
 # @afx/shared — Product Specification
@@ -64,13 +78,18 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 | FR-14 | Chat-to-host protocol includes a `chat/hostAction` envelope for deterministic document mutations triggered from the composer; the host posts a separate inbound event (`agent/signOffComplete`) for toast/error UX rather than returning via callback envelope                                                                                    | Must Have   |
 | FR-15 | Shared Composer Intent contracts include `IntentSlot`, `ComposerIntentState`, parent-aware prompt entries, human-facing prompt-overhead copy helpers, `SettingsSnapshot.intent`, optional `intentSlot` on outbound chat turn messages, and mutations for `chat/setIntentSlot` / `chat/setIntentMinimized`                                         | Must Have   |
 | FR-16 | Editor-area preview protocol supports host-pushed preview content, raw markdown copy, `afxPreview` open-file routing from Workbench and Chat, and Work Sessions checkbox/signoff mutations.                                                                                                                                                       | Must Have   |
+| FR-17 | Workbench mutation contracts carry `requestId`, canonical target identity, and expected revision where applicable; host results are a typed success/error/conflict union with optional confirmed revision and actionable message                                                                                                                  | Must Have   |
+| FR-18 | Shared Workbench data types carry source revisions and workspace-folder identity for Board, Notes, Canvas, linked work items, and multi-root-safe paths without importing VS Code or filesystem APIs                                                                                                                                              | Must Have   |
+| FR-19 | Canvas contracts support a plural descriptor library, active document, freeform/spec-map kind, JSON Canvas extension fields, dependency nodes/edges, editor-area open actions, lifecycle mutations, and acknowledged saves                                                                                                                        | Must Have   |
+| FR-20 | Settings contracts expose `WorkbenchViewId` and the `experimental/setWorkbenchHiddenViews` mutation while keeping workspace-scoped tab hiding separate from Canvas feature enablement                                                                                                                                                             | Must Have   |
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                                                     | Target                       |
-| ----- | --------------------------------------------------------------- | ---------------------------- |
-| NFR-1 | Zero dependencies on VSCode API, React, or Node filesystem APIs | Enforced by package tsconfig |
-| NFR-2 | Pure TypeScript — no runtime library dependencies               | Enforced by package.json     |
+| ID    | Requirement                                                     | Target                                                                                                                            |
+| ----- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| NFR-1 | Zero dependencies on VSCode API, React, or Node filesystem APIs | Enforced by package tsconfig                                                                                                      |
+| NFR-2 | Pure TypeScript — no runtime library dependencies               | Enforced by package.json                                                                                                          |
+| NFR-3 | Forward-compatible protocol and persistence metadata            | New fields are additive/versioned; unknown JSON Canvas and linked-card metadata remain representable without runtime dependencies |
 
 ---
 
@@ -97,6 +116,13 @@ Extension host (`apps/vscode`), webview apps (`apps/chat`, `apps/workbench`), an
 - [x] Webview-to-host `afxCopyMarkdown { content; label? }` copies raw markdown through the host clipboard
 - [x] `afxToggleSession` carries `line?` and `column: "agent" | "human"`
 - [x] `afxToggleAllSessions` and `afxApproveSessions` support bulk Work Sessions signoff edits
+
+### Workbench Realtime And Canvas Protocol (FR-17–FR-20)
+
+- [ ] Every mutating Workbench message is request-correlated and every host execution produces one typed success/error/conflict result.
+- [ ] Revisions, workspace identity, linked work-item references/resolution, Notes source identity, and Canvas descriptors are exported from `@afx/shared` without VS Code/Node imports.
+- [ ] Canvas library/select/create/rename/duplicate/delete/save/dependency/editor-area messages form discriminated unions and preserve JSON Canvas extension metadata.
+- [ ] `WorkbenchViewId` enumerates the eight configurable Workbench surfaces and Settings carries one hidden-ID set independent from `canvasEnabled`; unknown future IDs do not make new registered views hidden by default.
 
 ### Domain Types
 

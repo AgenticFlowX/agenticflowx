@@ -1,12 +1,11 @@
 ---
 afx: true
 type: DESIGN
-status: Living
+status: Approved
 owner: "@rixrix"
-version: "1.10"
+version: "1.11"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-26T12:50:19.000Z"
-approved_at: "2026-05-05T11:45:45.000Z"
+updated_at: "2026-07-19T03:39:36.000Z"
 tags:
   [
     "app",
@@ -18,6 +17,8 @@ tags:
     "custom-models",
     "skills",
     "project-trust",
+    "workbench-visibility",
+    "experimental",
   ]
 spec: spec.md
 ---
@@ -64,6 +65,61 @@ Settings view
 | Telemetry          | `setTelemetryEnabled`                                                                                    | `telemetry/setEnabled`                                                                                                                       | Host persists analytics preference                                                                                    | `agent/settingsSnapshot` or `chat/error`                                             |
 | Custom Models      | `addCustomProvider`, `editCustomProvider`, `removeCustomProvider`, `addCustomModel`, `removeCustomModel` | `customModels/upsertProvider`, `customModels/removeProvider`, `customModels/upsertModel`, `customModels/removeModel`, `customModels/refresh` | `custom-providers-service` SecretStorage CRUD; FileSystemWatcher re-read for Pi RPC track                             | `agent/settingsSnapshot` (with `customModels` field) or `customModels/result` ack    |
 | Skills             | `refreshSkills`, `setProjectTrust`, `createSkill`, path open/reveal actions                              | `chat/getCommands`, `skills/setProjectTrust`, `skills/create`, `skills/openPath`, `skills/revealPath`, `chat/openSettings`                   | Host rebuilds settings/command snapshots, persists workspace trust, creates starter skills, opens/reveals skill paths | `agent/settingsSnapshot`, `agent/commands`, `settings/updateResult`, or `chat/error` |
+
+Workbench visibility follows the same flow:
+
+| Source                      | Bridge message                         | Host result                                                                                     | Returned state                           |
+| --------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `applyWorkbenchHiddenViews` | `experimental/setWorkbenchHiddenViews` | Persist normalized hidden IDs at workspace scope, or window/global fallback without a workspace | `agent/settingsSnapshot` or `chat/error` |
+
+---
+
+## [DES-SETTINGS-WORKBENCH-VISIBILITY] Experimental Workbench View Visibility
+
+The Experimental group renders one compact visibility switch per registered
+Workbench surface. UI switches are phrased positively (visible/on), while the
+persisted representation is a hidden-ID set so future registered views default
+to visible.
+
+| ID          | User label | Capability gate                                     |
+| ----------- | ---------- | --------------------------------------------------- |
+| `workbench` | SDD Studio | always                                              |
+| `pipeline`  | Pipeline   | always                                              |
+| `documents` | Documents  | always                                              |
+| `analytics` | Analytics  | always                                              |
+| `journal`   | Journal    | always                                              |
+| `board`     | Board      | always                                              |
+| `notes`     | Notes      | always                                              |
+| `canvas`    | Canvas     | `afx.experimental.canvas` for tab/editor capability |
+
+The contributed setting is an array:
+
+```json
+{
+  "afx.experimental.workbenchHiddenViews": []
+}
+```
+
+Its schema enumerates the eight current IDs, uses `scope: "window"`, and
+defaults to `[]`. The host writes the workspace target when a workspace is
+open; an empty VS Code window falls back to the global/window value. Snapshot
+normalization intersects stored values with known IDs, so invalid values cannot
+hide arbitrary UI and a newly shipped ID is visible by default.
+
+Switching a row sends
+`experimental/setWorkbenchHiddenViews { requestId, hidden }`, applies an
+optimistic local set, disables only the changed control while pending, and
+reconciles from `agent/settingsSnapshot`. The Settings group includes **Show
+all views**. If every view is hidden, the Workbench shell renders a recovery
+surface outside the tab registry with the same restore action.
+
+Canvas has two independent predicates:
+
+- Workbench tab: `canvasEnabled && !hidden.has("canvas")`.
+- Editor-area Canvas command/provider: `canvasEnabled` only.
+
+Hiding the tab therefore never removes or corrupts `.canvas` files and never
+silently disables the editor-area capability.
 
 ---
 
@@ -616,7 +672,7 @@ This satisfies NFR-3 (self-documentation) and gives copy editors a single file t
 
 @see `apps/chat/src/lib/settings-copy.ts`
 
-### [DES-SETTINGS-CUSTOM-MODELS] Custom Models Sub-Tab (Two Tracks)
+### [DES-SETTINGS-CUSTOM-MODEL-TRACKS] Custom Models Sub-Tab (Two Tracks)
 
 Custom providers are runtime-specific: Pi RPC reads its own `models.json`; Pi SDK uses AFX-managed env-var injection. The sub-tab carries a `Track: [ Pi SDK ] [ Pi RPC ]` selector accordingly. See `351-agent-pi [DES-PI-CUSTOM-PROVIDERS-RPC-SDK]` for the full architecture rationale.
 
@@ -747,6 +803,10 @@ Mutation -> ack mapping for the most common flows:
 | Theme preview ownership  | Design-system only, settings only, split | Split          | Settings owns preview UX; design-system owns shared contract                    |
 | Workspace mode ownership | Composer, parent chat, settings child    | Settings child | Code default and Explore read-only posture are host-owned and global by default |
 
+Additional approved decisions store hidden view IDs rather than a visible
+allowlist, so new views appear without migration, and keep Canvas capability
+independent from Canvas tab visibility so editor-area access can remain enabled.
+
 ---
 
 ## [DES-DATA] Data Model
@@ -768,6 +828,10 @@ Settings state includes provider catalog entries, active provider/model, runtime
 | `ProviderConnectionState`                        | `@afx/shared` / `ProviderCard`           | API provider credential/model state                                                        |
 | `ExternalAgentCardProps.status`                  | `ExternalAgentCard`                      | Pi/local-agent state: connected, disabled, unavailable, coming-soon                        |
 | `HostModeClass` / theme/style ids                | `theme-preview.ts`                       | Browser-only preview classes for settings/debug surfaces                                   |
+
+`SettingsSnapshot.experimental.workbenchHiddenViews` carries the effective
+known IDs for the current workspace/window. `WorkbenchViewId` is the closed
+shared registry consumed by Settings and the Workbench shell.
 
 ---
 
@@ -796,6 +860,10 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | Host to webview | `agent/commands`                                                                                                       | Populate skills list                                                                         |
 | Host to webview | `chat/error`                                                                                                           | Resolve pending mutation failure with toast                                                  |
 
+`experimental/setWorkbenchHiddenViews { requestId, hidden }` persists the
+normalized workspace/window hidden-ID set and retains pending state until the
+snapshot or matching error arrives.
+
 ---
 
 ## [DES-FILES] File Structure
@@ -808,6 +876,11 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | `apps/chat/src/lib/settings-copy.ts`               | Settings labels and help text |
 | `apps/chat/src/lib/settings-snapshot.ts`           | Snapshot normalization        |
 | `apps/chat/src/lib/theme-preview.ts`               | Settings preview helpers      |
+
+Visibility also modifies `apps/vscode/package.json` for the contributed array
+schema, `apps/vscode/src/panels/sidebar-panel.ts` for effective snapshots and
+normalized persistence, and `packages/shared/src/messages.ts` for the view ID,
+snapshot field, and mutation contract.
 
 ---
 
@@ -837,6 +910,10 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | Snapshot unavailable | Render recoverable loading/error state            |
 | Provider save fails  | Keep form editable and show actionable error copy |
 
+Hidden-view save failures restore the last host snapshot, retain focus, and
+offer Retry. An all-hidden set produces a non-tab Workbench recovery surface.
+Unknown stored IDs are ignored and never hide an unrelated view.
+
 ---
 
 ## [DES-TEST] Testing Strategy
@@ -850,6 +927,27 @@ Settings uses shared settings snapshot and provider update bridge messages. Secr
 | External agent/Pi RPC states                  | future `external-agent-card.test.tsx`                                                           |
 | Runtime controls and pending toasts           | future settings view test                                                                       |
 | Theme/style preview class updates             | future `theme-preview.test.ts`                                                                  |
+
+Visibility coverage adds snapshot normalization/rollback tests in Chat,
+configuration schema and host persistence tests in VS Code, and shell tests for
+all-hidden recovery plus Canvas tab/editor independence.
+
+---
+
+## [DES-ROLLOUT] Migration / Rollout Plan
+
+1. Add the shared `WorkbenchViewId` and snapshot/mutation fields additively;
+   omitted snapshots normalize to `[]`.
+2. Contribute `afx.experimental.workbenchHiddenViews` with default `[]` and
+   persist workspace scope without changing `afx.experimental.canvas`.
+3. Add the Settings switches and request-correlated rollback behavior.
+4. Make the Workbench tab registry consume the effective hidden set and ship an
+   all-hidden recovery surface before exposing the controls.
+5. Verify that hiding Canvas leaves editor-area Canvas commands available when
+   `afx.experimental.canvas` is enabled.
+
+Rollback removes the Settings controls and ignores the additive snapshot field;
+the persisted empty/default array is harmless to older builds.
 
 ---
 
@@ -876,6 +974,14 @@ If routing changes, update file references before moving source ownership.
 | 1.x  | `apps/chat/src/lib/settings-snapshot.ts`           | `design.md [DES-DATA] [DES-SETTINGS-SURFACE-PROVIDERS]`                                                                                             |
 | 1.x  | `apps/chat/src/lib/theme-preview.ts`               | `design.md [DES-SETTINGS-SURFACE-APPEARANCE]`                                                                                                       |
 
+Visibility references:
+
+| Task | File                                      | Required @see                                                                          |
+| ---- | ----------------------------------------- | -------------------------------------------------------------------------------------- |
+| 5.x  | `apps/chat/src/views/settings.tsx`        | `spec.md [FR-16]`; `design.md [DES-SETTINGS-WORKBENCH-VISIBILITY]`                     |
+| 5.x  | `apps/vscode/package.json`                | `spec.md [FR-16]`; `design.md [DES-SETTINGS-WORKBENCH-VISIBILITY]`                     |
+| 5.x  | `apps/vscode/src/panels/sidebar-panel.ts` | `spec.md [FR-16]`; `design.md [DES-SETTINGS-FLOW] [DES-SETTINGS-WORKBENCH-VISIBILITY]` |
+
 ## [DES-SETTINGS-LOC] Code Locator Map
 
 | Map ID                              | Code anchor                                                                   | Messages/settings/commands                                                                                                                  | Tests                                                             |
@@ -893,6 +999,11 @@ If routing changes, update file references before moving source ownership.
 | `[ChatSettings.Support]`            | skills card, diagnostics card, privacy card, about card                       | `chat/getCommands`, `skills/*`, `chat/openSettings`, `chat/showLogs`, `telemetry/setEnabled`                                                | `apps/chat/src/app.test.tsx`                                      |
 | `[ChatSettings.Experimental]`       | `SettingsCard id="experimental"` (`SwitchRow`, `ConfigField`, Open Workbench) | `experimental/setCanvasEnabled`, `chat/openWorkbench`, `afx.experimental.canvas` (canvas feature → `229-app-workbench-canvas`)              | `apps/chat/src/app.test.tsx`                                      |
 
+The Experimental locator additionally owns
+`experimental/setWorkbenchHiddenViews` and
+`afx.experimental.workbenchHiddenViews`; its snapshot and interaction coverage
+lives in `settings-snapshot.test.ts` and `app.test.tsx`.
+
 ## [DES-SETTINGS-TRACE] Functional Trace Matrix
 
 | Requirement | Design nodes                                                                                    | Code anchors                                                                                                                                                  | Verification                                        |
@@ -908,6 +1019,10 @@ If routing changes, update file references before moving source ownership.
 | FR-14       | `DES-DATA`, `DES-SETTINGS-FLOW`; canvas feature `229-app-workbench-canvas [DES-SETTINGS]`       | `SettingsCard id="experimental"`, `setExperimentalCanvasEnabled`, `pendingExperimentalMutations`, `EXPERIMENTAL` copy, `composeSettingsSnapshot.experimental` | `apps/chat/src/app.test.tsx` (Experimental toggle)  |
 | NFR-1       | `DES-SEC`, `DES-SETTINGS-SURFACE-PROVIDERS`                                                     | masked provider key row, `data-clarity-mask`, no raw key render                                                                                               | provider-card tests/manual review                   |
 | NFR-2       | `DES-ERR`, `DES-SETTINGS-MOCKUP-RECOVERY`                                                       | `RuntimeConfigurationNotice`, `AgentRecoveryCard`, pending mutation error toasts                                                                              | `apps/chat/src/app.test.tsx`; future recovery tests |
+
+| Requirement | Design nodes                                                                    | Code anchors                                                         | Verification                |
+| ----------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------- |
+| FR-16       | `DES-SETTINGS-WORKBENCH-VISIBILITY`, `DES-SETTINGS-FLOW`, `DES-DATA`, `DES-API` | Visibility switches, hidden-set snapshot/persistence, shell recovery | Chat, host, and shell tests |
 
 ---
 

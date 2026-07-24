@@ -469,33 +469,35 @@ Canonical spec folders for this repository. Naming convention: 3-digit ranged nu
 500–599    — ci
 ```
 
-| Folder                          | Covers                                                                        | Source                                     |
-| ------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
-| `001-overview`                  | Project overview, spec-naming convention, architecture summary                | —                                          |
-| `100-package-shared`            | `@afx/shared` — types, message protocol, constants                            | `packages/shared/`                         |
-| `110-package-transport`         | `@afx/transport` — transport abstraction, VSCode adapter, mock (13 scenarios) | `packages/transport/`                      |
-| `120-package-parsers`           | `@afx/parsers` — spec/tasks/journal/frontmatter parsers                       | `packages/parsers/`                        |
-| `130-package-ui`                | `@afx/ui` — design system, Shadcn components, Meridian/Lyra themes            | `packages/ui/`                             |
-| `200-app-vscode`                | Extension host — commands, webview providers, VSCode integration              | `apps/vscode/`                             |
-| `210-app-chat`                  | Chat webview — message UI, streaming, tool calls, DevOverlay                  | `apps/chat/`                               |
-| `220-app-workbench`             | Workbench webview parent — bottom-panel shell boundary and child routes       | `apps/workbench/`                          |
-| `221-app-workbench-board`       | Workbench Board tab — markdown-backed Kanban boards                           | `apps/workbench/src/views/board.tsx`       |
-| `222-app-workbench-documents`   | Workbench Documents tab — docs tree, reader, markdown helpers                 | `apps/workbench/src/views/documents.tsx`   |
-| `223-app-workbench-journal`     | Workbench Journal tab — session timeline and preview                          | `apps/workbench/src/views/journal.tsx`     |
-| `224-app-workbench-notes`       | Workbench Notes tab — capture, timeline, edit/delete, time labels             | `apps/workbench/src/views/notes.tsx`       |
-| `225-app-workbench-pipeline`    | Workbench Pipeline tab — feature progress and next actions                    | `apps/workbench/src/views/pipeline.tsx`    |
-| `226-app-workbench-analytics`   | Workbench Analytics tab — dashboard metrics and heatmap                       | `apps/workbench/src/views/analytics.tsx`   |
-| `227-app-workbench-shell`       | Workbench shell — tabs, provider, bridge, feature 4-column tab                | `apps/workbench/src/`                      |
-| `228-app-workbench-impact-lens` | Workbench Impact Lens — planned reverse traceability surface                  | `apps/workbench/src/views/impact-lens.tsx` |
-| `300-infra-pi`                  | Pi RPC client — subprocess lifecycle, JSONL framing, lazy startup             | `packages/agent/pi/`                       |
-| `310-infra-build`               | Build system — Turbo pipelines, esbuild, Vite, tsconfig.base                  | root config files                          |
-| `320-infra-scripts`             | Scripts — dynamic commitlint scope-enum generation                            | `scripts/`                                 |
-| `400-dx-conventions`            | DX conventions — commitlint, kebab-case, editorconfig, import order           | root config files                          |
-| `410-dx-quality`                | DX quality — ESLint flat config, Prettier, markdownlint, knip, size-limit     | root config files                          |
-| `420-dx-testing`                | Testing — Vitest workspace, Playwright (webview), vscode-test-electron (e2e)  | test config + e2e                          |
-| `500-ci-code-qa`                | CI gate — PR lint/types/unit/e2e/bundle-size/pr-title jobs                    | `.github/workflows/code-qa.yml`            |
-| `510-ci-release`                | CI release — release-please CHANGELOG + version bump                          | `.github/workflows/release-please.yml`     |
-| `520-ci-publish`                | CI publish — build VSIX on release; attach to GitHub Release                  | `.github/workflows/build-vsix.yml`         |
+| Folder                             | Covers                                                                        | Source                                     |
+| ---------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------ |
+| `001-overview`                     | Project overview, spec-naming convention, architecture summary                | —                                          |
+| `100-package-shared`               | `@afx/shared` — types, message protocol, constants                            | `packages/shared/`                         |
+| `110-package-transport`            | `@afx/transport` — transport abstraction, VSCode adapter, mock (13 scenarios) | `packages/transport/`                      |
+| `120-package-parsers`              | `@afx/parsers` — spec/tasks/journal/frontmatter parsers                       | `packages/parsers/`                        |
+| `130-package-ui`                   | `@afx/ui` — design system, Shadcn components, Meridian/Lyra themes            | `packages/ui/`                             |
+| `200-app-vscode`                   | Extension host — commands, webview providers, VSCode integration              | `apps/vscode/`                             |
+| `210-app-chat`                     | Chat webview — message UI, streaming, tool calls, DevOverlay                  | `apps/chat/`                               |
+| `220-app-workbench`                | Workbench webview parent — bottom-panel shell boundary and child routes       | `apps/workbench/`                          |
+| `221-app-workbench-board`          | Workbench Board tab — markdown-backed Kanban boards                           | `apps/workbench/src/views/board.tsx`       |
+| `222-app-workbench-documents`      | Workbench Documents tab — docs tree, reader, markdown helpers                 | `apps/workbench/src/views/documents.tsx`   |
+| `223-app-workbench-journal`        | Workbench Journal tab — session timeline and preview                          | `apps/workbench/src/views/journal.tsx`     |
+| `224-app-workbench-notes`          | Workbench Notes tab — capture, timeline, edit/delete, time labels             | `apps/workbench/src/views/notes.tsx`       |
+| `225-app-workbench-pipeline`       | Workbench Pipeline tab — feature progress and next actions                    | `apps/workbench/src/views/pipeline.tsx`    |
+| `226-app-workbench-analytics`      | Workbench Analytics tab — dashboard metrics and heatmap                       | `apps/workbench/src/views/analytics.tsx`   |
+| `227-app-workbench-shell`          | Workbench shell — tabs, provider, bridge, feature 4-column tab                | `apps/workbench/src/`                      |
+| `228-app-workbench-impact-lens`    | Workbench Impact Lens — planned reverse traceability surface                  | `apps/workbench/src/views/impact-lens.tsx` |
+| `229-app-workbench-canvas`         | Workbench Canvas — JSON Canvas planning/spec-map surface (React Flow)         | `apps/workbench/src/components/canvas/`    |
+| `230-app-workbench-spec-authoring` | Spec authoring — authorable afx document graph (draw arrows → frontmatter)    | `apps/vscode/src/services/doc-graph-*`     |
+| `300-infra-pi`                     | Pi RPC client — subprocess lifecycle, JSONL framing, lazy startup             | `packages/agent/pi/`                       |
+| `310-infra-build`                  | Build system — Turbo pipelines, esbuild, Vite, tsconfig.base                  | root config files                          |
+| `320-infra-scripts`                | Scripts — dynamic commitlint scope-enum generation                            | `scripts/`                                 |
+| `400-dx-conventions`               | DX conventions — commitlint, kebab-case, editorconfig, import order           | root config files                          |
+| `410-dx-quality`                   | DX quality — ESLint flat config, Prettier, markdownlint, knip, size-limit     | root config files                          |
+| `420-dx-testing`                   | Testing — Vitest workspace, Playwright (webview), vscode-test-electron (e2e)  | test config + e2e                          |
+| `500-ci-code-qa`                   | CI gate — PR lint/types/unit/e2e/bundle-size/pr-title jobs                    | `.github/workflows/code-qa.yml`            |
+| `510-ci-release`                   | CI release — release-please CHANGELOG + version bump                          | `.github/workflows/release-please.yml`     |
+| `520-ci-publish`                   | CI publish — build VSIX on release; attach to GitHub Release                  | `.github/workflows/build-vsix.yml`         |
 
 **Dependency graph** (depends_on relationships):
 

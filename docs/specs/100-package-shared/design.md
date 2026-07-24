@@ -1,13 +1,25 @@
 ---
 afx: true
 type: DESIGN
-status: Living
+status: Approved
 owner: "@rixrix"
-version: "2.2"
+version: "2.3"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-24T03:51:51.000Z"
-approved_at: "2026-05-05T11:45:45.000Z"
-tags: ["package", "shared", "protocol", "types", "agent", "logging", "traceability"]
+updated_at: "2026-07-19T03:39:36.000Z"
+tags:
+  [
+    "package",
+    "shared",
+    "protocol",
+    "types",
+    "agent",
+    "logging",
+    "traceability",
+    "revisions",
+    "mutations",
+    "canvas",
+    "multi-root",
+  ]
 spec: spec.md
 ---
 
@@ -35,11 +47,22 @@ packages/shared/
     ├── intent.ts       ← Composer Intent modes, slots, state
     ├── intent-prompts.ts ← parent-aware Composer Intent prompt registry
     ├── intent-copy.ts  ← human-facing Composer Intent labels/tooltips
+    ├── workbench-types.ts ← source identities, revisions, Canvas and Workbench domain types
+    ├── workbench-protocol.ts ← typed host/webview Workbench message unions
     ├── types.ts        ← domain types: Task, Spec, Phase, Feature, Discussion …
     └── constants.ts    ← shared string constants
 ```
 
 `@afx/shared` has no dependencies. All packages and apps import from it.
+
+---
+
+## [DES-UI] User Interface & UX
+
+`@afx/shared` renders no UI. It defines the state and result vocabulary that
+lets Workbench consumers render truthful pending, success, conflict, dirty,
+stale, disabled, and recovery states without inferring host behavior. Human
+copy and component layout remain owned by the consuming app specs.
 
 ---
 
@@ -50,6 +73,17 @@ packages/shared/
 | Message typing        | Plain `{ type: string, payload: any }`, discriminated union | Discriminated union | TypeScript narrows on `type` field; no runtime schema needed                              |
 | Domain types location | Per-package, shared library                                 | Shared library      | Single source of truth; prevents drift between extension host and webview                 |
 | View types            | Inline in app, shared                                       | Shared              | `ChatMessageView` used by both the extension host (to construct) and chat app (to render) |
+
+Additional approved decisions:
+
+- Mutation completion uses a correlated terminal result rather than
+  fire-and-forget success, so revision conflicts remain explicit.
+- Source identity uses a canonical workspace root plus relative path rather
+  than falling back to the first workspace folder.
+- View persistence stores hidden IDs rather than a visible allowlist, so new
+  views appear by default and all-hidden recovery is deterministic.
+- Canvas uses a plural descriptor/document protocol so Workbench and multiple
+  editor-area instances share one contract.
 
 ---
 
@@ -449,6 +483,139 @@ shared by `workbench-panel.ts` and `afx-preview-panel.ts`. The preview workflow 
 `222-app-workbench-documents` (`[DES-DOCS-PREVIEW-STANDALONE]`) and the workbench surface by
 `227-app-workbench-shell` (`[DES-SHELL-FEATURE-COLUMNS]`).
 
+### [DES-SHARED-WORKBENCH-IDENTITY] Source Identity And Revision (FR-17, FR-18)
+
+Workbench payloads use a canonical identity instead of assuming the first
+workspace folder. Paths shown to users remain relative, while `rootUri` and
+`relativePath` form the host-owned lookup key. `revision` represents the exact
+content projected to the webview; an open unsaved document may therefore carry
+a `documentVersion` and `dirty: true` even when its disk fingerprint is older.
+
+```typescript
+interface WorkbenchSourceIdentity {
+  rootUri: string;
+  rootName: string;
+  relativePath: string;
+}
+
+interface WorkbenchSourceRevision {
+  contentRevision: string;
+  diskRevision?: string;
+  documentVersion?: number;
+  dirty: boolean;
+}
+
+interface WorkbenchSourceSnapshot {
+  source: WorkbenchSourceIdentity;
+  revision: WorkbenchSourceRevision;
+}
+```
+
+The webview treats the identity as opaque and always returns it unchanged.
+Only the host resolves it to a `vscode.Uri`; this prevents accidental
+cross-root writes and keeps `@afx/shared` free of VS Code and Node APIs.
+
+### [DES-SHARED-WORKBENCH-MUTATIONS] Acknowledged Mutation Result (FR-17)
+
+Every mutating `WorkbenchOutbound` variant carries `requestId`, `target`, and
+`expectedRevision`. The host emits exactly one terminal `afxMutationResult` for
+that request. Success returns the confirmed source revision; conflict and error
+preserve an actionable message and stable machine-readable code.
+
+```typescript
+interface WorkbenchMutationTarget {
+  source: WorkbenchSourceIdentity;
+  expectedRevision: string;
+}
+
+type WorkbenchMutationResult =
+  | {
+      type: "afxMutationResult";
+      requestId: string;
+      outcome: "success";
+      target: WorkbenchSourceIdentity;
+      revision: WorkbenchSourceRevision;
+    }
+  | {
+      type: "afxMutationResult";
+      requestId: string;
+      outcome: "conflict" | "error";
+      target: WorkbenchSourceIdentity;
+      code:
+        | "stale-revision"
+        | "dirty-document"
+        | "outside-workspace"
+        | "not-found"
+        | "parse-error"
+        | "write-failed";
+      message: string;
+      revision?: WorkbenchSourceRevision;
+      retryable: boolean;
+    };
+```
+
+The result envelope is shared by Notes, Board, Canvas, document task/session
+toggles, and future Workbench writers. Feature-specific mutation payloads stay
+discriminated; only completion semantics are common.
+
+### [DES-SHARED-CANVAS-PROTOCOL] Canvas Library And Editor Protocol (FR-19)
+
+Canvas is plural and document-addressed. Shared types include
+`CanvasDescriptor`, `CanvasDocumentSnapshot`, `CanvasKind`, standard JSON
+Canvas node/edge shapes, namespaced optional AFX metadata/actions, and the
+source/revision fields above. Unknown extension properties remain representable
+and must survive parse/serialize cycles.
+
+Outbound messages are discriminated variants for:
+
+- `afxCanvasList`, `afxCanvasSelect`, `afxCanvasCreate`, `afxCanvasRename`,
+  `afxCanvasDuplicate`, and `afxCanvasDelete`;
+- `afxCanvasSave` and `afxCanvasRefreshDependencies` with request correlation
+  and expected revision;
+- `afxOpenCanvasEditor` for `vscode.openWith` routing;
+- `afxCanvasEditorReady`, `afxCanvasApplyMutation`, and
+  `afxCanvasEditorSetViewState` for the editor-area custom-editor boot target.
+
+Inbound messages include:
+
+- `afxCanvasLibrary` and `afxCanvasDocument` for descriptor/document hydration;
+- `afxCanvasEditorDocument` for editor-area content/version updates;
+- the common `afxMutationResult` for create/rename/duplicate/delete/save and
+  dependency refresh;
+- `afxCanvasEditorState` for view-local selection/viewport restoration only.
+
+Document content is never embedded in generic settings snapshots. Canvas
+descriptor messages carry identity and metadata; document messages carry one
+selected document and its revision. View state is not persisted into portable
+JSON Canvas unless the user performs a document mutation.
+
+### [DES-SHARED-VIEW-VISIBILITY] Workbench View Visibility (FR-20)
+
+```typescript
+type WorkbenchViewId =
+  | "workbench"
+  | "pipeline"
+  | "documents"
+  | "analytics"
+  | "journal"
+  | "board"
+  | "notes"
+  | "canvas";
+
+interface SettingsSnapshot {
+  experimental: {
+    canvasEnabled: boolean;
+    workbenchHiddenViews: WorkbenchViewId[];
+  };
+}
+```
+
+`experimental/setWorkbenchHiddenViews { requestId, hidden }` updates the
+workspace/window-scoped hidden set. Consumers intersect this set with their
+registered view IDs. A newly registered view therefore remains visible until a
+user explicitly hides it. `canvasEnabled` is an independent capability flag:
+hiding the Canvas tab does not disable the editor-area Canvas command.
+
 ### [DES-SHARED-WORKBENCH-TYPES] Workbench Row Models
 
 | Type               | Source                                   | Consumers                                       |
@@ -460,6 +627,11 @@ shared by `workbench-panel.ts` and `afx-preview-panel.ts`. The preview workflow 
 | `KanbanData`       | `packages/shared/src/workbench-types.ts` | Board view                                      |
 | `QuickNote`        | `packages/shared/src/workbench-types.ts` | Notes view                                      |
 | `GhostTaskResult`  | `packages/shared/src/workbench-types.ts` | Analytics and Documents attention surfaces      |
+
+New Workbench contracts in the same module are
+`WorkbenchSourceSnapshot`, `CanvasDescriptor`, `CanvasDocumentSnapshot`, and
+`WorkbenchViewId`. They serve live source-backed views, the Canvas library and
+custom editor, selected Canvas revisions, and Settings/shell visibility.
 
 ### [DES-SHARED-PROVIDER-CATALOG] Provider Catalog
 
@@ -477,6 +649,17 @@ All types are exported from `src/index.ts`:
 ```typescript
 export type { ChatToAgent, AgentToChat, ChatMessageView, ChatToolView, ChatUsageView };
 export type { WorkbenchToHost, HostToWorkbench };
+export type {
+  WorkbenchSourceIdentity,
+  WorkbenchSourceRevision,
+  WorkbenchSourceSnapshot,
+  WorkbenchMutationTarget,
+  WorkbenchMutationResult,
+  WorkbenchViewId,
+  CanvasDescriptor,
+  CanvasDocumentSnapshot,
+  CanvasKind,
+};
 export type { Task, Spec, Phase, Feature, Discussion, TaskStatus, SpecStatus };
 export type { Mode, Provider, TaskStats };
 export type { AgentManager, AgentEvent, AgentStatus, AgentUsageStats };
@@ -539,6 +722,11 @@ Output panel opens only through explicit diagnostics actions such as `afx.showLo
 | `packages/shared/src/types.ts`          | Domain types (Task, Spec, etc.)                        |
 | `packages/shared/src/constants.ts`      | Shared string constants                                |
 
+`packages/shared/src/workbench-types.ts` owns source identity/revision, view
+IDs, and Workbench/Canvas domain contracts.
+`packages/shared/src/workbench-protocol.ts` owns host/webview messages and the
+correlated mutation result.
+
 ---
 
 ## [DES-DEPS] Dependencies
@@ -562,6 +750,10 @@ Output panel opens only through explicit diagnostics actions such as `afx.showLo
 | ----------------------------- | ---------------------------------------------------------------- |
 | Unknown message type received | Consumer switches on `type`; unknown cases fall through to no-op |
 
+Mutation results without a matching pending request are logged and ignored;
+they never clear another request. Consumers preserve extension data where
+required and safely ignore additive fields they do not understand.
+
 ---
 
 ## [DES-TEST] Testing Strategy
@@ -570,6 +762,10 @@ Output panel opens only through explicit diagnostics actions such as `afx.showLo
 
 - `constants.test.ts` covers exported constants
 - Types are structural — validated at compile time, not runtime
+- protocol fixture tests cover every mutation result outcome and request correlation
+- compile-time fixtures cover the eight `WorkbenchViewId` values and reject arbitrary view IDs
+- Canvas fixtures cover plural library/document/custom-editor messages and unknown JSON extension fields
+- import-boundary tests keep `workbench-types.ts` and `workbench-protocol.ts` free of VS Code, React, Node filesystem, and runtime dependencies
 
 ---
 
@@ -580,6 +776,9 @@ Output panel opens only through explicit diagnostics actions such as `afx.showLo
 1. Define message discriminated unions in `messages.ts`
 2. Define domain types in `types.ts`
 3. Re-export all from `index.ts`
+4. Add source identity/revision and correlated Workbench mutation contracts additively.
+5. Migrate Notes, Board, Canvas, and shell consumers one surface at a time; keep legacy fields until all consumers compile against the new contract.
+6. Add plural Canvas/editor messages before enabling the custom editor contribution.
 
 ### [DES-SHARED-ROLLOUT-ROLLBACK] Rollback Plan
 
@@ -604,6 +803,15 @@ Revert `messages.ts` and `types.ts` to previous version; all consumers recompile
 | Provider catalog          | `packages/shared/src/provider-catalog.ts`                                                                      | `[DES-SHARED-PROVIDER-CATALOG]`   | settings/provider cards, agent factory   |
 | Structured logger         | `packages/shared/src/logger.ts`                                                                                | `[DES-LOG]`                       | extension host, webviews, agent packages |
 
+Realtime additions:
+
+| Contract                  | Source                                        | Design node                        | Consumers                                 |
+| ------------------------- | --------------------------------------------- | ---------------------------------- | ----------------------------------------- |
+| Source identity/revisions | `workbench-types.ts`                          | `[DES-SHARED-WORKBENCH-IDENTITY]`  | Live host service and source-backed views |
+| Mutation results          | `workbench-protocol.ts`                       | `[DES-SHARED-WORKBENCH-MUTATIONS]` | Host coordinator and child pending states |
+| Canvas library/editor     | `workbench-types.ts`, `workbench-protocol.ts` | `[DES-SHARED-CANVAS-PROTOCOL]`     | Canvas view, custom editor, host service  |
+| Workbench visibility      | `workbench-types.ts`, `messages.ts`           | `[DES-SHARED-VIEW-VISIBILITY]`     | Settings, sidebar host, shell             |
+
 ---
 
 ## [DES-SHARED-TRACE] 1:1 Code/Spec Matrix
@@ -619,6 +827,13 @@ Revert `messages.ts` and `types.ts` to previous version; all consumers recompile
 | `[FR-15]`   | `[DES-SHARED-CHAT-PROTOCOL]`                                      | `packages/shared/src/intent.ts`, `packages/shared/src/intent-prompts.ts`, `packages/shared/src/intent-copy.ts`, `packages/shared/src/messages.ts` |
 | `[NFR-1]`   | `[DES-DEPS]`                                                      | `packages/shared/src/no-react.test.ts`                                                                                                            |
 | `[NFR-2]`   | `[DES-DEPS]`                                                      | `packages/shared/package.json`                                                                                                                    |
+
+| Requirement | Design node                                                       | Source anchor                                                                         |
+| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `[FR-17]`   | `[DES-SHARED-WORKBENCH-MUTATIONS]`                                | `packages/shared/src/workbench-protocol.ts`                                           |
+| `[FR-18]`   | `[DES-SHARED-WORKBENCH-IDENTITY]`, `[DES-SHARED-WORKBENCH-TYPES]` | `packages/shared/src/workbench-types.ts`                                              |
+| `[FR-19]`   | `[DES-SHARED-CANVAS-PROTOCOL]`                                    | `packages/shared/src/workbench-types.ts`, `packages/shared/src/workbench-protocol.ts` |
+| `[FR-20]`   | `[DES-SHARED-VIEW-VISIBILITY]`                                    | `packages/shared/src/workbench-types.ts`, `packages/shared/src/messages.ts`           |
 
 ---
 
@@ -638,3 +853,10 @@ Revert `messages.ts` and `types.ts` to previous version; all consumers recompile
 | —    | `packages/shared/src/provider-catalog.ts`   | `design.md [DES-SHARED-PROVIDER-CATALOG]`                        |
 | —    | `packages/shared/src/types.ts`              | `spec.md [FR-3]` + `design.md [DES-SHARED-DOMAIN-TYPES]`         |
 | —    | `packages/shared/src/constants.ts`          | `spec.md [FR-3]` + `design.md [DES-SHARED-DOMAIN-TYPES]`         |
+
+Realtime reference additions:
+
+| File                                        | Required @see                                                                                                                            |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/shared/src/workbench-protocol.ts` | `spec.md [FR-17] [FR-19]`; `design.md [DES-SHARED-WORKBENCH-MUTATIONS] [DES-SHARED-CANVAS-PROTOCOL]`                                     |
+| `packages/shared/src/workbench-types.ts`    | `spec.md [FR-18] [FR-19] [FR-20]`; `design.md [DES-SHARED-WORKBENCH-IDENTITY] [DES-SHARED-CANVAS-PROTOCOL] [DES-SHARED-VIEW-VISIBILITY]` |

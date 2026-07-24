@@ -1,12 +1,12 @@
 ---
 afx: true
 type: SPEC
-status: Living
+status: Approved
 owner: "@rixrix"
-version: "1.1"
+version: "1.2"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T09:04:20.000Z"
-tags: [ci, publish, vsix]
+updated_at: "2026-07-19T03:56:24.000Z"
+tags: [ci, publish, vsix, licensing, third-party-notices]
 depends_on: [510-ci-release]
 ---
 
@@ -28,17 +28,19 @@ When a GitHub Release is published, the extension VSIX must be packaged and atta
 
 ### Functional Requirements
 
-| ID   | Requirement                                                                               | Priority  |
-| ---- | ----------------------------------------------------------------------------------------- | --------- |
-| FR-1 | `build-vsix.yml` triggers on GitHub Release published (v\* tag)                           | Must Have |
-| FR-2 | Build all packages, then package VSIX via `pnpm exec vsce package`                        | Must Have |
-| FR-3 | Attach VSIX artifact to the GitHub Release for manual marketplace upload by the developer | Must Have |
+| ID   | Requirement                                                                                                                                                              | Priority  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| FR-1 | `build-vsix.yml` triggers on GitHub Release published (v\* tag)                                                                                                          | Must Have |
+| FR-2 | Build all packages, then package VSIX via `pnpm exec vsce package`                                                                                                       | Must Have |
+| FR-3 | Attach VSIX artifact to the GitHub Release for manual marketplace upload by the developer                                                                                | Must Have |
+| FR-4 | Package `LICENSE.txt`, `NOTICE`, and generated `THIRD_PARTY_NOTICES.md`; fail before upload if any legal file is missing or the artifact-aware notice inventory is stale | Must Have |
 
 ### Non-Functional Requirements
 
-| ID    | Requirement                           | Target                             |
-| ----- | ------------------------------------- | ---------------------------------- |
-| NFR-1 | VSIX packaging is idempotent on retry | `vsce package` overwrites the file |
+| ID    | Requirement                           | Target                                                                                                    |
+| ----- | ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| NFR-1 | VSIX packaging is idempotent on retry | `vsce package` overwrites the file                                                                        |
+| NFR-2 | Release compliance is reproducible    | The tagged lockfile and built bundle inputs reproduce identical notice inventory and packaged legal files |
 
 ---
 

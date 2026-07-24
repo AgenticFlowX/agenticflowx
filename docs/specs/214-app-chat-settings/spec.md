@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.10"
+version: "1.11"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-26T12:50:19.000Z"
+updated_at: "2026-07-19T03:16:29.000Z"
 approved_at: "2026-05-05T15:15:37.000Z"
 tags:
   [
@@ -19,6 +19,7 @@ tags:
     "intent",
     "skills",
     "project-trust",
+    "workbench-views",
   ]
 depends_on:
   [
@@ -26,6 +27,8 @@ depends_on:
     "110-package-transport",
     "131-package-ui-design-system",
     "210-app-chat",
+    "227-app-workbench-shell",
+    "229-app-workbench-canvas",
     "350-agent-manager",
     "351-agent-pi",
   ]
@@ -84,6 +87,7 @@ Users configuring chat providers and developers maintaining settings UX.
 | FR-13 | Surface the host slow-start threshold in Settings → Runtimes as "Model warm-up timeout" with the effective value, provider/proxy/local first-token copy, and a Configure action for `afx.runtime.responseStartTimeoutMs`. This setting controls the AFX host warning only; it must not change provider keys, custom providers, Ollama URL, or Pi session settings.                                                                                                                                                                                                                                                                                                                                                                                        | Must Have   |
 | FR-14 | Own the **Experimental** settings group — a feature-flag surface for in-progress AFX surfaces. It surfaces the Workbench Canvas toggle: a switch bound to `SettingsSnapshot.experimental.canvasEnabled` that sends `experimental/setCanvasEnabled { requestId, enabled }` (optimistic local patch + pending-mutation success/error toast), a read-only canvas-file path field that deep-links the `afx.experimental.canvas` VS Code setting, and an "Open Workbench" action (`chat/openWorkbench`). The canvas feature itself is owned by `229-app-workbench-canvas` [FR-22]; this spec owns only its Settings presentation.                                                                                                                              | Should Have |
 | FR-15 | Surface Skills & commands inside Support with grouped AFX bundled skills, Pi global skills, Agent Skills global entries, Pi workspace skills, Agent Skills workspace entries, and custom skill paths from `afx.skills.extraPaths`. Each entry shows command, description, path, origin, trust/load state, duplicate warnings, and actions to insert, open, reveal, refresh, and create a starter skill. Workspace skill groups expose `afx.pi.projectTrust` (`ask` / `trust` / `ignore`) and do not load workspace resources while trust is unresolved. Settings also exposes `afx.pi.excludedTools` and `afx.network.httpProxy` as Pi runtime controls.                                                                                                  | Must Have   |
+| FR-16 | Extend Experimental settings with **Workbench views**: switches for `workbench` (SDD Studio), `pipeline`, `documents`, `analytics`, `journal`, `board`, `notes`, and `canvas`, backed by `SettingsSnapshot.experimental.workbenchHiddenViews` and workspace-scoped `afx.experimental.workbenchHiddenViews`; changes send `experimental/setWorkbenchHiddenViews { requestId, hidden }`, optimistically patch, and reconcile with success/error toast. Canvas still additionally requires `afx.experimental.canvas`; hiding its tab does not disable Open in Canvas Editor.                                                                                                                                                                                 | Should Have |
 
 ### Non-Functional Requirements
 
@@ -92,6 +96,7 @@ Users configuring chat providers and developers maintaining settings UX.
 | NFR-1 | The apiKey value, full opaque `compat` blob, and `headers` map never cross the host→webview bridge. Only `CustomProviderSummary` (id, displayName, baseUrl, api kind, modelCount, redacted models[], apiKeySource, apiKeyLabel, hasApiKey, authHeader, UI-known compatFlags) reaches the webview. Sensitive data never appears in UI logs/examples | No apiKey value, opaque compat, or header secrets in logs/docs/bridge payloads. `assertNoSecretLeak` passes for every snapshot; e2e asserts `~/.pi/agent/models.json` mtime is unchanged after AFX writes |
 | NFR-2 | Settings UX remains recoverable                                                                                                                                                                                                                                                                                                                    | Failed snapshots/provider updates show clear retry/configuration states                                                                                                                                   |
 | NFR-3 | Every visible control surfaces label, description, and tooltip in-place; no behaviour requires external documentation to understand                                                                                                                                                                                                                | Reviewer test: a first-time user with no docs can identify what each control does, what it changes, and the default value, by reading on-screen text alone                                                |
+| NFR-4 | Workbench visibility is reversible and non-destructive                                                                                                                                                                                                                                                                                             | Hiding a view never deletes workspace files, clears persisted content, disables editor-area entry points, or strands users without an all-hidden recovery action                                          |
 
 ---
 
@@ -120,6 +125,10 @@ Users configuring chat providers and developers maintaining settings UX.
 - [ ] Runtime controls expose excluded tools and proxy settings without leaking secrets into the webview
 - [ ] Runtimes shows the model warm-up timeout row with a Configure action that opens `afx.runtime.responseStartTimeoutMs`
 - [x] An Experimental group surfaces the Workbench Canvas toggle; flipping it sends `experimental/setCanvasEnabled` and the path field deep-links `afx.experimental.canvas` (canvas feature owned by `229-app-workbench-canvas`)
+- [ ] Experimental → Workbench views shows eight labelled switches in stable tab order, persists a workspace-scoped hidden-ID set, and explains that hiding affects the bottom-panel tab only; newly introduced views remain visible unless hidden later.
+- [ ] Hiding the active view selects the nearest visible view; hiding all views renders a compact recovery state with Open Settings/Restore all, and restoring a view returns it without deleting data.
+- [ ] Canvas visibility requires the Canvas feature flag and absence from the hidden-ID set; Open in Canvas Editor remains available for workspace-local `.canvas` files when the Workbench Canvas tab is hidden.
+- [ ] Failed visibility mutations roll the optimistic list back and show an actionable error without changing unrelated Experimental settings.
 
 ---
 
@@ -187,6 +196,8 @@ None.
 - `110-package-transport`
 - `131-package-ui-design-system`
 - `350-agent-manager`
+- `227-app-workbench-shell`
+- `229-app-workbench-canvas`
 
 ---
 
@@ -194,18 +205,18 @@ None.
 
 ### Agent Entry Map
 
-| Field           | Values                                                                                                                                                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Owned surface   | Chat settings panel, provider cards, API key/runtime readiness UX, settings snapshot UI                                                                                                                                  |
-| Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts`     |
-| Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                               |
-| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                                |
-| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`, `afx.composer.intent.slot`, `afx.composer.intent.minimized`, `afx.runtime.responseStartTimeoutMs` |
-| Commands        | Settings panel actions inside the chat webview                                                                                                                                                                           |
-| Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                          |
-| Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                      |
-| Out of scope    | Secret persistence internals, Pi RPC, composer send behavior                                                                                                                                                             |
-| Example prompts | "Update provider card copy", "Change API key empty state", "Adjust settings theme preview"                                                                                                                               |
+| Field           | Values                                                                                                                                                                                                                                                                                       |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owned surface   | Chat settings panel, provider cards, API key/runtime readiness UX, settings snapshot UI                                                                                                                                                                                                      |
+| Owned files     | `apps/chat/src/views/settings.tsx`, `apps/chat/src/components/provider-card.tsx`, `apps/chat/src/components/external-agent-card.tsx`, `apps/chat/src/lib/settings-snapshot.ts`, `apps/chat/src/lib/theme-preview.ts`                                                                         |
+| Local anchors   | Settings component sections, provider card components, runtime recovery card, snapshot normalization, appearance preview helpers, settings bridge handlers                                                                                                                                   |
+| Bridge messages | Settings snapshot, provider update, runtime status/configuration payloads, active-file context preference                                                                                                                                                                                    |
+| Settings keys   | Provider, model, API key status, appearance selections shown in chat settings, `afx.context.includeActiveFileContext`, `afx.composer.intent.slot`, `afx.composer.intent.minimized`, `afx.runtime.responseStartTimeoutMs`, `afx.experimental.canvas`, `afx.experimental.workbenchHiddenViews` |
+| Commands        | Settings panel actions inside the chat webview                                                                                                                                                                                                                                               |
+| Tests           | Settings view tests, provider card tests, snapshot helper tests                                                                                                                                                                                                                              |
+| Dependencies    | `350-agent-manager`, `351-agent-pi`, `131-package-ui-design-system`                                                                                                                                                                                                                          |
+| Out of scope    | Secret persistence internals, Pi RPC, composer send behavior                                                                                                                                                                                                                                 |
+| Example prompts | "Update provider card copy", "Change API key empty state", "Adjust settings theme preview"                                                                                                                                                                                                   |
 
 ### Glossary
 

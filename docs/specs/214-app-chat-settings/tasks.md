@@ -1,12 +1,12 @@
 ---
 afx: true
 type: TASKS
-status: Living
 owner: "@rixrix"
-version: "1.5"
+version: "1.6"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-05-22T06:20:53.000Z"
-tags: ["app", "chat", "settings", "providers", "custom-models"]
+updated_at: "2026-07-19T03:39:36.000Z"
+tags:
+  ["app", "chat", "settings", "providers", "custom-models", "workbench-visibility", "experimental"]
 spec: spec.md
 design: design.md
 ---
@@ -126,6 +126,31 @@ design: design.md
 
 ---
 
+## Phase 5: Experimental Workbench View Visibility
+
+### 5.1 Shared Snapshot And Configuration
+
+<!-- files: packages/shared/src/messages.ts, packages/shared/src/messages.test.ts, apps/vscode/package.json, apps/vscode/src/configuration-manifest.test.ts -->
+<!-- @see docs/specs/214-app-chat-settings/spec.md [FR-16] | docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-WORKBENCH-VISIBILITY] -->
+
+- [ ] Add the eight view IDs, `SettingsSnapshot.experimental.workbenchHiddenViews`, and the `afx.experimental.workbenchHiddenViews` window/workspace array setting with default `[]`.
+
+### 5.2 Host Persistence And Settings UX
+
+<!-- files: apps/vscode/src/panels/sidebar-panel.ts, apps/vscode/src/panels/sidebar-panel.test.ts, apps/chat/src/views/settings.tsx, apps/chat/src/lib/settings-snapshot.ts, apps/chat/src/lib/settings-snapshot.test.ts, apps/chat/src/app.test.tsx -->
+<!-- @see docs/specs/214-app-chat-settings/spec.md [FR-16] [NFR-4] | docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW] [DES-SETTINGS-WORKBENCH-VISIBILITY] -->
+
+- [ ] Persist normalized hidden IDs at workspace scope, reconcile request-correlated success/error, render compact positive visibility switches plus Show all views, and roll back optimistic state on failure.
+
+### 5.3 Shell Recovery And Canvas Independence
+
+<!-- files: apps/workbench/src/app.tsx, apps/workbench/src/app.test.tsx, apps/workbench/e2e/workbench.spec.ts -->
+<!-- @see docs/specs/214-app-chat-settings/spec.md [FR-16] [NFR-4] | docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-WORKBENCH-VISIBILITY] -->
+
+- [ ] Verify all-hidden recovery, newly registered views visible by default, responsive tab removal, and Canvas editor availability when only the Canvas tab is hidden.
+
+---
+
 ## Implementation Flow
 
 ```text
@@ -140,6 +165,8 @@ Verify settings behavior
 Custom Models (Pi SDK + Pi RPC tracks)
     ↓
 E2E + verify
+    ↓
+Experimental Workbench view visibility + recovery
 ```
 
 ---
@@ -154,12 +181,18 @@ E2E + verify
 | 2.3  | [FR-12]                 | [DES-SETTINGS-ONBOARDING], [DES-SETTINGS-SURFACE-SKILLS]                                                      |
 | 2.4  | [FR-13]                 | [DES-SETTINGS-SURFACE-RUNTIME], [DES-DATA], [DES-API]                                                         |
 | 4.1  | [FR-8], [FR-9], [FR-10] | [DES-SETTINGS-CUSTOM-MODELS]                                                                                  |
-| 4.2  | [FR-9], [FR-10]         | [DES-SETTINGS-CUSTOM-MODELS] · `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`                                       |
+| 4.2  | [FR-9], [FR-10]         | [DES-SETTINGS-CUSTOM-MODEL-TRACKS] · `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`                                 |
 | 4.3  | [FR-9], [FR-10]         | `351-agent-pi [DES-PI-CUSTOM-PROVIDERS]`                                                                      |
 | 4.4  | [FR-8], [FR-9], [FR-10] | [DES-SETTINGS-CUSTOM-MODELS]                                                                                  |
 | 4.5  | [FR-8], [FR-9]          | [DES-SETTINGS-CUSTOM-MODELS], [DES-SETTINGS-MOCKUP-CUSTOM-PRESET], [DES-SETTINGS-MOCKUP-CUSTOM-PROVIDER-FORM] |
 | 4.6  | [NFR-1]                 | [DES-SETTINGS-CUSTOM-MODELS]                                                                                  |
 | 4.7  | [NFR-1], [NFR-2]        | [DES-SETTINGS-CUSTOM-MODELS]                                                                                  |
+
+| Task | Spec Requirement | Design Section                                                      |
+| ---- | ---------------- | ------------------------------------------------------------------- |
+| 5.1  | [FR-16], [NFR-4] | [DES-SETTINGS-WORKBENCH-VISIBILITY], [DES-DATA]                     |
+| 5.2  | [FR-16], [NFR-4] | [DES-SETTINGS-FLOW], [DES-SETTINGS-WORKBENCH-VISIBILITY], [DES-API] |
+| 5.3  | [FR-16], [NFR-4] | [DES-SETTINGS-WORKBENCH-VISIBILITY], [DES-TEST]                     |
 
 ---
 
