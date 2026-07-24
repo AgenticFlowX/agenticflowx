@@ -195,8 +195,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: pnpm audit (high+ on production deps)
         run: pnpm audit --audit-level=high --prod
-      - name: License allowlist check
-        run: pnpm exec license-checker-rseidelsohn --production --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0;BlueOak-1.0.0'
+      - name: Build shipped artifacts for legal inventory
+        run: pnpm build
+      - name: Baseline package license policy
+        run: pnpm exec license-checker-rseidelsohn --production --onlyAllow 'MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;CC0-1.0;CC-BY-4.0;0BSD;Unlicense;Python-2.0;BlueOak-1.0.0;OFL-1.1'
+      - name: Artifact-aware third-party notices
+        run: pnpm legal:check
 
   # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-17] [DES-SUPPLY]
   osv-scan:

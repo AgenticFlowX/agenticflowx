@@ -36,11 +36,17 @@ jobs:
       - name: Build all packages
         run: pnpm build
 
+      - name: Verify artifact-aware third-party notices
+        run: pnpm legal:check
+
+      - name: Prepare VSIX output directory
+        run: mkdir -p bin
+
       - name: Package VSIX
-        run: |
-          mkdir -p ../../bin
-          pnpm exec vsce package --no-dependencies --out ../../bin/
-        working-directory: apps/vscode
+        run: pnpm run build:vsix
+
+      - name: Verify packaged legal files
+        run: pnpm legal:verify-vsix bin
 
       - name: Attach VSIX to GitHub Release
         run: gh release upload "${{ github.event.release.tag_name }}" bin/*.vsix

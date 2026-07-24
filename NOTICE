@@ -1,52 +1,34 @@
 AgenticFlowX
 Copyright 2026 AgenticFlowX Contributors
 
-This product is licensed under the Apache License, Version 2.0 (the "License").
-You may obtain a copy of the License at:
+This product is licensed under the Apache License, Version 2.0.
 
-    http://www.apache.org/licenses/LICENSE-2.0
+Third-party project acknowledgments
+=====================================
 
-================================================================================
-Bundled third-party software
-================================================================================
+Pi (0.80.2)
+Agent runtime and coding-agent SDK by Mario Zechner and Pi contributors.
+https://github.com/earendil-works/pi
 
-This product bundles software from the following third-party projects.
-Each listed component retains its own license, which governs its use,
-reproduction, and distribution. See the upstream project's LICENSE file
-for the full terms.
+React Flow (12.11.2)
+Node-based canvas interaction and rendering by the React Flow contributors.
+https://reactflow.dev/
 
---------------------------------------------------------------------------------
-Pi (https://github.com/earendil-works/pi-mono)
---------------------------------------------------------------------------------
+dnd kit (@dnd-kit/accessibility 3.1.1; @dnd-kit/core 6.3.1; @dnd-kit/sortable 10.0.0; @dnd-kit/utilities 3.2.2)
+Accessible drag-and-drop primitives by the dnd kit contributors.
+https://dndkit.com/
 
-The bundled Pi SDK is built from these npm packages:
+JetBrains Mono (5.2.8)
+JetBrains Mono font software by the JetBrains Mono Project Authors.
+https://www.jetbrains.com/lp/mono/
 
-    @earendil-works/pi-agent-core
-    @earendil-works/pi-ai
-    @earendil-works/pi-coding-agent
-    @earendil-works/pi-tui
+Lucide and Feather (1.21.0)
+Icons by the Lucide contributors, including icons derived from Feather by Cole Bemis.
+https://lucide.dev/
 
-The compiled bundle is shipped at:
+JSON Canvas (open standard acknowledgment)
+AFX reads and writes the open JSON Canvas file format; no JSON Canvas runtime is bundled.
+https://jsoncanvas.org/
 
-    apps/vscode/resources/pi-sdk/bootstrap.js
-
-Build artifacts are produced by `packages/agent/pi-sdk/build.bootstrap.mjs`
-from the upstream Pi packages at the version declared in
-`packages/agent/pi-sdk/package.json`.
-
-================================================================================
-Runtime dependencies
-================================================================================
-
-Runtime dependencies installed via pnpm are gated through the
-`pnpm check:security` script, which validates each dependency against an
-allow-list of permissive licenses:
-
-    MIT, ISC, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC0-1.0, CC-BY-4.0,
-    0BSD, Unlicense, Python-2.0, BlueOak-1.0.0
-
-To regenerate a full attribution list of installed dependencies, run:
-
-    pnpm exec license-checker-rseidelsohn --production --csv
-
-================================================================================
+Complete component metadata, exact upstream license text, and upstream NOTICE
+content are provided in THIRD_PARTY_NOTICES.md.
