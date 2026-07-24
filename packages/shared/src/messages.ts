@@ -31,7 +31,7 @@ import type { ComposerIntentState, IntentSlot } from "./intent";
 import type { OAuthProviderId, OAuthStatusSnapshot, ProviderAuthMethod } from "./oauth";
 import type { ProviderConfigField, ProviderOAuthFlow } from "./provider-catalog";
 import type { WorkspaceMode } from "./types";
-import type { FocusOption, PhaseRow, SignOffSummary } from "./workbench-types";
+import type { FocusOption, PhaseRow, SignOffSummary, WorkbenchViewId } from "./workbench-types";
 
 // ---------------------------------------------------------------------------
 // Runtime appearance
@@ -447,6 +447,7 @@ export interface SettingsCustomModelsSnapshot {
 export interface SettingsExperimentalSnapshot {
   canvasEnabled: boolean;
   canvasPath: string;
+  workbenchHiddenViews: WorkbenchViewId[];
 }
 
 export type SettingsProjectTrust = "ask" | "trust" | "ignore";
@@ -526,7 +527,11 @@ export interface SettingsSnapshot {
     effectiveEnabled: boolean;
     vscodeTelemetryEnabled: boolean;
   };
-  about: { extensionVersion: string; bundledPiNpmVersion?: string };
+  about: {
+    extensionVersion: string;
+    bundledAfxSkillsVersion?: string;
+    bundledPiNpmVersion?: string;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -739,6 +744,19 @@ export type ChatToAgent =
    * @see docs/specs/214-app-chat-settings/spec.md [FR-2] [FR-14]
    */
   | { type: "experimental/setCanvasEnabled"; requestId: string; enabled: boolean }
+  /**
+   * Persist the workspace-scoped Workbench tab visibility set. Canvas
+   * capability remains controlled separately by `setCanvasEnabled`.
+   *
+   * @see docs/specs/214-app-chat-settings/spec.md [FR-16]
+   * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-WORKBENCH-VISIBILITY]
+   * @see docs/specs/100-package-shared/design.md [DES-SHARED-VIEW-VISIBILITY]
+   */
+  | {
+      type: "experimental/setWorkbenchHiddenViews";
+      requestId: string;
+      hidden: WorkbenchViewId[];
+    }
   /**
    * Settings panel sets a provider API key.
    *

@@ -11,6 +11,7 @@ export default defineConfig({
   test: {
     projects: [
       "packages/shared/vitest.config.ts",
+      "packages/canvas-engine/vitest.config.ts",
       "packages/agent/pi/vitest.config.ts",
       "packages/agent/pi-sdk/vitest.config.ts",
       "packages/parsers/vitest.config.ts",
@@ -20,6 +21,7 @@ export default defineConfig({
       "apps/chat/vitest.config.unit.ts",
       "apps/workbench/vitest.config.unit.ts",
       "scripts/conventions/vitest.config.ts",
+      "scripts/legal/vitest.config.ts",
     ],
   },
 });

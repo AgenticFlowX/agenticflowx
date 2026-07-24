@@ -144,6 +144,151 @@ describe("chat-foundation shared protocol", () => {
     expect(inbound.filePath).toContain("idea.md");
   });
 
+  it("correlates owner-aware multi-file Canvas reference picking", () => {
+    const owner = {
+      rootUri: "file:///workspace-b",
+      rootName: "workspace-b",
+      relativePath: ".afx/project.canvas",
+    };
+    const request = {
+      type: "afxCanvasPickReferences",
+      requestId: "pick-1",
+      owner,
+      kind: "image",
+      allowMultiple: true,
+    } satisfies WorkbenchOutbound;
+    const result = {
+      type: "afxCanvasReferencesPicked",
+      requestId: request.requestId,
+      outcome: "success",
+      references: [
+        {
+          filePath: "assets/architecture.png",
+          source: { ...owner, relativePath: "assets/architecture.png" },
+        },
+      ],
+    } satisfies WorkbenchInbound;
+
+    expect(result.requestId).toBe(request.requestId);
+  });
+
+  it("represents truthful terminal Canvas export outcomes", () => {
+    const request = {
+      type: "afxCanvasExport",
+      requestId: "export-1",
+      format: "svg",
+      encoding: "utf8",
+      content: "<svg />",
+      suggestedName: "architecture.svg",
+    } satisfies WorkbenchOutbound;
+    const pngRequest = {
+      type: "afxCanvasExport",
+      requestId: "export-2",
+      format: "png",
+      encoding: "base64",
+      content: "iVBORw0KGgo=",
+      suggestedName: "architecture.png",
+    } satisfies WorkbenchOutbound;
+    const results = [
+      {
+        type: "afxCanvasExportResult",
+        requestId: request.requestId,
+        outcome: "success",
+        targetName: "architecture.svg",
+        byteLength: 7,
+      },
+      { type: "afxCanvasExportResult", requestId: request.requestId, outcome: "cancelled" },
+      {
+        type: "afxCanvasExportResult",
+        requestId: request.requestId,
+        outcome: "error",
+        code: "write-failed",
+        message: "disk full",
+      },
+    ] satisfies WorkbenchInbound[];
+
+    expect(results.map((result) => result.outcome)).toEqual(["success", "cancelled", "error"]);
+    expect(pngRequest.encoding).toBe("base64");
+  });
+
+  it("correlates revisioned multi-root Canvas Markdown delivery", () => {
+    const owner = {
+      rootUri: "file:///workspace-b",
+      rootName: "workspace-b",
+      relativePath: "docs/specs/shared/spec.markdown",
+    };
+    const request = {
+      type: "afxFetchDocContent",
+      requestId: "canvas-doc-1",
+      filePath: "workspace-b/docs/specs/shared/spec.markdown",
+      owner,
+    } satisfies WorkbenchOutbound;
+    const result = {
+      type: "afxDocContent",
+      requestId: request.requestId,
+      filePath: request.filePath,
+      owner,
+      revision: { contentRevision: "buffer-r2", diskRevision: "disk-r1", dirty: true },
+      content: "# Live draft",
+    } satisfies WorkbenchInbound;
+    const invalidated = {
+      type: "afxDocContentInvalidated",
+      owner,
+    } satisfies WorkbenchInbound;
+
+    expect(result.requestId).toBe(request.requestId);
+    expect(result.revision.dirty).toBe(true);
+    expect(invalidated.owner.rootUri).toBe("file:///workspace-b");
+  });
+
+  it("correlates owner-qualified Canvas content and explicit URL preview requests", () => {
+    const owner = {
+      rootUri: "file:///workspace-b",
+      rootName: "workspace-b",
+      relativePath: "assets/architecture.png",
+    };
+    const request = {
+      type: "afxCanvasContentPreviewRequest",
+      requestId: "canvas-preview-1",
+      owner,
+      knownRevision: "disk-r1",
+    } satisfies WorkbenchOutbound;
+    const result = {
+      type: "afxCanvasContentPreviewResult",
+      requestId: request.requestId,
+      owner,
+      revision: { contentRevision: "disk-r2", diskRevision: "disk-r2", dirty: false },
+      preview: {
+        kind: "image",
+        state: "ready",
+        mediaType: "image/png",
+        byteLength: 42,
+        resourceUri: "vscode-webview://canvas/assets/architecture.png",
+      },
+    } satisfies WorkbenchInbound;
+    const urlRequest = {
+      type: "afxCanvasUrlPreviewRequest",
+      requestId: "canvas-url-1",
+      url: "https://example.com/architecture",
+      allowNetwork: true,
+    } satisfies WorkbenchOutbound;
+    const urlResult = {
+      type: "afxCanvasUrlPreviewResult",
+      requestId: urlRequest.requestId,
+      url: urlRequest.url,
+      preview: {
+        state: "ready",
+        finalUrl: urlRequest.url,
+        metadata: { title: "Architecture" },
+      },
+    } satisfies WorkbenchInbound;
+
+    expect(result.owner).toEqual(request.owner);
+    expect(result.preview).not.toHaveProperty("uri");
+    expect(urlRequest.allowNetwork).toBe(true);
+    expect(urlResult.preview.metadata?.title).toBe("Architecture");
+  });
+
   it("supports persistent history protocol variants", () => {
     const list: ChatToAgent = { type: "session/list", requestId: "history-list" };
     const load: ChatToAgent = {
