@@ -6,8 +6,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   addFileNode,
+  addFileNodes,
   addGroupNode,
   addLabelNode,
+  addLinkNode,
   addTextNode,
   connectNodes,
   deleteEdge,
@@ -30,6 +32,56 @@ describe("canvas model mutations", () => {
     expect(withFile.nodes).toMatchObject([
       { id: "n-1", type: "text", text: "Idea", x: 10, y: 21 },
       { id: "n-2", type: "file", file: "docs/spec.md", x: 90, y: 110 },
+    ]);
+  });
+
+  it("adds URL and multi-root file references without proprietary required fields", () => {
+    const source = {
+      rootUri: "file:///workspace-two",
+      rootName: "workspace-two",
+      relativePath: "docs/diagram.png",
+    };
+    const withLink = addLinkNode(
+      { nodes: [], edges: [] },
+      "https://example.com/architecture",
+      { x: 10.4, y: 20.7 },
+      "n-link",
+    );
+    const withFiles = addFileNodes(
+      withLink,
+      [
+        { file: "README.md" },
+        { file: "docs/diagram.png", source },
+        { file: "src/system.ts" },
+        { file: "docs/spec.md" },
+      ],
+      { x: 100, y: 200 },
+    );
+
+    expect(withFiles.nodes?.[0]).toEqual({
+      id: "n-link",
+      type: "link",
+      url: "https://example.com/architecture",
+      x: 10,
+      y: 21,
+      width: 360,
+      height: 180,
+    });
+    expect(withFiles.nodes?.slice(1)).toMatchObject([
+      { type: "file", file: "README.md", x: 100, y: 200 },
+      {
+        type: "file",
+        file: "docs/diagram.png",
+        x: 520,
+        y: 200,
+        afxSource: {
+          rootUri: "afx-workspace://workspace-two",
+          rootName: "workspace-two",
+          relativePath: "docs/diagram.png",
+        },
+      },
+      { type: "file", file: "src/system.ts", x: 940, y: 200 },
+      { type: "file", file: "docs/spec.md", x: 100, y: 470 },
     ]);
   });
 

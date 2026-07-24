@@ -4,6 +4,8 @@
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-6] [FR-9]
  * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MARKDOWN] [DES-DOCS-PRD-READER] [DES-TEST]
  */
+import { StrictMode } from "react";
+
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -289,6 +291,29 @@ FR-99 should stay plain inside code.
     expect(done).toBeChecked();
 
     fireEvent.click(compactOpen);
+
+    expect(onCheckboxToggle).toHaveBeenCalledWith({
+      kind: "task",
+      checked: false,
+      completed: true,
+      line: 1,
+      checkboxIndex: 0,
+    });
+  });
+
+  it("keeps task checkbox identities stable across StrictMode renders", () => {
+    const onCheckboxToggle = vi.fn();
+    render(
+      <StrictMode>
+        <MinimalMarkdown
+          content={`- [ ] First task
+- [x] Second task`}
+          onCheckboxToggle={onCheckboxToggle}
+        />
+      </StrictMode>,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Toggle task checkbox on line 1" }));
 
     expect(onCheckboxToggle).toHaveBeenCalledWith({
       kind: "task",

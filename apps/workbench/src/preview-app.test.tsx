@@ -543,8 +543,8 @@ describe("PreviewApp", () => {
   it("scrolls the matching heading into view when an outline item is clicked", async () => {
     // jsdom does not implement scrollIntoView — install a spy on the prototype.
     const scrollSpy = vi.fn();
-    const original = (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
-    Element.prototype.scrollIntoView = scrollSpy;
+    const original = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollSpy;
 
     initWorkbenchBridge();
     render(<PreviewApp />);
@@ -568,9 +568,9 @@ describe("PreviewApp", () => {
     expect(scrollSpy.mock.instances[0]).toBe(heading);
 
     if (original === undefined) {
-      delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+      delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
     } else {
-      Element.prototype.scrollIntoView = original as typeof Element.prototype.scrollIntoView;
+      HTMLElement.prototype.scrollIntoView = original;
     }
   });
 

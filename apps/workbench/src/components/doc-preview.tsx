@@ -158,8 +158,8 @@ export function DocPreview({
 
   const scrollToHeading = useCallback((slug: string) => {
     const root = contentRef.current;
-    if (!root) return;
-    const target = root.querySelector<HTMLElement>(`#${CSS.escape(slug)}`);
+    const target =
+      root?.querySelector<HTMLElement>(`#${CSS.escape(slug)}`) ?? document.getElementById(slug);
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 

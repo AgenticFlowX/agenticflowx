@@ -95,9 +95,9 @@ test("captures every workbench surface", async ({ baseURL, browser }) => {
     await openWorkbench(page, baseURL);
     await enableCanvas(page);
     await page.getByRole("tab", { name: "Canvas" }).click();
-    await expect(page.getByTestId("canvas-surface")).toBeVisible();
+    await expect(page.getByTestId("react-flow-canvas")).toBeVisible();
     await expect(page.getByRole("heading", { name: "OAuth recovery" })).toBeVisible();
-    await expect(page.getByRole("status", { name: "Canvas save status saved" })).toBeVisible();
+    await expect(page.getByText("Saved", { exact: true })).toBeVisible();
     await capture(page, WORKBENCH_DIR, "workbench-canvas.png", WORKBENCH_VIEWPORT);
   } finally {
     await page.context().close();

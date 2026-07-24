@@ -19,6 +19,7 @@ let _send: ((msg: WorkbenchOutbound) => void) | null = null;
 const _listeners = new Map<WorkbenchInbound["type"], Set<AnyListener>>();
 let _initialized = false;
 let _hasVsCodeApi = false;
+let _windowMessageHandler: ((event: MessageEvent) => void) | null = null;
 
 interface VscodeApi {
   postMessage(msg: unknown): void;
@@ -52,7 +53,7 @@ export function initWorkbenchBridge(): void {
     _send = (msg) => window.parent.postMessage(msg, "*");
   }
 
-  window.addEventListener("message", (e: MessageEvent) => {
+  _windowMessageHandler = (e: MessageEvent) => {
     const msg = e.data as WorkbenchInbound | undefined;
     if (!msg || typeof msg !== "object" || typeof msg.type !== "string") return;
     const set = _listeners.get(msg.type);
@@ -64,7 +65,8 @@ export function initWorkbenchBridge(): void {
         log.error("listener threw", err instanceof Error ? err : undefined);
       }
     }
-  });
+  };
+  window.addEventListener("message", _windowMessageHandler);
 }
 
 /**
@@ -87,7 +89,18 @@ export function workbenchSend(msg: WorkbenchOutbound): void {
       if (!set) return;
       const content = mockDocContent(msg.filePath);
       for (const handler of set) {
-        handler({ type: "afxDocContent", filePath: msg.filePath, content });
+        handler({
+          type: "afxDocContent",
+          filePath: msg.filePath,
+          content,
+          ...(msg.requestId ? { requestId: msg.requestId } : {}),
+          ...(msg.owner
+            ? {
+                owner: msg.owner,
+                revision: { contentRevision: `dev-${content.length}`, dirty: false },
+              }
+            : {}),
+        });
       }
     });
   }
@@ -126,6 +139,8 @@ export function isInVsCodeWebview(): boolean {
 
 /** For tests only. */
 export function _resetBridgeForTest(): void {
+  if (_windowMessageHandler) window.removeEventListener("message", _windowMessageHandler);
+  _windowMessageHandler = null;
   _send = null;
   _listeners.clear();
   _initialized = false;

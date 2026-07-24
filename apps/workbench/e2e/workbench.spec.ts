@@ -3,6 +3,8 @@
  *
  * @see docs/specs/420-dx-testing/spec.md [FR-1]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-TEST]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-11] [FR-12] [FR-15] [NFR-7]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-TEST] [DES-BOARD-DND] [DES-BOARD-LINK-WORK]
  */
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
@@ -21,6 +23,11 @@ const TAB_LABELS = [
 ];
 const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/workbench/screenshots");
 const REAL_SPEC_PATH = "docs/specs/410-warranty-claims/spec.md";
+const PRIMARY_NOTES_SOURCE = {
+  rootUri: "file:///workspace",
+  rootName: "workspace",
+  relativePath: ".afx/notes.md",
+} as const;
 const SDD_STUDIO_VIEWPORTS = [
   { name: "bottom-panel", width: 760, height: 360 },
   { name: "wide-bottom-panel", width: 1024, height: 360 },
@@ -89,6 +96,81 @@ async function postEmptyWorkbenchUpdate(page: Page) {
   });
 }
 
+interface NotesFixture {
+  id: string;
+  timestamp: string;
+  time: string;
+  displayTime: string;
+  date: string;
+  text: string;
+  checkboxes?: Array<{
+    fingerprint: string;
+    text: string;
+    completed: boolean;
+  }>;
+}
+
+interface NotesSourceFixture {
+  source: { rootUri: string; rootName: string; relativePath: string };
+  revision: {
+    contentRevision: string;
+    diskRevision?: string;
+    documentVersion?: number;
+    dirty: boolean;
+  };
+  scanGeneration: number;
+  notes: NotesFixture[];
+  parseError?: string;
+}
+
+function notesSourceFixture(
+  notes: NotesFixture[],
+  overrides: Partial<NotesSourceFixture> = {},
+): NotesSourceFixture {
+  return {
+    source: PRIMARY_NOTES_SOURCE,
+    revision: {
+      contentRevision: "notes-revision-1",
+      diskRevision: "notes-revision-1",
+      dirty: false,
+    },
+    scanGeneration: 1,
+    notes,
+    ...overrides,
+  };
+}
+
+async function postNotesWorkbenchUpdate(page: Page, notesSources: NotesSourceFixture[]) {
+  await page.evaluate((sources) => {
+    const active = sources[0];
+    window.postMessage(
+      {
+        type: "afxUpdate",
+        notesSources: sources,
+        notes: active?.notes ?? [],
+        notesRaw: "",
+        notesFilePath: active?.source.relativePath ?? "",
+      },
+      "*",
+    );
+  }, notesSources);
+}
+
+async function captureNotesOutboundMessages(page: Page) {
+  await page.evaluate(() => {
+    const state = window as typeof window & {
+      __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+    };
+    state.__afxNotesOutboundMessages = [];
+    window.addEventListener("message", (event: MessageEvent) => {
+      const message = event.data as { type?: string } | undefined;
+      if (message?.type === "afxMutateNotes") {
+        state.__afxNotesOutboundMessages?.push(message as Record<string, unknown>);
+      }
+    });
+  });
+}
+
 async function postRealSpecWorkbenchUpdate(page: Page) {
   await page.evaluate((filePath) => {
     window.postMessage(
@@ -130,6 +212,92 @@ async function postDocContent(page: Page, filePath: string, content: string) {
   );
 }
 
+async function postBoardReviewUpdate(page: Page, editorDirty = false) {
+  await page.evaluate((dirty) => {
+    const root = {
+      rootUri: "file:///workspace",
+      rootName: "workspace",
+      relativePath: ".afx/kanban/release.md",
+    };
+    const tasks = {
+      rootUri: "file:///workspace",
+      rootName: "workspace",
+      relativePath: "docs/specs/221-app-workbench-board/tasks.md",
+    };
+    window.postMessage(
+      {
+        type: "afxUpdate",
+        kanban: {
+          dirPath: ".afx/kanban",
+          availableWorkItems: [
+            {
+              key: "task:file:///workspace:docs/specs/221-app-workbench-board/tasks.md:4.2",
+              ref: { version: 1, kind: "task", source: tasks, wbsId: "4.2" },
+              label: "4.2 · Build the bounded Link work picker",
+              group: "workspace · 221-app-workbench-board",
+              status: "Open",
+              completed: 0,
+              total: 1,
+            },
+          ],
+          boards: [
+            {
+              name: "Release",
+              filePath: ".afx/kanban/release.md",
+              source: root,
+              revision: {
+                contentRevision: dirty ? "dirty-revision" : "board-revision",
+                diskRevision: "board-revision",
+                dirty,
+              },
+              scanGeneration: 3,
+              editorDirty: dirty,
+              meta: { title: "Release", status: "active" },
+              columns: [
+                {
+                  id: "backlog",
+                  title: "Backlog",
+                  cards: [
+                    { id: "plain", text: "Capture release evidence\nDesktop and sidebar" },
+                    {
+                      id: "linked",
+                      text: "4.1 · Discover and resolve stable work items",
+                      link: { version: 1, kind: "task", source: tasks, wbsId: "4.1" },
+                      resolved: {
+                        state: "resolved",
+                        sourceRevision: "tasks-revision",
+                        title: "4.1 · Discover and resolve stable work items",
+                        lifecycle: "Open",
+                        completed: 1,
+                        total: 2,
+                        checklist: [
+                          {
+                            fingerprint: "discover",
+                            text: "Discover stable WBS sections",
+                            completed: true,
+                          },
+                          {
+                            fingerprint: "resolve",
+                            text: "Resolve source progress",
+                            completed: false,
+                          },
+                        ],
+                      },
+                    },
+                  ],
+                },
+                { id: "doing", title: "In Progress", cards: [] },
+                { id: "done", title: "Done", cards: [] },
+              ],
+            },
+          ],
+        },
+      },
+      "*",
+    );
+  }, editorDirty);
+}
+
 async function expectNoPageOverflow(page: Page) {
   const overflow = await page.evaluate(() => ({
     body: document.body.scrollWidth - window.innerWidth,
@@ -144,6 +312,15 @@ async function captureWorkbenchScreenshot(page: Page, testInfo: TestInfo, fileNa
   const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
   await testInfo.attach(fileName, { body: buf, contentType: "image/png" });
   expect(buf.length).toBeGreaterThan(10_000);
+}
+
+async function activateWorkbenchTab(page: Page, label: string) {
+  const tab = page.getByRole("tab", { name: label, exact: true });
+  await tab.scrollIntoViewIfNeeded();
+  await expect(tab).toBeInViewport();
+  await tab.click();
+  await expect(tab).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("tabpanel", { name: label, exact: true })).toBeVisible();
 }
 
 test("workbench root mounts", async ({ page }) => {
@@ -361,9 +538,7 @@ test("can switch tabs and capture screenshot of each view", async ({ page }, tes
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.goto("/");
   for (const label of TAB_LABELS) {
-    await page.getByRole("tab", { name: label }).click();
-    await expect(page.getByRole("tab", { name: label })).toHaveAttribute("aria-selected", "true");
-    await page.waitForTimeout(200);
+    await activateWorkbenchTab(page, label);
     const slug = label.toLowerCase().replace(/\s+/g, "-");
     const screenshotPath = resolve(SCREENSHOT_DIR, `workbench-${slug}.png`);
     const buf = await page.screenshot({ fullPage: false, path: screenshotPath });
@@ -375,19 +550,188 @@ test("can switch tabs and capture screenshot of each view", async ({ page }, tes
   }
 });
 
-test("notes tab can capture a draft", async ({ page }) => {
+test("notes capture keeps its draft until acknowledged refresh", async ({ page }, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.setViewportSize({ width: 1024, height: 720 });
   await page.goto("/");
+  await captureNotesOutboundMessages(page);
   await page.getByRole("tab", { name: "Notes" }).click();
+  await postNotesWorkbenchUpdate(page, [notesSourceFixture([])]);
+
   const textarea = page.getByLabel("New note");
   await expect(textarea).toBeVisible();
   await textarea.fill("hello world");
-  await expect(page.getByRole("button", { name: "Save" })).toBeEnabled();
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = window as typeof window & {
+          __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+        };
+        return state.__afxNotesOutboundMessages?.length ?? 0;
+      }),
+    )
+    .toBe(1);
+
+  const outbound = await page.evaluate(() => {
+    const state = window as typeof window & {
+      __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+    };
+    return state.__afxNotesOutboundMessages?.at(-1);
+  });
+  expect(outbound).toMatchObject({
+    type: "afxMutateNotes",
+    target: PRIMARY_NOTES_SOURCE,
+    expectedRevision: "notes-revision-1",
+    mutation: { kind: "append", text: "hello world" },
+  });
+  await expect(textarea).toHaveValue("hello world");
+  await expect(page.getByRole("button", { name: "Saving" })).toBeDisabled();
+
+  const requestId = outbound?.requestId;
+  expect(typeof requestId).toBe("string");
+  await page.evaluate(
+    ({ id, target }) => {
+      window.postMessage(
+        {
+          type: "afxMutationResult",
+          requestId: id,
+          outcome: "success",
+          target,
+          revision: {
+            contentRevision: "notes-revision-2",
+            diskRevision: "notes-revision-2",
+            dirty: false,
+          },
+        },
+        "*",
+      );
+    },
+    { id: requestId, target: PRIMARY_NOTES_SOURCE },
+  );
+
+  await expect(page.getByRole("button", { name: "Saved · syncing" })).toBeDisabled();
+  await expect(textarea).toHaveValue("hello world");
+
+  await postNotesWorkbenchUpdate(page, [
+    notesSourceFixture(
+      [
+        {
+          id: "note-hello",
+          timestamp: "2026-07-19T10:11:12.000Z",
+          time: "10:11:12.000",
+          displayTime: "10:11:12 AM",
+          date: "2026-07-19",
+          text: "hello world",
+        },
+      ],
+      {
+        revision: {
+          contentRevision: "notes-revision-2",
+          diskRevision: "notes-revision-2",
+          dirty: false,
+        },
+        scanGeneration: 2,
+      },
+    ),
+  ]);
+
+  await expect(textarea).toHaveValue("");
+  await expect(page.getByText("hello world")).toBeVisible();
+  await captureWorkbenchScreenshot(page, testInfo, "workbench-notes-acknowledged-sync.png");
+});
+
+test("notes narrow mode routes an exact source and retains a conflicted draft", async ({
+  page,
+}, testInfo) => {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/");
+  await captureNotesOutboundMessages(page);
+  await page.getByRole("tab", { name: "Notes" }).click();
+
+  const secondSource = {
+    rootUri: "file:///services",
+    rootName: "services",
+    relativePath: "planning/notes.md",
+  };
+  await postNotesWorkbenchUpdate(page, [
+    notesSourceFixture([]),
+    notesSourceFixture([], {
+      source: secondSource,
+      revision: {
+        contentRevision: "services-revision-1",
+        diskRevision: "services-revision-1",
+        dirty: false,
+      },
+    }),
+  ]);
+
+  const source = page.getByLabel("Notes source");
+  await expect(source).toBeVisible();
+  await source.selectOption({ label: "services · planning/notes.md" });
+  await page.getByLabel("New note").fill("plan the service boundary");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = window as typeof window & {
+          __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+        };
+        return state.__afxNotesOutboundMessages?.length ?? 0;
+      }),
+    )
+    .toBe(1);
+  const outbound = await page.evaluate(() => {
+    const state = window as typeof window & {
+      __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+    };
+    return state.__afxNotesOutboundMessages?.at(-1);
+  });
+  expect(outbound).toMatchObject({
+    target: secondSource,
+    expectedRevision: "services-revision-1",
+    mutation: { kind: "append", text: "plan the service boundary" },
+  });
+
+  await page.evaluate(
+    ({ id, target }) => {
+      window.postMessage(
+        {
+          type: "afxMutationResult",
+          requestId: id,
+          outcome: "conflict",
+          target,
+          code: "stale-revision",
+          message: "Notes changed on disk. Review and retry.",
+          retryable: true,
+        },
+        "*",
+      );
+    },
+    { id: outbound?.requestId, target: secondSource },
+  );
+
+  await expect(page.getByRole("alert")).toContainText("Notes changed on disk");
+  await expect(page.getByLabel("New note")).toHaveValue("plan the service boundary");
+  await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Reload" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy unsaved Notes draft" })).toBeVisible();
+  await expectNoPageOverflow(page);
+  await captureWorkbenchScreenshot(page, testInfo, "workbench-notes-narrow-conflict.png");
+
+  await page.getByRole("tab", { name: "Timeline" }).click();
+  await expect(page.getByLabel("Search notes")).toBeVisible();
+  await page.getByRole("tab", { name: "Capture" }).click();
+  await expect(page.getByLabel("New note")).toHaveValue("plan the service boundary");
 });
 
 test("notes splitter remains draggable in compact viewport", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 360 });
   await page.goto("/");
-  await page.getByRole("tab", { name: "Notes" }).click();
+  await activateWorkbenchTab(page, "Notes");
 
   const notesPanel = page.getByRole("tabpanel", { name: "Notes" });
   const capturePane = notesPanel.locator("aside").first();
@@ -461,6 +805,201 @@ test("board supports horizontal overflow for wide boards", async ({ page }) => {
       container.evaluate((node) => Math.max(0, node.scrollWidth - node.clientWidth)),
     )
     .toBeGreaterThan(0);
+});
+
+test("board linked work stays usable at 360px", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto("/");
+  await postBoardReviewUpdate(page);
+  await page.getByRole("tab", { name: "Board" }).click();
+
+  await expect(page.getByText("4.1 · Discover and resolve stable work items")).toBeVisible();
+  await expect(page.getByText("1/2")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Link work" })).toBeVisible();
+  await expectNoPageOverflow(page);
+  await captureWorkbenchScreenshot(page, testInfo, "workbench-board-linked-narrow.png");
+
+  const linkWorkTrigger = page.getByRole("button", { name: "Link work" });
+  await linkWorkTrigger.click();
+  await expect(page.getByRole("dialog", { name: "Link AFX work" })).toBeVisible();
+  const candidate = page.getByRole("option", { name: /Build the bounded Link work picker/ });
+  await candidate.focus();
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("button", { name: "Link 1" })).toBeVisible();
+  await captureWorkbenchScreenshot(page, testInfo, "workbench-board-link-picker-narrow.png");
+  await expectNoPageOverflow(page);
+  await page.keyboard.press("Escape");
+  await expect(linkWorkTrigger).toBeFocused();
+});
+
+test("board exposes keyboard-reachable movement and dirty-source locking", async ({ page }) => {
+  await page.setViewportSize({ width: 480, height: 820 });
+  await page.goto("/");
+  await postBoardReviewUpdate(page);
+  await page.getByRole("tab", { name: "Board" }).click();
+
+  await page.getByRole("button", { name: "Actions for Capture release evidence" }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: "Move right" }).click();
+  await expect(
+    page.getByTestId("column-cards-doing").getByText("Capture release evidence"),
+  ).toBeVisible();
+
+  await page.reload();
+  await postBoardReviewUpdate(page, true);
+  await page.getByRole("tab", { name: "Board" }).click();
+  await expect(page.getByText("Unsaved in editor")).toBeVisible();
+  await expect(page.getByLabel("Add card to Backlog")).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Drag Backlog column" })).toBeDisabled();
+  await expectNoPageOverflow(page);
+});
+
+test("board dnd supports pointer card movement", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await page.goto("/");
+  await postBoardReviewUpdate(page);
+  await page.getByRole("tab", { name: "Board" }).click();
+
+  const handle = page.getByRole("button", { name: "Drag Capture release evidence" });
+  const target = page.getByTestId("column-cards-doing");
+  const start = await handle.boundingBox();
+  const end = await target.boundingBox();
+  if (!start || !end) throw new Error("Expected Board drag geometry");
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(start.x + start.width / 2 + 12, start.y + start.height / 2, { steps: 3 });
+  await page.mouse.move(end.x + end.width / 2, end.y + Math.min(48, end.height / 2), { steps: 12 });
+  await page.mouse.up();
+
+  await expect(target.getByText("Capture release evidence")).toBeVisible();
+});
+
+test("board keyboard sensor activates and cancels safely", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 720 });
+  await page.goto("/");
+  await postBoardReviewUpdate(page);
+  await page.getByRole("tab", { name: "Board" }).click();
+
+  const handle = page.getByRole("button", { name: "Drag Capture release evidence" });
+  await handle.focus();
+  await page.keyboard.press("Space");
+  await expect(handle.locator("xpath=ancestor::article")).toHaveClass(/opacity-35/);
+  await page.keyboard.press("Escape");
+
+  await expect(handle.locator("xpath=ancestor::article")).not.toHaveClass(/opacity-35/);
+  await expect(
+    page.getByTestId("column-cards-backlog").getByText("Capture release evidence"),
+  ).toBeVisible();
+});
+
+test("board dnd supports touch card movement", async ({ browser }, testInfo) => {
+  const context = await browser.newContext({
+    baseURL: testInfo.project.use.baseURL as string,
+    hasTouch: true,
+    viewport: { width: 900, height: 720 },
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto("/");
+    await postBoardReviewUpdate(page);
+    await page.getByRole("tab", { name: "Board" }).click();
+
+    const handle = page.getByRole("button", { name: "Drag Capture release evidence" });
+    const target = page.getByTestId("column-cards-doing");
+    const start = await handle.boundingBox();
+    const end = await target.boundingBox();
+    if (!start || !end) throw new Error("Expected Board touch geometry");
+
+    const startPoint = { x: start.x + start.width / 2, y: start.y + start.height / 2 };
+    const endPoint = { x: end.x + end.width / 2, y: end.y + Math.min(48, end.height / 2) };
+    await handle.evaluate((element, point) => {
+      const touch = new Touch({
+        identifier: 1,
+        target: element,
+        clientX: point.x,
+        clientY: point.y,
+        pageX: point.x,
+        pageY: point.y,
+        radiusX: 2,
+        radiusY: 2,
+        force: 1,
+      });
+      element.dispatchEvent(
+        new TouchEvent("touchstart", {
+          bubbles: true,
+          cancelable: true,
+          touches: [touch],
+          targetTouches: [touch],
+          changedTouches: [touch],
+        }),
+      );
+    }, startPoint);
+    await page.waitForTimeout(220);
+    await expect(handle.locator("xpath=ancestor::article")).toHaveClass(/opacity-35/);
+    for (let step = 1; step <= 6; step++) {
+      const ratio = step / 6;
+      await page.evaluate(
+        ({ x, y }) => {
+          const target = document.querySelector('[aria-label="Drag Capture release evidence"]');
+          if (!target) throw new Error("Touch target disappeared");
+          const touch = new Touch({
+            identifier: 1,
+            target,
+            clientX: x,
+            clientY: y,
+            pageX: x,
+            pageY: y,
+            radiusX: 2,
+            radiusY: 2,
+            force: 1,
+          });
+          target.dispatchEvent(
+            new TouchEvent("touchmove", {
+              bubbles: true,
+              cancelable: true,
+              touches: [touch],
+              targetTouches: [touch],
+              changedTouches: [touch],
+            }),
+          );
+        },
+        {
+          x: startPoint.x + (endPoint.x - startPoint.x) * ratio,
+          y: startPoint.y + (endPoint.y - startPoint.y) * ratio,
+        },
+      );
+      await page.waitForTimeout(40);
+    }
+    await page.waitForTimeout(80);
+    await page.evaluate(({ x, y }) => {
+      const target = document.querySelector('[aria-label="Drag Capture release evidence"]');
+      if (!target) throw new Error("Touch target disappeared");
+      const touch = new Touch({
+        identifier: 1,
+        target,
+        clientX: x,
+        clientY: y,
+        pageX: x,
+        pageY: y,
+        radiusX: 2,
+        radiusY: 2,
+        force: 0,
+      });
+      target.dispatchEvent(
+        new TouchEvent("touchend", {
+          bubbles: true,
+          cancelable: true,
+          touches: [],
+          targetTouches: [],
+          changedTouches: [touch],
+        }),
+      );
+    }, endPoint);
+
+    await expect(target.getByText("Capture release evidence")).toBeVisible();
+  } finally {
+    await context.close();
+  }
 });
 
 test("first-run launchpad is visible for an empty workspace", async ({ page }, testInfo) => {
@@ -574,17 +1113,18 @@ for (const viewport of [
     });
 
     const header = page.locator('[data-afx-sdd-studio="header"]');
+    const modeSwitch = header.getByRole("group", { name: "SDD Studio view mode" });
     await expect(header).toBeVisible();
     await expect(header.getByRole("button", { name: "Select SDD feature" })).toBeVisible();
-    await expect(page.getByText("View mode")).toBeVisible();
+    await expect(modeSwitch).toBeVisible();
     await expect(page.getByTestId("sdd-feature-summary")).toContainText("Status");
     await expect(page.getByTestId("sdd-feature-summary")).toContainText("Tasks");
-    await expect(header.getByRole("button", { name: "Overview" })).toHaveAttribute(
+    await expect(modeSwitch.getByRole("button", { name: "Overview" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    await expect(header.getByRole("button", { name: "Focus doc" })).toBeVisible();
-    await expect(header.getByRole("button", { name: "Compare docs" })).toBeVisible();
+    await expect(modeSwitch.getByRole("button", { name: "Focus doc" })).toBeVisible();
+    await expect(modeSwitch.getByRole("button", { name: "Compare docs" })).toBeVisible();
     if (viewport.name === "compact") {
       await expect
         .poll(async () => {
@@ -607,21 +1147,21 @@ for (const viewport of [
     await expectNoPageOverflow(page);
     await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-cockpit-${viewport.name}.png`);
 
-    await header.getByRole("button", { name: "Focus doc" }).click();
+    await modeSwitch.getByRole("button", { name: "Focus doc" }).click();
     const focus = page.getByTestId("sdd-studio-focus");
     await expect(focus).toBeVisible();
     await expect(focus.getByText("Workflow")).toBeVisible();
     await expect(focus.getByText("Needs attention")).toBeVisible();
-    await focus
-      .getByRole("button", { name: /^Design\b/i })
-      .first()
-      .click();
+    const designStep = focus.getByRole("button", { name: /^Design\b/i }).first();
+    await designStep.scrollIntoViewIfNeeded();
+    await expect(designStep).toBeInViewport();
+    await designStep.click();
     await expect(page.getByTestId("sdd-studio-focus-design")).toBeVisible();
     await expect(focus.getByText("docs/specs/15-infrastructure/design.md")).toBeVisible();
     await expectNoPageOverflow(page);
     await captureWorkbenchScreenshot(page, testInfo, `sdd-studio-focus-${viewport.name}.png`);
 
-    await header.getByRole("button", { name: "Compare docs" }).click();
+    await modeSwitch.getByRole("button", { name: "Compare docs" }).click();
     const compare = page.locator('[data-afx-sdd-studio="compare"]');
     await expect(compare).toBeVisible();
     await expect(page.getByTestId("workbench-column-toggles")).toHaveAccessibleName(
@@ -988,38 +1528,117 @@ test("notes tab renders markdown through the shared reader and toggles checkboxe
 }, testInfo) => {
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
   await page.goto("/");
+  await captureNotesOutboundMessages(page);
   await page.getByRole("tab", { name: "Notes" }).click();
-  await page.evaluate(() => {
-    window.postMessage(
+  await postNotesWorkbenchUpdate(page, [
+    notesSourceFixture([
       {
-        type: "afxUpdate",
-        pipeline: [],
-        featureTasks: [],
-        documents: [],
-        journal: [],
-        kanban: { dirPath: ".afx/kanban", boards: [] },
-        notes: [
+        id: "note-reader",
+        timestamp: "2026-05-23T08:15:30.000Z",
+        time: "8:15:30 AM",
+        displayTime: "8:15:30 AM",
+        date: "2026-05-23",
+        text: "- [ ] Confirm reader preset\n- [x] Keep note source markdown",
+        checkboxes: [
           {
-            timestamp: "2026-05-23T08:15:30.000Z",
-            time: "8:15:30 AM",
-            displayTime: "8:15:30 AM",
-            date: "2026-05-23",
-            text: "- [ ] Confirm reader preset\n- [x] Keep note source markdown",
+            fingerprint: "note-reader-checkbox-0",
+            text: "Confirm reader preset",
+            completed: false,
+          },
+          {
+            fingerprint: "note-reader-checkbox-1",
+            text: "Keep note source markdown",
+            completed: true,
           },
         ],
-        notesRaw: "",
-        notesFilePath: ".afx/notes.md",
-        ghostTasks: { count: 0, items: [] },
       },
-      "*",
-    );
-  });
+    ]),
+  ]);
 
   await expect(page.locator('[data-afx-reader-preset="note"]').first()).toBeVisible();
   await expect(page.getByText("Confirm reader preset")).toBeVisible();
   const checkbox = page.getByRole("checkbox", { name: /Toggle task checkbox/ }).first();
   await expect(checkbox).not.toBeChecked();
   await checkbox.click();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = window as typeof window & {
+          __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+        };
+        return state.__afxNotesOutboundMessages?.length ?? 0;
+      }),
+    )
+    .toBe(1);
+  const outbound = await page.evaluate(() => {
+    const state = window as typeof window & {
+      __afxNotesOutboundMessages?: Array<Record<string, unknown>>;
+    };
+    return state.__afxNotesOutboundMessages?.at(-1);
+  });
+  expect(outbound).toMatchObject({
+    target: PRIMARY_NOTES_SOURCE,
+    expectedRevision: "notes-revision-1",
+    mutation: {
+      kind: "toggleCheckbox",
+      noteId: "note-reader",
+      itemFingerprint: "note-reader-checkbox-0",
+      completed: true,
+    },
+  });
+  await page.evaluate(
+    ({ id, target }) => {
+      window.postMessage(
+        {
+          type: "afxMutationResult",
+          requestId: id,
+          outcome: "success",
+          target,
+          revision: {
+            contentRevision: "notes-revision-2",
+            diskRevision: "notes-revision-2",
+            dirty: false,
+          },
+        },
+        "*",
+      );
+    },
+    { id: outbound?.requestId, target: PRIMARY_NOTES_SOURCE },
+  );
+  await postNotesWorkbenchUpdate(page, [
+    notesSourceFixture(
+      [
+        {
+          id: "note-reader",
+          timestamp: "2026-05-23T08:15:30.000Z",
+          time: "8:15:30 AM",
+          displayTime: "8:15:30 AM",
+          date: "2026-05-23",
+          text: "- [x] Confirm reader preset\n- [x] Keep note source markdown",
+          checkboxes: [
+            {
+              fingerprint: "note-reader-checkbox-0",
+              text: "Confirm reader preset",
+              completed: true,
+            },
+            {
+              fingerprint: "note-reader-checkbox-1",
+              text: "Keep note source markdown",
+              completed: true,
+            },
+          ],
+        },
+      ],
+      {
+        revision: {
+          contentRevision: "notes-revision-2",
+          diskRevision: "notes-revision-2",
+          dirty: false,
+        },
+        scanGeneration: 2,
+      },
+    ),
+  ]);
   await expect(checkbox).toBeChecked();
 
   const screenshotPath = resolve(SCREENSHOT_DIR, "workbench-notes-reader-checkbox.png");

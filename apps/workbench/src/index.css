@@ -6,6 +6,22 @@
  */
 @import "@afx/ui/styles/globals.css";
 
+/* VS Code and OS high-contrast modes suppress the box-shadow used by ring
+ * utilities. Keep every Workbench keyboard target visibly focused without
+ * changing the shared read-only UI package. */
+.vscode-high-contrast :focus-visible,
+.vscode-high-contrast-light :focus-visible {
+  outline: 2px solid var(--vscode-focusBorder, Highlight);
+  outline-offset: 2px;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
 button:not(:disabled),
 a[href],
 label[for],
@@ -82,6 +98,145 @@ input:disabled {
 .afx-notes-capture-input,
 .afx-notes-capture-save {
   border-radius: 0 !important;
+}
+
+/* ── Canvas graph surface ───────────────────────────────────────
+ * React Flow's `system` color mode follows the OS/browser, not VS Code's
+ * theme class. Keep the graph surface aligned with the active editor theme.
+ *
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-CANVAS-INTERACTIONS]
+ */
+.afx-canvas-surface {
+  --afx-canvas-bg: color-mix(in srgb, var(--background) 96%, var(--foreground) 4%);
+  --afx-canvas-dot: color-mix(in srgb, var(--foreground) 22%, transparent);
+  background: var(--afx-canvas-bg);
+}
+
+.vscode-dark .afx-canvas-surface,
+.vscode-high-contrast .afx-canvas-surface {
+  /* Barely below the editor background — a 10% black mix read as a hole. */
+  --afx-canvas-bg: color-mix(in srgb, var(--background) 96%, black 4%);
+  --afx-canvas-dot: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+/* Toolbar strips scroll without showing a chunky scrollbar. */
+.afx-scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.afx-scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.vscode-light .afx-canvas-surface,
+.vscode-high-contrast-light .afx-canvas-surface {
+  --afx-canvas-bg: color-mix(in srgb, var(--background) 97%, var(--foreground) 3%);
+  --afx-canvas-dot: color-mix(in srgb, var(--foreground) 18%, transparent);
+}
+
+/* Warm surface tone — the canvas twin of the previewer's warm paper. Declared
+ * AFTER the per-theme overrides so it wins by source order in light themes
+ * too. Default tone keeps following the VS Code theme (and the OS when the
+ * theme is set to auto). */
+.afx-canvas-surface[data-afx-canvas-tone="warm"] {
+  --afx-canvas-bg: #f7f1e3;
+  --afx-canvas-dot: rgba(60, 45, 20, 0.28);
+}
+
+.vscode-dark .afx-canvas-surface[data-afx-canvas-tone="warm"],
+.vscode-high-contrast .afx-canvas-surface[data-afx-canvas-tone="warm"] {
+  --afx-canvas-bg: color-mix(in srgb, var(--background) 82%, #8a6d3b 18%);
+  --afx-canvas-dot: color-mix(in srgb, #d9b98a 30%, transparent);
+}
+
+/* Paint the tone on the React Flow ROOT only. The dot/grid pattern svg is a
+ * z-index:-1 child that draws above the root background but below content —
+ * painting .react-flow__renderer as well put an opaque layer OVER the
+ * pattern and made dots/grid invisible. */
+.afx-canvas-surface .react-flow {
+  background: var(--afx-canvas-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ * PRO CANVAS IDENTITY — cards, annotations, live edges, minimap
+ * @see docs/specs/229-app-workbench-canvas/design.md [DES-CANVAS-PRO]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-45] [FR-46] [FR-47]
+ * ═══════════════════════════════════════════════════════════════ */
+
+/* Node cards: soft elevation with a hover lift; selection ring stays brass. */
+.afx-canvas-surface .react-flow__node article[data-node-kind] {
+  border-radius: 6px;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent),
+    0 4px 12px color-mix(in srgb, var(--foreground) 6%, transparent);
+  transition:
+    box-shadow 120ms ease,
+    translate 120ms ease;
+}
+
+.afx-canvas-surface .react-flow__node:hover article[data-node-kind]:not([data-node-kind="group"]) {
+  box-shadow:
+    0 2px 4px color-mix(in srgb, var(--foreground) 10%, transparent),
+    0 8px 22px color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+/* Annotation callouts: serif italic voice, brass dashed border, slight tilt. */
+.afx-canvas-surface article[data-node-kind="annotation"] {
+  rotate: -0.6deg;
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--afx-brand) 55%, transparent);
+  background: color-mix(in srgb, var(--afx-brand) 7%, var(--card));
+}
+
+.afx-canvas-surface article[data-node-kind="annotation"] [data-testid^="canvas-node-body-"] {
+  font-family: Georgia, "Iowan Old Style", serif;
+  font-style: italic;
+}
+
+/* Live dependency edges: marching dash while a Spec Map refresh runs. */
+@keyframes afx-edge-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.afx-canvas-surface path.afx-edge-live {
+  stroke-dasharray: 7 5;
+  animation: afx-edge-dash 900ms linear infinite;
+}
+
+/* Leader arrows from annotation callouts read lighter than data edges. */
+.afx-canvas-surface path.afx-edge-leader {
+  opacity: 0.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .afx-canvas-surface path.afx-edge-live {
+    animation: none;
+    stroke-dasharray: none;
+  }
+
+  .afx-canvas-surface .react-flow__node article[data-node-kind] {
+    transition: none;
+  }
+}
+
+/* Text-selection mode (toolbar toggle or held Alt): dragging is off, so let
+ * the cursor and selection behave like a document (FR-45). */
+.afx-canvas-surface[data-afx-text-select="true"] .react-flow__node,
+.afx-canvas-surface[data-afx-text-select="true"] .react-flow__node article,
+.afx-canvas-surface[data-afx-text-select="true"] .react-flow__node article * {
+  cursor: text;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Minimap inherits the themed surface instead of React Flow defaults. */
+.afx-canvas-surface .react-flow__minimap {
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--foreground) 10%, transparent);
 }
 
 /* ═══════════════════════════════════════════════════════════════

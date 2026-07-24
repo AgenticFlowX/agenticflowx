@@ -1,714 +1,505 @@
 /**
- * Experimental Canvas Workbench e2e + screenshot coverage.
+ * Shared CanvasApp/React Flow Workbench regression coverage.
  *
- * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-5] [FR-6] [FR-8] [FR-9] [FR-20] [NFR-6]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2] [FR-6] [FR-7] [FR-11] [FR-12] [FR-20] [FR-44] [NFR-7]
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-TEST]
  */
-import { mkdirSync, readFileSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { type Locator, expect, test } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import type { Page, TestInfo } from "@playwright/test";
+
+import type { CanvasDescriptor, CanvasDocumentSnapshot, JSONCanvas } from "@afx/shared";
 
 const SCREENSHOT_DIR = resolve(process.cwd(), "../vscode-e2e/artifacts/workbench/screenshots");
+const ROOT_URI = "file:///workspace";
 const SPEC_PATH = "docs/specs/demo/spec.md";
-const LARGE_SPEC_PATH = "docs/specs/213-app-chat-history/design.md";
-const LARGE_SPEC_CONTENT = readFileSync(resolve(process.cwd(), "../../", LARGE_SPEC_PATH), "utf8");
+const PREVIEW_CONTENT =
+  "# Demo specification\n\nLive Markdown preview from the revisioned Canvas host.";
 
-async function enableCanvas(page: import("@playwright/test").Page) {
+const PROJECT: CanvasDescriptor = {
+  id: "project",
+  kind: "project",
+  label: "Project Canvas",
+  source: {
+    rootUri: ROOT_URI,
+    rootName: "workspace",
+    relativePath: ".afx/project.canvas",
+  },
+  exists: true,
+};
+
+const EMPTY_CANVAS: JSONCanvas = { nodes: [], edges: [] };
+
+const EDIT_CANVAS: JSONCanvas = {
+  nodes: [
+    {
+      id: "seed",
+      type: "text",
+      text: "# Initial delivery plan\n\nEdit this card and persist it through the host.",
+      x: 0,
+      y: 0,
+      width: 300,
+      height: 160,
+      color: "5",
+    },
+  ],
+  edges: [],
+};
+
+const FILE_PREVIEW_CANVAS: JSONCanvas = {
+  nodes: [
+    {
+      id: "demo-spec",
+      type: "file",
+      file: SPEC_PATH,
+      subpath: "#requirements",
+      afxSource: { ...PROJECT.source, relativePath: SPEC_PATH },
+      x: 0,
+      y: 0,
+      width: 380,
+      height: 260,
+      color: "6",
+    },
+  ],
+  edges: [],
+};
+
+const RESPONSIVE_CANVAS: JSONCanvas = {
+  nodes: [
+    {
+      id: "responsive-outcome",
+      type: "text",
+      text: "# Outcome\n\nA useful architecture plan in the sidebar.",
+      x: 0,
+      y: 0,
+      width: 280,
+      height: 150,
+      color: "4",
+    },
+    {
+      id: "responsive-spec",
+      type: "file",
+      file: SPEC_PATH,
+      afxSource: { ...PROJECT.source, relativePath: SPEC_PATH },
+      x: 380,
+      y: 0,
+      width: 320,
+      height: 190,
+      color: "6",
+    },
+    {
+      id: "responsive-next",
+      type: "text",
+      text: "## Next\n\nVerify the narrow workflow.",
+      x: 190,
+      y: 280,
+      width: 280,
+      height: 150,
+      color: "3",
+    },
+  ],
+  edges: [
+    {
+      id: "responsive-edge-outcome-spec",
+      fromNode: "responsive-outcome",
+      fromSide: "right",
+      toNode: "responsive-spec",
+      toSide: "left",
+      toEnd: "arrow",
+      label: "defined by",
+    },
+    {
+      id: "responsive-edge-spec-next",
+      fromNode: "responsive-spec",
+      fromSide: "bottom",
+      toNode: "responsive-next",
+      toSide: "top",
+      toEnd: "arrow",
+      label: "guides",
+    },
+  ],
+};
+
+function snapshot(canvas: JSONCanvas, revision = "canvas-r1"): CanvasDocumentSnapshot {
+  return {
+    documentId: `${PROJECT.source.rootUri}::${PROJECT.source.relativePath}`,
+    descriptor: PROJECT,
+    source: PROJECT.source,
+    revision: { contentRevision: revision, diskRevision: revision, dirty: false },
+    content: JSON.stringify(canvas),
+  };
+}
+
+async function installCanvasHost(
+  page: Page,
+  canvas: JSONCanvas,
+  options: { autoAcknowledgeEdits?: boolean } = {},
+): Promise<void> {
+  const document = snapshot(canvas);
   await page.evaluate(
-    ({ filePath, largeSpecPath, largeSpecContent }) => {
+    ({ project, document, previewContent, pickedFilePath, autoAcknowledgeEdits }) => {
+      const host = window as typeof window & {
+        __afxCanvasOutbound?: Array<Record<string, unknown>>;
+        __afxCanvasAutoAcknowledge?: boolean;
+        __afxReactFlowWarnings?: string[];
+      };
+      host.__afxCanvasOutbound = [];
+      host.__afxCanvasAutoAcknowledge = autoAcknowledgeEdits;
+      host.__afxReactFlowWarnings = [];
+      let currentDocument = document;
+      let revisionSequence = 1;
+      const recordedTypes = new Set([
+        "afxCanvasList",
+        "afxCanvasSelect",
+        "afxCanvasEdit",
+        "afxCanvasContentPreviewRequest",
+        "afxOpenFile",
+        "afxPickMarkdownFile",
+      ]);
+      const originalWarn = console.warn.bind(console);
+      console.warn = (...args: unknown[]) => {
+        const message = args.map(String).join(" ");
+        if (message.includes("[React Flow]")) host.__afxReactFlowWarnings?.push(message);
+        originalWarn(...args);
+      };
+
       window.addEventListener("message", (event: MessageEvent) => {
-        const msg = event.data as { type?: string; filePath?: string } | undefined;
-        if (msg?.type === "afxFetchDocContent" && msg.filePath === filePath) {
-          const longBody = Array.from(
-            { length: 24 },
-            (_, index) =>
-              `Canvas preview line ${index + 1} with enough text to make this node scroll.`,
-          ).join("\n\n");
+        const message = event.data as Record<string, unknown> & { type?: string };
+        if (!message?.type) return;
+        if (recordedTypes.has(message.type)) host.__afxCanvasOutbound?.push(message);
+
+        if (message.type === "afxCanvasList") {
           window.postMessage(
-            {
-              type: "afxDocContent",
-              filePath,
-              content: `# Demo Spec\n\nInline spec content for the canvas node.\n\n${longBody}`,
-            },
+            { type: "afxCanvasLibrary", canvases: [project], selectedId: project.id },
             "*",
           );
+          window.postMessage({ type: "afxCanvasDocument", document: currentDocument }, "*");
+          return;
         }
-        if (msg?.type === "afxFetchDocContent" && msg.filePath === largeSpecPath) {
-          window.postMessage(
-            {
-              type: "afxDocContent",
-              filePath: largeSpecPath,
-              content: largeSpecContent,
-            },
-            "*",
-          );
+
+        if (message.type === "afxCanvasSelect" && message["canvasId"] === project.id) {
+          window.postMessage({ type: "afxCanvasDocument", document: currentDocument }, "*");
+          return;
+        }
+
+        if (message.type === "afxCanvasEdit") {
+          revisionSequence += 1;
+          const revision = {
+            contentRevision: `canvas-r${revisionSequence}`,
+            diskRevision: `canvas-r${revisionSequence}`,
+            dirty: false,
+          };
+          currentDocument = {
+            ...currentDocument,
+            content: String(message["content"]),
+            revision,
+          };
+          if (!host.__afxCanvasAutoAcknowledge) return;
+          window.setTimeout(() => {
+            window.postMessage(
+              {
+                type: "afxCanvasEditResult",
+                requestId: String(message["requestId"]),
+                sessionId: String(message["sessionId"]),
+                sequence: Number(message["sequence"]),
+                outcome: "success",
+                target: message["target"],
+                revision,
+              },
+              "*",
+            );
+          }, 250);
+          return;
+        }
+
+        if (message.type === "afxCanvasContentPreviewRequest") {
+          const owner = message["owner"] as CanvasDocumentSnapshot["source"];
+          window.setTimeout(() => {
+            window.postMessage(
+              {
+                type: "afxCanvasContentPreviewResult",
+                requestId: String(message["requestId"]),
+                owner,
+                revision: {
+                  contentRevision: "preview-r1",
+                  diskRevision: "preview-r1",
+                  dirty: false,
+                },
+                preview: {
+                  kind: "markdown",
+                  state: "ready",
+                  content: previewContent,
+                  mediaType: "text/markdown",
+                  byteLength: previewContent.length,
+                },
+              },
+              "*",
+            );
+          }, 25);
+          return;
+        }
+
+        if (message.type === "afxPickMarkdownFile") {
+          window.postMessage({ type: "afxMarkdownFilePicked", filePath: pickedFilePath }, "*");
         }
       });
+
       window.postMessage(
         {
           type: "afxUpdate",
           canvasEnabled: true,
-          canvas: { path: ".afx/project.canvas", exists: false, content: "" },
-          documents: [
-            {
-              type: "SPEC",
-              name: "Demo Spec",
-              status: "Draft",
-              owner: "@rix",
-              filePath,
-            },
-            {
-              type: "DESIGN",
-              name: "App Chat History Design",
-              status: "Draft",
-              owner: "@rixrix",
-              filePath: largeSpecPath,
-            },
-          ],
+          canvas: {
+            path: project.source.relativePath,
+            content: document.content,
+            exists: true,
+            source: project.source,
+            revision: document.revision,
+            documentId: document.documentId,
+          },
         },
         "*",
       );
     },
-    { filePath: SPEC_PATH, largeSpecPath: LARGE_SPEC_PATH, largeSpecContent: LARGE_SPEC_CONTENT },
+    {
+      project: PROJECT,
+      document,
+      previewContent: PREVIEW_CONTENT,
+      pickedFilePath: SPEC_PATH,
+      autoAcknowledgeEdits: options.autoAcknowledgeEdits ?? true,
+    },
   );
 }
 
-test("canvas experiment stays hidden by default", async ({ page }) => {
+async function openCanvas(page: Page): Promise<void> {
+  const tab = page.getByRole("tab", { name: "Canvas" });
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(page.getByTestId("react-flow-canvas")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Canvas file" })).toHaveValue(PROJECT.id);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+}
+
+async function bootCanvas(
+  page: Page,
+  canvas: JSONCanvas,
+  viewport: { width: number; height: number },
+  options: { autoAcknowledgeEdits?: boolean } = {},
+): Promise<void> {
+  await page.setViewportSize(viewport);
+  await page.goto("/");
+  await installCanvasHost(page, canvas, options);
+  await openCanvas(page);
+}
+
+async function outbound(page: Page, type: string): Promise<Array<Record<string, unknown>>> {
+  return page.evaluate((messageType) => {
+    const host = window as typeof window & {
+      __afxCanvasOutbound?: Array<Record<string, unknown>>;
+    };
+    return (host.__afxCanvasOutbound ?? []).filter((message) => message["type"] === messageType);
+  }, type);
+}
+
+async function expectNoPageOverflow(page: Page): Promise<void> {
+  const overflow = await page.evaluate(() => ({
+    body: document.body.scrollWidth - window.innerWidth,
+    root: document.documentElement.scrollWidth - window.innerWidth,
+  }));
+  expect(Math.max(overflow.body, overflow.root)).toBeLessThanOrEqual(1);
+}
+
+async function expectNoReactFlowWarnings(page: Page): Promise<void> {
+  const warnings = await page.evaluate(() => {
+    const host = window as typeof window & { __afxReactFlowWarnings?: string[] };
+    return host.__afxReactFlowWarnings ?? [];
+  });
+  expect(warnings).toEqual([]);
+}
+
+async function capture(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  const screenshot = await page.screenshot({
+    path: resolve(SCREENSHOT_DIR, name),
+    fullPage: false,
+  });
+  await testInfo.attach(name, { body: screenshot, contentType: "image/png" });
+  expect(screenshot.length).toBeGreaterThan(10_000);
+}
+
+test("Canvas stays gated by default and opens an empty shared React Flow surface", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 900, height: 520 });
   await page.goto("/");
   await expect(page.getByRole("tab", { name: "Canvas" })).toHaveCount(0);
+
+  await installCanvasHost(page, EMPTY_CANVAS);
+  await openCanvas(page);
+
+  await expect(page.locator(".react-flow__node")).toHaveCount(0);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add card" })).toBeVisible();
+  await expect(page.getByText("Canvas experiment disabled.")).toHaveCount(0);
+  await expectNoReactFlowWarnings(page);
 });
 
-test("canvas creates text/file nodes, links them, and stays visually stable", async ({
+test("Canvas edits Markdown and remains dirty until its revisioned save succeeds", async ({
   page,
-}, testInfo) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  await page.setViewportSize({ width: 760, height: 360 });
-  await page.goto("/");
-  await enableCanvas(page);
-  await page.getByRole("tab", { name: "Canvas" }).click();
+}) => {
+  await bootCanvas(page, EDIT_CANVAS, { width: 960, height: 560 });
 
-  const world = page.getByTestId("canvas-world");
-  const panBefore = await world.evaluate((element) => element.getAttribute("style") ?? "");
-  await page.mouse.move(36, 132);
-  await page.mouse.down();
-  await page.mouse.move(88, 176);
-  await page.mouse.up();
-  await expect
-    .poll(() => world.evaluate((element) => element.getAttribute("style") ?? ""))
-    .not.toBe(panBefore);
-  const panAfterDrag = await readCanvasTransform(world);
-  await page.keyboard.down("Shift");
-  await page.mouse.wheel(0, 80);
-  await page.keyboard.up("Shift");
-  await expect.poll(async () => (await readCanvasTransform(world)).x).toBeLessThan(panAfterDrag.x);
-  const panAfterHorizontalWheel = await readCanvasTransform(world);
-  expect(panAfterHorizontalWheel.y).toBe(panAfterDrag.y);
-  await page.keyboard.down("Meta");
-  await page.keyboard.down("Shift");
-  await page.mouse.wheel(0, 80);
-  await page.keyboard.up("Shift");
-  await page.keyboard.up("Meta");
-  await expect
-    .poll(async () => (await readCanvasTransform(world)).y)
-    .toBeLessThan(panAfterHorizontalWheel.y);
-  const panAfterVerticalWheel = await readCanvasTransform(world);
-  expect(panAfterVerticalWheel.x).toBe(panAfterHorizontalWheel.x);
+  const node = page.getByTestId("react-flow-canvas-node-seed");
+  await expect(node).toBeVisible();
+  await node.dblclick();
+  const editor = node.getByRole("textbox", { name: "Canvas node markdown" });
+  await editor.fill("# Edited delivery plan\n\nPersisted through the revision-aware host.");
+  await editor.press("Control+Enter");
 
-  await page.getByRole("button", { name: "Add text node" }).click();
-  await page.getByRole("button", { name: "Add notepad node" }).click();
-  await page.getByRole("button", { name: "Add group" }).click();
-  await page.getByRole("button", { name: "Open markdown document picker" }).click();
-  await page.getByLabel("Document for file node").selectOption(SPEC_PATH);
-  await page.getByRole("button", { name: "Add file node" }).click();
-
-  const textNode = page.locator('[data-node-type="text"]').first();
-  const fileNode = page.locator('[data-node-type="file"]').first();
-  const noteNode = page.locator('[data-node-kind="note"]').first();
-  const groupNode = page.locator('[data-node-kind="group"]').first();
-  await expect(textNode).toBeVisible();
-  await expect(fileNode).toBeVisible();
-  await expect(page.getByText("Inline spec content for the canvas node.")).toBeVisible();
-  await expect(noteNode).toBeVisible();
-  await expect(groupNode).toBeVisible();
-  await expect(textNode.locator('[data-node-icon="text"]')).toBeVisible();
-  await expect(noteNode.locator('[data-node-icon="note"]')).toBeVisible();
-  await expect(groupNode.locator('[data-node-icon="group"]')).toBeVisible();
-  await expect(fileNode.locator('[data-node-icon="file"]')).toBeVisible();
-  // Groups are visual containers only — no send-to-chat and no select toggle.
-  await expect(groupNode.getByRole("button", { name: "Send node to chat" })).toHaveCount(0);
-  await expect(groupNode.getByRole("button", { name: "Add node to selection" })).toHaveCount(0);
-  await expect(textNode.getByLabel("Drag node")).toBeVisible();
-  await expect(textNode.getByRole("button", { name: "Resize node" })).toBeVisible();
-  const textResizeHandle = textNode.getByRole("button", { name: "Resize node" });
-  const textActions = textNode.locator('[data-node-actions="true"]');
-  await page.mouse.move(24, 330);
-  await expect
-    .poll(() => textActions.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("0");
-  await expect
-    .poll(() => textResizeHandle.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("0");
-  const textBoxForHover = await textNode.boundingBox();
-  if (textBoxForHover) {
-    await page.mouse.move(textBoxForHover.x + 24, textBoxForHover.y + 20);
-  }
-  await expect
-    .poll(() => textActions.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("1");
-  await expect
-    .poll(() => textResizeHandle.evaluate((element) => getComputedStyle(element).opacity))
-    .toBe("1");
-  await renameCanvasNode(textNode, "Architecture card");
-  await renameCanvasNode(noteNode, "Decision note");
-  await renameCanvasNode(groupNode, "Sprint frame");
-  const batchChatButton = page.getByRole("button", {
-    name: "Send selected canvas context to chat",
+  await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await outbound(page, "afxCanvasEdit")).length).toBe(1);
+  const [edit] = await outbound(page, "afxCanvasEdit");
+  expect(edit).toMatchObject({
+    type: "afxCanvasEdit",
+    sequence: 1,
+    documentId: `${PROJECT.source.rootUri}::${PROJECT.source.relativePath}`,
+    target: PROJECT.source,
+    baseRevision: "canvas-r1",
   });
-  await expect(batchChatButton).toBeDisabled();
-  await expect(textNode.getByRole("button", { name: "Send node to chat" })).toBeVisible();
-  await textNode.hover();
-  await textNode.getByRole("button", { name: "Add node to selection" }).click();
-  await fileNode.hover();
-  await fileNode.getByRole("button", { name: "Add node to selection" }).click();
-  await expect(batchChatButton).toBeEnabled();
-  await expect(batchChatButton).toContainText("Chat 2");
-  await textNode.click();
+  expect(String(edit?.["content"])).toContain("Edited delivery plan");
 
-  const box = await textNode.boundingBox();
-  if (box) {
-    await page.mouse.move(box.x + 30, box.y + 16);
-    await page.mouse.down();
-    await page.mouse.move(box.x - 20, box.y + 46);
-    await page.mouse.up();
-  }
-  const resizeHandle = textNode.getByRole("button", { name: "Resize node" });
-  const resizeBox = await resizeHandle.boundingBox();
-  if (resizeBox) {
-    await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(
-      resizeBox.x + resizeBox.width / 2 + 40,
-      resizeBox.y + resizeBox.height / 2 + 30,
-    );
-    await page.mouse.up();
-  }
-
-  const linkHandle = textNode.getByRole("button", { name: "Drag right connector" });
-  const linkBox = await linkHandle.boundingBox();
-  const fileBox = await fileNode.boundingBox();
-  if (linkBox && fileBox) {
-    await page.mouse.move(linkBox.x + linkBox.width / 2, linkBox.y + linkBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(...visibleNodePoint(fileBox, page.viewportSize()?.height ?? 360));
-    await page.mouse.up();
-  }
-  const edgeLabel = page.getByRole("button", { name: "Edit edge label Add label" });
-  await expect(edgeLabel).toBeVisible();
-  await edgeLabel.click();
-  const edgeLabelInput = page.getByRole("textbox", { name: "Edge label" });
-  await edgeLabelInput.fill("blocks");
-  await edgeLabelInput.press("Enter");
-  const namedEdgeLabel = page.getByRole("button", { name: "Edit edge label blocks" });
-  await expect(namedEdgeLabel).toBeVisible();
-  await namedEdgeLabel.dblclick();
-  await expect(page.getByRole("textbox", { name: "Edge label" })).toHaveValue("blocks");
-  await page.keyboard.press("Escape");
-  const secondLinkBox = await linkHandle.boundingBox();
-  const secondFileBox = await fileNode.boundingBox();
-  if (secondLinkBox && secondFileBox) {
-    await page.mouse.move(
-      secondLinkBox.x + secondLinkBox.width / 2,
-      secondLinkBox.y + secondLinkBox.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(...visibleNodePoint(secondFileBox, page.viewportSize()?.height ?? 360));
-    await page.mouse.up();
-  }
-  await expect(page.locator("[data-edge-id]")).toHaveCount(2);
-
-  const targetHandle = page.getByRole("button", { name: "Retarget target for edge blocks" });
-  const targetHandleBox = await targetHandle.boundingBox();
-  const noteBox = await noteNode.boundingBox();
-  if (targetHandleBox && noteBox) {
-    await page.mouse.move(
-      targetHandleBox.x + targetHandleBox.width / 2,
-      targetHandleBox.y + targetHandleBox.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(noteBox.x + noteBox.width / 2, noteBox.y + noteBox.height / 2);
-    await page.mouse.up();
-  }
-  const retargetedTargetBox = await targetHandle.boundingBox();
-  const updatedNoteBox = await noteNode.boundingBox();
-  if (retargetedTargetBox && updatedNoteBox) {
-    expect(retargetedTargetBox.x).toBeGreaterThanOrEqual(updatedNoteBox.x - 14);
-    expect(retargetedTargetBox.x).toBeLessThanOrEqual(updatedNoteBox.x + updatedNoteBox.width + 14);
-  }
-
-  await page.getByRole("button", { name: "Delete edge blocks" }).click();
-  await expect(page.locator("[data-edge-id]")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Edit edge label blocks" })).toHaveCount(0);
-  await expect(page.getByLabel(/Canvas save status/)).toBeVisible();
-
-  const compactOverflow = await page.evaluate(() =>
-    Math.max(0, document.body.scrollWidth - window.innerWidth),
-  );
-  expect(compactOverflow).toBeLessThanOrEqual(1);
-  const compactPath = resolve(SCREENSHOT_DIR, "canvas-compact.png");
-  const compact = await page.screenshot({ fullPage: false, path: compactPath });
-  await testInfo.attach("canvas-compact.png", { body: compact, contentType: "image/png" });
-  expect(compact.length).toBeGreaterThan(10_000);
-
-  await page.setViewportSize({ width: 1400, height: 600 });
-  await page.getByRole("button", { name: "Fit to view" }).click();
-  const fileScroll = fileNode.locator('[data-canvas-scrollable="true"]');
-  await fileScroll.evaluate((element) => {
-    element.scrollTop = 0;
-  });
-  const fileScrollBox = await fileScroll.boundingBox();
-  if (fileScrollBox) {
-    await page.mouse.move(fileScrollBox.x + fileScrollBox.width / 2, fileScrollBox.y + 80);
-    await page.mouse.wheel(0, 360);
-  }
-  await expect.poll(() => fileScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
-  const panBeforeNestedWheel = await world.evaluate(
-    (element) => element.getAttribute("style") ?? "",
-  );
-  await page.keyboard.down("Shift");
-  await page.mouse.wheel(0, 240);
-  await page.keyboard.up("Shift");
-  await expect
-    .poll(() => world.evaluate((element) => element.getAttribute("style") ?? ""))
-    .toBe(panBeforeNestedWheel);
-  await expect(page.getByText("100%")).toBeVisible();
-  const wideOverflow = await page.evaluate(() =>
-    Math.max(0, document.body.scrollWidth - window.innerWidth),
-  );
-  expect(wideOverflow).toBeLessThanOrEqual(1);
-  const widePath = resolve(SCREENSHOT_DIR, "canvas-wide.png");
-  const wide = await page.screenshot({ fullPage: false, path: widePath });
-  await testInfo.attach("canvas-wide.png", { body: wide, contentType: "image/png" });
-  expect(wide.length).toBeGreaterThan(10_000);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Edited delivery plan" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save canvas" })).toBeDisabled();
+  await expectNoReactFlowWarnings(page);
 });
 
-test("canvas handles large markdown, colors, resize clamps, and external updates", async ({
+test("Canvas renders a revisioned Markdown preview and opens the exact AFX preview target", async ({
   page,
-}, testInfo) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  await page.setViewportSize({ width: 540, height: 420 });
-  await page.goto("/");
-  await enableCanvas(page);
-  await page.getByRole("tab", { name: "Canvas" }).click();
+}) => {
+  await bootCanvas(page, FILE_PREVIEW_CANVAS, { width: 980, height: 600 });
 
-  await page.getByRole("button", { name: "Open markdown document picker" }).click();
-  await page.getByLabel("Document for file node").selectOption(LARGE_SPEC_PATH);
-  await page.getByRole("button", { name: "Add file node" }).click();
-  const fileNode = page.locator('[data-node-type="file"]').first();
+  const fileNode = page.getByTestId("react-flow-canvas-node-demo-spec");
   await expect(fileNode).toBeVisible();
-  await expect(fileNode.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Demo specification" })).toBeVisible();
+  await expect(
+    page.getByText("Live Markdown preview from the revisioned Canvas host."),
+  ).toBeVisible();
 
-  const fileScroll = fileNode.locator('[data-canvas-scrollable="true"]');
-  await fileScroll.evaluate((element) => {
-    element.scrollTop = 0;
+  await expect
+    .poll(async () => (await outbound(page, "afxCanvasContentPreviewRequest")).length)
+    .toBeGreaterThan(0);
+  const requests = await outbound(page, "afxCanvasContentPreviewRequest");
+  expect(requests.at(-1)).toMatchObject({
+    type: "afxCanvasContentPreviewRequest",
+    owner: { ...PROJECT.source, relativePath: SPEC_PATH },
   });
-  const fileScrollBox = await fileScroll.boundingBox();
-  if (fileScrollBox) {
-    await page.mouse.move(fileScrollBox.x + fileScrollBox.width / 2, fileScrollBox.y + 80);
-    await page.mouse.wheel(0, 500);
-  }
-  await expect.poll(() => fileScroll.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
 
-  await page.getByRole("button", { name: "Add group" }).click();
-  await page.getByRole("button", { name: "Add text node" }).click();
-  await expect(page.getByText("GROUP BOX")).toHaveCount(0);
+  await fileNode.click();
+  await page.getByRole("button", { name: "Rendered preview" }).click();
+  await expect.poll(async () => (await outbound(page, "afxOpenFile")).length).toBe(1);
+  const [previewOpen] = await outbound(page, "afxOpenFile");
+  expect(previewOpen).toEqual({
+    type: "afxOpenFile",
+    path: SPEC_PATH,
+    mode: "afxPreview",
+    owner: { ...PROJECT.source, relativePath: SPEC_PATH },
+    subpath: "#requirements",
+  });
+  await expectNoReactFlowWarnings(page);
+});
 
-  const textNode = page.locator('[data-node-kind="text"]').first();
-  await textNode.click();
-  await page.getByRole("button", { name: "Set selected node color" }).click();
-  await page.getByRole("button", { name: "Set selected nodes color Purple" }).click();
+test("Canvas stays usable without page overflow at 360px", async ({ page }, testInfo) => {
+  await bootCanvas(page, RESPONSIVE_CANVAS, { width: 360, height: 800 });
+
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await expect(page.locator(".react-flow__edge")).toHaveCount(2);
+  await expect(page.locator(".react-flow__minimap")).toHaveCount(0);
+  const toolbar = page.getByTestId("canvas-toolbar");
+  const geometry = await toolbar.evaluate((element) => ({
+    clientHeight: element.clientHeight,
+    scrollHeight: element.scrollHeight,
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(geometry.scrollHeight).toBeLessThanOrEqual(geometry.clientHeight + 1);
+  expect(geometry.scrollWidth).toBeGreaterThanOrEqual(geometry.clientWidth);
+
+  await page.getByRole("button", { name: "Fit selection or canvas" }).click();
   await expect
     .poll(() =>
-      textNode.evaluate((element) => getComputedStyle(element as HTMLElement).borderLeftColor),
+      page.evaluate(() => {
+        const surface = document.querySelector('[data-testid="react-flow-canvas"]');
+        const nodes = [...document.querySelectorAll(".react-flow__node")];
+        if (!surface || nodes.length === 0) return false;
+        const bounds = surface.getBoundingClientRect();
+        return nodes.every((node) => {
+          const rect = node.getBoundingClientRect();
+          return (
+            rect.left >= bounds.left - 1 &&
+            rect.right <= bounds.right + 1 &&
+            rect.top >= bounds.top - 1 &&
+            rect.bottom <= bounds.bottom + 1
+          );
+        });
+      }),
     )
-    .not.toBe("rgba(0, 0, 0, 0)");
-
-  const resizeHandle = textNode.getByRole("button", { name: "Resize node" });
-  const resizeBox = await resizeHandle.boundingBox();
-  if (resizeBox) {
-    await page.mouse.move(resizeBox.x + resizeBox.width / 2, resizeBox.y + resizeBox.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(resizeBox.x - 500, resizeBox.y - 500);
-    await page.mouse.up();
-  }
-  const resizedBox = await textNode.boundingBox();
-  expect(resizedBox?.width ?? 0).toBeGreaterThanOrEqual(175);
-  expect(resizedBox?.height ?? 0).toBeGreaterThanOrEqual(105);
-
-  const dragBefore = await textNode.boundingBox();
-  if (dragBefore) {
-    await page.mouse.move(dragBefore.x + 24, dragBefore.y + 16);
-    await page.mouse.down();
-    await page.mouse.move(dragBefore.x + 82, dragBefore.y + 48);
-    await page.mouse.up();
-  }
-  const dragAfter = await textNode.boundingBox();
-  expect(Math.abs((dragAfter?.x ?? 0) - (dragBefore?.x ?? 0))).toBeGreaterThan(10);
-
-  await page.getByRole("button", { name: "Add text node" }).click();
-  await page.evaluate(() => {
-    window.postMessage(
-      {
-        type: "afxUpdate",
-        canvasEnabled: true,
-        canvas: {
-          path: ".afx/project.canvas",
-          exists: true,
-          content: '{"nodes":[],"edges":[]}',
-        },
-      },
-      "*",
-    );
-  });
-  await expect(page.getByText("External canvas update available")).toBeVisible();
-
-  const compactOverflow = await page.evaluate(() =>
-    Math.max(0, document.body.scrollWidth - window.innerWidth),
-  );
-  expect(compactOverflow).toBeLessThanOrEqual(1);
-  const largePath = resolve(SCREENSHOT_DIR, "canvas-large-markdown-regression.png");
-  const largeShot = await page.screenshot({ fullPage: false, path: largePath });
-  await testInfo.attach("canvas-large-markdown-regression.png", {
-    body: largeShot,
-    contentType: "image/png",
-  });
-  expect(largeShot.length).toBeGreaterThan(10_000);
+    .toBe(true);
+  await expectNoPageOverflow(page);
+  await capture(page, testInfo, "canvas-react-flow-responsive-360.png");
+  await expectNoReactFlowWarnings(page);
 });
 
-test("canvas toolbar and background remain quiet in light theme", async ({ page }, testInfo) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  await page.setViewportSize({ width: 1180, height: 520 });
-  await page.goto("/");
-  await page.evaluate(() => {
-    document.body.classList.remove("vscode-dark");
-    document.body.classList.add("vscode-light", "theme-meridian", "style-mira");
-  });
-  await enableCanvas(page);
-  await page.getByRole("tab", { name: "Canvas" }).click();
-  await page.getByRole("button", { name: "Add text node" }).click();
-  await page.getByRole("button", { name: "Add notepad node" }).click();
-  await page.getByRole("button", { name: "Add label" }).click();
-  await page.getByRole("button", { name: "Open markdown document picker" }).click();
-  await page.getByLabel("Document for file node").selectOption(SPEC_PATH);
-  await page.getByRole("button", { name: "Add file node" }).click();
+test("Canvas blocks an external replacement until the user resolves the conflict", async ({
+  page,
+}, testInfo) => {
+  await bootCanvas(page, EDIT_CANVAS, { width: 540, height: 680 }, { autoAcknowledgeEdits: false });
 
-  await expect(page.getByRole("button", { name: "Add text node" })).toHaveText("Card");
-  await expect(page.getByRole("button", { name: "Add label" })).toContainText("Label");
-  const labelNode = page.locator('[data-node-kind="label"]').first();
-  await expect(labelNode.locator('[data-node-icon="label"]')).toHaveCount(0);
-  await renameCanvasNode(labelNode, "Milestone");
-  const labelTitle = labelNode.getByRole("button", { name: "Rename node label Milestone" });
-  const labelFrame = await labelNode.evaluate((element) => {
-    const style = getComputedStyle(element as HTMLElement);
-    return {
-      backgroundColor: style.backgroundColor,
-      borderTopColor: style.borderTopColor,
-      boxShadow: style.boxShadow,
-    };
-  });
-  expect(labelFrame.backgroundColor).toBe("rgba(0, 0, 0, 0)");
-  expect(labelFrame.borderTopColor).toBe("rgba(0, 0, 0, 0)");
-  expect(labelFrame.boxShadow).not.toMatch(/rgba\([^)]+,\s*0\.[1-9]/);
-  const labelTitleBox = await labelTitle.boundingBox();
-  await labelTitle.hover();
-  const labelDeleteBox = await labelNode
-    .getByRole("button", { name: "Delete label" })
-    .boundingBox();
-  expect(labelTitleBox).not.toBeNull();
-  expect(labelDeleteBox).not.toBeNull();
-  if (labelTitleBox && labelDeleteBox) {
-    expect(Math.abs(labelDeleteBox.x - (labelTitleBox.x + labelTitleBox.width))).toBeLessThan(72);
-  }
-  const labelFontBefore = await labelTitle.evaluate((element) =>
-    Number.parseFloat(getComputedStyle(element as HTMLElement).fontSize),
-  );
-  const labelResizeHandle = labelNode.getByRole("button", { name: "Resize node" });
-  const labelResizeBox = await labelResizeHandle.boundingBox();
-  if (labelTitleBox && labelResizeBox) {
-    expect(Math.abs(labelResizeBox.x - (labelTitleBox.x + labelTitleBox.width))).toBeLessThan(24);
-    expect(labelResizeBox.y).toBeGreaterThan(labelTitleBox.y + labelTitleBox.height - 28);
-    expect(labelResizeBox.y).toBeLessThan(labelTitleBox.y + labelTitleBox.height + 8);
-  }
-  if (labelResizeBox) {
-    await page.mouse.move(
-      labelResizeBox.x + labelResizeBox.width / 2,
-      labelResizeBox.y + labelResizeBox.height / 2,
-    );
-    await page.mouse.down();
-    await page.mouse.move(
-      labelResizeBox.x + labelResizeBox.width / 2 + 70,
-      labelResizeBox.y + labelResizeBox.height / 2 + 46,
-    );
-    await page.mouse.up();
-  }
-  await expect
-    .poll(() =>
-      labelTitle.evaluate((element) =>
-        Number.parseFloat(getComputedStyle(element as HTMLElement).fontSize),
-      ),
-    )
-    .toBeGreaterThan(labelFontBefore + 8);
-  const labelTitleAfterResize = await labelTitle.boundingBox();
-  const labelResizeAfterResize = await labelResizeHandle.boundingBox();
-  if (labelTitleAfterResize && labelResizeAfterResize) {
-    expect(
-      Math.abs(labelResizeAfterResize.x - (labelTitleAfterResize.x + labelTitleAfterResize.width)),
-    ).toBeLessThan(24);
-    expect(labelResizeAfterResize.y).toBeGreaterThan(
-      labelTitleAfterResize.y + labelTitleAfterResize.height - 28,
-    );
-    expect(labelResizeAfterResize.y).toBeLessThan(
-      labelTitleAfterResize.y + labelTitleAfterResize.height + 8,
-    );
-  }
-  await labelTitle.dblclick();
-  const labelInput = labelNode.getByRole("textbox", { name: "Rename node label" });
-  await expect(labelInput).toBeVisible();
-  const labelInputBox = await labelInput.boundingBox();
-  const labelResizeWhileEditing = await labelResizeHandle.boundingBox();
-  if (labelInputBox && labelResizeWhileEditing) {
-    expect(
-      Math.abs(labelResizeWhileEditing.x - (labelInputBox.x + labelInputBox.width)),
-    ).toBeLessThan(24);
-    expect(labelResizeWhileEditing.y).toBeGreaterThan(labelInputBox.y + labelInputBox.height - 28);
-    expect(labelResizeWhileEditing.y).toBeLessThan(labelInputBox.y + labelInputBox.height + 8);
-  }
-  await labelInput.press("Escape");
-  await expect(labelNode.getByRole("button", { name: "Send node to chat" })).toHaveCount(0);
-  await page.mouse.move(24, 500);
-  await page.waitForTimeout(200);
-  await expect(page.getByText("Inline spec content for the canvas node.")).toBeVisible();
-  const overflow = await page.evaluate(() =>
-    Math.max(0, document.body.scrollWidth - window.innerWidth),
-  );
-  expect(overflow).toBeLessThanOrEqual(1);
-  const lightPath = resolve(SCREENSHOT_DIR, "canvas-light-toolbar-grid.png");
-  const lightShot = await page.screenshot({ fullPage: false, path: lightPath });
-  await testInfo.attach("canvas-light-toolbar-grid.png", {
-    body: lightShot,
-    contentType: "image/png",
-  });
-  expect(lightShot.length).toBeGreaterThan(10_000);
-});
+  const node = page.getByTestId("react-flow-canvas-node-seed");
+  await node.dblclick();
+  const editor = node.getByRole("textbox", { name: "Canvas node markdown" });
+  await editor.fill("# Local unsaved edit\n\nKeep this visible until conflict review.");
+  await editor.press("Control+Enter");
+  await expect(page.getByText("Saving…", { exact: true })).toBeVisible();
+  await expect.poll(async () => (await outbound(page, "afxCanvasEdit")).length).toBe(1);
 
-test("canvas labels keep text-sized controls and hit areas in dense layouts", async ({ page }) => {
-  const denseCanvas = {
+  const externalCanvas: JSONCanvas = {
     nodes: [
       {
-        id: "n-near-label",
+        id: "external",
         type: "text",
-        text: "Nearby",
-        afxNodeKind: "label",
-        x: 210,
-        y: 185,
-        width: 160,
-        height: 34,
-      },
-      {
-        id: "n-large-label",
-        type: "text",
-        text: "Large label",
-        afxNodeKind: "label",
-        x: 120,
-        y: 82,
-        width: 520,
-        height: 170,
+        text: "# External replacement\n\nManually edited on disk.",
+        x: 0,
+        y: 0,
+        width: 300,
+        height: 160,
+        color: "3",
       },
     ],
     edges: [],
   };
-  await page.setViewportSize({ width: 900, height: 360 });
-  await page.goto("/");
-  await page.evaluate((content) => {
-    window.postMessage(
-      {
-        type: "afxUpdate",
-        canvasEnabled: true,
-        canvas: { path: ".afx/project.canvas", exists: true, content },
-        documents: [],
-      },
-      "*",
-    );
-  }, JSON.stringify(denseCanvas));
-  await page.getByRole("tab", { name: "Canvas" }).click();
-
-  const largeLabel = page.locator('[data-node-id="n-large-label"]');
-  const nearLabel = page.locator('[data-node-id="n-near-label"]');
-  const nearTitle = nearLabel.getByRole("button", { name: "Rename node label Nearby" });
-  await expect(largeLabel).toBeVisible();
-  await expect(nearTitle).toBeVisible();
-
-  const nearTitleBox = await nearTitle.boundingBox();
-  if (nearTitleBox) {
-    await page.mouse.move(
-      nearTitleBox.x + nearTitleBox.width / 2,
-      nearTitleBox.y + nearTitleBox.height / 2,
-    );
-  }
-  await expect
-    .poll(() =>
-      nearLabel
-        .locator('[data-label-actions="true"]')
-        .evaluate((element) => getComputedStyle(element).opacity),
-    )
-    .toBe("1");
-  await nearLabel.getByRole("button", { name: "Add node to selection" }).click();
-  await expect(
-    nearLabel.getByRole("button", { name: "Remove node from selection" }),
-  ).toHaveAttribute("aria-pressed", "true");
-  expect(await nearLabel.evaluate((element) => element.className)).toContain("text-afx-brand");
-  expect(await largeLabel.evaluate((element) => element.className)).not.toContain("text-afx-brand");
-});
-
-test("canvas stress renders a dense project map with parallel edges", async ({
-  page,
-}, testInfo) => {
-  mkdirSync(SCREENSHOT_DIR, { recursive: true });
-  const stressCanvas = makeStressCanvas(144);
-  await page.setViewportSize({ width: 1280, height: 720 });
-  await page.goto("/");
-  await page.evaluate((content) => {
-    window.postMessage(
-      {
-        type: "afxUpdate",
-        canvasEnabled: true,
-        canvas: { path: ".afx/project.canvas", exists: true, content },
-        documents: [],
-      },
-      "*",
-    );
-  }, JSON.stringify(stressCanvas));
-  await page.getByRole("tab", { name: "Canvas" }).click();
-
-  await expect(page.locator("[data-node-id]")).toHaveCount(stressCanvas.nodes.length);
-  await expect(page.locator("[data-edge-id]")).toHaveCount(stressCanvas.edges.length);
-  await page.getByRole("button", { name: "Fit to view" }).click();
-  await page.mouse.move(640, 360);
-  await page.mouse.wheel(0, 360);
-  await expect(page.getByLabel(/Canvas save status/)).toBeVisible();
-
-  const overflow = await page.evaluate(() =>
-    Math.max(0, document.body.scrollWidth - window.innerWidth),
-  );
-  expect(overflow).toBeLessThanOrEqual(1);
-  const stressPath = resolve(SCREENSHOT_DIR, "canvas-stress-144-nodes.png");
-  const stressShot = await page.screenshot({ fullPage: false, path: stressPath });
-  await testInfo.attach("canvas-stress-144-nodes.png", {
-    body: stressShot,
-    contentType: "image/png",
-  });
-  expect(stressShot.length).toBeGreaterThan(10_000);
-});
-
-function makeStressCanvas(nodeCount: number) {
-  const nodes = Array.from({ length: nodeCount }, (_, index) => {
-    const col = index % 12;
-    const row = Math.floor(index / 12);
-    const x = col * 270;
-    const y = row * 190;
-    if (index % 18 === 0) {
-      return {
-        id: `n-${index}`,
-        type: "group",
-        label: `Frame ${index}`,
-        x,
-        y,
-        width: 520,
-        height: 320,
-        color: "5",
-      };
-    }
-    return {
-      id: `n-${index}`,
-      type: "text",
-      text:
-        index % 5 === 0
-          ? `# Note ${index}\n\nStress note with enough markdown to render paragraphs, lists, and inline code.`
-          : `Card ${index}\n\n- Spec link ${index}\n- Implementation note ${index}`,
-      afxNodeKind: index % 5 === 0 ? "note" : undefined,
-      color: String((index % 6) + 1),
-      x,
-      y,
-      width: 240,
-      height: 136,
-    };
-  });
-  const edges = Array.from({ length: nodeCount - 1 }, (_, index) => ({
-    id: `e-${index}`,
-    fromNode: `n-${index}`,
-    fromSide: "right",
-    toNode: `n-${index + 1}`,
-    toSide: "left",
-    toEnd: "arrow",
-    label: index % 9 === 0 ? `e${index}` : undefined,
-  }));
-  edges.push(
-    {
-      id: "e-parallel-1",
-      fromNode: "n-1",
-      fromSide: "right",
-      toNode: "n-2",
-      toSide: "left",
-      toEnd: "arrow",
-      label: "parallel a",
+  await page.evaluate(
+    (document) => {
+      window.postMessage({ type: "afxCanvasDocument", document }, "*");
     },
-    {
-      id: "e-parallel-2",
-      fromNode: "n-1",
-      fromSide: "right",
-      toNode: "n-2",
-      toSide: "left",
-      toEnd: "arrow",
-      label: "parallel b",
-    },
+    snapshot(externalCanvas, "external-r2"),
   );
-  return { nodes, edges };
-}
 
-function visibleNodePoint(
-  box: { x: number; y: number; width: number; height: number },
-  viewportHeight: number,
-): [number, number] {
-  const y = Math.min(box.y + Math.max(24, box.height * 0.45), viewportHeight - 24);
-  return [box.x + Math.min(80, box.width * 0.45), y];
-}
+  await expect(page.getByRole("alert")).toContainText(
+    "The file changed while this canvas had unsaved work",
+  );
+  await expect(page.getByText("Conflict", { exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Local unsaved edit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "External replacement" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Save canvas" })).toBeDisabled();
+  await expectNoPageOverflow(page);
+  await capture(page, testInfo, "canvas-react-flow-conflict.png");
 
-async function renameCanvasNode(node: Locator, label: string) {
-  // The rename control hover/focus-reveals (group keeps its label, but its options
-  // reveal on hover too); labels reveal via their own control.
-  const kind = await node.getAttribute("data-node-kind");
-  if (kind === "label") {
-    await node.getByRole("button", { name: /^Rename node label / }).hover();
-  } else {
-    await node.hover();
-  }
-  await node.getByRole("button", { name: "Rename node label", exact: true }).click();
-  const input = node.getByRole("textbox", { name: "Rename node label" });
-  await input.fill(label);
-  await input.press("Enter");
-  await expect(node.getByRole("button", { name: `Rename node label ${label}` })).toBeVisible();
-}
-
-async function readCanvasTransform(
-  world: Locator,
-): Promise<{ x: number; y: number; zoom: number }> {
-  const style = await world.evaluate((element) => (element as HTMLElement).style.transform);
-  const match =
-    /translate\((-?\d+(?:\.\d+)?)px,\s*(-?\d+(?:\.\d+)?)px\) scale\((\d+(?:\.\d+)?)\)/.exec(style);
-  if (!match) throw new Error(`Unable to read canvas transform from ${style}`);
-  return {
-    x: Number(match[1]),
-    y: Number(match[2]),
-    zoom: Number(match[3]),
-  };
-}
+  await page.getByRole("button", { name: "Reload external" }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".react-flow__node")).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "External replacement" })).toBeVisible();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
+  await expectNoReactFlowWarnings(page);
+});

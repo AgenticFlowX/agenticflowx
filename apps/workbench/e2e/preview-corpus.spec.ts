@@ -82,6 +82,31 @@ async function validatePreviewSample(
     screenshot?: { name: string; testInfo: TestInfo };
   },
 ) {
+  try {
+    await validatePreviewSampleOnce(page, sample, isAfxHint, options);
+  } catch (error) {
+    if (!isExecutionContextDestroyed(error)) throw error;
+
+    // Vite can briefly reload the shared preview page while the two-worker
+    // Workbench suite is exercising screenshot-heavy views. Re-post only the
+    // current sample once; a second navigation or any content failure remains
+    // a hard failure instead of being hidden by a broad test retry.
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page.locator("#root")).toBeVisible();
+    await validatePreviewSampleOnce(page, sample, isAfxHint, options);
+  }
+}
+
+async function validatePreviewSampleOnce(
+  page: Page,
+  sample: MarkdownSample,
+  isAfxHint: boolean,
+  options?: {
+    ignoredHeadings?: string[];
+    skipHeadingAndTableCoverage?: boolean;
+    screenshot?: { name: string; testInfo: TestInfo };
+  },
+) {
   const { content, filePath } = sample;
   await postPreview(page, filePath, content, isAfxHint);
   await page.waitForFunction(
@@ -103,6 +128,10 @@ async function validatePreviewSample(
   if (options?.screenshot) {
     await attachCorpusScreenshot(page, options.screenshot.testInfo, options.screenshot.name);
   }
+}
+
+function isExecutionContextDestroyed(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("Execution context was destroyed");
 }
 
 async function validateCorpus(page: Page, files: string[], isAfxHint: boolean) {

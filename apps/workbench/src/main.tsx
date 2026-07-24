@@ -12,6 +12,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import App from "./app";
+import { CanvasEditorApp } from "./canvas-editor-app";
 import "./index.css";
 import { applyAppearanceClass } from "./lib/appearance";
 import { initWorkbenchBridge, workbenchOn } from "./lib/bridge";
@@ -28,7 +29,13 @@ if (!root) throw new Error("Root element not found");
 const search = new URLSearchParams(window.location.search);
 const IS_PREVIEW_MODE =
   document.body.dataset.afxView === "preview" || search.get("afx-view") === "preview";
+const IS_CANVAS_EDITOR_MODE =
+  document.body.dataset.afxView === "canvas-editor" || search.get("afx-view") === "canvas-editor";
 workbenchOn("afxTelemetryUpdated", (msg) => {
   setClarityEnabled(msg.enabled, IS_PREVIEW_MODE ? "preview" : "panel");
 });
-createRoot(root).render(<StrictMode>{IS_PREVIEW_MODE ? <PreviewApp /> : <App />}</StrictMode>);
+createRoot(root).render(
+  <StrictMode>
+    {IS_PREVIEW_MODE ? <PreviewApp /> : IS_CANVAS_EDITOR_MODE ? <CanvasEditorApp /> : <App />}
+  </StrictMode>,
+);

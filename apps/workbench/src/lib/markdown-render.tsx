@@ -65,6 +65,13 @@ interface CheckboxTargets {
   sessionCells: MarkdownCheckboxToggle[];
 }
 
+interface HastNode {
+  type?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
+}
+
 interface DefinitionCalloutRow {
   label: string;
   value: ReactNode[];
@@ -119,6 +126,29 @@ function remarkTidyThematicBreaks() {
       kept.push(node);
     });
     tree.children = kept;
+  };
+}
+
+/**
+ * Give generated GFM task inputs a stable ordinal. React StrictMode may invoke
+ * component renderers more than once, so render-time cursors cannot safely own
+ * checkbox identity.
+ */
+function rehypeIndexTaskCheckboxes() {
+  return (tree: HastNode): void => {
+    let checkboxIndex = 0;
+    const visit = (node: HastNode): void => {
+      if (
+        node.type === "element" &&
+        node.tagName === "input" &&
+        node.properties?.type === "checkbox"
+      ) {
+        node.properties["data-afx-checkbox-index"] = checkboxIndex;
+        checkboxIndex += 1;
+      }
+      node.children?.forEach(visit);
+    };
+    visit(tree);
   };
 }
 
@@ -930,7 +960,6 @@ function createComponents(
   onCheckboxToggle: ((target: MarkdownCheckboxToggle) => void) | undefined,
   renderAfterHeading: MarkdownHeadingActionRenderer | undefined,
 ): Components {
-  let taskCursor = 0;
   let sessionCheckboxCursor = 0;
 
   function MarkdownTableDataCell({ children }: { children?: ReactNode }) {
@@ -1014,9 +1043,10 @@ function createComponents(
       </MarkdownHeading>
     ),
     td: MarkdownTableDataCell,
-    input: ({ checked, type }) => {
+    input: ({ checked, type, node }) => {
       if (type !== "checkbox") return null;
-      const target = targets.tasks[taskCursor++];
+      const indexed = node?.properties?.["data-afx-checkbox-index"];
+      const target = typeof indexed === "number" ? targets.tasks[indexed] : undefined;
       if (!target) return <ReadonlyMarkdownCheckbox checked={checked} />;
       return (
         <input
@@ -1191,6 +1221,7 @@ export function MinimalMarkdown({
     >
       <MarkdownAnchorContext.Provider value={anchorAliases}>
         <ReactMarkdown
+          rehypePlugins={[rehypeIndexTaskCheckboxes]}
           remarkPlugins={
             breaks
               ? [remarkGfm, remarkBreaks, remarkTidyThematicBreaks]

@@ -4,19 +4,18 @@
  * @see docs/specs/229-app-workbench-canvas/spec.md [FR-4] [FR-5] [FR-8] [FR-9]
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-DATA]
  */
-import { useCallback, useMemo, useState } from "react";
-
-import type {
-  CanvasColor,
-  CanvasEdge,
-  CanvasFileNode,
-  CanvasGroupNode,
-  CanvasNode,
-  CanvasTextNode,
-  JSONCanvas,
+import {
+  type CanvasColor,
+  type CanvasEdge,
+  type CanvasFileNode,
+  type CanvasGroupNode,
+  type CanvasLinkNode,
+  type CanvasNode,
+  type CanvasTextNode,
+  type JSONCanvas,
+  type WorkbenchSourceIdentity,
+  portableCanvasSourceIdentity,
 } from "@afx/shared";
-
-import { emptyCanvas } from "../../lib/json-canvas";
 
 export interface CanvasPoint {
   x: number;
@@ -28,21 +27,10 @@ export interface CanvasRect extends CanvasPoint {
   height: number;
 }
 
-interface CanvasModelState {
-  resetKey: string;
-  canvas: JSONCanvas;
-  dirty: boolean;
-  selectedIds: string[];
-}
-
 const DEFAULT_NODE_SIZE = { width: 320, height: 170 };
 const LABEL_NODE_SIZE = { width: 180, height: 36 };
 const DEFAULT_MIN_NODE_SIZE = { width: 180, height: 110 };
 const LABEL_MIN_NODE_SIZE = { width: 80, height: 28 };
-
-export function normalizeCanvas(canvas: JSONCanvas | undefined): JSONCanvas {
-  return { ...(canvas ?? emptyCanvas()), nodes: canvas?.nodes ?? [], edges: canvas?.edges ?? [] };
-}
 
 export function makeCanvasId(prefix: "n" | "e"): string {
   const random =
@@ -104,6 +92,7 @@ export function addFileNode(
   file: string,
   at: CanvasPoint,
   id = makeCanvasId("n"),
+  source?: WorkbenchSourceIdentity,
 ): JSONCanvas {
   const node: CanvasFileNode = {
     id,
@@ -113,6 +102,48 @@ export function addFileNode(
     y: Math.round(at.y),
     width: 380,
     height: 230,
+    ...(source ? { afxSource: portableCanvasSourceIdentity(source) } : {}),
+  };
+  return { ...canvas, nodes: [...(canvas.nodes ?? []), node], edges: canvas.edges ?? [] };
+}
+
+/** Add multiple portable file references in a readable deterministic grid. */
+export function addFileNodes(
+  canvas: JSONCanvas,
+  files: readonly { file: string; source?: WorkbenchSourceIdentity }[],
+  at: CanvasPoint,
+): JSONCanvas {
+  return files.reduce(
+    (current, candidate, index) =>
+      addFileNode(
+        current,
+        candidate.file,
+        {
+          x: at.x + (index % 3) * 420,
+          y: at.y + Math.floor(index / 3) * 270,
+        },
+        makeCanvasId("n"),
+        candidate.source,
+      ),
+    canvas,
+  );
+}
+
+/** Add a standard JSON Canvas link node; no AFX metadata is required. */
+export function addLinkNode(
+  canvas: JSONCanvas,
+  url: string,
+  at: CanvasPoint,
+  id = makeCanvasId("n"),
+): JSONCanvas {
+  const node: CanvasLinkNode = {
+    id,
+    type: "link",
+    url,
+    x: Math.round(at.x),
+    y: Math.round(at.y),
+    width: 360,
+    height: 180,
   };
   return { ...canvas, nodes: [...(canvas.nodes ?? []), node], edges: canvas.edges ?? [] };
 }
@@ -272,15 +303,6 @@ export function nodeCenter(node: CanvasNode): CanvasPoint {
   return { x: node.x + node.width / 2, y: node.y + node.height / 2 };
 }
 
-export function canvasBounds(nodes: CanvasNode[]): CanvasRect | null {
-  if (nodes.length === 0) return null;
-  const minX = Math.min(...nodes.map((node) => node.x));
-  const minY = Math.min(...nodes.map((node) => node.y));
-  const maxX = Math.max(...nodes.map((node) => node.x + node.width));
-  const maxY = Math.max(...nodes.map((node) => node.y + node.height));
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
 export function parsePointFromViewport(
   point: CanvasPoint,
   pan: CanvasPoint,
@@ -299,100 +321,6 @@ function updateNode(
     nodes: (canvas.nodes ?? []).map((node) => (node.id === id ? updater(node) : node)),
     edges: canvas.edges ?? [],
   };
-}
-
-export function useCanvasModel(initialCanvas: JSONCanvas, resetKey: string) {
-  const [state, setState] = useState<CanvasModelState>(() => ({
-    resetKey,
-    canvas: normalizeCanvas(initialCanvas),
-    dirty: false,
-    selectedIds: [],
-  }));
-
-  if (state.resetKey !== resetKey) {
-    setState({
-      resetKey,
-      canvas: normalizeCanvas(initialCanvas),
-      dirty: false,
-      selectedIds: [],
-    });
-  }
-
-  const mutate = useCallback((updater: (current: JSONCanvas) => JSONCanvas) => {
-    setState((current) => ({
-      ...current,
-      canvas: updater(current.canvas),
-      dirty: true,
-    }));
-  }, []);
-
-  const setClean = useCallback(() => {
-    setState((current) => ({ ...current, dirty: false }));
-  }, []);
-
-  const selectOnly = useCallback((id: string) => {
-    setState((current) => ({ ...current, selectedIds: [id] }));
-  }, []);
-
-  const toggleSelected = useCallback((id: string) => {
-    setState((current) => ({
-      ...current,
-      selectedIds: current.selectedIds.includes(id)
-        ? current.selectedIds.filter((item) => item !== id)
-        : [...current.selectedIds, id],
-    }));
-  }, []);
-
-  const clearSelection = useCallback(() => {
-    setState((current) => ({ ...current, selectedIds: [] }));
-  }, []);
-
-  return useMemo(
-    () => ({
-      canvas: state.canvas,
-      dirty: state.dirty,
-      selectedIds: state.selectedIds,
-      setClean,
-      selectOnly,
-      toggleSelected,
-      clearSelection,
-      addText: (at: CanvasPoint, text?: string) =>
-        mutate((current) => addTextNode(current, at, text)),
-      addNote: (at: CanvasPoint) =>
-        mutate((current) => addTextNode(current, at, "# Note\n\n", makeCanvasId("n"), "3", "note")),
-      addLabel: (at: CanvasPoint) => mutate((current) => addLabelNode(current, at)),
-      addGroup: (at: CanvasPoint) => mutate((current) => addGroupNode(current, at)),
-      addFile: (file: string, at: CanvasPoint) =>
-        mutate((current) => addFileNode(current, file, at)),
-      updateText: (id: string, text: string) =>
-        mutate((current) => updateTextNode(current, id, text)),
-      renameNode: (id: string, title: string) =>
-        mutate((current) => renameNode(current, id, title)),
-      move: (id: string, point: CanvasPoint) => mutate((current) => moveNode(current, id, point)),
-      resize: (id: string, size: Pick<CanvasRect, "width" | "height">) =>
-        mutate((current) => resizeNode(current, id, size)),
-      connect: (fromNode: string, toNode: string, label?: string) =>
-        mutate((current) => connectNodes(current, fromNode, toNode, label)),
-      labelEdge: (id: string, label: string) =>
-        mutate((current) => updateEdgeLabel(current, id, label)),
-      retargetEdge: (id: string, end: "from" | "to", nodeId: string) =>
-        mutate((current) => retargetEdge(current, id, end, nodeId)),
-      removeEdge: (id: string) => mutate((current) => deleteEdge(current, id)),
-      colorSelected: (color: CanvasColor | undefined) =>
-        mutate((current) => updateNodeColor(current, state.selectedIds, color)),
-      removeNode: (id: string) => mutate((current) => deleteNode(current, id)),
-    }),
-    [
-      clearSelection,
-      mutate,
-      selectOnly,
-      setClean,
-      state.canvas,
-      state.dirty,
-      state.selectedIds,
-      toggleSelected,
-    ],
-  );
 }
 
 function renameMarkdownTitle(text: string, title: string): string {

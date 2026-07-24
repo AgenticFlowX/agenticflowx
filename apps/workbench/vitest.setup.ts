@@ -12,4 +12,11 @@ class MockResizeObserver {
 }
 window.ResizeObserver = MockResizeObserver;
 
+// Radix Select and dnd-kit rely on pointer-capture methods that JSDOM does not
+// implement. The no-op shim preserves browser behavior boundaries in tests.
+HTMLElement.prototype.hasPointerCapture ??= () => false;
+HTMLElement.prototype.setPointerCapture ??= () => {};
+HTMLElement.prototype.releasePointerCapture ??= () => {};
+HTMLElement.prototype.scrollIntoView ??= () => {};
+
 failOnConsole({ shouldFailOnError: true, shouldFailOnWarn: true });

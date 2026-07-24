@@ -60,6 +60,9 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1024,
+    // Legal inventory consumes the production map; maps are excluded from the VSIX.
+    // @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-18]
+    sourcemap: true,
   },
   server: {
     host: DEV_SERVER_HOST,

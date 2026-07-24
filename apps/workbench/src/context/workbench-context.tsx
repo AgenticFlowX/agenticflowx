@@ -14,10 +14,12 @@ import type {
   GhostTaskResult,
   JournalEntry,
   KanbanData,
+  NotesSourceSnapshot,
   PipelineRow,
   QuickNote,
   WorkbenchInbound,
   WorkbenchOutbound,
+  WorkbenchViewId,
 } from "@afx/shared";
 import { TooltipProvider } from "@afx/ui/components/tooltip";
 
@@ -32,9 +34,11 @@ export interface WorkbenchState {
   notes: QuickNote[];
   notesRaw: string;
   notesFilePath: string;
+  notesSources: NotesSourceSnapshot[];
   ghostTasks: GhostTaskResult;
   canvasEnabled: boolean;
   canvas?: CanvasFilePayload;
+  hiddenViews: WorkbenchViewId[];
   selectedFeature: string | null;
   isLoading: boolean;
 }
@@ -51,9 +55,11 @@ const INITIAL_STATE: WorkbenchState = {
   notes: [],
   notesRaw: "",
   notesFilePath: "",
+  notesSources: [],
   ghostTasks: EMPTY_GHOST,
   canvasEnabled: false,
   canvas: undefined,
+  hiddenViews: [],
   selectedFeature: null,
   isLoading: true,
 };
@@ -77,6 +83,39 @@ function writeSelectedFeature(name: string | null): void {
   } catch {
     // localStorage unavailable - selection stays in-memory only.
   }
+}
+
+/**
+ * Reject a late, older Board scan before it can replace a newer clean
+ * snapshot. Equal generations remain valid because an editor overlay can
+ * publish a newer revision within the same host scan.
+ *
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-11] [NFR-5] [NFR-6]
+ * @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-LIVE-SYNC] [DES-BOARD-DATA]
+ */
+function reconcileKanbanData(
+  current: KanbanData | null,
+  incoming: KanbanData | null,
+): KanbanData | null {
+  if (!current || !incoming) return incoming;
+  const currentGenerations = current.boards.flatMap((board) =>
+    board.scanGeneration === undefined ? [] : [board.scanGeneration],
+  );
+  const incomingGenerations = incoming.boards.flatMap((board) =>
+    board.scanGeneration === undefined ? [] : [board.scanGeneration],
+  );
+  const currentGeneration = currentGenerations.length ? Math.max(...currentGenerations) : undefined;
+  const incomingGeneration = incomingGenerations.length
+    ? Math.max(...incomingGenerations)
+    : undefined;
+  if (
+    currentGeneration !== undefined &&
+    incomingGeneration !== undefined &&
+    incomingGeneration < currentGeneration
+  ) {
+    return current;
+  }
+  return incoming;
 }
 
 function initialWorkbenchState(initialState: Partial<WorkbenchState> | undefined): WorkbenchState {
@@ -119,10 +158,11 @@ function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         featureTasks: p.featureTasks ?? state.featureTasks,
         documents: p.documents ?? state.documents,
         journal: p.journal ?? state.journal,
-        kanban: p.kanban !== undefined ? p.kanban : state.kanban,
+        kanban: p.kanban !== undefined ? reconcileKanbanData(state.kanban, p.kanban) : state.kanban,
         notes: p.notes ?? state.notes,
         notesRaw: p.notesRaw ?? state.notesRaw,
         notesFilePath: p.notesFilePath ?? state.notesFilePath,
+        notesSources: p.notesSources ?? state.notesSources,
         ghostTasks: p.ghostTasks ?? state.ghostTasks,
         // Canvas experiment fields: flag gate + raw .afx/project.canvas payload.
         // canvas is cleared when the host reports the flag off.
@@ -130,6 +170,7 @@ function reducer(state: WorkbenchState, action: Action): WorkbenchState {
         // @see docs/specs/229-app-workbench-canvas/design.md [DES-DATA] [DES-API]
         canvasEnabled: p.canvasEnabled ?? state.canvasEnabled,
         canvas: p.canvasEnabled === false ? undefined : (p.canvas ?? state.canvas),
+        hiddenViews: p.hiddenViews ?? state.hiddenViews,
         selectedFeature,
         isLoading: false,
       };

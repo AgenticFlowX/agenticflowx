@@ -4,6 +4,9 @@
  * @see docs/specs/227-app-workbench-shell/spec.md [FR-1] [FR-5] [FR-8] [FR-11]
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-MOCKUP] [DES-SHELL-TABS]
  */
+import { Suspense, lazy, useState } from "react";
+import type { ComponentType } from "react";
+
 import {
   BarChart2,
   BookOpen,
@@ -16,6 +19,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+import type { WorkbenchViewId } from "@afx/shared";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@afx/ui/components/tabs";
 import { cn } from "@afx/ui/lib/utils";
 
@@ -23,14 +27,32 @@ import { WorkbenchProvider } from "./context/workbench-context";
 import { useWorkbench } from "./context/workbench-context";
 import { isInVsCodeWebview } from "./lib/bridge";
 import { MOCK_WORKBENCH_STATE } from "./lib/mock-data";
+import { nextWorkbenchView, visibleWorkbenchViews } from "./lib/workbench-views";
 import Analytics from "./views/analytics";
 import Board from "./views/board";
-import Canvas from "./views/canvas";
 import Documents from "./views/documents";
 import Journal from "./views/journal";
 import Notes from "./views/notes";
 import Pipeline from "./views/pipeline";
 import WorkbenchTab from "./views/workbench";
+
+const Canvas = lazy(() => import("./views/canvas"));
+
+const VIEW_DEFINITIONS: ReadonlyArray<{
+  id: WorkbenchViewId;
+  label: string;
+  icon: LucideIcon;
+  component: ComponentType;
+}> = [
+  { id: "workbench", label: "SDD Studio", icon: Layers, component: WorkbenchTab },
+  { id: "pipeline", label: "Pipeline", icon: GitBranch, component: Pipeline },
+  { id: "documents", label: "Documents", icon: Files, component: Documents },
+  { id: "analytics", label: "Analytics", icon: BarChart2, component: Analytics },
+  { id: "journal", label: "Journal", icon: BookOpen, component: Journal },
+  { id: "board", label: "Board", icon: LayoutDashboard, component: Board },
+  { id: "notes", label: "Notes", icon: NotepadText, component: Notes },
+  { id: "canvas", label: "Canvas", icon: LayoutDashboard, component: Canvas },
+];
 
 /**
  * Wraps the bottom-panel shell in the Workbench state provider and injects
@@ -59,7 +81,10 @@ export default function App() {
  * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-MOCKUP] [DES-SHELL-TABS]
  */
 function WorkbenchShell() {
-  const { canvasEnabled, isLoading } = useWorkbench();
+  const { canvasEnabled, hiddenViews, isLoading, send } = useWorkbench();
+  const visibleIds = visibleWorkbenchViews(hiddenViews, canvasEnabled);
+  const [activeView, setActiveView] = useState<WorkbenchViewId>("workbench");
+  const resolvedActiveView = nextWorkbenchView(activeView, visibleIds) ?? activeView;
 
   if (isLoading) {
     return (
@@ -77,66 +102,69 @@ function WorkbenchShell() {
     );
   }
 
+  if (visibleIds.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center bg-background px-4 text-foreground">
+        <div className="afx-surface-card max-w-sm rounded-md border border-border p-4 text-center">
+          <Layers className="mx-auto mb-2 text-afx-brand" size={20} />
+          <h2 className="text-sm font-semibold">All Workbench views are hidden</h2>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Your files are unchanged. Show one or more views from Chat Settings → Experimental.
+          </p>
+          <button
+            type="button"
+            className="mt-3 rounded-sm border border-border px-3 py-1.5 text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() =>
+              send({ type: "afxOpenSettings", setting: "afx.experimental.workbenchHiddenViews" })
+            }
+          >
+            Open visibility settings
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <Tabs defaultValue="workbench" className="flex h-full min-h-0 flex-col gap-0">
+      <Tabs
+        value={resolvedActiveView}
+        onValueChange={(value) => setActiveView(value as WorkbenchViewId)}
+        className="flex h-full min-h-0 flex-col gap-0"
+      >
         {/*
           Surface: Workbench.Shell.Tabs
           @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS]
         */}
         <TabsList
           variant="line"
-          className="h-9 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden border-b px-1"
+          className="!h-8 !py-0 w-full shrink-0 justify-start gap-0 overflow-x-auto overflow-y-hidden border-b px-1 min-[520px]:!h-9"
         >
-          <WorkbenchTabTrigger value="workbench" icon={Layers} label="SDD Studio" />
-          <WorkbenchTabTrigger value="pipeline" icon={GitBranch} label="Pipeline" />
-          <WorkbenchTabTrigger value="documents" icon={Files} label="Documents" />
-          <WorkbenchTabTrigger value="analytics" icon={BarChart2} label="Analytics" />
-          <WorkbenchTabTrigger value="journal" icon={BookOpen} label="Journal" />
-          <WorkbenchTabTrigger value="board" icon={LayoutDashboard} label="Board" />
-          <WorkbenchTabTrigger value="notes" icon={NotepadText} label="Notes" />
-          {/*
-            Canvas tab is gated behind afx.experimental.canvas (canvasEnabled).
-            @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-2]
-            @see docs/specs/229-app-workbench-canvas/design.md [DES-UI]
-          */}
-          {canvasEnabled ? (
-            <WorkbenchTabTrigger value="canvas" icon={LayoutDashboard} label="Canvas" />
-          ) : null}
+          {VIEW_DEFINITIONS.filter((view) => visibleIds.includes(view.id)).map((view) => (
+            <WorkbenchTabTrigger
+              key={view.id}
+              value={view.id}
+              icon={view.icon}
+              label={view.label}
+            />
+          ))}
         </TabsList>
-        {/* @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-TABS] */}
-        <TabsContent value="workbench" className="flex-1 overflow-hidden">
-          <WorkbenchTab />
-        </TabsContent>
-        {/* @see docs/specs/225-app-workbench-pipeline/design.md [DES-PIPELINE-MOCKUP] */}
-        <TabsContent value="pipeline" className="flex-1 overflow-hidden">
-          <Pipeline />
-        </TabsContent>
-        {/* @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-MOCKUP] */}
-        <TabsContent value="documents" className="flex-1 overflow-hidden">
-          <Documents />
-        </TabsContent>
-        {/* @see docs/specs/226-app-workbench-analytics/design.md [DES-ANALYTICS-MOCKUP] */}
-        <TabsContent value="analytics" className="flex-1 overflow-hidden">
-          <Analytics />
-        </TabsContent>
-        {/* @see docs/specs/223-app-workbench-journal/design.md [DES-JOURNAL-MOCKUP] */}
-        <TabsContent value="journal" className="flex-1 overflow-hidden">
-          <Journal />
-        </TabsContent>
-        {/* @see docs/specs/221-app-workbench-board/design.md [DES-BOARD-MOCKUP] */}
-        <TabsContent value="board" className="flex-1 overflow-hidden">
-          <Board />
-        </TabsContent>
-        {/* @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-MOCKUP] */}
-        <TabsContent value="notes" className="flex-1 overflow-hidden">
-          <Notes />
-        </TabsContent>
-        {canvasEnabled ? (
-          <TabsContent value="canvas" className="flex-1 overflow-hidden">
-            <Canvas />
-          </TabsContent>
-        ) : null}
+        {VIEW_DEFINITIONS.filter((view) => visibleIds.includes(view.id)).map((view) => {
+          const Component = view.component;
+          return (
+            <TabsContent key={view.id} value={view.id} className="flex-1 overflow-hidden">
+              <Suspense
+                fallback={
+                  <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+                    Loading {view.label}…
+                  </div>
+                }
+              >
+                <Component />
+              </Suspense>
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
@@ -160,8 +188,9 @@ function WorkbenchTabTrigger({
   return (
     <TabsTrigger
       value={value}
+      aria-label={label}
       className={cn(
-        "group/tab relative h-9 flex-none gap-1.5 rounded-none px-3 text-xs after:hidden",
+        "group/tab relative !h-8 flex-none gap-1 rounded-none px-2 !py-0 text-xs leading-none after:hidden min-[520px]:!h-9 min-[520px]:gap-1.5 min-[520px]:px-3",
         "text-muted-foreground data-[state=active]:text-foreground",
       )}
     >
@@ -169,7 +198,7 @@ function WorkbenchTabTrigger({
         size={13}
         className="text-muted-foreground/80 group-data-[state=active]/tab:text-afx-brand-soft"
       />
-      {label}
+      <span className="hidden min-[520px]:inline">{label}</span>
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-2 bottom-0 h-0.5 bg-foreground opacity-0 transition-opacity group-data-[state=active]/tab:opacity-100"
