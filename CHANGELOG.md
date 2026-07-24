@@ -2,6 +2,34 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.4.0] - 2026-07-23
+
+### Added
+
+- Project Canvas is now available in the Workbench and as a `.canvas` editor tab.
+- Added a canvas library for creating, opening, renaming, duplicating, deleting, and switching canvases.
+- Added React Flow canvas tools for zoom, pan, selection, annotations, backgrounds, starter boards, export, and Chat/Notes handoff.
+- Added Spec Map authoring: add specific AFX docs, sync relationships, load dependency neighbours, and draw or delete edges to update frontmatter.
+- Added SDD Studio entry points, refinement actions, document signals, and clearer handoffs between Preview, Workbench, and Chat.
+- Bundled native AFX skills now ship with the extension, including Dash and split skill resources.
+- Settings now shows where skills came from, workspace trust state, custom skill paths, and the bundled AFX skill version.
+
+### Changed
+
+- New canvases default to `.afx/canvases/`, but can be saved anywhere inside the workspace.
+- Canvas labels and actions are simpler and more consistent across the toolbar, menus, and command menu.
+- Workbench no longer carries the old Early access label.
+- Upgraded the bundled Pi SDK to `@earendil-works/pi-coding-agent@0.80.2`.
+- QA, development-quality, and security role packs remain external installs; the VS Code bundle only includes the core `agenticflowx` skills.
+- Release packaging now includes third-party notice checks and deterministic visual evidence capture.
+
+### Fixed
+
+- Spec relationship authoring writes bare spec ids to YAML instead of internal `file://` canvas ids.
+- Large canvas dragging, zooming, panning, undo, dialogs, and background rendering are more reliable in VS Code webviews.
+- Foreign JSON Canvas nodes are preserved instead of crashing the canvas.
+- OAuth/API-key recovery, workspace skill trust state, Preview routing, and narrow Chat/Preview layouts were cleaned up.
+
 ## [2.3.0] - 2026-06-06
 
 ### Added
