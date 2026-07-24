@@ -5,72 +5,99 @@
  *
  * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2] [FR-3]
  * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW] [DES-NOTES-STORAGE] [DES-NOTES-CROSS-ZONE-FLOW]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-10] [FR-12] [FR-13]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-MUTATION] [DES-NOTES-MARKDOWN]
  */
 import * as vscode from "vscode";
 
-/**
- * Insert a new note entry at the top of the body — newest first.
- * If today's `## YYYY-MM-DD` heading already exists, prepend the new
- * `### HH:MM:SS.mmm` block right under it. Otherwise prepend a fresh
- * day section at the top of the body.
- *
- * @see docs/specs/215-app-chat-notes/spec.md [FR-1] [FR-2]
- * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
- */
-export function insertNoteAtTop(
-  existing: string,
-  date: string,
-  time: string,
-  text: string,
-): string {
-  const fmMatch = existing.match(/^---\n[\s\S]*?\n---\n?/);
-  const frontmatter = fmMatch?.[0] ?? "";
-  const body = existing.slice(frontmatter.length).replace(/^\s+/, "");
+import type { NotesMutation, WorkbenchMutationResult, WorkbenchSourceIdentity } from "@afx/shared";
 
-  const newEntry = `### ${time}\n${text}`;
-  const todayHeading = `## ${date}`;
-  const todayIdx = body.search(new RegExp(`^##\\s+${date}\\s*$`, "m"));
+import { NotesMarkdownDocument } from "../services/notes-markdown";
+import type { WorkbenchFileState } from "../services/workbench-file-state";
+import type { WorkbenchMutationCoordinator } from "../services/workbench-mutation-coordinator";
 
-  let nextBody: string;
-  if (todayIdx === -1) {
-    nextBody = `${todayHeading}\n\n${newEntry}\n${body ? `\n${body}` : ""}`;
-  } else {
-    const before = body.slice(0, todayIdx);
-    const afterHeadingStart = todayIdx + todayHeading.length;
-    const after = body.slice(afterHeadingStart).replace(/^\n+/, "");
-    nextBody = `${before}${todayHeading}\n\n${newEntry}\n\n${after}`;
-  }
+const EMPTY_NOTES_SOURCE = "---\nafx: true\ntype: NOTES\n---\n";
 
-  const fmTail = frontmatter && !frontmatter.endsWith("\n") ? "\n" : "";
-  return `${frontmatter}${fmTail}${frontmatter ? "\n" : ""}${nextBody.trimEnd()}\n`;
+export interface NotesMutationRequest {
+  requestId: string;
+  target: WorkbenchSourceIdentity;
+  expectedRevision?: string;
+  mutation: NotesMutation;
+}
+
+export interface NotesWorkspaceWriter {
+  mutate(request: NotesMutationRequest): Promise<WorkbenchMutationResult>;
+  appendToDefault(text: string): Promise<WorkbenchMutationResult | undefined>;
+}
+
+let installedWriter: NotesWorkspaceWriter | undefined;
+
+/** Install the activation-scoped writer used by Chat, editor actions, and Workbench. */
+export function installNotesWorkspaceWriter(writer: NotesWorkspaceWriter): vscode.Disposable {
+  installedWriter = writer;
+  return {
+    dispose() {
+      if (installedWriter === writer) installedWriter = undefined;
+    },
+  };
 }
 
 /**
- * Formats the day heading used by `.afx/notes.md`.
+ * Adapt a Notes mutation to the shared per-file Workbench coordinator.
  *
- * @see docs/specs/215-app-chat-notes/spec.md [FR-2]
- * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
+ * @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-MUTATION] [DES-API]
  */
-export function formatLocalDate(date: Date): string {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
+export function createNotesWorkspaceWriter(options: {
+  fileState: WorkbenchFileState;
+  coordinator: WorkbenchMutationCoordinator;
+  now?: () => Date;
+}): NotesWorkspaceWriter {
+  const now = options.now ?? (() => new Date());
 
-/**
- * Formats the per-note timestamp used under a day heading.
- *
- * @see docs/specs/215-app-chat-notes/spec.md [FR-2]
- * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-STORAGE]
- */
-export function formatLocalNoteTime(date: Date): string {
-  return `${[
-    String(date.getHours()).padStart(2, "0"),
-    String(date.getMinutes()).padStart(2, "0"),
-    String(date.getSeconds()).padStart(2, "0"),
-  ].join(":")}.${String(date.getMilliseconds()).padStart(3, "0")}`;
+  const mutate = (request: NotesMutationRequest): Promise<WorkbenchMutationResult> =>
+    options.coordinator.mutateText({
+      requestId: request.requestId,
+      target: request.target,
+      expectedRevision: request.expectedRevision,
+      allowCreate: request.mutation.kind === "append",
+      transform(content) {
+        const source = content || EMPTY_NOTES_SOURCE;
+        const document = NotesMarkdownDocument.parse(source);
+        const result = document.apply(
+          request.mutation.kind === "append"
+            ? { ...request.mutation, now: now() }
+            : request.mutation,
+        );
+        if (!result.ok) {
+          const message =
+            result.reason === "note-not-found"
+              ? "The selected note moved or no longer exists."
+              : result.reason === "checkbox-not-found"
+                ? "The selected checklist item moved or no longer exists."
+                : "The Notes source is malformed and cannot be changed safely.";
+          throw new Error(message);
+        }
+        return result.content;
+      },
+    });
+
+  return {
+    mutate,
+    async appendToDefault(text) {
+      const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+      if (!root || !text.trim()) return undefined;
+      const uri = vscode.Uri.joinPath(root, ".afx", "notes.md");
+      const target = options.fileState.identify(uri);
+      if (!target) return undefined;
+      const current = await options.fileState.readText(uri);
+      return mutate({
+        requestId: `notes-host-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        target,
+        expectedRevision: current?.revision,
+        mutation: { kind: "append", text: text.trim() },
+      });
+    },
+  };
 }
 
 /**
@@ -80,6 +107,11 @@ export function formatLocalNoteTime(date: Date): string {
  * @see docs/specs/215-app-chat-notes/design.md [DES-NOTES-FLOW] [DES-NOTES-STORAGE]
  */
 export async function appendNoteToWorkspace(text: string): Promise<void> {
+  if (installedWriter) {
+    const result = await installedWriter.appendToDefault(text);
+    if (result && result.outcome !== "success") throw new Error(result.message);
+    return;
+  }
   const root = vscode.workspace.workspaceFolders?.[0]?.uri;
   if (!root) return;
   const uri = vscode.Uri.joinPath(root, ".afx", "notes.md");
@@ -89,13 +121,10 @@ export async function appendNoteToWorkspace(text: string): Promise<void> {
   } catch {
     existing = "---\nafx: true\ntype: NOTES\n---\n";
   }
-  const now = new Date();
-  const next = insertNoteAtTop(
-    existing,
-    formatLocalDate(now),
-    formatLocalNoteTime(now),
-    text.trim(),
-  );
+  const parsed = NotesMarkdownDocument.parse(existing);
+  const patched = parsed.apply({ kind: "append", text: text.trim(), now: new Date() });
+  if (!patched.ok) throw new Error("The Notes source is malformed and cannot be changed safely.");
+  const next = patched.content;
   await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(uri, ".."));
   await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
 }

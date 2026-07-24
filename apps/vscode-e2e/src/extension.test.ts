@@ -5,13 +5,17 @@
  * @see docs/specs/200-app-vscode/spec.md [FR-1] [FR-4] [FR-6]
  * @see docs/specs/200-app-vscode/design.md [DES-TEST]
  * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION]
- * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-32]
  */
 import * as assert from "node:assert";
+import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { promisify } from "node:util";
 
 import * as vscode from "vscode";
+
+const execFileAsync = promisify(execFile);
 
 suite("AFX Extension — activation", () => {
   test("extension is present", () => {
@@ -24,6 +28,62 @@ suite("AFX Extension — activation", () => {
     assert.ok(ext);
     await ext.activate();
     assert.strictEqual(ext.isActive, true);
+  });
+
+  test("bundled multi-file AFX skills load and their helper scripts execute", async () => {
+    const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
+    assert.ok(ext, "Extension agenticflowx.agenticflowx not found");
+
+    const skillsRoot = path.join(ext.extensionPath, "resources", "skills", "agenticflowx");
+    const requiredFiles = [
+      "afx-dash/SKILL.md",
+      "afx-dash/assets/dash-template.md",
+      "afx-dash/references/code.md",
+      "afx-dev/references/refactor.md",
+      "afx-help/references/query-helper.md",
+      "afx-help/scripts/afx-doc-query.mjs",
+      "afx-help/scripts/afx-validate.mjs",
+    ];
+    for (const relativePath of requiredFiles) {
+      assert.ok(
+        fs.existsSync(path.join(skillsRoot, relativePath)),
+        `Bundled skill resource is missing: ${relativePath}`,
+      );
+    }
+
+    const nodeEnvironment = {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: "1",
+    };
+    const validatorPath = path.join(skillsRoot, "afx-help", "scripts", "afx-validate.mjs");
+    const validator = await execFileAsync(process.execPath, [validatorPath, skillsRoot, "--json"], {
+      env: nodeEnvironment,
+      timeout: 10_000,
+    });
+    const validation = JSON.parse(validator.stdout) as {
+      pass?: boolean;
+      skills?: number;
+      errors?: number;
+    };
+    assert.deepStrictEqual(
+      { pass: validation.pass, skills: validation.skills, errors: validation.errors },
+      { pass: true, skills: 18, errors: 0 },
+    );
+
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    assert.ok(workspaceRoot, "Expected an open workspace folder");
+    const specPath = path.join(workspaceRoot, "docs", "specs", "200-app-vscode", "spec.md");
+    const queryPath = path.join(skillsRoot, "afx-help", "scripts", "afx-doc-query.mjs");
+    const query = await execFileAsync(process.execPath, [queryPath, "map", specPath], {
+      env: nodeEnvironment,
+      timeout: 10_000,
+    });
+    const documentMap = JSON.parse(query.stdout) as {
+      frontmatter?: { type?: string };
+      headings?: unknown[];
+    };
+    assert.strictEqual(documentMap.frontmatter?.type, "SPEC");
+    assert.ok((documentMap.headings?.length ?? 0) > 0, "Expected parsed spec headings");
   });
 
   test("afx.openSidebar command is registered", async () => {
@@ -140,6 +200,66 @@ suite("AFX Extension — activation", () => {
       await config.update("experimental.canvas", true, vscode.ConfigurationTarget.Workspace);
       assert.strictEqual(readCanvasEnabled(), true);
     } finally {
+      await config.update(
+        "experimental.canvas",
+        originalWorkspaceValue,
+        vscode.ConfigurationTarget.Workspace,
+      );
+    }
+  });
+
+  test("afx.openCanvasEditor opens an explicit optional Canvas editor", async () => {
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri;
+    assert.ok(root, "Expected an open workspace folder");
+    const canvasDirectory = vscode.Uri.joinPath(root, ".afx", "canvases");
+    const canvasUri = vscode.Uri.joinPath(canvasDirectory, "e2e-custom-editor.canvas");
+    const config = vscode.workspace.getConfiguration("afx");
+    const originalWorkspaceValue = config.inspect<boolean>("experimental.canvas")?.workspaceValue;
+
+    try {
+      await config.update("experimental.canvas", true, vscode.ConfigurationTarget.Workspace);
+      await vscode.workspace.fs.createDirectory(canvasDirectory);
+      await vscode.workspace.fs.writeFile(
+        canvasUri,
+        Buffer.from(
+          JSON.stringify(
+            {
+              nodes: [
+                {
+                  id: "e2e-node",
+                  type: "text",
+                  text: "# Custom editor smoke",
+                  x: 0,
+                  y: 0,
+                  width: 300,
+                  height: 160,
+                },
+              ],
+              edges: [],
+            },
+            null,
+            2,
+          ),
+          "utf8",
+        ),
+      );
+
+      await vscode.commands.executeCommand("afx.openCanvasEditor", canvasUri);
+      await waitFor(
+        () =>
+          vscode.window.tabGroups.all.some((group) =>
+            group.tabs.some((tab) => {
+              const input = tab.input as { uri?: vscode.Uri; viewType?: string } | undefined;
+              return (
+                input?.viewType === "afx.canvasEditor" && input.uri?.fsPath === canvasUri.fsPath
+              );
+            }),
+          ),
+        "Expected the explicit command to open afx.canvasEditor for the requested file",
+      );
+    } finally {
+      await vscode.commands.executeCommand("workbench.action.closeActiveEditor");
+      await vscode.workspace.fs.delete(canvasUri).then(undefined, () => undefined);
       await config.update(
         "experimental.canvas",
         originalWorkspaceValue,

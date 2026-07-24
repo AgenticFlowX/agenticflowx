@@ -15,12 +15,72 @@ import * as path from "node:path";
 
 import * as vscode from "vscode";
 
-import { type Logger, type WorkbenchInbound, type WorkbenchOutbound } from "@afx/shared";
+import {
+  type Logger,
+  type WorkbenchInbound,
+  type WorkbenchMutationResult,
+  type WorkbenchOutbound,
+  isMarkdownPath,
+  normalizeWorkbenchViewIds,
+} from "@afx/shared";
 
+import type { CanvasActionService } from "../services/canvas-action-service";
+import {
+  type CanvasContentPreviewService,
+  createCanvasContentPreviewService,
+  serializeCanvasSourcePreview,
+  serializeCanvasUrlPreview,
+} from "../services/canvas-content-preview-service";
 import { PROJECT_CANVAS_PATH, createCanvasDataProvider } from "../services/canvas-data";
+import type {
+  CanvasEditSessionClient,
+  CanvasEditSessionManager,
+} from "../services/canvas-edit-session-manager";
+import { createCanvasEditStream } from "../services/canvas-edit-stream";
+import {
+  type CanvasExportService,
+  createCanvasExportService,
+} from "../services/canvas-export-service";
+import {
+  findCanvasSubpathLine,
+  makePortableCanvasFileReference,
+  resolveCanvasFileReference,
+} from "../services/canvas-file-reference";
+import {
+  type CanvasLibraryService,
+  createCanvasLibraryService,
+} from "../services/canvas-library-service";
+import {
+  type CanvasReferencePicker,
+  createCanvasReferencePicker,
+} from "../services/canvas-reference-picker";
+import { postCanvasRequestFailure } from "../services/canvas-request-failure";
+import { createDocGraphAuthorService } from "../services/doc-graph-author-service";
+import {
+  type KanbanBoardLifecycleService,
+  createKanbanBoardLifecycleService,
+} from "../services/kanban-board-lifecycle";
+import { mutateKanbanMarkdown, parseKanbanMarkdown } from "../services/kanban-markdown";
+import { toggleLinkedTaskItem } from "../services/linked-work-items";
+import {
+  type SpecDependencyIndexer,
+  createSpecDependencyIndexer,
+} from "../services/spec-dependency-indexer";
 import { type SpecsDataProvider } from "../services/specs-data";
 import { parseSprintPath, sliceSprintSection } from "../services/sprint";
-import { appendNoteToWorkspace } from "../utils/notes-utils";
+import {
+  type WorkbenchFileState,
+  createWorkbenchFileState,
+} from "../services/workbench-file-state";
+import {
+  type WorkbenchMutationCoordinator,
+  createWorkbenchMutationCoordinator,
+} from "../services/workbench-mutation-coordinator";
+import {
+  type NotesWorkspaceWriter,
+  appendNoteToWorkspace,
+  createNotesWorkspaceWriter,
+} from "../utils/notes-utils";
 import { type AfxPreviewDeps, openAfxPreview } from "./afx-preview-panel";
 import {
   approveWorkSessionCheckboxes,
@@ -33,25 +93,51 @@ import { getAppDistPath, getAppearanceClass, loadWebviewHtml } from "./webview-h
 
 export const WORKBENCH_VIEW_TYPE = "afx-workbench";
 const MARKDOWN_PREVIEW_EDITOR_ID = "vscode.markdown.preview.editor";
-const WORKBENCH_REFRESH_DEBOUNCE_MS = 75;
-const WORKBENCH_WATCH_PATTERNS = ["docs/**/*.md", ".afx/notes.md", ".afx/kanban/*.md"] as const;
+const WORKBENCH_REFRESH_DEBOUNCE_MS = 150;
 
 export interface WorkbenchPanelDeps {
   extensionUri: vscode.Uri;
   extensionMode: vscode.ExtensionMode;
   specsData?: SpecsDataProvider;
+  fileState?: WorkbenchFileState;
+  mutationCoordinator?: WorkbenchMutationCoordinator;
+  notesWriter?: NotesWorkspaceWriter;
+  workspaceState?: vscode.Memento;
+  canvasActionService?: CanvasActionService;
+  canvasEditSessionManager?: CanvasEditSessionManager;
+  contentPreviewService?: CanvasContentPreviewService;
+  referencePicker?: CanvasReferencePicker | null;
+  canvasExportService?: CanvasExportService | null;
   logger?: Logger;
   openChatCommand?: (command: string, mode: "insert" | "send") => Promise<void>;
 }
 
 export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewViewProvider {
-  const { extensionUri, extensionMode, specsData, logger, openChatCommand } = deps;
+  const {
+    extensionUri,
+    extensionMode,
+    specsData,
+    fileState,
+    mutationCoordinator,
+    notesWriter,
+    workspaceState,
+    canvasActionService,
+    canvasEditSessionManager,
+    contentPreviewService,
+    referencePicker,
+    canvasExportService,
+    logger,
+    openChatCommand,
+  } = deps;
   const log = logger?.child("workbench-panel");
 
   return {
     resolveWebviewView(view: vscode.WebviewView): void {
       const workbenchDistPath = getAppDistPath(extensionUri, "workbench");
-      const localResourceRoots = workbenchDistPath ? [vscode.Uri.file(workbenchDistPath)] : [];
+      const localResourceRoots = [
+        ...(workbenchDistPath ? [vscode.Uri.file(workbenchDistPath)] : []),
+        ...(vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? []),
+      ];
 
       view.webview.options = {
         enableScripts: true,
@@ -78,17 +164,82 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         return vscode.workspace.getConfiguration("afx").get<boolean>("experimental.canvas", false);
       }
 
+      const ownedFileState = fileState ? undefined : createWorkbenchFileState();
+      const activeFileState = fileState ?? ownedFileState;
+      const activeContentPreviewService =
+        contentPreviewService ??
+        (activeFileState
+          ? createCanvasContentPreviewService({ fileState: activeFileState })
+          : undefined);
+      const activeReferencePicker =
+        referencePicker === null
+          ? undefined
+          : (referencePicker ??
+            (activeFileState
+              ? createCanvasReferencePicker({ fileState: activeFileState })
+              : undefined));
+      const activeCanvasExportService =
+        canvasExportService === null
+          ? undefined
+          : (canvasExportService ?? createCanvasExportService());
+
       const canvasData = createCanvasDataProvider({
         getWorkspaceRoot: () => vscode.workspace.workspaceFolders?.[0]?.uri,
         isEnabled: computeCanvasEnabled,
+        fileState: activeFileState,
         logger: log,
       });
+      const ownedMutationCoordinator =
+        mutationCoordinator || !activeFileState
+          ? undefined
+          : createWorkbenchMutationCoordinator({ fileState: activeFileState });
+      const activeMutationCoordinator = mutationCoordinator ?? ownedMutationCoordinator;
+      const activeNotesWriter =
+        notesWriter ??
+        (activeFileState && activeMutationCoordinator
+          ? createNotesWorkspaceWriter({
+              fileState: activeFileState,
+              coordinator: activeMutationCoordinator,
+            })
+          : undefined);
+      const canvasLibrary =
+        activeFileState && activeMutationCoordinator
+          ? createCanvasLibraryService({
+              fileState: activeFileState,
+              coordinator: activeMutationCoordinator,
+              workspaceState,
+            })
+          : undefined;
+      const kanbanBoardLifecycle =
+        activeFileState && activeMutationCoordinator
+          ? createKanbanBoardLifecycleService({
+              fileState: activeFileState,
+              coordinator: activeMutationCoordinator,
+            })
+          : undefined;
+      const specDependencyIndexer = activeFileState
+        ? createSpecDependencyIndexer({ fileState: activeFileState })
+        : undefined;
+
+      async function pushCanvasLibrary(): Promise<void> {
+        if (!canvasLibrary || !computeCanvasEnabled()) return;
+        const library = await canvasLibrary.list();
+        post({ type: "afxCanvasLibrary", ...library });
+        const document = await canvasLibrary.current();
+        if (document) post({ type: "afxCanvasDocument", document });
+      }
 
       async function pushUpdate(): Promise<void> {
         if (!specsData) return;
         const data = await specsData.getPanelData();
         const canvasFields = await canvasData.getCanvasUpdateFields();
-        post({ type: "afxUpdate", ...data, ...canvasFields });
+        const hiddenViews = normalizeWorkbenchViewIds(
+          vscode.workspace
+            .getConfiguration("afx")
+            .get<unknown>("experimental.workbenchHiddenViews", []),
+        );
+        post({ type: "afxUpdate", ...data, ...canvasFields, hiddenViews });
+        await pushCanvasLibrary();
       }
 
       async function refreshAndPost(): Promise<void> {
@@ -96,6 +247,39 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
         specsData.refresh();
         await pushUpdate();
       }
+
+      const sharedCanvasEditClient = canvasEditSessionManager?.connect((result) => {
+        post(result);
+        if (result.outcome === "success") void refreshAndPost();
+      });
+      const canvasEditStream =
+        !sharedCanvasEditClient && activeFileState && activeMutationCoordinator
+          ? createCanvasEditStream({
+              apply: (request, expectedRevision) =>
+                activeMutationCoordinator.mutateText({
+                  requestId: request.requestId,
+                  target: request.target,
+                  expectedRevision,
+                  allowCreate: true,
+                  allowDirty: true,
+                  transform: () => request.content,
+                }),
+              post: (result) => {
+                post(result);
+                if (result.outcome === "success") void refreshAndPost();
+              },
+              shouldApplyImmediately: (request) => {
+                const uri = activeFileState.resolve(request.target);
+                return Boolean(
+                  uri &&
+                  vscode.workspace.textDocuments.some(
+                    (document) => document.uri.toString() === uri.toString(),
+                  ),
+                );
+              },
+            })
+          : undefined;
+      const canvasEditStager = sharedCanvasEditClient ?? canvasEditStream;
 
       const previewDeps: AfxPreviewDeps = { extensionUri, extensionMode, logger };
 
@@ -113,7 +297,27 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           pushUpdate,
           refreshAndPost,
           (content) => canvasData.markSavedContent(content),
-        );
+          activeFileState,
+          activeMutationCoordinator,
+          canvasEditStager,
+          activeNotesWriter,
+          canvasLibrary,
+          kanbanBoardLifecycle,
+          specDependencyIndexer,
+          canvasActionService,
+          activeContentPreviewService,
+          activeReferencePicker,
+          activeCanvasExportService,
+          (uri) => view.webview.asWebviewUri(uri).toString(),
+        ).catch((error: unknown) => {
+          // A rejected handler must never leave a correlated request hanging on
+          // the webview watchdog — surface an error result and log it.
+          log?.error(
+            "workbench message handler failed",
+            error instanceof Error ? error : undefined,
+          );
+          postCanvasRequestFailure(msg, post, error);
+        });
       });
 
       // Push initial data after a short tick for webview startup races.
@@ -122,7 +326,7 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
       }, 250);
 
       let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-      let watchers: vscode.FileSystemWatcher[] = [];
+      let sourceSubscription: vscode.Disposable | undefined;
       let canvasWatcher: vscode.Disposable | undefined;
       const refresh = (): void => {
         if (refreshTimer) clearTimeout(refreshTimer);
@@ -133,22 +337,23 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
       };
 
       const startWatchers = (): void => {
-        if (!specsData || watchers.length > 0) return;
-        watchers = WORKBENCH_WATCH_PATTERNS.map((pattern) => {
-          const watcher = vscode.workspace.createFileSystemWatcher(pattern);
-          watcher.onDidChange(refresh);
-          watcher.onDidCreate(refresh);
-          watcher.onDidDelete(refresh);
-          return watcher;
+        if (sourceSubscription) return;
+        sourceSubscription = activeFileState?.onDidChange((change) => {
+          if (change.kind === "canvas" && !computeCanvasEnabled()) return;
+          const owner = activeFileState.identify(change.uri);
+          if (owner) post({ type: "afxCanvasContentPreviewInvalidated", owner });
+          if (isMarkdownPath(change.uri.path)) {
+            if (owner) post({ type: "afxDocContentInvalidated", owner });
+          }
+          refresh();
         });
         canvasWatcher = canvasData.onDidChange(refresh);
       };
       const stopWatchers = (): void => {
-        for (const watcher of watchers) watcher.dispose();
-        watchers = [];
+        sourceSubscription?.dispose();
+        sourceSubscription = undefined;
         canvasWatcher?.dispose();
         canvasWatcher = undefined;
-        canvasData.dispose();
       };
       if (view.visible) {
         startWatchers();
@@ -159,8 +364,11 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           event.affectsConfiguration("afx.theme") || event.affectsConfiguration("afx.style");
         const telemetryChanged = event.affectsConfiguration("afx.telemetry.enabled");
         const canvasChanged = event.affectsConfiguration("afx.experimental.canvas");
+        const hiddenViewsChanged = event.affectsConfiguration(
+          "afx.experimental.workbenchHiddenViews",
+        );
 
-        if (!appearanceChanged && !telemetryChanged && !canvasChanged) {
+        if (!appearanceChanged && !telemetryChanged && !canvasChanged && !hiddenViewsChanged) {
           return;
         }
         if (appearanceChanged) {
@@ -174,6 +382,7 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
           if (view.visible) startWatchers();
           void pushUpdate();
         }
+        if (hiddenViewsChanged && !canvasChanged) void pushUpdate();
       });
       const telemetrySubscription = vscode.env.onDidChangeTelemetryEnabled(() => {
         post({ type: "afxTelemetryUpdated", enabled: computeTelemetryEnabled() });
@@ -182,6 +391,14 @@ export function createWorkbenchPanel(deps: WorkbenchPanelDeps): vscode.WebviewVi
       view.onDidDispose(() => {
         if (refreshTimer) clearTimeout(refreshTimer);
         stopWatchers();
+        const disposeOwnedState = () => {
+          canvasData.dispose();
+          ownedMutationCoordinator?.dispose();
+          ownedFileState?.dispose();
+        };
+        sharedCanvasEditClient?.dispose();
+        if (canvasEditStream) void canvasEditStream.dispose().finally(disposeOwnedState);
+        else disposeOwnedState();
         configSubscription.dispose();
         telemetrySubscription.dispose();
       });
@@ -209,9 +426,237 @@ async function handleMessage(
   pushPanelUpdate?: () => Promise<void>,
   refreshPanelData?: () => Promise<void>,
   markCanvasSaved?: (content: string) => void,
+  fileState?: WorkbenchFileState,
+  mutationCoordinator?: WorkbenchMutationCoordinator,
+  canvasEditStager?: Pick<CanvasEditSessionClient, "stage">,
+  notesWriter?: NotesWorkspaceWriter,
+  canvasLibrary?: CanvasLibraryService,
+  kanbanBoardLifecycle?: KanbanBoardLifecycleService,
+  specDependencyIndexer?: SpecDependencyIndexer,
+  canvasActionService?: CanvasActionService,
+  contentPreviewService?: CanvasContentPreviewService,
+  referencePicker?: CanvasReferencePicker,
+  canvasExportService?: CanvasExportService,
+  toWebviewResource?: (uri: vscode.Uri) => string,
 ): Promise<void> {
   if (msg.type === "afxCopyMarkdown") {
     await vscode.env.clipboard.writeText(msg.content);
+    return;
+  }
+  if (msg.type === "afxOpenSettings") {
+    await vscode.commands.executeCommand(
+      "workbench.action.openSettings",
+      msg.setting ?? "afx.experimental.workbenchHiddenViews",
+    );
+    return;
+  }
+  if (msg.type === "afxCanvasPickReferences") {
+    if (!referencePicker) {
+      post({
+        type: "afxCanvasReferencesPicked",
+        requestId: msg.requestId,
+        outcome: "error",
+        references: [],
+        message: "Canvas file picking is unavailable in this host.",
+      });
+      return;
+    }
+    try {
+      log?.info(`canvas reference pick requested (kind=${msg.kind ?? "any"})`);
+      const references = await referencePicker.pick({
+        ...(msg.owner ? { owner: msg.owner } : {}),
+        kind: msg.kind,
+        allowMultiple: msg.allowMultiple,
+      });
+      log?.info(`canvas reference pick resolved (${references.length} reference(s))`);
+      post(
+        references.length > 0
+          ? {
+              type: "afxCanvasReferencesPicked",
+              requestId: msg.requestId,
+              outcome: "success",
+              references,
+            }
+          : {
+              type: "afxCanvasReferencesPicked",
+              requestId: msg.requestId,
+              outcome: "cancelled",
+              references: [],
+            },
+      );
+    } catch (error) {
+      log?.error("canvas reference pick failed", error instanceof Error ? error : undefined);
+      post({
+        type: "afxCanvasReferencesPicked",
+        requestId: msg.requestId,
+        outcome: "error",
+        references: [],
+        message: error instanceof Error ? error.message : "The Canvas file picker failed.",
+      });
+    }
+    return;
+  }
+  if (msg.type === "afxCanvasExport") {
+    if (!canvasExportService) {
+      post({
+        type: "afxCanvasExportResult",
+        requestId: msg.requestId,
+        outcome: "error",
+        code: "capability-unavailable",
+        message: "Canvas export is unavailable in this host.",
+      });
+      return;
+    }
+    try {
+      const result = await canvasExportService.export({
+        format: msg.format,
+        content: msg.content,
+        encoding: msg.encoding,
+        suggestedName: msg.suggestedName,
+      });
+      if (result.outcome === "success") {
+        post({
+          type: "afxCanvasExportResult",
+          requestId: msg.requestId,
+          outcome: "success",
+          targetName: path.posix.basename(result.target.path.replace(/\\/g, "/")),
+          byteLength: result.byteLength,
+        });
+      } else if (result.outcome === "cancelled") {
+        post({ type: "afxCanvasExportResult", requestId: msg.requestId, outcome: "cancelled" });
+      } else {
+        post({ type: "afxCanvasExportResult", requestId: msg.requestId, ...result });
+      }
+    } catch (error) {
+      post({
+        type: "afxCanvasExportResult",
+        requestId: msg.requestId,
+        outcome: "error",
+        code: "write-failed",
+        message: error instanceof Error ? error.message : "The Canvas export failed.",
+      });
+    }
+    return;
+  }
+  if (msg.type === "afxCanvasContentPreviewRequest") {
+    if (!contentPreviewService) {
+      post({
+        type: "afxCanvasContentPreviewResult",
+        requestId: msg.requestId,
+        owner: msg.owner,
+        preview: {
+          kind: "file",
+          state: "error",
+          code: "read-failed",
+          message: "Canvas content previews are unavailable in this host.",
+        },
+      });
+      return;
+    }
+    const result = serializeCanvasSourcePreview(
+      await contentPreviewService.previewSource(msg.owner),
+      toWebviewResource,
+    );
+    post({
+      type: "afxCanvasContentPreviewResult",
+      requestId: msg.requestId,
+      ...result,
+    });
+    return;
+  }
+  if (msg.type === "afxCanvasUrlPreviewRequest") {
+    log?.info(`canvas url preview requested (${msg.url})`);
+    const preview = contentPreviewService
+      ? serializeCanvasUrlPreview(
+          await contentPreviewService.previewUrl({
+            url: msg.url,
+            allowNetwork: msg.allowNetwork,
+          }),
+        )
+      : {
+          state: "offline" as const,
+          code: "network-error" as const,
+          message: "Canvas URL previews are unavailable in this host.",
+        };
+    log?.info(`canvas url preview resolved (state=${preview.state})`);
+    post({
+      type: "afxCanvasUrlPreviewResult",
+      requestId: msg.requestId,
+      url: msg.url,
+      preview,
+    });
+    return;
+  }
+  if (msg.type === "afxOpenExternalUrl") {
+    const uri = safeHttpUri(msg.url);
+    if (uri) await vscode.env.openExternal(uri);
+    else vscode.window.showWarningMessage("AgenticFlowX: only HTTP and HTTPS links can be opened.");
+    return;
+  }
+
+  if (
+    (msg.type === "afxCreateKanbanBoard" ||
+      msg.type === "afxRenameKanbanBoard" ||
+      msg.type === "afxDeleteKanbanBoard") &&
+    typeof msg.requestId === "string"
+  ) {
+    const fallbackTarget = {
+      rootUri:
+        msg.type === "afxCreateKanbanBoard" ? msg.targetRootUri : (msg.target?.rootUri ?? ""),
+      rootName:
+        msg.type === "afxCreateKanbanBoard" ? "workspace" : (msg.target?.rootName ?? "workspace"),
+      relativePath:
+        msg.type === "afxCreateKanbanBoard"
+          ? ".afx/kanban/invalid-board.md"
+          : (msg.target?.relativePath ?? ".afx/kanban/unknown.md"),
+    };
+    let result: WorkbenchMutationResult;
+    try {
+      if (!kanbanBoardLifecycle) {
+        result = {
+          type: "afxMutationResult",
+          requestId: msg.requestId,
+          outcome: "error",
+          target: fallbackTarget,
+          code: "capability-unavailable",
+          message: "Board lifecycle operations are unavailable in this Workbench host.",
+          retryable: true,
+        };
+      } else if (
+        (msg.type === "afxCreateKanbanBoard" && typeof msg.targetRootUri !== "string") ||
+        (msg.type !== "afxCreateKanbanBoard" &&
+          (!msg.target || typeof msg.expectedRevision !== "string"))
+      ) {
+        result = {
+          type: "afxMutationResult",
+          requestId: msg.requestId,
+          outcome: "error",
+          target: fallbackTarget,
+          code: "parse-error",
+          message: "Board lifecycle request is missing its source identity or revision.",
+          retryable: false,
+        };
+      } else {
+        result =
+          msg.type === "afxCreateKanbanBoard"
+            ? await kanbanBoardLifecycle.create(msg)
+            : msg.type === "afxRenameKanbanBoard"
+              ? await kanbanBoardLifecycle.rename(msg)
+              : await kanbanBoardLifecycle.delete(msg);
+      }
+    } catch (cause) {
+      result = {
+        type: "afxMutationResult",
+        requestId: msg.requestId,
+        outcome: "error",
+        target: fallbackTarget,
+        code: "write-failed",
+        message: cause instanceof Error ? cause.message : "Board lifecycle operation failed.",
+        retryable: true,
+      };
+    }
+    post(result);
+    if (result.outcome === "success") await refreshAndPost();
     return;
   }
 
@@ -220,6 +665,12 @@ async function handleMessage(
   if (!primaryFolder) {
     if (msg.type === "afxOpenChatCommand" && openChatCommand) {
       await openChatCommand(msg.command, msg.mode);
+    } else {
+      postCanvasRequestFailure(
+        msg,
+        post,
+        new Error("Canvas operations require an open workspace folder."),
+      );
     }
     return;
   }
@@ -346,16 +797,16 @@ async function handleMessage(
       }
       case "afxOpenFile": {
         const { path: realPath, section } = parseSprintPath(msg.path);
-        const uri = await resolvePath(realPath, true);
-        const stat = await vscode.workspace.fs.stat(uri).then(
-          () => true,
-          () => false,
-        );
-        if (!stat) {
-          log?.warn(() => `afxOpenFile: file not found, skipping (${realPath})`);
-          vscode.window.showWarningMessage(`AgenticFlowX: file not found — ${realPath}`);
+        const resolution = await resolveCanvasFileReference(realPath, {
+          workspaceFolders,
+          ...(msg.owner ? { owner: msg.owner } : {}),
+        });
+        if (!resolution.ok) {
+          log?.warn(() => `afxOpenFile: ${resolution.message}`);
+          vscode.window.showWarningMessage(`AgenticFlowX: ${resolution.message}`);
           return;
         }
+        const uri = resolution.uri;
         if (msg.mode === "afxPreview") {
           if (previewDeps) openAfxPreview(previewDeps, uri);
           return;
@@ -378,14 +829,18 @@ async function handleMessage(
         const opts: vscode.TextDocumentShowOptions = { preview: msg.mode === "preview" };
         let line: number | undefined =
           typeof msg.line === "number" ? Math.max(0, msg.line - 1) : undefined;
-        if (section) {
+        if (section || msg.subpath) {
           const buf = await vscode.workspace.fs.readFile(uri).then(
             (b) => Buffer.from(b).toString("utf8"),
             () => null,
           );
           if (buf) {
-            const slice = sliceSprintSection(buf, section);
-            if (slice) line = slice.startLine;
+            if (section) {
+              const slice = sliceSprintSection(buf, section);
+              if (slice) line = slice.startLine;
+            } else {
+              line = findCanvasSubpathLine(buf, msg.subpath) ?? line;
+            }
           }
         }
         if (typeof line === "number") {
@@ -410,17 +865,59 @@ async function handleMessage(
         });
         const uri = picked?.[0];
         if (!uri) return;
+        const filePath = msg.owner
+          ? makePortableCanvasFileReference(uri, msg.owner, workspaceFolders)
+          : formatPickedMarkdownPath(uri, workspaceFolders);
+        if (!filePath) {
+          vscode.window.showWarningMessage(
+            "AgenticFlowX: Canvas file nodes must stay in the same workspace root as their Canvas. Open that root's Canvas before adding this file.",
+          );
+          return;
+        }
         post({
           type: "afxMarkdownFilePicked",
-          filePath: formatPickedMarkdownPath(uri, workspaceFolders),
+          filePath,
         });
         return;
       }
       case "afxFetchDocContent": {
         const { path: realPath, section } = parseSprintPath(msg.filePath);
-        const uri = await resolvePath(realPath, true);
+        const resolution = await resolveCanvasFileReference(realPath, {
+          workspaceFolders,
+          ...(msg.owner ? { owner: msg.owner } : {}),
+        });
+        if (!resolution.ok) {
+          log?.warn(() => `afxFetchDocContent: ${resolution.message}`);
+          post({
+            type: "afxDocContent",
+            filePath: msg.filePath,
+            content: `> Canvas file reference blocked: ${resolution.message}`,
+            ...(msg.requestId ? { requestId: msg.requestId } : {}),
+            ...(msg.owner ? { owner: msg.owner } : {}),
+          });
+          return;
+        }
+        const uri = resolution.uri;
         let fullContent: string;
         try {
+          const live = await fileState?.readText(uri);
+          if (live) {
+            fullContent = live.content;
+            let content = fullContent;
+            if (section) {
+              const slice = sliceSprintSection(fullContent, section);
+              if (slice) content = slice.content;
+            }
+            post({
+              type: "afxDocContent",
+              filePath: msg.filePath,
+              content,
+              ...(msg.requestId ? { requestId: msg.requestId } : {}),
+              owner: live.source,
+              revision: live.sourceRevision,
+            });
+            return;
+          }
           const buf = await vscode.workspace.fs.readFile(uri);
           fullContent = Buffer.from(buf).toString("utf8");
         } catch (err) {
@@ -432,6 +929,8 @@ async function handleMessage(
             type: "afxDocContent",
             filePath: msg.filePath,
             content: `> File not found in workspace: \`${realPath}\``,
+            ...(msg.requestId ? { requestId: msg.requestId } : {}),
+            ...(msg.owner ? { owner: msg.owner } : {}),
           });
           return;
         }
@@ -444,6 +943,8 @@ async function handleMessage(
           type: "afxDocContent",
           filePath: msg.filePath,
           content,
+          ...(msg.requestId ? { requestId: msg.requestId } : {}),
+          ...(fileState?.identify(uri) ? { owner: fileState.identify(uri) } : {}),
         });
         return;
       }
@@ -465,6 +966,225 @@ async function handleMessage(
           markCanvasSaved?.(msg.content);
         }
         await refreshAndPost();
+        return;
+      }
+      case "afxCanvasSave": {
+        if (!mutationCoordinator) return;
+        const result = await mutationCoordinator.mutateText({
+          requestId: msg.requestId,
+          target: msg.target,
+          expectedRevision: msg.expectedRevision,
+          allowCreate: true,
+          transform: () => msg.content,
+        });
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
+        return;
+      }
+      case "afxCanvasEdit": {
+        if (canvasEditStager) {
+          canvasEditStager.stage(msg);
+        } else {
+          post({
+            type: "afxCanvasEditResult",
+            requestId: msg.requestId,
+            sessionId: msg.sessionId,
+            sequence: msg.sequence,
+            outcome: "error",
+            target: msg.target,
+            code: "capability-unavailable",
+            message: "Canvas editing is unavailable in this Workbench host.",
+            retryable: true,
+          });
+        }
+        return;
+      }
+      case "afxOpenCanvasEditor": {
+        await vscode.commands.executeCommand("afx.openCanvasEditor", msg.target);
+        return;
+      }
+      case "afxCanvasList": {
+        if (!canvasLibrary) return;
+        const library = await canvasLibrary.list();
+        post({ type: "afxCanvasLibrary", ...library });
+        const document = await canvasLibrary.current();
+        if (document) post({ type: "afxCanvasDocument", document });
+        return;
+      }
+      case "afxCanvasSelect": {
+        const document = await canvasLibrary?.select(msg.canvasId);
+        if (document) post({ type: "afxCanvasDocument", document });
+        return;
+      }
+      case "afxCanvasCreate":
+      case "afxCanvasRename":
+      case "afxCanvasDuplicate":
+      case "afxCanvasDelete": {
+        if (!canvasLibrary) {
+          // Never drop a correlated library request silently — the webview
+          // would sit on its operation lock until the watchdog times out.
+          post({
+            type: "afxMutationResult",
+            requestId: msg.requestId,
+            outcome: "error",
+            target:
+              msg.type === "afxCanvasCreate"
+                ? { rootUri: msg.targetRootUri, rootName: "workspace", relativePath: "" }
+                : msg.target,
+            code: "capability-unavailable",
+            message: "Canvas library operations need an open workspace folder.",
+            retryable: true,
+          });
+          return;
+        }
+        const result =
+          msg.type === "afxCanvasCreate"
+            ? await canvasLibrary.create(msg)
+            : msg.type === "afxCanvasRename"
+              ? await canvasLibrary.rename(msg)
+              : msg.type === "afxCanvasDuplicate"
+                ? await canvasLibrary.duplicate(msg)
+                : await canvasLibrary.delete(msg);
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
+        return;
+      }
+      case "afxCanvasRefreshDependencies": {
+        log?.info("[spec-map v2] Sync specs starting (budgeted, docs/**-anchored)");
+        if (!mutationCoordinator || !specDependencyIndexer) {
+          post({
+            type: "afxMutationResult",
+            requestId: msg.requestId,
+            outcome: "error",
+            target: msg.target,
+            code: "capability-unavailable",
+            message: "Canvas dependency refresh is unavailable in this Workbench host.",
+            retryable: true,
+          });
+          return;
+        }
+        const syncStartedAt = Date.now();
+        let summary:
+          | Awaited<ReturnType<SpecDependencyIndexer["refresh"]>>["diagnostics"]
+          | undefined;
+        const result = await mutationCoordinator.mutateText({
+          requestId: msg.requestId,
+          target: msg.target,
+          expectedRevision: msg.expectedRevision,
+          allowDirty: true,
+          transform: async (content) => {
+            const refreshed = await specDependencyIndexer.refresh(content, msg.target);
+            summary = refreshed.diagnostics;
+            return refreshed.content;
+          },
+        });
+        log?.info(`[spec-map v2] Sync specs ${result.outcome} in ${Date.now() - syncStartedAt}ms`);
+        post(result);
+        if (result.outcome === "success") {
+          await refreshAndPost();
+          const issueCount =
+            (summary?.unresolved.length ?? 0) +
+            (summary?.ambiguous.length ?? 0) +
+            (summary?.cycles.length ?? 0);
+          if (issueCount > 0) {
+            vscode.window.showWarningMessage(
+              `AgenticFlowX: dependency map refreshed with ${issueCount} issue${issueCount === 1 ? "" : "s"}.`,
+            );
+          } else {
+            vscode.window.showInformationMessage("AgenticFlowX: dependency map refreshed.");
+          }
+        }
+        return;
+      }
+      case "afxCanvasDocIndex": {
+        const roots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.name);
+        log?.info(
+          `[spec-map v2] doc-index scan starting (roots: ${roots.join(", ") || "none"}, indexer: ${Boolean(specDependencyIndexer)})`,
+        );
+        const entries = specDependencyIndexer ? await specDependencyIndexer.index() : [];
+        log?.info(`[spec-map v2] doc-index found ${entries.length} afx docs`);
+        post({ type: "afxCanvasDocIndex", requestId: msg.requestId, entries });
+        return;
+      }
+      case "afxCanvasAuthorRelationship": {
+        if (!mutationCoordinator || !specDependencyIndexer) {
+          post({
+            type: "afxMutationResult",
+            requestId: msg.requestId,
+            outcome: "error",
+            target: msg.source,
+            code: "capability-unavailable",
+            message: "Relationship authoring is unavailable in this Workbench host.",
+            retryable: true,
+          });
+          return;
+        }
+        const result = await createDocGraphAuthorService({
+          coordinator: mutationCoordinator,
+          indexer: specDependencyIndexer,
+        }).author(msg);
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
+        return;
+      }
+      case "afxCanvasRunAction": {
+        post(
+          canvasActionService
+            ? await canvasActionService.run(msg)
+            : {
+                type: "afxMutationResult",
+                requestId: msg.requestId,
+                outcome: "error",
+                target: msg.target,
+                code: "capability-unavailable",
+                message: "Canvas actions are unavailable in this Workbench host.",
+                retryable: true,
+              },
+        );
+        return;
+      }
+      case "afxMutateKanbanBoard": {
+        if (!mutationCoordinator) return;
+        const result = await mutationCoordinator.mutateText({
+          requestId: msg.requestId,
+          target: msg.target,
+          expectedRevision: msg.expectedRevision,
+          transform(content) {
+            const outcome = mutateKanbanMarkdown(parseKanbanMarkdown(content), msg.mutation);
+            if (!outcome.ok) throw new Error(outcome.message);
+            return outcome.content;
+          },
+        });
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
+        return;
+      }
+      case "afxToggleLinkedTask": {
+        if (!mutationCoordinator) return;
+        const result = await mutationCoordinator.mutateText({
+          requestId: msg.requestId,
+          target: msg.target,
+          expectedRevision: msg.expectedRevision,
+          transform(content) {
+            const outcome = toggleLinkedTaskItem(
+              content,
+              msg.wbsId,
+              msg.itemFingerprint,
+              msg.completed,
+            );
+            if (!outcome.ok) throw new Error(outcome.message);
+            return outcome.content;
+          },
+        });
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
+        return;
+      }
+      case "afxMutateNotes": {
+        if (!notesWriter) return;
+        const result = await notesWriter.mutate(msg);
+        post(result);
+        if (result.outcome === "success") await refreshAndPost();
         return;
       }
       case "afxCreateSampleDocs": {
@@ -489,6 +1209,7 @@ async function handleMessage(
         return;
       }
       case "afxRenameKanbanBoard": {
+        if (!msg.filePath) return;
         const newTitle = msg.name.trim();
         if (!newTitle) return;
         const newSlug = newTitle
@@ -514,6 +1235,7 @@ async function handleMessage(
         return;
       }
       case "afxDeleteKanbanBoard": {
+        if (!msg.filePath) return;
         const uri = await resolvePath(msg.filePath, true);
         await vscode.workspace.fs.delete(uri);
         await refreshAndPost();
@@ -612,9 +1334,18 @@ async function handleMessage(
       case "afxChangeStatus":
         // host-side persistence not yet required for these — webview manages local state
         return;
+      case "afxCanvasEditorReady":
+      case "afxCanvasApplyMutation":
+      case "afxCanvasEditorSetViewState":
+        log?.warn(
+          () =>
+            `rejected ${msg.type}: custom-editor message was sent to the Workbench panel surface`,
+        );
+        return;
     }
   } catch (err) {
     log?.error("handleMessage threw", err instanceof Error ? err : undefined);
+    throw err;
   }
 }
 
@@ -821,6 +1552,18 @@ Keep the sprint small: a launchpad action, a document preview, and a verificatio
  * `newText === null` deletes the note. Returns the rewritten file content,
  * or `null` if the timestamp couldn't be located.
  */
+function safeHttpUri(value: string): vscode.Uri | undefined {
+  try {
+    const url = new URL(value);
+    if ((url.protocol !== "http:" && url.protocol !== "https:") || url.username || url.password) {
+      return undefined;
+    }
+    return vscode.Uri.parse(url.toString());
+  } catch {
+    return undefined;
+  }
+}
+
 function mutateNote(existing: string, timestamp: string, newText: string | null): string | null {
   const lines = existing.split("\n");
   const time = timestamp.slice(11, 23);

@@ -35,6 +35,7 @@ import {
   composeIntentControlBlock,
   isIntentParentMode,
   normalizeIntentSlot,
+  normalizeWorkbenchViewIds,
 } from "@afx/shared";
 import type {
   AfxStyleId,
@@ -62,6 +63,7 @@ import type {
   RuntimeAppearanceSnapshot,
   SettingsSnapshot,
   SignOffSummary,
+  WorkbenchViewId,
   WorkspaceMode,
 } from "@afx/shared";
 
@@ -104,6 +106,7 @@ export interface SidebarPanelDeps {
   extensionUri: vscode.Uri;
   extensionMode: vscode.ExtensionMode;
   extensionVersion?: string;
+  bundledAfxSkillsVersion?: string;
   bundledPiNpmVersion?: string;
   bundledSkillsPath?: string;
   /** Resolved Pi agent directory (honours PI_CODING_AGENT_DIR). Defaults to ~/.pi/agent. */
@@ -408,6 +411,7 @@ const AFX_SKILL_COMMAND_ORDER = [
   "afx-scaffold",
   "afx-adr",
   "afx-context",
+  "afx-dash",
   "afx-spec",
   "afx-report",
   "afx-help",
@@ -438,6 +442,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     extensionUri,
     extensionMode,
     extensionVersion = "?",
+    bundledAfxSkillsVersion = "?",
     bundledPiNpmVersion = readBundledPiNpmVersion(extensionUri),
     bundledSkillsPath = vscode.Uri.joinPath(extensionUri, "resources", "skills", "agenticflowx")
       .fsPath,
@@ -2209,6 +2214,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleSetExperimentalCanvasEnabled(msg.requestId, msg.enabled);
         return;
       }
+      // @see docs/specs/214-app-chat-settings/spec.md [FR-16]
+      // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-WORKBENCH-VISIBILITY]
+      case "experimental/setWorkbenchHiddenViews": {
+        void handleSetWorkbenchHiddenViews(msg.requestId, msg.hidden);
+        return;
+      }
       // @see docs/specs/212-app-chat-messages/spec.md [FR-10]
       // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-WELCOME-SPEC]
       case "chat/openWorkbench": {
@@ -3125,6 +3136,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const includeActiveFileContext = cfg.get<boolean>("context.includeActiveFileContext", true);
       const mode = workspaceMode();
       const canvasEnabled = cfg.get<boolean>("experimental.canvas", false);
+      const workbenchHiddenViews = normalizeWorkbenchViewIds(
+        cfg.get<unknown>("experimental.workbenchHiddenViews", []),
+      );
       const telemetryEnabled = cfg.get<boolean>("telemetry.enabled", true);
       const snapshot: SettingsSnapshot = {
         appearance: appearanceSnapshotFromConfig(cfg),
@@ -3168,6 +3182,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         experimental: {
           canvasEnabled,
           canvasPath: ".afx/project.canvas",
+          workbenchHiddenViews,
         },
         // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
         // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
@@ -3186,6 +3201,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         },
         about: {
           extensionVersion,
+          bundledAfxSkillsVersion,
           bundledPiNpmVersion,
         },
       };
@@ -3555,6 +3571,25 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set experimental canvas failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
+    }
+  }
+
+  async function handleSetWorkbenchHiddenViews(
+    requestId: string,
+    hidden: readonly WorkbenchViewId[],
+  ): Promise<void> {
+    try {
+      const normalized = normalizeWorkbenchViewIds(hidden);
+      await updateAfxConfigurationWithWorkspaceFallback(
+        "experimental.workbenchHiddenViews",
+        normalized,
+        vscode.ConfigurationTarget.Workspace,
+        log,
+      );
+      await handleGetSettingsSnapshot(requestId);
+    } catch (err) {
+      log.error("set Workbench hidden views failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "settings-toast");
     }
   }

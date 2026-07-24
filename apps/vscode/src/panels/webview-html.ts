@@ -30,12 +30,12 @@ export function loadWebviewHtml(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   extensionMode: vscode.ExtensionMode,
-  opts?: { view?: "preview" },
+  opts?: { view?: "preview" | "canvas-editor" },
 ): string {
   const appearanceClass = getAppearanceClass();
 
   if (extensionMode === vscode.ExtensionMode.Development) {
-    const devHtml = tryDevModeHtml(extensionUri, appName, appearanceClass, opts);
+    const devHtml = tryDevModeHtml(webview, extensionUri, appName, appearanceClass, opts);
     if (devHtml) return devHtml;
   }
 
@@ -87,10 +87,11 @@ function isStyleId(value: string): value is AfxStyleId {
  * Returns null if the file is absent — caller falls back to prod bundle.
  */
 function tryDevModeHtml(
+  webview: vscode.Webview,
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   appearanceClass: string,
-  opts?: { view?: "preview" },
+  opts?: { view?: "preview" | "canvas-editor" },
 ): string | null {
   // .vite-port-{chat|workbench} lives at repo root: two levels up from apps/vscode
   const vitePortFile = path.join(extensionUri.fsPath, "..", "..", `.vite-port-${appName}`);
@@ -100,14 +101,16 @@ function tryDevModeHtml(
   const localServerUrl = `${devServer.host}:${devServer.port}`;
   const nonce = getNonce();
   const cacheBust = Date.now().toString(36);
-  const viewAttr = opts?.view === "preview" ? ` data-afx-view="preview"` : "";
+  const viewAttr = opts?.view ? ` data-afx-view="${opts.view}"` : "";
   const bodyClass = ` class="${appearanceClass}"${viewAttr}`;
 
   const csp = [
     "default-src 'none'",
     `font-src data: http://${localServerUrl}`,
     `style-src 'unsafe-inline' http://${localServerUrl}`,
-    `img-src data: http://${localServerUrl} https://www.clarity.ms https://*.clarity.ms`,
+    // webview.cspSource keeps host-approved workspace resources (canvas image
+    // previews via asWebviewUri) renderable in dev mode, matching prod.
+    `img-src ${webview.cspSource} data: http://${localServerUrl} https://www.clarity.ms https://*.clarity.ms`,
     `script-src 'unsafe-eval' 'nonce-${nonce}' http://${localServerUrl} https://www.clarity.ms https://*.clarity.ms`,
     `connect-src http://${localServerUrl} ws://${localServerUrl} https://www.clarity.ms https://*.clarity.ms`,
   ].join("; ");
@@ -222,7 +225,7 @@ function prodHtml(
   extensionUri: vscode.Uri,
   appName: "chat" | "workbench",
   appearanceClass: string,
-  opts?: { view?: "preview" },
+  opts?: { view?: "preview" | "canvas-editor" },
 ): string {
   const appDistPath = getAppDistPath(extensionUri, appName);
 
@@ -260,7 +263,7 @@ function prodHtml(
   html = html.replace(/<head>/, `<head>\n  ${cspTag}`);
 
   // Static body attributes are NOT governed by `script-src`, so this requires no CSP change.
-  const viewAttr = opts?.view === "preview" ? ` data-afx-view="preview"` : "";
+  const viewAttr = opts?.view ? ` data-afx-view="${opts.view}"` : "";
   html = html.replace(/<body([^>]*)>/, (_match: string, attrs: string) => {
     if (attrs.includes('class="')) {
       return `<body${attrs.replace('class="', `class="${appearanceClass} `)}${viewAttr}>`;

@@ -98,6 +98,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
+      bundledAfxSkillsVersion: "v2.6.1",
       bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
@@ -284,7 +285,7 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.getAvailableModels).toHaveBeenCalledOnce();
   });
 
-  it("includes the bundled Pi npm package version in the settings snapshot", async () => {
+  it("includes the bundled AFX skill and Pi npm versions in the settings snapshot", async () => {
     const { inbound, postMessage } = setupWithView();
 
     inbound.fire({ type: "chat/getSettingsSnapshot", requestId: "settings-about" });
@@ -302,6 +303,7 @@ describe("sidebar-panel host bridge", () => {
           }),
           about: expect.objectContaining({
             extensionVersion: "2.0.0-test",
+            bundledAfxSkillsVersion: "v2.6.1",
             bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
           }),
         }),
@@ -682,7 +684,11 @@ describe("sidebar-panel host bridge", () => {
         type: "agent/settingsSnapshot",
         requestId: "canvas-on",
         snapshot: expect.objectContaining({
-          experimental: { canvasEnabled: true, canvasPath: ".afx/project.canvas" },
+          experimental: {
+            canvasEnabled: true,
+            canvasPath: ".afx/project.canvas",
+            workbenchHiddenViews: [],
+          },
         }),
       }),
     );
@@ -3664,6 +3670,7 @@ describe("sidebar-panel host bridge", () => {
     expect(snapshotCall?.snapshot?.experimental).toEqual({
       canvasEnabled: true,
       canvasPath: ".afx/project.canvas",
+      workbenchHiddenViews: [],
     });
   });
 

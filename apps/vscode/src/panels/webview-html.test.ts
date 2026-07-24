@@ -278,6 +278,19 @@ describe("loadWebviewHtml — preview boot mode", () => {
     expect(html).not.toContain('data-afx-view="preview"');
   });
 
+  it('adds data-afx-view="canvas-editor" for the optional Canvas custom editor', () => {
+    const html = loadWebviewHtml(
+      fakeWebview(),
+      extensionUri,
+      "workbench",
+      vscode.ExtensionMode.Production,
+      { view: "canvas-editor" },
+    );
+
+    expect(html).toMatch(/<body[^>]*data-afx-view="canvas-editor"/);
+    expect(html).not.toContain('data-afx-view="preview"');
+  });
+
   it("leaves the prod CSP unchanged in preview mode (FR-22 guard still passes)", () => {
     const html = loadWebviewHtml(
       fakeWebview(),
@@ -346,8 +359,10 @@ describe("CSP guard (430-dx-enforcement FR-22)", () => {
     );
 
     expect(html).toMatch(/<meta\s+http-equiv="Content-Security-Policy"/);
+    // Dev img-src mirrors prod: webview cspSource keeps host-approved canvas
+    // image previews renderable alongside the local Vite server.
     expect(html).toMatch(
-      /img-src\s+data:\s+http:\/\/127\.0\.0\.1:5174[^;]*https:\/\/\*\.clarity\.ms/,
+      /img-src\s+vscode-webview:\/\/test\s+data:\s+http:\/\/127\.0\.0\.1:5174[^;]*https:\/\/\*\.clarity\.ms/,
     );
     // Dev needs unsafe-eval for HMR; that's the documented exception.
     // But it MUST also carry a per-render nonce to scope script execution.

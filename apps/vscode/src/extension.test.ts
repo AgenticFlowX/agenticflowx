@@ -12,7 +12,16 @@ import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type MockInstance,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 import * as vscode from "vscode";
 
 import { type MockAgentManager, createMockAgentManager } from "./__fixtures__/mock-agent-manager";
@@ -28,6 +37,7 @@ it("bundles only the canonical AgenticFlowX core and leaves QA/dev/security pack
     .map((entry) => entry.name);
 
   expect(bundledRoots).toEqual(["agenticflowx"]);
+  expect(bundledCore).toContain("afx-dash");
   expect(bundledCore).toContain("afx-dev");
   expect(bundledCore).not.toEqual(
     expect.arrayContaining([
@@ -84,6 +94,22 @@ vi.mock("./panels/workbench-panel", () => ({
   createWorkbenchPanel: vi.fn(() => ({ resolveWebviewView: vi.fn() })),
 }));
 
+const sharedCanvasEditSessionManager = vi.hoisted(() => ({
+  connect: vi.fn(),
+  flush: vi.fn(async () => {}),
+  dispose: vi.fn(async () => {}),
+}));
+
+vi.mock("./services/canvas-edit-session-manager", () => ({
+  createCanvasEditSessionManager: vi.fn(() => sharedCanvasEditSessionManager),
+}));
+
+vi.mock("./editors/canvas-editor-provider", () => ({
+  AFX_CANVAS_EDITOR_VIEW_TYPE: "afx.canvasEditor",
+  createCanvasEditorProvider: vi.fn(() => ({ resolveCustomTextEditor: vi.fn() })),
+  openCanvasEditor: vi.fn(async () => {}),
+}));
+
 vi.mock("./panels/afx-preview-panel", () => ({
   openAfxPreview: vi.fn(async () => undefined),
 }));
@@ -128,6 +154,11 @@ describe("extension.activate", () => {
   let createStatus: MockInstance;
   let createOutput: MockInstance;
 
+  beforeAll(async () => {
+    // Keep the cold extension graph transform outside individual 5-second test budgets.
+    await import("./extension");
+  }, 30_000);
+
   beforeEach(async () => {
     vi.clearAllMocks();
     agentManager = createMockAgentManager();
@@ -155,6 +186,28 @@ describe("extension.activate", () => {
     const ids = registerWebview.mock.calls.map((c) => c[0]);
     expect(ids).toContain("afx-sidebar");
     expect(ids).toContain("afx-workbench");
+  });
+
+  it("injects one extension-lifetime Canvas edit-session manager into both host surfaces", async () => {
+    const editorModule = await import("./editors/canvas-editor-provider");
+    const panelModule = await import("./panels/workbench-panel");
+    const managerModule = await import("./services/canvas-edit-session-manager");
+    const { activate } = await import("./extension");
+    const ctx = makeContext();
+
+    await activate(ctx);
+
+    expect(managerModule.createCanvasEditSessionManager).toHaveBeenCalledOnce();
+    expect(editorModule.createCanvasEditorProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        canvasEditSessionManager: sharedCanvasEditSessionManager,
+        authorCoordinator: expect.any(Object),
+      }),
+    );
+    expect(panelModule.createWorkbenchPanel).toHaveBeenCalledWith(
+      expect.objectContaining({ canvasEditSessionManager: sharedCanvasEditSessionManager }),
+    );
+    expect(ctx.subscriptions).toContain(sharedCanvasEditSessionManager);
   });
 
   it("registers contributed commands", async () => {

@@ -16,15 +16,26 @@ import {
   type GhostTaskResult,
   type JournalEntry,
   type KanbanData,
+  type LinkedWorkItemRef,
   type Logger,
+  type NotesSourceSnapshot,
   type PhaseRow,
   type PipelineRow,
   type QuickNote,
   type TaskItemRow,
   type WorkSessionRow,
+  type WorkbenchSourceIdentity,
 } from "@afx/shared";
 
+import { parseKanbanMarkdown } from "./kanban-markdown";
+import {
+  type LinkedWorkCatalog,
+  type LinkedWorkSource,
+  buildLinkedWorkCatalog,
+} from "./linked-work-items";
+import { NotesMarkdownDocument, notesContentRevision } from "./notes-markdown";
 import { isSprintFile, sliceAllSprintSections } from "./sprint";
+import type { WorkbenchFileState } from "./workbench-file-state";
 
 interface PanelDataPayload {
   pipeline: PipelineRow[];
@@ -35,6 +46,7 @@ interface PanelDataPayload {
   notes: QuickNote[];
   notesRaw: string;
   notesFilePath: string;
+  notesSources: NotesSourceSnapshot[];
   ghostTasks: GhostTaskResult;
 }
 
@@ -51,16 +63,38 @@ const BOARDS_DIR = ".afx/kanban";
 interface ProjectRoot {
   uri: vscode.Uri;
   prefix: string;
+  hasDocs: boolean;
 }
 
+export interface SpecsDataProviderOptions {
+  fileState?: WorkbenchFileState;
+  getWorkspaceFolders?: () => readonly vscode.WorkspaceFolder[] | undefined;
+}
+
+/**
+ * Creates the Workbench scanner with live-buffer overlays and latest-wins
+ * single-flight caching.
+ *
+ * @see docs/specs/227-app-workbench-shell/spec.md [FR-17] [FR-19] [FR-20]
+ * @see docs/specs/227-app-workbench-shell/design.md [DES-SHELL-LIVE-DOCUMENTS]
+ * @see docs/specs/221-app-workbench-board/spec.md [FR-11]
+ * @see docs/specs/224-app-workbench-notes/spec.md [FR-11]
+ */
 export function createSpecsDataProvider(
   getRoot: () => string | undefined,
   parentLog: Logger,
+  options: SpecsDataProviderOptions = {},
 ): SpecsDataProvider {
   const log = parentLog.child("specs-data");
   let cache: PanelDataPayload | null = null;
+  let generation = 0;
+  let inFlight: Promise<void> | null = null;
+  let disposed = false;
+  const lastValidNotes = new Map<string, QuickNote[]>();
 
   async function readFileSafe(uri: vscode.Uri): Promise<string | null> {
+    const liveSnapshot = await options.fileState?.readText(uri);
+    if (liveSnapshot) return liveSnapshot.content;
     try {
       const buf = await vscode.workspace.fs.readFile(uri);
       return Buffer.from(buf).toString("utf8");
@@ -95,7 +129,10 @@ export function createSpecsDataProvider(
     }
   }
 
-  async function listMarkdownFilesRecursive(uri: vscode.Uri, relDir: string): Promise<string[]> {
+  async function listMarkdownFilesRecursive(
+    uri: vscode.Uri,
+    relDir: string,
+  ): Promise<Array<{ path: string; uri: vscode.Uri }>> {
     let entries: [string, vscode.FileType][];
     try {
       entries = await vscode.workspace.fs.readDirectory(uri);
@@ -103,13 +140,14 @@ export function createSpecsDataProvider(
       return [];
     }
 
-    const out: string[] = [];
+    const out: Array<{ path: string; uri: vscode.Uri }> = [];
     for (const [name, type] of entries) {
       const relPath = `${relDir}/${name}`;
+      const entryUri = vscode.Uri.joinPath(uri, name);
       if (type === vscode.FileType.Directory) {
-        out.push(...(await listMarkdownFilesRecursive(vscode.Uri.joinPath(uri, name), relPath)));
+        out.push(...(await listMarkdownFilesRecursive(entryUri, relPath)));
       } else if (type === vscode.FileType.File && name.endsWith(".md")) {
-        out.push(relPath);
+        out.push({ path: relPath, uri: entryUri });
       }
     }
     return out;
@@ -117,6 +155,31 @@ export function createSpecsDataProvider(
 
   function prefixed(prefix: string, path: string): string {
     return prefix ? `${prefix}/${path}` : path;
+  }
+
+  function sourceIdentity(
+    uri: vscode.Uri,
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+  ): WorkbenchSourceIdentity | undefined {
+    for (const folder of workspaceFolders) {
+      const rootPath = folder.uri.path.replace(/\/$/, "");
+      if (uri.scheme !== folder.uri.scheme || uri.authority !== folder.uri.authority) continue;
+      if (uri.path !== rootPath && !uri.path.startsWith(`${rootPath}/`)) continue;
+      const renderedRoot = folder.uri.toString();
+      return {
+        rootUri:
+          renderedRoot && renderedRoot !== "[object Object]"
+            ? renderedRoot
+            : `${folder.uri.scheme ?? "file"}://${folder.uri.path}`,
+        rootName: folder.name,
+        relativePath: uri.path.slice(rootPath.length).replace(/^\//, ""),
+      };
+    }
+    return undefined;
+  }
+
+  function sourceKey(source: WorkbenchSourceIdentity): string {
+    return `${source.rootUri}\u0000${source.relativePath}`;
   }
 
   function recoverSimpleFrontmatter(raw: string): Record<string, unknown> {
@@ -152,17 +215,32 @@ export function createSpecsDataProvider(
     return Object.keys(data).length > 0 ? data : recoverSimpleFrontmatter(raw);
   }
 
-  async function discoverProjectRoots(rootUri: vscode.Uri): Promise<ProjectRoot[]> {
+  async function discoverProjectRoots(
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
+  ): Promise<ProjectRoot[]> {
     const roots: ProjectRoot[] = [];
-    const addIfDocsRoot = async (uri: vscode.Uri, prefix: string): Promise<void> => {
-      const stat = await statSafe(vscode.Uri.joinPath(uri, DOCS_DIR));
-      if (stat?.type === vscode.FileType.Directory) roots.push({ uri, prefix });
+    const multipleFolders = workspaceFolders.length > 1;
+    const addIfProjectRoot = async (
+      uri: vscode.Uri,
+      prefix: string,
+      always = false,
+    ): Promise<void> => {
+      const [docsStat, afxStat] = await Promise.all([
+        statSafe(vscode.Uri.joinPath(uri, DOCS_DIR)),
+        statSafe(vscode.Uri.joinPath(uri, ".afx")),
+      ]);
+      const hasDocs = docsStat?.type === vscode.FileType.Directory;
+      const hasAfx = afxStat?.type === vscode.FileType.Directory;
+      if (always || hasDocs || hasAfx) roots.push({ uri, prefix, hasDocs });
     };
 
-    await addIfDocsRoot(rootUri, "");
-    for (const child of await listDirs(rootUri)) {
-      if (child === "node_modules" || child.startsWith(".") || child.endsWith("-bk")) continue;
-      await addIfDocsRoot(vscode.Uri.joinPath(rootUri, child), child);
+    for (const folder of workspaceFolders) {
+      const basePrefix = multipleFolders ? folder.name : "";
+      await addIfProjectRoot(folder.uri, basePrefix, true);
+      for (const child of await listDirs(folder.uri)) {
+        if (child === "node_modules" || child.startsWith(".") || child.endsWith("-bk")) continue;
+        await addIfProjectRoot(vscode.Uri.joinPath(folder.uri, child), prefixed(basePrefix, child));
+      }
     }
     return roots;
   }
@@ -295,140 +373,90 @@ export function createSpecsDataProvider(
     name: string,
     filePath: string,
     content: string,
+    source: WorkbenchSourceIdentity | undefined,
+    revision: Awaited<ReturnType<WorkbenchFileState["readText"]>>,
+    scanGeneration: number,
+    catalog: LinkedWorkCatalog,
+    workspaceFolders: readonly vscode.WorkspaceFolder[],
   ): KanbanData["boards"][number] {
-    const { data, content: body } = parseFrontmatter(content);
-    const cols: Array<{ title: string; cards: { text: string }[] }> = [];
-    let current: { title: string; cards: { text: string }[] } | null = null;
-    let currentCard: string[] | null = null;
-    const flushCard = (): void => {
-      if (!current || !currentCard) return;
-      const text = currentCard.join("\n").trim();
-      if (text) current.cards.push({ text });
-      currentCard = null;
+    const { data } = parseFrontmatter(content);
+    const document = parseKanbanMarkdown(content);
+    const hydrateLink = (link: LinkedWorkItemRef | undefined): LinkedWorkItemRef | undefined => {
+      if (!link || link.source.rootUri) return link;
+      const roots = workspaceFolders.filter((folder) => folder.name === link.source.rootName);
+      if (roots.length !== 1) return link;
+      const target = sourceIdentity(
+        vscode.Uri.joinPath(roots[0]?.uri ?? vscode.Uri.file("/"), link.source.relativePath),
+        workspaceFolders,
+      );
+      return target ? { ...link, source: target } : link;
     };
-    for (const ln of body.split("\n")) {
-      const h = /^##\s+(.+)$/.exec(ln);
-      if (h) {
-        flushCard();
-        if (current) cols.push(current);
-        const title = h[1] ?? "";
-        current = /^board rules$/i.test(title) ? null : { title, cards: [] };
-        continue;
-      }
-      const cardHeading = /^###\s+(.+)$/.exec(ln);
-      if (cardHeading && current) {
-        flushCard();
-        currentCard = [cardHeading[1] ?? ""];
-        continue;
-      }
-      const c = /^-\s+(.+)$/.exec(ln);
-      if (c && current) {
-        if (currentCard) {
-          currentCard.push(c[1] ?? "");
-        } else {
-          current.cards.push({ text: c[1] ?? "" });
-        }
-        continue;
-      }
-      if (currentCard && ln.trim()) currentCard.push(ln);
-    }
-    flushCard();
-    if (current) cols.push(current);
-    const d = data;
     return {
       name,
       filePath,
-      columns: cols,
+      columns: document.columns.map((column) => ({
+        id: column.id,
+        title: column.title,
+        cards: column.cards.map((card) => {
+          const link = hydrateLink(card.link);
+          return {
+            id: card.id,
+            text: card.text,
+            link,
+            resolved: link ? catalog.resolve(link) : undefined,
+          };
+        }),
+      })),
       rawContent: content,
       meta: {
-        title: typeof d["title"] === "string" ? d["title"] : undefined,
-        status: typeof d["status"] === "string" ? d["status"] : undefined,
+        title: typeof data["title"] === "string" ? data["title"] : undefined,
+        status: typeof data["status"] === "string" ? data["status"] : undefined,
       },
+      source,
+      revision:
+        revision?.sourceRevision ??
+        (source
+          ? {
+              contentRevision: notesContentRevision(content),
+              diskRevision: notesContentRevision(content),
+              dirty: false,
+            }
+          : undefined),
+      scanGeneration,
+      editorDirty: revision?.dirty ?? false,
     };
   }
 
-  function formatQuickNoteTime(d: Date, fallback: string): string {
-    if (Number.isNaN(d.getTime())) return fallback;
-    return d.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  }
-
-  function parseQuickNotes(content: string): QuickNote[] {
-    const out: QuickNote[] = [];
-    const re = /^-\s+\*\*(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{3})?Z?)\*\*\s+(.+)$/gm;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(content)) !== null) {
-      const ts = m[1] ?? "";
-      const text = m[2] ?? "";
-      const d = new Date(ts);
-      if (Number.isNaN(d.getTime())) continue;
-      const rawTime = ts.slice(11).replace(/Z$/, "");
-      out.push({
-        timestamp: ts,
-        time: rawTime,
-        displayTime: formatQuickNoteTime(d, rawTime),
-        date: ts.slice(0, 10),
-        text,
-      });
-    }
-    const lines = parseFrontmatter(content).content.split("\n");
-    let currentDate = "";
-    for (let i = 0; i < lines.length; i++) {
-      const dateMatch = /^##\s+(\d{4}-\d{2}-\d{2})\s*$/.exec(lines[i] ?? "");
-      if (dateMatch) {
-        currentDate = dateMatch[1] ?? "";
-        continue;
-      }
-      const timeMatch = /^###\s+(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\s*$/.exec(lines[i] ?? "");
-      if (!timeMatch || !currentDate) continue;
-      const textLines: string[] = [];
-      for (let j = i + 1; j < lines.length; j++) {
-        const next = lines[j] ?? "";
-        if (/^##\s+\d{4}-\d{2}-\d{2}\s*$/.test(next) || /^###\s+\d{2}:\d{2}:\d{2}/.test(next)) {
-          break;
-        }
-        textLines.push(next);
-      }
-      const time = timeMatch[1] ?? "";
-      const text = textLines.join("\n").trim();
-      if (!text) continue;
-      const timestamp = `${currentDate}T${time}`;
-      if (out.some((note) => note.timestamp === timestamp)) continue;
-      const d = new Date(timestamp);
-      out.push({
-        timestamp,
-        time,
-        displayTime: formatQuickNoteTime(d, time),
-        date: currentDate,
-        text,
-      });
-    }
-    return out.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  }
-
-  async function scan(): Promise<PanelDataPayload> {
+  async function scan(scanGeneration: number): Promise<PanelDataPayload> {
+    const configuredFolders = options.getWorkspaceFolders?.() ?? [];
     const rootPath = getRoot();
-    if (!rootPath) {
+    const fallbackUri = rootPath ? vscode.Uri.file(rootPath) : undefined;
+    const workspaceFolders =
+      configuredFolders.length > 0
+        ? configuredFolders
+        : fallbackUri
+          ? [
+              {
+                uri: fallbackUri,
+                name: fallbackUri.path.split("/").filter(Boolean).at(-1) ?? "workspace",
+                index: 0,
+              } as vscode.WorkspaceFolder,
+            ]
+          : [];
+    if (workspaceFolders.length === 0) {
       log.debug("no workspace root");
       return emptyPayload();
     }
-    const rootUri = vscode.Uri.file(rootPath);
-    const projectRoots = await discoverProjectRoots(rootUri);
-    if (projectRoots.length === 0) {
-      log.debug(() => `no docs roots under ${rootUri.fsPath}`);
-      return emptyPayload();
-    }
+    const projectRoots = await discoverProjectRoots(workspaceFolders);
 
     const pipeline: PipelineRow[] = [];
     const featureTasks: FeatureTasksData[] = [];
     const journalEntries: JournalEntry[] = [];
     const documents: DocumentRow[] = [];
+    const linkedWorkSources: LinkedWorkSource[] = [];
 
     for (const project of projectRoots) {
+      if (!project.hasDocs) continue;
       const docsUri = vscode.Uri.joinPath(project.uri, DOCS_DIR);
       const docPaths = await listMarkdownFilesRecursive(
         docsUri,
@@ -436,10 +464,23 @@ export function createSpecsDataProvider(
       );
       const byDir = new Map<string, Map<string, { path: string; raw: string }>>();
 
-      for (const filePath of docPaths) {
-        const uri = vscode.Uri.joinPath(rootUri, ...filePath.split("/"));
-        const [raw, docStat] = await Promise.all([readFileSafe(uri), statSafe(uri)]);
+      for (const document of docPaths) {
+        const filePath = document.path;
+        const liveDocument = await options.fileState?.readText(document.uri);
+        const [raw, docStat] = await Promise.all([
+          liveDocument?.content ?? readFileSafe(document.uri),
+          statSafe(document.uri),
+        ]);
         if (!raw) continue;
+
+        const linkedSource = liveDocument?.source ?? sourceIdentity(document.uri, workspaceFolders);
+        if (linkedSource) {
+          linkedWorkSources.push({
+            source: linkedSource,
+            content: raw,
+            revision: liveDocument?.revision ?? notesContentRevision(raw),
+          });
+        }
 
         const filename = filePath.split("/").pop() ?? filePath;
         const dir = filePath.slice(0, Math.max(0, filePath.length - filename.length - 1));
@@ -557,10 +598,12 @@ export function createSpecsDataProvider(
       }
     }
 
+    const linkedWorkCatalog = buildLinkedWorkCatalog(linkedWorkSources);
+
     // Boards (.afx/kanban/*.md)
     let kanban: KanbanData | null = null;
     const boards: KanbanData["boards"] = [];
-    const boardRoots: ProjectRoot[] = [{ uri: rootUri, prefix: "" }, ...projectRoots];
+    const boardRoots = projectRoots;
     const seenBoardFiles = new Set<string>();
     for (const project of boardRoots) {
       const boardsUri = vscode.Uri.joinPath(project.uri, BOARDS_DIR);
@@ -570,25 +613,98 @@ export function createSpecsDataProvider(
         const fp = prefixed(project.prefix, `${BOARDS_DIR}/${f}`);
         if (seenBoardFiles.has(fp)) continue;
         seenBoardFiles.add(fp);
-        const raw = await readFileSafe(vscode.Uri.joinPath(boardsUri, f));
-        if (raw) boards.push(parseKanbanFile(f.replace(/\.md$/, ""), fp, raw));
+        const boardUri = vscode.Uri.joinPath(boardsUri, f);
+        const liveBoard = await options.fileState?.readText(boardUri);
+        const raw = liveBoard?.content ?? (await readFileSafe(boardUri));
+        if (raw) {
+          boards.push(
+            parseKanbanFile(
+              f.replace(/\.md$/, ""),
+              fp,
+              raw,
+              liveBoard?.source ?? sourceIdentity(boardUri, workspaceFolders),
+              liveBoard ?? null,
+              scanGeneration,
+              linkedWorkCatalog,
+              workspaceFolders,
+            ),
+          );
+        }
       }
     }
-    if (boards.length > 0) kanban = { boards, dirPath: BOARDS_DIR };
+    if (boards.length > 0) {
+      kanban = {
+        boards,
+        dirPath: BOARDS_DIR,
+        availableWorkItems: linkedWorkCatalog.candidates,
+      };
+    }
 
-    // Notes (.afx/notes.md)
-    let notesRaw = "";
-    let notesFilePath = NOTES_PATH;
-    for (const project of boardRoots) {
-      const candidate = vscode.Uri.joinPath(project.uri, NOTES_PATH);
-      const raw = await readFileSafe(candidate);
-      if (raw) {
-        notesRaw = raw;
-        notesFilePath = prefixed(project.prefix, NOTES_PATH);
-        break;
-      }
+    // Notes (.afx/notes.md). Every workspace root remains a creatable target;
+    // nested project roots are included only when their Notes source exists.
+    // @see docs/specs/224-app-workbench-notes/design.md [DES-NOTES-IDENTITY] [DES-NOTES-LIVE-SYNC]
+    const notesSources: NotesSourceSnapshot[] = [];
+    const notesRawByKey = new Map<string, string>();
+    const notesCandidates: Array<{ uri: vscode.Uri; rootCandidate: boolean }> = [];
+    const seenNoteUris = new Set<string>();
+    const addNotesCandidate = (uri: vscode.Uri, rootCandidate: boolean): void => {
+      const key = `${uri.scheme}\u0000${uri.authority}\u0000${uri.path}`;
+      if (seenNoteUris.has(key)) return;
+      seenNoteUris.add(key);
+      notesCandidates.push({ uri, rootCandidate });
+    };
+    for (const folder of workspaceFolders) {
+      addNotesCandidate(vscode.Uri.joinPath(folder.uri, NOTES_PATH), true);
     }
-    const notes = notesRaw ? parseQuickNotes(notesRaw) : [];
+    for (const project of projectRoots) {
+      addNotesCandidate(vscode.Uri.joinPath(project.uri, NOTES_PATH), false);
+    }
+
+    for (const candidate of notesCandidates) {
+      const source = sourceIdentity(candidate.uri, workspaceFolders);
+      if (!source) continue;
+      const live = await options.fileState?.readText(candidate.uri);
+      let raw: string | null = live?.content ?? null;
+      if (raw === null) {
+        try {
+          raw = Buffer.from(await vscode.workspace.fs.readFile(candidate.uri)).toString("utf8");
+        } catch {
+          raw = null;
+        }
+      }
+      if (raw === null && !candidate.rootCandidate) continue;
+
+      const key = sourceKey(source);
+      const document = NotesMarkdownDocument.parse(raw ?? "");
+      if (document.valid) lastValidNotes.set(key, document.notes);
+      const notesForSource = document.valid ? document.notes : (lastValidNotes.get(key) ?? []);
+      const contentRevision = raw === null ? "" : (live?.revision ?? notesContentRevision(raw));
+      notesSources.push({
+        source,
+        revision: {
+          contentRevision,
+          diskRevision: raw === null || live?.dirty ? undefined : contentRevision,
+          dirty: live?.dirty ?? false,
+        },
+        scanGeneration,
+        notes: notesForSource,
+        parseError: document.valid ? undefined : document.diagnostics.join(" "),
+      });
+      notesRawByKey.set(key, raw ?? "");
+    }
+
+    const activeNotes =
+      notesSources.find(
+        (snapshot) => snapshot.revision.contentRevision !== notesContentRevision(""),
+      ) ?? notesSources[0];
+    const notes = activeNotes?.notes ?? [];
+    const notesRaw = activeNotes ? (notesRawByKey.get(sourceKey(activeNotes.source)) ?? "") : "";
+    const notesFilePath = activeNotes
+      ? prefixed(
+          workspaceFolders.length > 1 ? activeNotes.source.rootName : "",
+          activeNotes.source.relativePath,
+        )
+      : NOTES_PATH;
 
     const payload: PanelDataPayload = {
       pipeline,
@@ -599,6 +715,7 @@ export function createSpecsDataProvider(
       notes,
       notesRaw,
       notesFilePath,
+      notesSources,
       ghostTasks: { count: 0, items: [] },
     };
 
@@ -620,20 +737,39 @@ export function createSpecsDataProvider(
       notes: [],
       notesRaw: "",
       notesFilePath: NOTES_PATH,
+      notesSources: [],
       ghostTasks: { count: 0, items: [] },
     };
   }
 
   return {
     async getPanelData(): Promise<PanelDataPayload> {
+      if (disposed) return emptyPayload();
       if (cache) return cache;
-      cache = await scan();
+      if (!inFlight) {
+        inFlight = (async () => {
+          do {
+            const scanGeneration = generation;
+            const scanned = await scan(scanGeneration);
+            if (scanGeneration === generation) cache = scanned;
+          } while (!cache && !disposed);
+        })().finally(() => {
+          inFlight = null;
+        });
+      }
+      await inFlight;
+      if (disposed) return emptyPayload();
+      if (!cache) return this.getPanelData();
       return cache;
     },
     refresh() {
+      if (disposed) return;
+      generation += 1;
       cache = null;
     },
     dispose() {
+      disposed = true;
+      generation += 1;
       cache = null;
     },
   };

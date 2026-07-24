@@ -6,7 +6,9 @@
  */
 import * as vscode from "vscode";
 
-import type { CanvasFilePayload, Logger } from "@afx/shared";
+import { type CanvasFilePayload, type Logger, canvasDocumentId } from "@afx/shared";
+
+import type { WorkbenchFileState } from "./workbench-file-state";
 
 export const PROJECT_CANVAS_PATH = ".afx/project.canvas";
 
@@ -21,6 +23,7 @@ export interface CanvasDataProvider {
 interface CanvasDataProviderOptions {
   getWorkspaceRoot(): vscode.Uri | undefined;
   isEnabled(): boolean;
+  fileState?: WorkbenchFileState;
   logger?: Logger;
 }
 
@@ -53,15 +56,36 @@ export function createCanvasDataProvider(opts: CanvasDataProviderOptions): Canva
       if (!uri) {
         return { path: PROJECT_CANVAS_PATH, content: "", exists: false };
       }
+      const source = opts.fileState?.identify(uri);
+      const documentId = source ? canvasDocumentId(source) : undefined;
       try {
-        const content = Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
-        return { path: PROJECT_CANVAS_PATH, content, exists: true };
+        const liveSnapshot = await opts.fileState?.readText(uri);
+        const content = liveSnapshot
+          ? liveSnapshot.content
+          : Buffer.from(await vscode.workspace.fs.readFile(uri)).toString("utf8");
+        return {
+          path: PROJECT_CANVAS_PATH,
+          content,
+          exists: true,
+          ...(liveSnapshot
+            ? { source: liveSnapshot.source, revision: liveSnapshot.sourceRevision }
+            : source
+              ? { source }
+              : {}),
+          ...(documentId ? { documentId } : {}),
+        };
       } catch (err) {
         log?.debug(
           () =>
             `canvas file unavailable at ${PROJECT_CANVAS_PATH} (${err instanceof Error ? err.message : String(err)})`,
         );
-        return { path: PROJECT_CANVAS_PATH, content: "", exists: false };
+        return {
+          path: PROJECT_CANVAS_PATH,
+          content: "",
+          exists: false,
+          ...(source ? { source } : {}),
+          ...(documentId ? { documentId } : {}),
+        };
       }
     },
 

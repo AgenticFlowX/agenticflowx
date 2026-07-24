@@ -19,6 +19,7 @@ import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
 
 import * as vscode from "vscode";
 
+import { parseJSONCanvas } from "@afx/canvas-engine";
 import {
   type AgentAuthMethod,
   type AgentCommand,
@@ -29,6 +30,7 @@ import {
   type LogLevel,
   type Logger,
   PROVIDER_DETAILS,
+  type WorkbenchSourceIdentity,
   type WorkspaceMode,
   createLogger,
   formatIntentTokenEstimate,
@@ -48,6 +50,11 @@ import {
   configurationTargetFor,
   updateAfxConfigurationWithWorkspaceFallback,
 } from "./configuration-target";
+import {
+  AFX_CANVAS_EDITOR_VIEW_TYPE,
+  createCanvasEditorProvider,
+  openCanvasEditor,
+} from "./editors/canvas-editor-provider";
 import {
   MODEL_DEFAULT_SELECTION_SETTING,
   type ModelSelectionIdentityV2,
@@ -73,12 +80,24 @@ import { createSpecCodeLensProvider } from "./providers/spec-codelens";
 import { createSpecDefinitionProvider } from "./providers/spec-definition";
 import { createSpecHoverProvider } from "./providers/spec-hover";
 import { SecretStore } from "./secret-store";
+import {
+  type CanvasActionExecutionContext,
+  createCanvasActionService,
+} from "./services/canvas-action-service";
+import { createCanvasEditSessionManager } from "./services/canvas-edit-session-manager";
+import { createCanvasLibraryService } from "./services/canvas-library-service";
 import { createCustomProvidersService } from "./services/custom-providers-service";
 import { createOAuthService } from "./services/oauth/oauth-service";
 import { createSpecsDataProvider } from "./services/specs-data";
 import { createSprintContextSync } from "./services/sprint-context";
+import { type WorkbenchFileState, createWorkbenchFileState } from "./services/workbench-file-state";
+import { createWorkbenchMutationCoordinator } from "./services/workbench-mutation-coordinator";
 import { resolveAfxSessionDir } from "./session-dir";
-import { appendNoteToWorkspace } from "./utils/notes-utils";
+import {
+  appendNoteToWorkspace,
+  createNotesWorkspaceWriter,
+  installNotesWorkspaceWriter,
+} from "./utils/notes-utils";
 
 const TRACE_LANGUAGES: vscode.DocumentSelector = [
   { language: "typescript" },
@@ -155,6 +174,44 @@ function sddPrimaryActionForActiveEditor(editor: vscode.TextEditor | undefined |
   return sddPrimaryActionForPath(relativePath);
 }
 
+function canvasActionContext(execution: CanvasActionExecutionContext): string {
+  const content = execution.nodes
+    .map((node) => {
+      if (node.type === "text") return node.text;
+      if (node.type === "file") return `File: ${node.file}`;
+      if (node.type === "link") return `Link: ${node.url}`;
+      return `Group: ${node.label || "Untitled"}`;
+    })
+    .join("\n\n---\n\n")
+    .trim();
+  return content.slice(0, 24_000);
+}
+
+function resolveCanvasNodeUri(
+  fileState: WorkbenchFileState,
+  execution: CanvasActionExecutionContext,
+  rawPath: string,
+): vscode.Uri | undefined {
+  const normalized = rawPath.replaceAll("\\", "/");
+  if (normalized.startsWith("/") || normalized === ".." || normalized.startsWith("../")) {
+    return undefined;
+  }
+  const parts = normalized.split("/").filter(Boolean);
+  const namedRoot = vscode.workspace.workspaceFolders?.find(
+    (folder) => folder.name === parts[0] && parts.length > 1,
+  );
+  if (namedRoot) {
+    return fileState.resolve({
+      rootUri:
+        fileState.identify(vscode.Uri.joinPath(namedRoot.uri, parts.slice(1).join("/")))?.rootUri ??
+        "",
+      rootName: namedRoot.name,
+      relativePath: parts.slice(1).join("/"),
+    });
+  }
+  return fileState.resolve({ ...execution.target, relativePath: normalized });
+}
+
 export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<AfxExtensionTestApi | undefined> {
@@ -165,7 +222,10 @@ export async function activate(
     sinks: [outputChannelSink(channel)],
   });
 
-  const packageJSON = context.extension.packageJSON as { version?: string };
+  const packageJSON = context.extension.packageJSON as {
+    version?: string;
+    afxSkillsPin?: string;
+  };
   const secretStore = new SecretStore(context);
   // One AFX-owned OAuth orchestrator, shared by the Pi-SDK credential seam
   // (agent-factory) and the Settings OAuth bridge handlers (sidebar-panel) so
@@ -549,6 +609,7 @@ export async function activate(
     extensionUri: context.extensionUri,
     extensionMode: context.extensionMode,
     extensionVersion: packageJSON.version ?? "?",
+    bundledAfxSkillsVersion: packageJSON.afxSkillsPin ?? "?",
     bundledSkillsPath,
     piAgentDir,
     agentManager,
@@ -566,16 +627,127 @@ export async function activate(
     // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
     customProvidersService,
   });
+  const workbenchFileState = createWorkbenchFileState();
+  const workbenchMutationCoordinator = createWorkbenchMutationCoordinator({
+    fileState: workbenchFileState,
+  });
+  const canvasEditSessionManager = createCanvasEditSessionManager({
+    apply: (request, expectedRevision) =>
+      workbenchMutationCoordinator.mutateText({
+        requestId: request.requestId,
+        target: request.target,
+        expectedRevision,
+        allowCreate: true,
+        allowDirty: true,
+        transform: () => {
+          parseJSONCanvas(request.content);
+          return request.content;
+        },
+      }),
+    shouldApplyImmediately: (request) => {
+      const uri = workbenchFileState.resolve(request.target);
+      return Boolean(
+        uri &&
+        vscode.workspace.textDocuments.some(
+          (document) => document.uri.toString() === uri.toString(),
+        ),
+      );
+    },
+  });
+  const notesWriter = createNotesWorkspaceWriter({
+    fileState: workbenchFileState,
+    coordinator: workbenchMutationCoordinator,
+  });
+  const notesWriterInstallation = installNotesWorkspaceWriter(notesWriter);
+  const canvasActionService = createCanvasActionService({
+    fileState: workbenchFileState,
+    capabilities: {
+      "open-source": async (execution) => {
+        for (const node of execution.nodes) {
+          if (node.type !== "file") continue;
+          const uri = resolveCanvasNodeUri(workbenchFileState, execution, node.file);
+          if (!uri) throw new Error("Canvas file node is outside the workspace.");
+          await vscode.window.showTextDocument(uri, { preview: true });
+        }
+      },
+      "send-chat": async (execution) => {
+        await openChatCommand(
+          execution.action.command?.trim() || canvasActionContext(execution),
+          "send",
+        );
+      },
+      "promote-note": async (execution) => {
+        const target = { ...execution.target, relativePath: ".afx/notes.md" };
+        const uri = workbenchFileState.resolve(target);
+        if (!uri) throw new Error("Canvas Notes target is outside the workspace.");
+        const current = await workbenchFileState.readText(uri);
+        const result = await notesWriter.mutate({
+          requestId: `canvas-note-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          target,
+          expectedRevision: current?.revision,
+          mutation: { kind: "append", text: canvasActionContext(execution) },
+        });
+        if (result.outcome !== "success") throw new Error(result.message);
+      },
+      "prepare-spec": async (execution) => {
+        await openChatCommand(
+          execution.action.command?.trim() ||
+            `/afx-spec refine ${execution.action.label?.trim() || "next-feature"}`,
+          "insert",
+        );
+      },
+      "prepare-sprint": async (execution) => {
+        await openChatCommand(
+          execution.action.command?.trim() ||
+            `/afx-sprint ${execution.action.label?.trim() || "next-feature"}`,
+          "insert",
+        );
+      },
+    },
+  });
+  const canvasEditorProvider = createCanvasEditorProvider({
+    extensionUri: context.extensionUri,
+    extensionMode: context.extensionMode,
+    fileState: workbenchFileState,
+    logger,
+    openChatCommand,
+    appendNote: appendNoteToWorkspace,
+    openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),
+    canvasActionService,
+    canvasEditSessionManager,
+    authorCoordinator: workbenchMutationCoordinator,
+    canvasLibrary: createCanvasLibraryService({
+      fileState: workbenchFileState,
+      coordinator: workbenchMutationCoordinator,
+      workspaceState: context.workspaceState,
+    }),
+  });
   const specsData = createSpecsDataProvider(
     () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
     logger,
+    {
+      fileState: workbenchFileState,
+      getWorkspaceFolders: () => vscode.workspace.workspaceFolders,
+    },
   );
-  context.subscriptions.push({ dispose: () => specsData.dispose() });
+  context.subscriptions.push(
+    canvasEditSessionManager,
+    workbenchFileState,
+    workbenchMutationCoordinator,
+    notesWriterInstallation,
+    { dispose: () => specsData.dispose() },
+  );
 
   const workbenchProvider = createWorkbenchPanel({
     extensionUri: context.extensionUri,
     extensionMode: context.extensionMode,
     specsData,
+    fileState: workbenchFileState,
+    mutationCoordinator: workbenchMutationCoordinator,
+    notesWriter,
+    workspaceState: context.workspaceState,
+    canvasActionService,
+    canvasEditSessionManager,
     logger,
     openChatCommand,
   });
@@ -602,6 +774,13 @@ export async function activate(
     vscode.window.registerWebviewViewProvider(SIDEBAR_VIEW_TYPE, sidebarProvider),
     // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-LIFECYCLE]
     vscode.window.registerWebviewViewProvider(WORKBENCH_VIEW_TYPE, workbenchProvider),
+    // Optional JSON Canvas handler: priority remains `option`, so AFX never
+    // replaces another Canvas editor unless the user explicitly chooses it.
+    // @see docs/specs/229-app-workbench-canvas/spec.md [FR-32]
+    vscode.window.registerCustomEditorProvider(AFX_CANVAS_EDITOR_VIEW_TYPE, canvasEditorProvider, {
+      webviewOptions: { retainContextWhenHidden: false },
+      supportsMultipleEditorsPerDocument: true,
+    }),
     // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-COMMAND-OPEN-SIDEBAR]
     vscode.commands.registerCommand("afx.openSidebar", async () => {
       await vscode.commands.executeCommand("workbench.view.extension.afx");
@@ -616,6 +795,13 @@ export async function activate(
     vscode.commands.registerCommand("afx.openSddStudio", async () => {
       await vscode.commands.executeCommand("afx.openWorkbench");
     }),
+    // @see docs/specs/229-app-workbench-canvas/spec.md [FR-32]
+    vscode.commands.registerCommand(
+      "afx.openCanvasEditor",
+      async (target?: vscode.Uri | WorkbenchSourceIdentity) => {
+        await openCanvasEditor(workbenchFileState, target);
+      },
+    ),
     // @see docs/specs/200-app-vscode/design.md [DES-COMMAND-CATALOG]
     vscode.commands.registerCommand("afx.newSdd", async () => {
       await openChatCommand("/afx-spec new ", "insert");

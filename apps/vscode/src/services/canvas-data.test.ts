@@ -56,6 +56,62 @@ describe("createCanvasDataProvider", () => {
     });
   });
 
+  it("prefers an unsaved open canvas snapshot over disk content", async () => {
+    const readFile = vi.spyOn(vscode.workspace.fs, "readFile");
+    const provider = createCanvasDataProvider({
+      getWorkspaceRoot: () => vscode.Uri.file("/repo"),
+      isEnabled: () => true,
+      fileState: {
+        classify: () => "canvas",
+        identify: () => ({
+          rootUri: "file:///repo",
+          rootName: "repo",
+          relativePath: ".afx/project.canvas",
+        }),
+        resolve: () => vscode.Uri.file("/repo/.afx/project.canvas"),
+        readText: vi.fn(async (uri) => ({
+          uri,
+          content: '{"nodes":[{"id":"unsaved"}]}',
+          revision: "revision",
+          dirty: true,
+          kind: "canvas" as const,
+          source: {
+            rootUri: "file:///repo",
+            rootName: "repo",
+            relativePath: ".afx/project.canvas",
+          },
+          sourceRevision: {
+            contentRevision: "revision",
+            diskRevision: "disk-revision",
+            documentVersion: 2,
+            dirty: true,
+          },
+        })),
+        onDidChange: () => ({ dispose() {} }),
+        dispose() {},
+      },
+    });
+
+    await expect(provider.getCanvasPayload()).resolves.toEqual({
+      path: ".afx/project.canvas",
+      content: '{"nodes":[{"id":"unsaved"}]}',
+      exists: true,
+      documentId: "file:///repo::.afx/project.canvas",
+      source: {
+        rootUri: "file:///repo",
+        rootName: "repo",
+        relativePath: ".afx/project.canvas",
+      },
+      revision: {
+        contentRevision: "revision",
+        diskRevision: "disk-revision",
+        documentVersion: 2,
+        dirty: true,
+      },
+    });
+    expect(readFile).not.toHaveBeenCalled();
+  });
+
   it("registers one enabled watcher and disposes listener handles safely", () => {
     const listenerDispose = vi.fn();
     const watcherDispose = vi.fn();

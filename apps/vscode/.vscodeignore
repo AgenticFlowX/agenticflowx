@@ -12,6 +12,8 @@ vitest.config.ts
 vitest.setup.ts
 **/*.map
 !LICENSE
+!NOTICE
+!THIRD_PARTY_NOTICES.md
 **/e2e/
 **/test-results/
 **/*.test.ts

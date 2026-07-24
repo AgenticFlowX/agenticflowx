@@ -2,8 +2,8 @@
   "name": "agenticflowx",
   "displayName": "AgenticFlowX",
   "description": "A VS Code workflow layer around pi.dev.",
-  "version": "2.4.0",
-  "afxSkillsPin": "7f85f154f66d27047ac22f0c2974b84a555b6abc",
+  "version": "2.3.0",
+  "afxSkillsPin": "v2.6.1",
   "private": true,
   "publisher": "agenticflowx",
   "icon": "resources/icon.png",
@@ -194,6 +194,26 @@
           "default": false,
           "description": "Enable the experimental Workbench JSON Canvas tab backed by .afx/project.canvas."
         },
+        "afx.experimental.workbenchHiddenViews": {
+          "type": "array",
+          "scope": "window",
+          "default": [],
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "workbench",
+              "pipeline",
+              "documents",
+              "analytics",
+              "journal",
+              "board",
+              "notes",
+              "canvas"
+            ]
+          },
+          "description": "Hide selected Workbench tabs without disabling their files or editor commands."
+        },
         "afx.theme": {
           "type": "string",
           "enum": [
@@ -240,6 +260,18 @@
         }
       }
     },
+    "customEditors": [
+      {
+        "viewType": "afx.canvasEditor",
+        "displayName": "AFX Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.canvas"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
     "commands": [
       {
         "command": "afx.openSidebar",
@@ -253,6 +285,11 @@
       {
         "command": "afx.openSddStudio",
         "title": "Open SDD Studio",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.openCanvasEditor",
+        "title": "Open in Canvas Editor",
         "category": "AgenticFlowX"
       },
       {
@@ -693,15 +730,18 @@
     "sync:skills": "node ./scripts/sync-skills.mjs",
     "prepare:webviews": "node ./scripts/prepare-webviews.mjs",
     "prepare:pi-sdk": "pnpm --filter @afx/agent-pi-sdk build && node ./scripts/prepare-pi-sdk.mjs",
-    "prepackage": "cp ../../README.md ./README.md && cp ../../CHANGELOG.md ./CHANGELOG.md && pnpm --filter apps/chat build && pnpm --filter apps/workbench build && pnpm run prepare:webviews && pnpm run prepare:pi-sdk && pnpm run build",
+    "prepare:legal": "node ../../scripts/legal/third-party-notices.mjs stage-extension",
+    "prepackage": "cp ../../README.md ./README.md && cp ../../CHANGELOG.md ./CHANGELOG.md && pnpm --filter apps/chat build && pnpm --filter apps/workbench build && pnpm run prepare:webviews && pnpm run prepare:pi-sdk && pnpm run build && pnpm run prepare:legal",
     "check-types": "tsc --noEmit",
     "watch:tsc": "tsc --noEmit --watch",
     "pretest": "pnpm run prepare:pi-sdk",
     "test": "vitest run --coverage",
     "test:watch": "vitest",
-    "package": "pnpm vsce package --out ../../bin/ --no-dependencies"
+    "package": "pnpm vsce package --out ../../bin/ --no-dependencies",
+    "postpackage": "node ../../scripts/legal/third-party-notices.mjs verify-vsix bin"
   },
   "dependencies": {
+    "@afx/canvas-engine": "workspace:*",
     "@afx/agent-pi": "workspace:*",
     "@afx/agent-pi-sdk": "workspace:*",
     "@afx/parsers": "workspace:*",

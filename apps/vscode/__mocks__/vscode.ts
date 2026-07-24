@@ -70,6 +70,7 @@ const StatusBarAlignment = { Left: 1, Right: 2 } as const;
 const ViewColumn = { Active: -1, Beside: -2, One: 1, Two: 2, Three: 3 } as const;
 const ExtensionMode = { Production: 1, Development: 2, Test: 3 } as const;
 const ConfigurationTarget = { Global: 1, Workspace: 2, WorkspaceFolder: 3 } as const;
+const TextDocumentChangeReason = { Undo: 1, Redo: 2 } as const;
 const UIKind = { Desktop: 1, Web: 2 } as const;
 
 const createOutputChannel = (name: string) => ({
@@ -111,13 +112,20 @@ const createWebviewView = () => ({
 
 export const workspace = {
   workspaceFolders: [] as { uri: { fsPath: string }; name: string; index: number }[],
+  textDocuments: [] as Array<{
+    uri: { fsPath: string; path: string; scheme: string; authority?: string };
+    getText: () => string;
+    isDirty: boolean;
+  }>,
   getWorkspaceFolder: () => null,
   asRelativePath: (pathOrUri: string | { fsPath: string }) =>
     typeof pathOrUri === "string" ? pathOrUri : pathOrUri.fsPath,
   findFiles: async () => [] as Array<{ fsPath: string; path: string; scheme: string }>,
   onDidChangeWorkspaceFolders: () => mockDisposable,
   onDidChangeConfiguration: () => mockDisposable,
+  onDidChangeTextDocument: () => mockDisposable,
   onDidSaveTextDocument: () => mockDisposable,
+  onDidCloseTextDocument: () => mockDisposable,
   getConfiguration: (_section?: string) => ({
     get: <T>(_key: string, defaultValue?: T): T | undefined => defaultValue,
     has: () => false,
@@ -171,6 +179,7 @@ export const window = {
   createOutputChannel,
   createStatusBarItem,
   registerWebviewViewProvider: () => mockDisposable,
+  registerCustomEditorProvider: () => mockDisposable,
   createWebviewPanel: () => createWebviewView(),
   onDidCloseTerminal: () => mockDisposable,
 };
@@ -302,6 +311,7 @@ export {
   ViewColumn,
   ExtensionMode,
   ConfigurationTarget,
+  TextDocumentChangeReason,
   UIKind,
   WorkspaceEdit,
   createWebviewView,
@@ -330,5 +340,6 @@ export default {
   ViewColumn,
   ExtensionMode,
   ConfigurationTarget,
+  TextDocumentChangeReason,
   UIKind,
 };

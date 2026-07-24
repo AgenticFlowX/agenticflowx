@@ -5,7 +5,7 @@
  * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  * @see docs/specs/214-app-chat-settings/spec.md [FR-13]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
- * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1]
+ * @see docs/specs/229-app-workbench-canvas/spec.md [FR-1] [FR-32]
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -25,6 +25,12 @@ type ExtensionManifest = {
     configuration: {
       properties: Record<string, ConfigurationProperty>;
     };
+    commands?: Array<{ command: string }>;
+    customEditors?: Array<{
+      viewType: string;
+      priority: string;
+      selector: Array<{ filenamePattern: string }>;
+    }>;
   };
 };
 
@@ -76,5 +82,19 @@ describe("extension configuration manifest", () => {
       default: false,
     });
     expect(setting.description).toContain("JSON Canvas");
+  });
+
+  it("contributes AFX Canvas as an explicit optional editor", () => {
+    const manifest = readManifest();
+    expect(manifest.contributes.customEditors).toContainEqual(
+      expect.objectContaining({
+        viewType: "afx.canvasEditor",
+        priority: "option",
+        selector: [{ filenamePattern: "*.canvas" }],
+      }),
+    );
+    expect(manifest.contributes.commands).toContainEqual(
+      expect.objectContaining({ command: "afx.openCanvasEditor" }),
+    );
   });
 });
