@@ -10,6 +10,7 @@
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=AgenticFlowX.agenticflowx"><img src="https://img.shields.io/badge/marketplace-VS%20Code-6E57E0" alt="VS Code Marketplace"></a>
   <a href="https://open-vsx.org/extension/agenticflowx/agenticflowx"><img src="https://img.shields.io/badge/open--vsx-install-4C9A8A" alt="Open VSX"></a>
+  <a href="https://github.com/AgenticFlowX/agenticflowx/releases/latest"><img src="https://img.shields.io/github/v/release/AgenticFlowX/agenticflowx?label=latest%20release" alt="Latest release"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-335C67" alt="Apache 2.0 license"></a>
 </p>
 
@@ -26,7 +27,7 @@
 </p>
 
 <p align="center">
-  Chat · Intent controls · History · Code / Explore / Spec · AFX Previewer · SDD Studio · Workbench · JSON Canvas · Skills · Pi · 33-provider model catalog
+  Chat · Intent controls · History · Code / Explore / Spec · AFX Previewer · SDD Studio · Workbench · JSON Canvas · Skills · Pi · broad provider catalog
 </p>
 
 ---
@@ -47,7 +48,7 @@ Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/item
 code --install-extension AgenticFlowX.agenticflowx
 ```
 
-Then open the **AgenticFlowX** activity bar icon, choose **Settings → Provider**, connect a model, and start chatting.
+Then open the **AgenticFlowX** activity bar icon, choose **Settings → Models**, connect a model, and start chatting.
 
 Works in VS Code, VS Code Insiders, VSCodium, Windsurf, Gitpod, and Antigravity-compatible VS Code builds.
 
@@ -77,6 +78,8 @@ AFX does not force every task into a process. Start loose: ask about the repo, s
 
 The composer has intent controls for how much structure a message should carry. **Default** adds no intent-specific steering; active-file context, mentions, workspace-mode guardrails, and runtime prompts can still add relevant context. **Ask**, **Architect**, **Code**, and **PRD** add lightweight steering when you want it.
 
+When the selected model supports image input, the composer can attach screenshots and diagrams to a turn (including image-only messages). Text-only models are clearly marked and keep the attachment action disabled, so an unsupported request does not fail after you send it. Images are forwarded through both the bundled Pi SDK and the optional Pi RPC runtime, with staged attachments cleaned up when a send is rejected. Thinking-level controls, live usage counters, and usage warnings follow the capabilities reported by Pi instead of assuming every provider behaves the same way.
+
 When the conversation touches documents, files, or workflow state, the UI keeps the useful next action close without turning the chat box into a control panel.
 
 <p align="center">
@@ -85,7 +88,7 @@ When the conversation touches documents, files, or workflow state, the UI keeps 
 
 ## 02 · History that can hand off
 
-Past sessions are searchable, reopenable, and recap-friendly. Copy a recap when you want to hand context to another agent, another window, or future you.
+Past sessions are searchable, reopenable, renameable, exportable, and recap-friendly. Copy a recap when you want to hand context to another agent, another window, or future you. Retry a failed turn, cancel an in-flight request, and copy individual messages without losing the conversation trail.
 
 History is not a separate project-management system; it is the conversation trail beside the work.
 
@@ -281,10 +284,10 @@ Skill loading uses progressive disclosure: names and descriptions stay in the al
 
 ## 13 · Bring the model access you already have
 
-AFX uses the Pi coding harness under the hood: sessions, tools, skills, and a broad provider catalog. Use subscription sign-in, API keys, local runtimes, your installed Pi CLI, or the bundled Pi SDK.
+AFX uses the Pi coding harness under the hood: sessions, tools, skills, thinking levels, usage reporting, image-aware model metadata, and a broad provider catalog. Use subscription sign-in, API keys, local runtimes, your installed Pi CLI, or the bundled Pi SDK.
 
-- **Subscription sign-in:** Anthropic, GitHub Copilot, ChatGPT/Codex where supported.
-- **API keys:** OpenAI, Gemini, DeepSeek, Groq, Mistral, OpenRouter, Bedrock, Azure OpenAI, xAI, Kimi, MiniMax, and more.
+- **Subscription sign-in:** Anthropic, ChatGPT/Codex, GitHub Copilot, OpenRouter, Kimi For Coding, and xAI. AFX-owned OAuth flows keep subscription credentials out of the chat UI; device-code providers open their verification page automatically.
+- **API keys:** OpenAI, Gemini, DeepSeek, Groq, Mistral, OpenRouter, Bedrock, Azure OpenAI, xAI, Kimi, Qwen token plans, Xiaomi token plans, Z.ai, MiniMax, and more.
 - **Local runtimes:** Ollama, llama.cpp-style servers, LM Studio, vLLM, and OpenAI-compatible endpoints.
 - **Already on Pi:** AFX can reuse your Pi CLI config, sessions, provider auth, and skills.
 
@@ -298,11 +301,22 @@ The picker groups configured models by provider, so you can keep a frontier mode
   <img src="https://agenticflowx.github.io/assets/screenshots/model-selector.png" alt="AgenticFlowX model selector grouped by configured provider" width="100%">
 </p>
 
+### Pi SDK and Pi RPC
+
+AFX exposes two complementary Pi runtimes. The bundled SDK runs in-process and uses AFX-managed provider settings and VS Code SecretStorage. Pi RPC runs your Pi CLI as a subprocess and keeps Pi's native model catalog, sessions, skills, and authentication in Pi's own configuration. Choose the SDK for the simplest managed setup, or enable RPC when you want the same local Pi environment you use from a terminal.
+
+| Runtime    | Runs                  | Credentials and model setup                           |
+| ---------- | --------------------- | ----------------------------------------------------- |
+| **Pi SDK** | In the extension host | AFX Settings → Models and VS Code SecretStorage       |
+| **Pi RPC** | As a Pi subprocess    | Pi config, `pi /login`, and Pi-native model discovery |
+
+Custom providers are runtime-specific too: SDK providers are managed by AFX, while RPC providers are read from Pi's `models.json`.
+
 ## 14 · Settings and configuration
 
-Most people can configure AFX from **Settings → Provider**, **Settings → Skills**, and the model picker. If you prefer `settings.json`, these are the important knobs.
+Most people can configure AFX from **Settings → Models**, **Settings → Runtimes**, **Settings → Skills**, and the model picker. **Settings → About** shows the bundled AFX skill version. If you prefer `settings.json`, these are the important knobs.
 
-For provider recipes and setup walkthroughs, see [Help & setup](https://agenticflowx.github.io/help.html).
+For provider recipes, OAuth setup, and runtime walkthroughs, see [Help & setup](https://agenticflowx.github.io/help.html).
 
 ### Providers and runtime
 
@@ -393,6 +407,10 @@ AFX writes durable project memory into the workspace:
 
 Everything is diff-able, reviewable, and portable.
 
+## Runtime upgrades
+
+AFX periodically upgrades the bundled Pi runtime. Existing Pi RPC configuration remains separate from AFX's in-process SDK configuration. Model capability metadata controls whether image attachments and thinking controls are available, and Settings → Models exposes the providers supported by the installed runtime. Check the [changelog](./CHANGELOG.md) for exact bundled-runtime versions and migration notes. If you use custom providers, check the runtime table above before deciding where to configure them.
+
 ## Headless AFX
 
 No VS Code? The workflow also runs as standard skills through the [AFX CLI and skill pack](https://github.com/AgenticFlowX/afx).
@@ -402,7 +420,8 @@ Claude Code, Codex, Gemini CLI, GitHub Copilot, and Pi-compatible agents can run
 ## Good to know
 
 - AgenticFlowX is Apache 2.0 open source.
-- Your provider keys are stored in VS Code SecretStorage or kept in your existing Pi config.
+- AFX-managed provider keys and OAuth credentials are stored in VS Code SecretStorage; Pi RPC credentials remain in your existing Pi config.
+- Prompts, file context, and attachments are sent to the model provider selected for that turn. AFX does not host a workflow database.
 - Specs, tasks, notes, boards, journals, and canvas files stay in your repo.
 - The Canvas is experimental and moving quickly.
 - The Meridian UI includes seven style treatments: `lyra`, `luma`, `maia`, `nova`, `vega`, `mira`, and `sera`.
