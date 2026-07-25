@@ -2,6 +2,12 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.5.1] - 2026-07-26
+
+### Fixed
+
+- Model defaults now fall back to workspace settings when VSCodium or VS Code cannot write the user settings file.
+
 ## [2.5.0] - 2026-07-26
 
 ### Added

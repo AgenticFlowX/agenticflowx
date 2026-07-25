@@ -328,7 +328,7 @@ const MOCK_SETTINGS_SNAPSHOT: SettingsSnapshot = {
     vscodeTelemetryEnabled: true,
   },
   about: {
-    extensionVersion: "2.5.0",
+    extensionVersion: "2.5.1",
     bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
   },
 };

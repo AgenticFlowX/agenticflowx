@@ -5182,13 +5182,12 @@ function formatModeSwitchInfo(mode: WorkspaceMode): string {
 }
 
 async function updateSdkDefaultModel(provider: string, modelId: string): Promise<void> {
-  await vscode.workspace
-    .getConfiguration("afx")
-    .update(
-      "sdk.defaultModel",
-      formatSdkDefaultModel(provider, modelId),
-      vscode.ConfigurationTarget.Global,
-    );
+  const key = "sdk.defaultModel";
+  await updateAfxConfigurationWithWorkspaceFallback(
+    key,
+    formatSdkDefaultModel(provider, modelId),
+    configurationTargetFor(key),
+  );
 }
 
 function normalizeProviderId(provider: string): string {

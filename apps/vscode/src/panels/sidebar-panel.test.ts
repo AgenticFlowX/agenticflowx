@@ -120,6 +120,7 @@ describe("sidebar-panel host bridge", () => {
   function mockAfxConfiguration(
     initialValues: Record<string, unknown> = {},
     workspaceKeys: ReadonlySet<string> = new Set(),
+    failGlobalKeys: ReadonlySet<string> = new Set(),
   ) {
     const defaults: Record<string, unknown> = {
       agentBinaryPath: "",
@@ -151,6 +152,9 @@ describe("sidebar-panel host bridge", () => {
     }
     const update = vi.fn(
       async (key: string, value: unknown, target?: vscode.ConfigurationTarget) => {
+        if (target === vscode.ConfigurationTarget.Global && failGlobalKeys.has(key)) {
+          throw new Error("Unable to write into user settings.");
+        }
         if (target === vscode.ConfigurationTarget.Workspace) {
           if (value === undefined) {
             workspaceOverrides.delete(key);
@@ -1404,6 +1408,53 @@ describe("sidebar-panel host bridge", () => {
         snapshot: expect.objectContaining({
           sdk: expect.objectContaining({ defaultModel: "anthropic:claude-sonnet-4-5" }),
         }),
+      }),
+    );
+  });
+
+  it("falls back to workspace settings when the SDK default cannot be written globally", async () => {
+    const { update, values } = mockAfxConfiguration({}, new Set(), new Set(["sdk.defaultModel"]));
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: { fsPath: "/workspace" }, name: "workspace", index: 0 } as vscode.WorkspaceFolder,
+    ]);
+    const model: AgentModel = {
+      provider: "openrouter",
+      id: "aion-labs/aion-3.0-mini",
+      name: "Aion 3.0 Mini",
+      reasoning: true,
+      contextWindow: 128_000,
+      maxTokens: 16_000,
+      source: "api-provider",
+      instanceId: "pi-sdk",
+      instanceLabel: "OpenRouter",
+    };
+    agent.setModel.mockResolvedValue(model);
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({
+      type: "chat/setModel",
+      requestId: "openrouter-model-switch",
+      provider: model.provider,
+      modelId: model.id,
+      instanceId: model.instanceId,
+    });
+    await flushAsyncWork(3);
+
+    expect(update).toHaveBeenCalledWith(
+      "sdk.defaultModel",
+      "openrouter:aion-labs/aion-3.0-mini",
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).toHaveBeenCalledWith(
+      "sdk.defaultModel",
+      "openrouter:aion-labs/aion-3.0-mini",
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(values.get("sdk.defaultModel")).toBe("openrouter:aion-labs/aion-3.0-mini");
+    expect(postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/toast",
+        message: expect.stringContaining("could not save"),
       }),
     );
   });
