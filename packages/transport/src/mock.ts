@@ -109,6 +109,36 @@ const MOCK_EXTERNAL_MODEL: AgentModel = {
   instanceLabel: "Pi CLI",
 };
 
+// Distinct-input-capability fixtures for the image-attachment capability gate.
+// @see docs/specs/900-fleet/17-release-hardening-pi-features/17-release-hardening-pi-features.md [FR-24]
+const MOCK_VISION_MODEL: AgentModel = {
+  provider: "anthropic",
+  id: "claude-vision-mock",
+  name: "Claude Vision (E2E)",
+  reasoning: true,
+  contextWindow: 200_000,
+  maxTokens: 32_000,
+  source: "api-provider",
+  instanceId: "pi-sdk",
+  instanceLabel: "API Providers",
+  authMethod: "api-key",
+  input: ["text", "image"],
+};
+
+const MOCK_TEXT_ONLY_MODEL: AgentModel = {
+  provider: "anthropic",
+  id: "claude-text-only-mock",
+  name: "Claude Text-Only (E2E)",
+  reasoning: false,
+  contextWindow: 200_000,
+  maxTokens: 32_000,
+  source: "api-provider",
+  instanceId: "pi-sdk",
+  instanceLabel: "API Providers",
+  authMethod: "api-key",
+  input: ["text"],
+};
+
 const MOCK_MODELS: AgentModel[] = [
   MOCK_MODEL,
   MOCK_ANTHROPIC_SUBSCRIPTION_MODEL,
@@ -116,7 +146,15 @@ const MOCK_MODELS: AgentModel[] = [
   ...MOCK_OPENAI_CODEX_MODELS,
   MOCK_EXTERNAL_MODEL,
 ];
-const DEFAULT_MOCK_MODELS = MOCK_MODELS.filter((model) => model.source !== "external-agent");
+// Superset used for chat/setModel lookups so the vision/text-only fixtures are
+// selectable even though they're intentionally excluded from MOCK_MODELS (kept
+// stable there so provider-scenario model counts in mock.test.ts don't shift).
+const ALL_MOCK_MODELS: AgentModel[] = [...MOCK_MODELS, MOCK_VISION_MODEL, MOCK_TEXT_ONLY_MODEL];
+const DEFAULT_MOCK_MODELS = [
+  ...MOCK_MODELS.filter((model) => model.source !== "external-agent"),
+  MOCK_VISION_MODEL,
+  MOCK_TEXT_ONLY_MODEL,
+];
 
 const MOCK_COMMANDS: AgentCommand[] = [
   { name: "skill:afx-next", description: "Context-aware next action", source: "skill" },
@@ -1761,6 +1799,14 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       },
       requestId,
     );
+    emit({
+      type: "chat/toast",
+      tone: "info",
+      message: "Retrying after a transient failure…",
+      description: "The agent runtime will retry automatically.",
+      durationMs: 8_000,
+      cancelableRetry: true,
+    });
     await delay(400);
     emitAgentStatus(
       { running: true, isStreaming: false, phase: "ready", model: MOCK_MODEL },
@@ -2242,9 +2288,34 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
       emit({ type: "agent/models", requestId: msg.requestId, models: DEFAULT_MOCK_MODELS });
       return;
     }
+    if (msg.type === "chat/selectImages") {
+      const requestId = msg.requestId;
+      setTimeout(() => {
+        emit({
+          type: "chat/imagesSelected",
+          requestId,
+          ok: true,
+          attachments: [
+            {
+              id: uid(),
+              kind: "image",
+              name: "mock-screenshot.png",
+              mediaType: "image/png",
+              byteLength: 12_345,
+            },
+          ],
+        });
+      }, 120);
+      return;
+    }
+    if (msg.type === "chat/discardImages") {
+      // No staged-attachment ledger to reconcile in the mock — the webview
+      // already dropped the ids locally, so no ack is required by the protocol.
+      return;
+    }
     if (msg.type === "chat/setModel") {
       const model =
-        MOCK_MODELS.find(
+        ALL_MOCK_MODELS.find(
           (m) =>
             m.provider === msg.provider &&
             m.id === msg.modelId &&
@@ -2459,6 +2530,20 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     }
     if (msg.type === "chat/compact") {
       void runCompaction(msg.requestId);
+      return;
+    }
+    if (msg.type === "chat/exportSession") {
+      const requestId = msg.requestId;
+      setTimeout(() => {
+        emit({ type: "chat/sessionExported", requestId, ok: true });
+      }, 150);
+      return;
+    }
+    if (msg.type === "chat/renameSession") {
+      emitRuntimeSettings(msg.requestId, { sessionName: msg.name });
+      return;
+    }
+    if (msg.type === "chat/abortRetry") {
       return;
     }
     if (msg.type === "chat/setThinkingLevel") {
