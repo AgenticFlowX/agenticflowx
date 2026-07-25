@@ -885,6 +885,17 @@ export type ChatToAgent =
    */
   | { type: "chat/compact"; requestId: string; customInstructions?: string }
   /**
+   * Export the active session transcript as standalone HTML. The host writes and
+   * reveals the file; the response never carries the filesystem path.
+   *
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
+  | { type: "chat/exportSession"; requestId: string }
+  /** Rename the active session (round-trips via agent/runtimeSettings.sessionName). */
+  | { type: "chat/renameSession"; requestId: string; name: string }
+  /** Cancel a pending auto-retry countdown. */
+  | { type: "chat/abortRetry"; requestId: string }
+  /**
    * Composer thinking-level selector change.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-5]
@@ -1204,6 +1215,8 @@ export type AgentToChat =
       message: string;
       description?: string;
       durationMs?: number;
+      /** Present while an auto-retry countdown is pending; lets the webview offer Cancel. */
+      cancelableRetry?: boolean;
     }
   /**
    * Telemetry enablement snapshot for the webview (used by Clarity integration).
@@ -1401,11 +1414,22 @@ export type AgentToChat =
   | { type: "agent/files"; requestId: string; files: AgentFileView[] }
   | {
       type: "chat/imagesSelected";
-      requestId: string;
+      /**
+       * Present on responses to chat/selectImages so the webview can drop stale
+       * round-trips; absent on host-initiated tray restores (e.g. rejected send).
+       */
+      requestId?: string;
       ok: boolean;
       attachments: ChatImageAttachmentView[];
       error?: string;
     }
+  /**
+   * Result of chat/exportSession. Carries no filesystem path; the host reveals
+   * the exported file itself.
+   *
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+   */
+  | { type: "chat/sessionExported"; requestId: string; ok: boolean; error?: string }
   /**
    * Settings panel: full snapshot response.
    *

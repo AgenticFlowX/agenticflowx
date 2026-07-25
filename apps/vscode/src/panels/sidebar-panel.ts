@@ -355,6 +355,7 @@ const OVERFLOW_RECOVERY_GRACE_MS = 1_500;
 const OAUTH_PROACTIVE_REFRESH_LEAD_MS = 5 * 60 * 1000;
 const OAUTH_PROACTIVE_REFRESH_RETRY_MS = 30_000;
 const TOOL_SUMMARY_MAX = 200;
+const TOOL_STREAM_TAIL_MAX = 16 * 1024;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
 const CHAT_IMAGE_MAX_ATTACHMENTS = 4;
 const CHAT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
@@ -999,6 +1000,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     message: string;
     description?: string;
     durationMs?: number;
+    cancelableRetry?: boolean;
   }): void {
     if (!webview || !chatReady) {
       pendingToasts.push(payload);
@@ -1785,6 +1787,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
             message: `Retrying provider request (${evt.attempt}/${evt.maxAttempts})`,
             description: `Transient provider error; retrying in ${formatRetryDelay(evt.delayMs)}.`,
             durationMs: 4_000,
+            cancelableRetry: true,
           });
         }
         return;
@@ -1886,7 +1889,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         return;
       }
       case "bash_delta": {
-        const toolCallId = evt.id ?? "bash";
+        // Id-less bash streams are scoped per turn so separate commands never merge
+        // into one ever-running synthetic tool row.
+        const toolCallId = evt.id ?? `bash-${state.currentRequestId ?? "idle"}`;
         if (evt.delta.length === 0) return;
         appendToolDelta(toolCallId, evt.delta, "bash");
         return;
@@ -1936,6 +1941,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
   }
 
+  // Streaming accumulations are display state; keeping only the newest tail bounds
+  // snapshot size for long-running tools. Terminal summaries are capped separately
+  // on tool_end via TOOL_SUMMARY_MAX.
+  function capToolStreamTail(text: string): string {
+    return text.length > TOOL_STREAM_TAIL_MAX ? text.slice(-TOOL_STREAM_TAIL_MAX) : text;
+  }
+
   function appendToolDelta(toolCallId: string, delta: string, toolName: string): void {
     let tool = state.tools.find((t) => t.toolCallId === toolCallId);
     if (!tool) {
@@ -1945,13 +1957,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       msg.tools = [...(msg.tools ?? []), tool];
       post({ type: "chat/toolStart", toolCallId, toolName, args: null });
     }
-    tool.output = `${tool.output ?? tool.summary ?? ""}${delta}`;
+    tool.output = capToolStreamTail(`${tool.output ?? tool.summary ?? ""}${delta}`);
     tool.summary = tool.output;
     for (const m of state.messages) {
       if (!("tools" in m)) continue;
       const mt = m.tools?.find((t: ChatToolView) => t.toolCallId === toolCallId);
-      if (mt) {
-        mt.output = `${mt.output ?? mt.summary ?? ""}${delta}`;
+      // The tool object can be shared between state.tools and msg.tools; appending
+      // through both references would store every delta twice.
+      if (mt && mt !== tool) {
+        mt.output = capToolStreamTail(`${mt.output ?? mt.summary ?? ""}${delta}`);
         mt.summary = mt.output;
       }
     }
@@ -2371,6 +2385,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         void handleCompact(msg.requestId, msg.customInstructions);
         return;
       }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+      case "chat/exportSession": {
+        void handleExportSession(msg.requestId);
+        return;
+      }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+      case "chat/renameSession": {
+        void handleRenameSession(msg.requestId, msg.name);
+        return;
+      }
+      // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+      case "chat/abortRetry": {
+        void handleAbortRetry(msg.requestId);
+        return;
+      }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/steer": {
         void handleSteer(
@@ -2624,10 +2653,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   ): Promise<void> {
     if (state.isCompacting) {
       postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
+      restoreStagedAttachmentTray(imageAttachmentIds);
       return;
     }
     if (state.isStreaming) {
       postError(requestId, "Already streaming. Wait for the current turn to finish.", "toast");
+      restoreStagedAttachmentTray(imageAttachmentIds);
       return;
     }
 
@@ -2640,7 +2671,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
 
     const images = options?.isAuthRetry
       ? lastTurnSend?.images
-      : consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
+      : peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
     if (!options?.isAuthRetry) {
       lastTurnSend = { content, mentions, intentSlot, images };
     }
@@ -2674,6 +2705,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
       if (images) await agentManager.send(prompt, images);
       else await agentManager.send(prompt);
+      if (!options?.isAuthRetry) commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
       const message = err instanceof Error ? err.message : String(err);
@@ -3256,12 +3288,28 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         return;
       }
 
+      if (uris.length > CHAT_IMAGE_MAX_ATTACHMENTS) {
+        post({
+          type: "chat/toast",
+          tone: "info",
+          message: `Only the first ${CHAT_IMAGE_MAX_ATTACHMENTS} images were attached.`,
+        });
+      }
       const selected = uris.slice(0, CHAT_IMAGE_MAX_ATTACHMENTS);
       const attachments: StagedImageAttachment[] = [];
+      const failures: string[] = [];
       for (const uri of selected) {
-        attachments.push(await readChatImageAttachment(uri));
+        // One unreadable/oversize file must not discard the readable ones.
+        try {
+          attachments.push(await readChatImageAttachment(uri));
+        } catch (err) {
+          failures.push(err instanceof Error ? err.message : String(err));
+        }
       }
       for (const attachment of attachments) stagedImageAttachments.set(attachment.id, attachment);
+      if (failures.length > 0) {
+        post({ type: "chat/toast", tone: "error", message: failures.join(" ") });
+      }
       post({
         type: "chat/imagesSelected",
         requestId,
@@ -3284,6 +3332,26 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   function handleDiscardImages(requestId: string, imageAttachmentIds: readonly string[]): void {
     for (const id of imageAttachmentIds) stagedImageAttachments.delete(id);
     post({ type: "chat/imagesSelected", requestId, ok: true, attachments: [] });
+  }
+
+  // A host-rejected send already cleared the webview tray; re-post the still-staged
+  // entries (no requestId — host-initiated) so the user does not lose their files.
+  function restoreStagedAttachmentTray(imageAttachmentIds: readonly string[]): void {
+    const attachments = imageAttachmentIds
+      .map((id) => stagedImageAttachments.get(id))
+      .filter((a): a is StagedImageAttachment => a !== undefined);
+    if (attachments.length === 0) return;
+    post({
+      type: "chat/imagesSelected",
+      ok: true,
+      attachments: attachments.map(({ id, name, mediaType, byteLength }) => ({
+        id,
+        kind: "image",
+        name,
+        mediaType,
+        byteLength,
+      })),
+    });
   }
 
   async function handleGetSettingsSnapshot(requestId: string): Promise<void> {
@@ -4030,6 +4098,8 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     state.lastUsageTotals = null;
     queuedUserDisplays.length = 0;
     pendingDeltas.clear();
+    stagedImageAttachments.clear();
+    lastTurnSend = null;
     clearTurnStartTimeout();
     clearOverflowRecoveryTimeout();
     clearRetryRecoveryTimeout();
@@ -4136,10 +4206,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot steer: no turn is currently streaming.", "toast");
+      restoreStagedAttachmentTray(imageAttachmentIds);
       return;
     }
     try {
-      const images = consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
+      const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
@@ -4148,6 +4219,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
         if (images) await agentManager.steer(prompt, images);
         else await agentManager.steer(prompt);
+        commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
         if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -4167,10 +4239,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot queue follow-up: no turn is currently streaming.", "toast");
+      restoreStagedAttachmentTray(imageAttachmentIds);
       return;
     }
     try {
-      const images = consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
+      const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
@@ -4179,6 +4252,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
         if (images) await agentManager.followUp(prompt, images);
         else await agentManager.followUp(prompt);
+        commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
         if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -4186,6 +4260,56 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     } catch (err) {
       log.error("agent.followUp failed", err instanceof Error ? err : undefined, { requestId });
       postError(requestId, err instanceof Error ? err.message : String(err), "transcript");
+    }
+  }
+
+  async function handleExportSession(requestId: string): Promise<void> {
+    try {
+      if (!agentManager.exportHtml) {
+        throw new Error("HTML export is not supported by the active runtime.");
+      }
+      const { path: exportedPath } = await agentManager.exportHtml();
+      post({ type: "chat/sessionExported", requestId, ok: true });
+      // The path stays host-side; the webview only learns success/failure.
+      void vscode.commands.executeCommand("revealFileInOS", vscode.Uri.file(exportedPath));
+    } catch (err) {
+      log.error("exportSession failed", err instanceof Error ? err : undefined, { requestId });
+      post({
+        type: "chat/sessionExported",
+        requestId,
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async function handleRenameSession(requestId: string, name: string): Promise<void> {
+    const trimmed = name.trim();
+    if (trimmed.length === 0) {
+      postError(requestId, "Session name cannot be empty.", "toast");
+      return;
+    }
+    try {
+      if (!agentManager.setSessionName) {
+        throw new Error("Renaming sessions is not supported by the active runtime.");
+      }
+      await agentManager.setSessionName(trimmed);
+      await broadcastRuntimeSettings(requestId);
+    } catch (err) {
+      log.error("renameSession failed", err instanceof Error ? err : undefined, { requestId });
+      postError(requestId, err instanceof Error ? err.message : String(err), "toast");
+    }
+  }
+
+  async function handleAbortRetry(requestId: string): Promise<void> {
+    try {
+      if (!agentManager.abortRetry) {
+        throw new Error("Cancelling retries is not supported by the active runtime.");
+      }
+      await agentManager.abortRetry();
+    } catch (err) {
+      log.error("abortRetry failed", err instanceof Error ? err : undefined, { requestId });
+      postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
   }
 
@@ -4524,6 +4648,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       clearTurnStartTimeout();
       clearOAuthRefreshTimer();
+      stagedImageAttachments.clear();
       if (webview === view.webview) {
         webview = null;
         chatReady = false;
@@ -4710,7 +4835,9 @@ function detectImageMediaType(bytes: Uint8Array): string | null {
   return null;
 }
 
-function consumeImageAttachments(
+// Staged entries are read without deleting so a failed agent call keeps them
+// available for retry; callers commit (delete) only after the send succeeds.
+function peekImageAttachments(
   staged: Map<string, StagedImageAttachment>,
   ids: readonly string[],
 ): readonly AgentImageAttachment[] | undefined {
@@ -4719,9 +4846,15 @@ function consumeImageAttachments(
     const attachment = staged.get(id);
     if (!attachment) continue;
     images.push(attachment.image);
-    staged.delete(id);
   }
   return images.length > 0 ? images : undefined;
+}
+
+function commitImageAttachments(
+  staged: Map<string, StagedImageAttachment>,
+  ids: readonly string[],
+): void {
+  for (const id of ids) staged.delete(id);
 }
 
 function parseFatalStderrError(line: string): string | undefined {

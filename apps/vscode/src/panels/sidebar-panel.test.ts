@@ -4085,6 +4085,96 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("stores streamed tool deltas exactly once in state snapshots", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    listener?.({ type: "agent_start" });
+    listener?.({ type: "text_delta", id: "assistant-1", delta: "Running." });
+    listener?.({
+      type: "tool_start",
+      toolCallId: "tool-stream",
+      toolName: "bash",
+      args: { command: "echo hello" },
+    });
+    listener?.({ type: "tool_delta", toolCallId: "tool-stream", delta: "hello" });
+    listener?.({ type: "tool_delta", toolCallId: "tool-stream", delta: " world" });
+
+    inbound.fire({ type: "chat/getState" });
+
+    const posted = postMessage.mock.calls.map(
+      ([msg]) => msg as { type?: string; messages?: unknown; tools?: unknown },
+    );
+    const lastSnapshot = posted.filter((msg) => msg.type === "chat/state").at(-1);
+    // The same tool object lives in state.tools and message.tools; a delta must
+    // not be appended once through each reference.
+    expect(lastSnapshot?.tools).toEqual([
+      expect.objectContaining({
+        toolCallId: "tool-stream",
+        output: "hello world",
+        summary: "hello world",
+      }),
+    ]);
+    expect(lastSnapshot?.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "assistant",
+          tools: [expect.objectContaining({ toolCallId: "tool-stream", output: "hello world" })],
+        }),
+      ]),
+    );
+  });
+
+  it("restores the attachment tray when a send is rejected while streaming", async () => {
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+
+    const dialogSpy = vi
+      .spyOn(vscode.window, "showOpenDialog")
+      .mockResolvedValue([vscode.Uri.file("/private/user/pics/shot.png")]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 8,
+    });
+    vi.spyOn(vscode.workspace.fs, "readFile").mockResolvedValue(
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    inbound.fire({ type: "chat/selectImages", requestId: "pick-1" });
+    await flushAsyncWork(2);
+    const selected = postMessage.mock.calls
+      .map(([msg]) => msg as { type?: string; attachments?: Array<{ id: string }> })
+      .find((msg) => msg.type === "chat/imagesSelected");
+    const stagedId = selected?.attachments?.[0]?.id;
+    expect(stagedId).toBeTruthy();
+    dialogSpy.mockRestore();
+
+    // Put the panel into a streaming turn, then submit a second send carrying
+    // the staged attachment; the host rejects it and must re-post the tray.
+    inbound.fire({ type: "chat/send", requestId: "req-first", content: "go" });
+    await flushAsyncWork(2);
+    listener?.({ type: "agent_start" });
+    postMessage.mockClear();
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "req-second",
+      content: "with image",
+      imageAttachmentIds: [stagedId as string],
+    });
+    await flushAsyncWork(2);
+
+    const restore = postMessage.mock.calls
+      .map(([msg]) => msg as { type?: string; requestId?: string; attachments?: unknown[] })
+      .find((msg) => msg.type === "chat/imagesSelected");
+    expect(restore).toBeDefined();
+    expect(restore?.requestId).toBeUndefined();
+    expect(restore?.attachments).toEqual([
+      expect.objectContaining({ id: stagedId, kind: "image" }),
+    ]);
+  });
+
   it("allows read-only runtime tool events in Explore mode", async () => {
     mockAfxConfiguration({ "mode.active": "explore" });
     const { inbound, postMessage } = setupWithView();
