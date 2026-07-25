@@ -190,7 +190,14 @@ const PROVIDER_FILTERS: ReadonlyArray<{ value: ProviderFilter; label: string }> 
   { value: "needs-key", label: "Needs key" },
 ];
 
-const SUBSCRIPTION_PROVIDER_IDS = ["anthropic", "openai-codex", "github-copilot"] as const;
+const SUBSCRIPTION_PROVIDER_IDS = [
+  "anthropic",
+  "openai-codex",
+  "github-copilot",
+  "kimi-coding",
+  "openrouter",
+  "xai",
+] as const;
 const SUBSCRIPTION_PROVIDER_ID_SET = new Set<string>(SUBSCRIPTION_PROVIDER_IDS);
 const QUICK_SUBSCRIPTION_PROVIDER_IDS = SUBSCRIPTION_PROVIDER_IDS;
 const QUICK_HOSTED_PROVIDER_IDS = ["openai", "google", "deepseek", "openrouter"];

@@ -624,6 +624,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
               });
             },
             onUserCode: ({ userCode, verificationUri }) => {
+              void vscode.env.openExternal(vscode.Uri.parse(verificationUri));
               post({
                 type: "oauth/progress",
                 requestId,

@@ -205,13 +205,19 @@ function createProviderSnapshot(
         ? "ChatGPT (Codex)"
         : id === "github-copilot"
           ? "GitHub Copilot"
-          : id === "anthropic"
-            ? "Anthropic"
-            : id.replace(
-                /(^|[-_\s])([a-z])/g,
-                (_match, prefix: string, char: string) =>
-                  `${prefix === "-" || prefix === "_" ? " " : prefix}${char.toUpperCase()}`,
-              );
+          : id === "kimi-coding"
+            ? "Kimi For Coding"
+            : id === "openrouter"
+              ? "OpenRouter"
+              : id === "xai"
+                ? "xAI"
+                : id === "anthropic"
+                  ? "Anthropic"
+                  : id.replace(
+                      /(^|[-_\s])([a-z])/g,
+                      (_match, prefix: string, char: string) =>
+                        `${prefix === "-" || prefix === "_" ? " " : prefix}${char.toUpperCase()}`,
+                    );
   const snapshot: SettingsSnapshot["providers"][number] = {
     id,
     name: id,
@@ -1684,7 +1690,7 @@ describe("chat App", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("groups subscription accounts and keeps connected Codex visible in Ready", async () => {
+  it("groups subscription accounts and keeps current OAuth providers visible in quick setup", async () => {
     const transport = createControlledTransport();
     const user = userEvent.setup();
     initTransport(transport);
@@ -1720,6 +1726,24 @@ describe("chat App", () => {
             oauthFlow: "device-code",
             dualMethod: false,
           },
+          {
+            ...createProviderSnapshot("kimi-coding"),
+            oauthCapable: true,
+            oauthFlow: "device-code",
+            dualMethod: true,
+          },
+          {
+            ...createProviderSnapshot("openrouter"),
+            oauthCapable: true,
+            oauthFlow: "pkce-loopback",
+            dualMethod: true,
+          },
+          {
+            ...createProviderSnapshot("xai"),
+            oauthCapable: true,
+            oauthFlow: "device-code",
+            dualMethod: true,
+          },
         ],
       });
     });
@@ -1728,6 +1752,9 @@ describe("chat App", () => {
     await user.click(screen.getByRole("button", { name: "Models" }));
 
     expect(screen.getAllByText("Subscription accounts").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Kimi For Coding" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "OpenRouter" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "xAI" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /ChatGPT \(Codex\) — Manage/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /GitHub Copilot — Sign in/i })).toBeInTheDocument();
 

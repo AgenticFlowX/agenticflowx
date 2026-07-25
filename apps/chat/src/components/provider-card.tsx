@@ -569,6 +569,7 @@ function OAuthSection({
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [enterpriseValue, setEnterpriseValue] = useState("");
   const chooserName = `provider-auth-method-${provider}`;
+  const supportsEnterpriseDomain = provider === "github-copilot";
 
   function copy(text: string): void {
     void navigator.clipboard?.writeText(text);
@@ -776,8 +777,8 @@ function OAuthSection({
             <p className="text-[10px] leading-relaxed text-muted-foreground">
               {signInHint(provider)}
             </p>
-            {/* Enterprise URL (device-code / Copilot only) */}
-            {isDeviceCode ? (
+            {/* Enterprise URL (GitHub Copilot device-code only) */}
+            {supportsEnterpriseDomain ? (
               <div className="flex flex-col gap-1">
                 <Button
                   type="button"

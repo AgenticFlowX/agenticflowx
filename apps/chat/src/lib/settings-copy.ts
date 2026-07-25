@@ -214,7 +214,7 @@ export const MODELS = {
   searchLabel: "Find provider or model",
 
   subscriptionGroupTitle: "Subscription accounts",
-  subscriptionGroupDescription: "ChatGPT, Claude, and Copilot sign-ins.",
+  subscriptionGroupDescription: "ChatGPT, Claude, Copilot, Kimi, OpenRouter, and xAI sign-ins.",
   apiKeyGroupTitle: "API key providers",
   apiKeyGroupDescription: "Metered hosted providers and OpenAI-compatible APIs.",
 

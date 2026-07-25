@@ -504,6 +504,44 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("oauth/signIn opens device-code verification URLs from the host", async () => {
+    const openExternal = vi.spyOn(vscode.env, "openExternal").mockResolvedValue(true);
+    const oauthService = {
+      signIn: vi.fn(async (_provider, callbacks) => {
+        callbacks.onUserCode?.({
+          userCode: "KIMI-1234",
+          verificationUri: "https://auth.kimi.com/device?user_code=KIMI-1234",
+          expiresInMs: 900_000,
+        });
+        return {
+          provider: "kimi-coding",
+          connected: true,
+          activeMethod: "subscription",
+        };
+      }),
+    };
+    const { inbound, postMessage } = setupWithView({ oauthService: oauthService as never });
+
+    inbound.fire({
+      type: "oauth/signIn",
+      requestId: "kimi-sign-in",
+      provider: "kimi-coding",
+    });
+    await flushAsyncWork(4);
+
+    expect(openExternal).toHaveBeenCalledWith(
+      vscode.Uri.parse("https://auth.kimi.com/device?user_code=KIMI-1234"),
+    );
+    expect(postMessage).toHaveBeenCalledWith({
+      type: "oauth/progress",
+      requestId: "kimi-sign-in",
+      provider: "kimi-coding",
+      phase: "device-code",
+      userCode: "KIMI-1234",
+      verificationUri: "https://auth.kimi.com/device?user_code=KIMI-1234",
+    });
+  });
+
   it("proactively refreshes OAuth before expiry and restarts the idle SDK runtime", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-31T10:00:00.000Z"));

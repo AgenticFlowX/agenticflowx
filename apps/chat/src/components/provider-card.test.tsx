@@ -109,6 +109,27 @@ describe("ProviderCard", () => {
     expect(screen.queryByLabelText(/api key/i)).not.toBeInTheDocument();
   });
 
+  it("keeps GitHub Enterprise URL controls scoped to Copilot device-code sign-in", () => {
+    render(
+      <ProviderCard
+        provider="kimi-coding"
+        displayName="Kimi For Coding"
+        modelHint="Kimi coding models"
+        state="empty"
+        oauthCapable
+        oauthFlow="device-code"
+        dualMethod
+        onOAuthSignIn={vi.fn()}
+        onSaveKey={vi.fn()}
+        onClearKey={vi.fn()}
+        onChangeDefault={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /sign in with kimi/i })).toBeInTheDocument();
+    expect(screen.queryByText("Use a GitHub Enterprise URL")).not.toBeInTheDocument();
+  });
+
   it("labels compact dual-method subscription providers as sign-in before a method is saved", () => {
     render(
       <ProviderCard
