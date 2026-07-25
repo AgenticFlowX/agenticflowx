@@ -2,6 +2,26 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.5.0] - 2026-07-26
+
+### Added
+
+- Upgraded the bundled Pi runtime to 0.82.0.
+- Added image attachments with model capability checks for SDK and RPC runtimes.
+- Added session rename/export, message copy, retry, cancel, and usage warnings in Chat.
+- Added OAuth sign-in for OpenRouter, Kimi For Coding, and xAI.
+
+### Changed
+
+- Provider and model metadata now comes from Pi capabilities, including image and thinking support.
+- Settings now groups the expanded provider catalog and separates SDK and Pi RPC setup more clearly.
+
+### Fixed
+
+- Device-code sign-in now opens verification URLs from the VS Code host.
+- Rejected image sends no longer leave staged attachments behind.
+- Pi streaming no longer duplicates tool output or loses rolling-tail deltas.
+
 ## [2.4.0] - 2026-07-23
 
 ### Added

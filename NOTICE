@@ -6,7 +6,7 @@ This product is licensed under the Apache License, Version 2.0.
 Third-party project acknowledgments
 =====================================
 
-Pi (0.80.2)
+Pi (0.82.0)
 Agent runtime and coding-agent SDK by Mario Zechner and Pi contributors.
 https://github.com/earendil-works/pi
 
@@ -22,7 +22,7 @@ JetBrains Mono (5.2.8)
 JetBrains Mono font software by the JetBrains Mono Project Authors.
 https://www.jetbrains.com/lp/mono/
 
-Lucide and Feather (1.21.0)
+Lucide and Feather (1.26.0)
 Icons by the Lucide contributors, including icons derived from Feather by Cole Bemis.
 https://lucide.dev/
 

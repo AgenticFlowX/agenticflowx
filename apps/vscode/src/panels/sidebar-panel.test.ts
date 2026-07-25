@@ -99,7 +99,7 @@ describe("sidebar-panel host bridge", () => {
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
       bundledAfxSkillsVersion: "v2.6.1",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -304,7 +304,7 @@ describe("sidebar-panel host bridge", () => {
           about: expect.objectContaining({
             extensionVersion: "2.0.0-test",
             bundledAfxSkillsVersion: "v2.6.1",
-            bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+            bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
           }),
         }),
       }),
@@ -3729,7 +3729,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -3761,7 +3761,7 @@ describe("sidebar-panel host bridge", () => {
     });
   });
 
-  it("includes Pi 0.80 skills groups and trust state in the settings snapshot", async () => {
+  it("includes Pi skills groups and trust state in the settings snapshot", async () => {
     const root = "/tmp/agenticflowx-skills-settings-test";
     rmSync(root, { recursive: true, force: true });
     mkdirSync(join(root, "resources", "skills", "agenticflowx"), { recursive: true });
@@ -3782,7 +3782,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file(root),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: join(root, "resources", "skills", "agenticflowx"),
       piAgentDir: join(root, "pi-agent"),
       agentManager: agent,
@@ -3842,7 +3842,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -3866,7 +3866,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,
@@ -3915,7 +3915,7 @@ describe("sidebar-panel host bridge", () => {
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
       extensionMode: vscode.ExtensionMode.Test,
       extensionVersion: "2.0.0-test",
-      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.80.2",
+      bundledPiNpmVersion: "@earendil-works/pi-coding-agent@0.82.0",
       bundledSkillsPath: "/tmp/agenticflowx/resources/skills/agenticflowx",
       agentManager: agent,
       logger,

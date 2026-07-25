@@ -118,24 +118,24 @@ export const auditedOverrides = [
     "@earendil-works/pi-tui",
   ].map((name) => ({
     name,
-    version: "0.80.2",
+    version: "0.82.0",
     license: "MIT",
     repository: "https://github.com/earendil-works/pi",
     licenseFiles: ["scripts/legal/licenses/pi-mit.txt"],
     reason:
       "The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package.",
-    source: "https://github.com/earendil-works/pi/blob/v0.80.2/LICENSE",
+    source: "https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE",
   })),
   ...[
-    ["@aws-sdk/credential-provider-http", "3.972.51"],
-    ["@aws-sdk/credential-provider-login", "3.972.55"],
-    ["@aws-sdk/nested-clients", "3.997.23"],
+    ["@aws-sdk/credential-provider-http", "3.972.46"],
+    ["@aws-sdk/credential-provider-login", "3.972.49"],
+    ["@aws-sdk/nested-clients", "3.997.17"],
   ].map(([name, version]) => ({
     name,
     version,
     license: "Apache-2.0",
     repository: "https://github.com/aws/aws-sdk-js-v3",
-    licenseFiles: ["node_modules/.pnpm/@aws-sdk+core@3.974.23/node_modules/@aws-sdk/core/LICENSE"],
+    licenseFiles: ["node_modules/.pnpm/@aws-sdk+core@3.974.18/node_modules/@aws-sdk/core/LICENSE"],
     reason:
       "This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact.",
     source: "https://github.com/aws/aws-sdk-js-v3/blob/v3.974.0/LICENSE",
@@ -161,6 +161,32 @@ export const auditedOverrides = [
     source:
       "https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE",
   },
+  {
+    name: "@radix-ui/react-compose-refs",
+    version: "1.1.2",
+    license: "MIT",
+    repository: "https://github.com/radix-ui/primitives",
+    licenseFiles: ["scripts/legal/licenses/radix-ui-react-compose-refs-mit.txt"],
+    reason:
+      "The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally.",
+    source: "https://github.com/radix-ui/primitives/blob/main/LICENSE",
+  },
+  ...[
+    ["@radix-ui/react-context", "1.1.2"],
+    ["@radix-ui/react-id", "1.1.1"],
+    ["@radix-ui/react-use-callback-ref", "1.1.1"],
+    ["@radix-ui/react-use-escape-keydown", "1.1.1"],
+    ["@radix-ui/react-use-layout-effect", "1.1.1"],
+  ].map(([name, version]) => ({
+    name,
+    version,
+    license: "MIT",
+    repository: "https://github.com/radix-ui/primitives",
+    licenseFiles: ["scripts/legal/licenses/radix-ui-react-compose-refs-mit.txt"],
+    reason:
+      "The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally.",
+    source: "https://github.com/radix-ui/primitives/blob/main/LICENSE",
+  })),
 ];
 
 export const projectAcknowledgments = [

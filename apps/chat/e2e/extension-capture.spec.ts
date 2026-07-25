@@ -108,7 +108,7 @@ test("captures curated chat browser-mock screenshots", async ({ baseURL, browser
     await page.getByRole("button", { name: "Support", exact: true }).click();
     const skills = page.getByTestId("settings-skills-disclosure");
     await expect(skills.getByText("Skills & commands")).toBeVisible();
-    await expect(page.getByText("2.4.0", { exact: true })).toBeVisible();
+    await expect(page.getByText("2.5.0", { exact: true })).toBeVisible();
     await skills.scrollIntoViewIfNeeded();
     await capture(page, "chat-settings-support.png", SCREENSHOT_VIEWPORT);
     await skills.locator("summary").click();
