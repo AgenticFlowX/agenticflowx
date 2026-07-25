@@ -8,6 +8,7 @@
  */
 import { unlink } from "node:fs/promises";
 
+import { computeSnapshotDelta } from "@afx/shared";
 import type {
   AgentCommand,
   AgentEvent,
@@ -133,6 +134,9 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   // Tracks the current assistant message ID for text_delta / thinking_delta events.
   let currentMsgId: string | null = null;
   const toolPartialOutputs = new Map<string, string>();
+  // get_available_thinking_levels is model-scoped; cache per provider/model so
+  // status polling does not re-issue the RPC every tick.
+  let thinkingLevelsCache: { key: string; levels: ThinkingLevel[] } | null = null;
 
   const eventListeners = new Set<AgentEventListener>();
   const stderrListeners = new Set<AgentStderrListener>();
@@ -380,7 +384,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
         if (!output) return null;
         const previous = toolPartialOutputs.get(toolCallId) ?? "";
         toolPartialOutputs.set(toolCallId, output);
-        const delta = output.startsWith(previous) ? output.slice(previous.length) : output;
+        const delta = computeSnapshotDelta(previous, output);
         return delta.length > 0 ? { type: "tool_delta", toolCallId, delta } : null;
       }
       case "tool_execution_end": {
@@ -611,6 +615,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   }
 
   async function newSession(): Promise<void> {
+    thinkingLevelsCache = null;
     const c = await ensureStarted();
     await c.request({ type: "new_session" });
   }
@@ -629,7 +634,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       const status = mapPiStateToStatus(st, c.isRunning, isStreaming);
       return {
         ...status,
-        availableThinkingLevels: await getAvailableThinkingLevelsSafe(c),
+        availableThinkingLevels: await getThinkingLevelsForModel(c, status.model),
       };
     } catch {
       // not critical — return minimal status
@@ -662,6 +667,17 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     return getAvailableThinkingLevelsSafe(c);
   }
 
+  async function getThinkingLevelsForModel(
+    c: PiClient,
+    model?: AgentStatus["model"],
+  ): Promise<ThinkingLevel[]> {
+    const key = model ? `${model.provider}/${model.id}` : "";
+    if (thinkingLevelsCache?.key === key) return thinkingLevelsCache.levels;
+    const levels = await getAvailableThinkingLevelsSafe(c);
+    thinkingLevelsCache = { key, levels };
+    return levels;
+  }
+
   async function getAvailableThinkingLevelsSafe(c: PiClient): Promise<ThinkingLevel[]> {
     try {
       const response = await c.request<{ levels?: unknown } | unknown[]>({
@@ -684,6 +700,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   }
 
   async function setModel(target: { provider: string; modelId: string }): Promise<AgentModel> {
+    thinkingLevelsCache = null;
     const c = await ensureStarted();
     const response = await c.request<unknown>({
       type: "set_model",
@@ -708,6 +725,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
 
   async function switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
     await assertSessionPathAllowed(sessionPath, piSessionRoots(sessionDir, agentDir));
+    thinkingLevelsCache = null;
     const c = await ensureStarted();
     const result = await c.request<{ cancelled?: unknown } | null>({
       type: "switch_session",
@@ -846,6 +864,20 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     };
   }
 
+  async function exportHtml(): Promise<{ path: string }> {
+    const c = await ensureStarted();
+    const response = await c.request<{ path?: unknown } | null>({ type: "export_html" });
+    if (typeof response?.path !== "string" || response.path.length === 0) {
+      throw new Error("export_html returned no output path");
+    }
+    return { path: response.path };
+  }
+
+  async function abortRetry(): Promise<void> {
+    const c = await ensureStarted();
+    await c.request({ type: "abort_retry" });
+  }
+
   async function setThinkingLevel(level: ThinkingLevel): Promise<void> {
     const c = await ensureStarted();
     await c.request({ type: "set_thinking_level", level });
@@ -906,6 +938,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     isStreaming = false;
     currentMsgId = null;
     toolPartialOutputs.clear();
+    thinkingLevelsCache = null;
     if (c) await c.dispose();
     log.info("stopped");
   }
@@ -942,6 +975,8 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     getCommands,
     getStderr,
     compact,
+    exportHtml,
+    abortRetry,
     steer,
     followUp,
     setThinkingLevel,

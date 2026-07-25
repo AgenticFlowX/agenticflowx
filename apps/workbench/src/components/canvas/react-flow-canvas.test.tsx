@@ -628,9 +628,53 @@ describe("ReactFlowCanvas controls", () => {
     const zooms = flowApi.setViewport.mock.calls.map((call) => (call[0] as { zoom: number }).zoom);
     expect(zooms).toHaveLength(4);
     for (let index = 1; index < zooms.length; index += 1) {
-      expect(zooms[index]).toBeLessThanOrEqual(zooms[index - 1]);
+      expect(zooms[index]).toBeLessThan(zooms[index - 1]);
     }
     expect(zooms[zooms.length - 1]).toBeLessThan(zooms[0]);
+  });
+
+  it("flushes the pending viewport persist when the wheel listener rebinds mid-burst", () => {
+    renderSurface();
+    const storageKey = "afx.canvas.viewport.v1:file:///workspace::.afx/project.canvas";
+    const surface = screen.getByTestId("react-flow-canvas");
+    fireEvent.wheel(surface, { deltaY: 200, metaKey: true, clientX: 120, clientY: 80 });
+    // The gesture debounce is still pending — nothing written yet.
+    expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
+
+    // Selecting nodes changes the wheel handler's identity, re-running the
+    // listener effect; its cleanup must flush the debounce, not drop it.
+    fireEvent.click(screen.getByRole("button", { name: "Select first two nodes" }));
+    const persisted = JSON.parse(globalThis.localStorage.getItem(storageKey) ?? "null") as {
+      zoom: number;
+    } | null;
+    expect(persisted?.zoom).toBeCloseTo(0.8659, 3);
+  });
+
+  it("flushes the pending viewport persist on unmount", () => {
+    const view = render(
+      <ReactFlowCanvas
+        canvas={CANVAS}
+        documentKey="unmount-flush"
+        fileContents={EMPTY_FILE_CONTENTS}
+        onChange={vi.fn()}
+        onNodeAction={vi.fn()}
+        onRunCanvasAction={vi.fn()}
+      />,
+    );
+    const storageKey = "afx.canvas.viewport.v1:unmount-flush";
+    fireEvent.wheel(screen.getByTestId("react-flow-canvas"), {
+      deltaY: 200,
+      metaKey: true,
+      clientX: 120,
+      clientY: 80,
+    });
+    expect(globalThis.localStorage.getItem(storageKey)).toBeNull();
+
+    view.unmount();
+    const persisted = JSON.parse(globalThis.localStorage.getItem(storageKey) ?? "null") as {
+      zoom: number;
+    } | null;
+    expect(persisted?.zoom).toBeCloseTo(0.8659, 3);
   });
 
   it("uses host-scoped view state for a custom editor without touching shared localStorage", () => {

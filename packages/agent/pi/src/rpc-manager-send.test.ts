@@ -497,6 +497,113 @@ describe("PiRpcManager send rewrite", () => {
       finalError: undefined,
     });
   });
+
+  it("emits only unseen output when Pi tool snapshots shift as a rolling tail", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+    const events: unknown[] = [];
+    manager.onEvent((evt) => events.push(evt));
+
+    await manager.send("hello");
+    eventHandler?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "line1\nline2\n" }] },
+    });
+    eventHandler?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "line2\nline3\n" }] },
+    });
+
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line1\nline2\n",
+    });
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line3\n",
+    });
+    expect(events).not.toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line2\nline3\n",
+    });
+  });
+
+  it("sends compact with custom instructions only when provided", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+
+    await manager.compact();
+    expect(requests.at(-1)).toEqual({ type: "compact" });
+
+    await manager.compact("keep the AFX task decisions");
+    expect(requests.at(-1)).toEqual({
+      type: "compact",
+      customInstructions: "keep the AFX task decisions",
+    });
+  });
+
+  it("exports session HTML through Pi RPC and returns the written path", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+    fakeClient.request.mockImplementationOnce(async (cmd: unknown) => {
+      requests.push(cmd);
+      return { path: "/tmp/agenticflowx-export.html" };
+    });
+
+    await expect(manager.exportHtml?.()).resolves.toEqual({
+      path: "/tmp/agenticflowx-export.html",
+    });
+    expect(requests.at(-1)).toEqual({ type: "export_html" });
+  });
+
+  it("aborts a pending auto-retry through Pi RPC", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+
+    await manager.abortRetry?.();
+
+    expect(requests.at(-1)).toEqual({ type: "abort_retry" });
+  });
+
+  it("caches available thinking levels per model across status polls", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+    const levelRequests = () =>
+      requests.filter((cmd) => (cmd as { type?: string }).type === "get_available_thinking_levels");
+
+    await manager.getStatus();
+    await manager.getStatus();
+    expect(levelRequests()).toHaveLength(1);
+
+    await manager.setModel({ provider: "openai", modelId: "gpt-5.2" });
+    await manager.getStatus();
+    expect(levelRequests()).toHaveLength(2);
+  });
 });
 
 function createLogger() {

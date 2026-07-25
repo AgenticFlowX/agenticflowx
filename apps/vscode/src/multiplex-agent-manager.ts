@@ -263,6 +263,22 @@ export class MultiplexedAgentManager implements AgentManager {
     return this.requireActive().manager.compact(customInstructions);
   }
 
+  exportHtml(): Promise<{ path: string }> {
+    const active = this.requireActive();
+    if (!active.manager.exportHtml) {
+      throw new Error(`Runtime ${active.label} does not support HTML export`);
+    }
+    return active.manager.exportHtml();
+  }
+
+  abortRetry(): Promise<void> {
+    const active = this.requireActive();
+    if (!active.manager.abortRetry) {
+      throw new Error(`Runtime ${active.label} does not support aborting retries`);
+    }
+    return active.manager.abortRetry();
+  }
+
   steer(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
     const manager = this.requireActive().manager;
     return images && images.length > 0 ? manager.steer(message, images) : manager.steer(message);

@@ -397,6 +397,31 @@ function formatRuntimeError(error: unknown): string | undefined {
   return JSON.stringify(error);
 }
 
+/** Longest snapshot overlap considered by `computeSnapshotDelta` (perf bound). */
+const SNAPSHOT_DELTA_SCAN_CAP = 4096;
+
+/**
+ * Delta between successive tool-output snapshots. Pi's bash tool emits
+ * rolling-tail snapshots: once output exceeds the rolling window each snapshot
+ * is a shifted tail of the stream, so the next snapshot no longer starts with
+ * the previous one. Finds the longest suffix of `previous` that is a prefix of
+ * `next` (scan bounded to the trailing SNAPSHOT_DELTA_SCAN_CAP chars) and
+ * returns only the unseen remainder; with zero overlap returns the full
+ * snapshot so content is never dropped.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-5]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
+ */
+export function computeSnapshotDelta(previous: string, next: string): string {
+  if (previous.length === 0) return next;
+  if (next.startsWith(previous)) return next.slice(previous.length);
+  const maxOverlap = Math.min(previous.length, next.length, SNAPSHOT_DELTA_SCAN_CAP);
+  for (let overlap = maxOverlap; overlap > 0; overlap--) {
+    if (previous.endsWith(next.slice(0, overlap))) return next.slice(overlap);
+  }
+  return next;
+}
+
 /**
  * @see docs/specs/100-package-shared/spec.md [FR-5]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
@@ -600,6 +625,17 @@ export interface AgentManager {
   getStderr(): string;
   /** Compact the active session's history. Adapters that don't support it should reject. */
   compact(customInstructions?: string): Promise<CompactionResult>;
+  /**
+   * Export the active session transcript to a self-contained HTML file
+   * (per Pi `export_html`). Resolves with the written file path.
+   * Optional — adapters without an exporter omit it; callers must feature-detect.
+   */
+  exportHtml?(): Promise<{ path: string }>;
+  /**
+   * Abort an in-flight auto-retry backoff wait (per Pi `abort_retry`).
+   * Optional — adapters without auto-retry omit it; callers must feature-detect.
+   */
+  abortRetry?(): Promise<void>;
   /**
    * Inject a message into the active turn. Engine processes mid-stream (per Pi `steer`).
    * Adapters without mid-stream injection should reject; callers must check `getStatus().isStreaming`.

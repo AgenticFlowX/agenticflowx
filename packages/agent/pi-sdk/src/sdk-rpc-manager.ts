@@ -11,7 +11,11 @@ import {
   piSessionRoots,
   readTranscriptFromDisk,
 } from "@afx/agent-pi";
-import { PROVIDER_API_KEY_ENV_ALIASES, getDefaultApiProviderModel } from "@afx/shared";
+import {
+  PROVIDER_API_KEY_ENV_ALIASES,
+  computeSnapshotDelta,
+  getDefaultApiProviderModel,
+} from "@afx/shared";
 import type {
   AgentCommand,
   AgentEvent,
@@ -97,6 +101,9 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   let isStreaming = false;
   let currentMsgId: string | null = null;
   const toolPartialOutputs = new Map<string, string>();
+  // get_available_thinking_levels is model-scoped; cache per provider/model so
+  // status polling does not re-issue the RPC every tick.
+  let thinkingLevelsCache: { key: string; levels: ThinkingLevel[] } | null = null;
   const eventListeners = new Set<AgentEventListener>();
   const stderrListeners = new Set<AgentStderrListener>();
 
@@ -283,6 +290,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   }
 
   async function newSession(): Promise<void> {
+    thinkingLevelsCache = null;
     const client = await ensureStarted();
     await request(client, { type: "new_session" });
   }
@@ -298,7 +306,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     try {
       const state = await request<RpcSessionStateLike | null>(client, { type: "get_state" });
       const status = mapPiStateToStatus(state, client.isRunning, isStreaming);
-      status.availableThinkingLevels = await getAvailableThinkingLevelsSafe(client);
+      status.availableThinkingLevels = await getThinkingLevelsForModel(client, status.model);
       return tagStatus(status, providerId, modelId);
     } catch {
       return {
@@ -339,6 +347,17 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     return getAvailableThinkingLevelsSafe(client);
   }
 
+  async function getThinkingLevelsForModel(
+    client: PiClient,
+    model?: AgentStatus["model"],
+  ): Promise<ThinkingLevel[]> {
+    const key = model ? `${model.provider}/${model.id}` : "";
+    if (thinkingLevelsCache?.key === key) return thinkingLevelsCache.levels;
+    const levels = await getAvailableThinkingLevelsSafe(client);
+    thinkingLevelsCache = { key, levels };
+    return levels;
+  }
+
   async function getAvailableThinkingLevelsSafe(client: PiClient): Promise<ThinkingLevel[]> {
     try {
       const response = await request<{ levels?: unknown } | unknown[]>(client, {
@@ -367,6 +386,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     }
     providerId = targetProvider;
     modelId = target.modelId;
+    thinkingLevelsCache = null;
     const client = await ensureStarted();
     const response = await request<unknown>(client, {
       type: "set_model",
@@ -383,6 +403,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
 
   async function switchSession(sessionPath: string): Promise<{ cancelled: boolean }> {
     await assertSessionPathAllowed(sessionPath, piSessionRoots(opts.sessionDir, opts.agentDir));
+    thinkingLevelsCache = null;
     const client = await ensureStarted();
     const result = await request<{ cancelled?: unknown } | null>(client, {
       type: "switch_session",
@@ -499,6 +520,20 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     };
   }
 
+  async function exportHtml(): Promise<{ path: string }> {
+    const client = await ensureStarted();
+    const response = await request<{ path?: unknown } | null>(client, { type: "export_html" });
+    if (typeof response?.path !== "string" || response.path.length === 0) {
+      throw new Error("export_html returned no output path");
+    }
+    return { path: response.path };
+  }
+
+  async function abortRetry(): Promise<void> {
+    const client = await ensureStarted();
+    await request(client, { type: "abort_retry" });
+  }
+
   async function setThinkingLevel(level: ThinkingLevel): Promise<void> {
     const client = await ensureStarted();
     await request(client, { type: "set_thinking_level", level });
@@ -551,6 +586,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     isStreaming = false;
     currentMsgId = null;
     toolPartialOutputs.clear();
+    thinkingLevelsCache = null;
     if (client) await client.dispose();
   }
 
@@ -642,6 +678,8 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     getCommands,
     getStderr: () => rpcClient?.getStderr() ?? "",
     compact,
+    exportHtml,
+    abortRetry,
     steer,
     followUp,
     setThinkingLevel,
@@ -723,7 +761,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
         if (!output) return null;
         const previous = toolPartialOutputs.get(toolCallId) ?? "";
         toolPartialOutputs.set(toolCallId, output);
-        const delta = output.startsWith(previous) ? output.slice(previous.length) : output;
+        const delta = computeSnapshotDelta(previous, output);
         return delta.length > 0 ? { type: "tool_delta", toolCallId, delta } : null;
       }
       case "tool_execution_end": {

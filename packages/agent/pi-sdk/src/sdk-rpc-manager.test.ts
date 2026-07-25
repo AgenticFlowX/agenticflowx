@@ -154,6 +154,9 @@ function createFakeClient(options: unknown): FakeClient {
           estimatedTokensAfter: 2_400,
         } as T;
       }
+      if (type === "export_html") {
+        return { path: "/tmp/agenticflowx-export.html" } as T;
+      }
       if (type === "set_model") {
         const target = cmd as { provider: string; modelId: string };
         return { provider: target.provider, id: target.modelId, name: target.modelId } as T;
@@ -1055,6 +1058,117 @@ describe("createPiSdkAgentManager", () => {
     expect(recovered.running).toBe(true);
     expect(recovered.restartRequired).toBeUndefined();
     expect(mocks.createPiClient).toHaveBeenCalledTimes(4);
+  });
+
+  it("emits only unseen output when Pi tool snapshots shift as a rolling tail", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+    });
+    const events: unknown[] = [];
+    manager.onEvent((evt) => events.push(evt));
+
+    await manager.send("hello");
+    mocks.clients[0]!.eventListener?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "line1\nline2\n" }] },
+    });
+    mocks.clients[0]!.eventListener?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "line2\nline3\n" }] },
+    });
+
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line1\nline2\n",
+    });
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line3\n",
+    });
+    expect(events).not.toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: "line2\nline3\n",
+    });
+  });
+
+  it("sends compact with custom instructions only when provided", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+    });
+
+    await manager.compact();
+    expect(mocks.clients[0]!.requests.at(-1)).toEqual({ type: "compact" });
+
+    await manager.compact("keep the AFX task decisions");
+    expect(mocks.clients[0]!.requests.at(-1)).toEqual({
+      type: "compact",
+      customInstructions: "keep the AFX task decisions",
+    });
+  });
+
+  it("exports session HTML through the SDK runtime and returns the written path", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+    });
+
+    await expect(manager.exportHtml?.()).resolves.toEqual({
+      path: "/tmp/agenticflowx-export.html",
+    });
+    expect(mocks.clients[0]!.requests.at(-1)).toEqual({ type: "export_html" });
+  });
+
+  it("aborts a pending auto-retry through the SDK runtime", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "secret-key",
+    });
+
+    await manager.abortRetry?.();
+
+    expect(mocks.clients[0]!.requests.at(-1)).toEqual({ type: "abort_retry" });
+  });
+
+  it("caches available thinking levels per model across status polls", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      apiProviders: ["anthropic", "openai"],
+      getApiKey: () => "secret-key",
+    });
+    const levelRequests = () =>
+      mocks.clients[0]!.requests.filter(
+        (cmd) => (cmd as { type?: string }).type === "get_available_thinking_levels",
+      );
+
+    await manager.getStatus();
+    await manager.getStatus();
+    expect(levelRequests()).toHaveLength(1);
+
+    await manager.setModel({ provider: "openai", modelId: "gpt-5.2" });
+    await manager.getStatus();
+    expect(levelRequests()).toHaveLength(2);
   });
 });
 

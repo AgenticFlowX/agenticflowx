@@ -56,6 +56,8 @@ export function createMockAgentManager() {
       firstKeptEntryId: "entry-1",
       tokensBefore: 0,
     })),
+    exportHtml: vi.fn(async () => ({ path: "/tmp/agenticflowx-export.html" })),
+    abortRetry: vi.fn(async () => {}),
     steer: vi.fn(async () => {}),
     followUp: vi.fn(async () => {}),
     setThinkingLevel: vi.fn(async () => {}),

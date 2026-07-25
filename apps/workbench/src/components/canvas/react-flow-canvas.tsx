@@ -980,6 +980,13 @@ export function ReactFlowCanvas({
    */
   const lastModifierWheelAt = useRef(0);
   const viewportPersistTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /**
+   * Pending persist for the current wheel gesture. Held in a ref because the
+   * wheel-listener effect re-runs whenever handleModifierWheel changes
+   * identity (e.g. a selection change mid-burst) — its cleanup must flush the
+   * persist, not drop it, or the settled viewport is never written.
+   */
+  const pendingViewportPersist = useRef<(() => void) | undefined>(undefined);
 
   const handleModifierWheel = useCallback(
     (event: WheelEvent) => {
@@ -1035,12 +1042,18 @@ export function ReactFlowCanvas({
       setZoomPct(Math.round(nextZoom * 100));
       // Persist once per gesture, not once per tick.
       if (viewportPersistTimer.current) clearTimeout(viewportPersistTimer.current);
-      viewportPersistTimer.current = setTimeout(() => {
+      const persistSettledViewport = () => {
         viewportPersistTimer.current = undefined;
+        pendingViewportPersist.current = undefined;
         const settled = viewportRef.current;
         if (onViewStateChange) publishViewState(selectedNodeIds, selectedEdgeIds, settled);
         else writeCanvasViewport(documentKey, settled);
-      }, CANVAS_MODIFIER_WHEEL_BURST_MS);
+      };
+      pendingViewportPersist.current = persistSettledViewport;
+      viewportPersistTimer.current = setTimeout(
+        persistSettledViewport,
+        CANVAS_MODIFIER_WHEEL_BURST_MS,
+      );
     },
     [documentKey, instance, onViewStateChange, publishViewState, selectedEdgeIds, selectedNodeIds],
   );
@@ -1054,6 +1067,9 @@ export function ReactFlowCanvas({
       if (viewportPersistTimer.current) {
         clearTimeout(viewportPersistTimer.current);
         viewportPersistTimer.current = undefined;
+        // Flush instead of dropping: the settled viewport must survive both
+        // listener re-binds and unmount.
+        pendingViewportPersist.current?.();
       }
     };
   }, [handleModifierWheel]);
@@ -1183,6 +1199,23 @@ export function ReactFlowCanvas({
         }}
         fitView={!restoredViewport}
         defaultViewport={restoredViewport}
+        onMove={(_event, viewport) => {
+          const tracked = viewportRef.current;
+          if (
+            viewport.x === tracked.x &&
+            viewport.y === tracked.y &&
+            viewport.zoom === tracked.zoom
+          ) {
+            // Echo of our own setViewport — keep the burst baseline intact.
+            return;
+          }
+          // An intervening pan (trackpad scroll, drag) moved the real viewport
+          // off the burst's accumulated target. Adopt it and end the burst so
+          // the next modifier tick compounds from the live viewport instead of
+          // snapping the pan back.
+          viewportRef.current = viewport;
+          lastModifierWheelAt.current = 0;
+        }}
         onMoveEnd={(_event, viewport) => {
           viewportRef.current = viewport;
           setZoomPct(Math.round(viewport.zoom * 100));
