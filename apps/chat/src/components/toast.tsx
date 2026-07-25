@@ -13,6 +13,11 @@ import { cn } from "@afx/ui/lib/utils";
 
 export type ToastTone = "success" | "info" | "error";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface ToastEntry {
   id: string;
   message: string;
@@ -20,6 +25,8 @@ export interface ToastEntry {
   description?: string;
   durationMs: number;
   createdAt: number;
+  /** Optional inline action button; clicking it dismisses the toast. */
+  action?: ToastAction;
 }
 
 type Listener = (entries: readonly ToastEntry[]) => void;
@@ -37,7 +44,13 @@ function makeId(): string {
     : `toast-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function push(message: string, tone: ToastTone, description?: string, durationMs = 2400): string {
+function push(
+  message: string,
+  tone: ToastTone,
+  description?: string,
+  durationMs = 2400,
+  action?: ToastAction,
+): string {
   const id = makeId();
   const entry: ToastEntry = {
     id,
@@ -46,6 +59,7 @@ function push(message: string, tone: ToastTone, description?: string, durationMs
     description,
     durationMs,
     createdAt: Date.now(),
+    action,
   };
   entries = [...entries, entry];
   emit();
@@ -63,14 +77,19 @@ function dismiss(id: string): void {
 }
 
 export const toast = {
-  success(message: string, description?: string, durationMs?: number): string {
-    return push(message, "success", description, durationMs);
+  success(
+    message: string,
+    description?: string,
+    durationMs?: number,
+    action?: ToastAction,
+  ): string {
+    return push(message, "success", description, durationMs, action);
   },
-  info(message: string, description?: string, durationMs?: number): string {
-    return push(message, "info", description, durationMs);
+  info(message: string, description?: string, durationMs?: number, action?: ToastAction): string {
+    return push(message, "info", description, durationMs, action);
   },
-  error(message: string, description?: string, durationMs?: number): string {
-    return push(message, "error", description, durationMs ?? 4200);
+  error(message: string, description?: string, durationMs?: number, action?: ToastAction): string {
+    return push(message, "error", description, durationMs ?? 4200, action);
   },
   dismiss,
 };
@@ -109,6 +128,18 @@ export function Toaster() {
             <p className="font-medium text-foreground">{entry.message}</p>
             {entry.description ? (
               <p className="mt-0.5 text-[10px] text-muted-foreground">{entry.description}</p>
+            ) : null}
+            {entry.action ? (
+              <button
+                type="button"
+                onClick={() => {
+                  entry.action?.onClick();
+                  dismiss(entry.id);
+                }}
+                className="mt-1 rounded-sm border border-border/70 px-1.5 py-0.5 text-[10px] font-medium text-foreground hover:bg-muted"
+              >
+                {entry.action.label}
+              </button>
             ) : null}
           </div>
           <button

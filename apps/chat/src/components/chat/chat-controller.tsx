@@ -52,6 +52,7 @@ import { type ActiveDocCtx, EMPTY_DOC_CTX, type MemoryCatalogItem } from "../../
 import { extractMentions } from "../../lib/mentions";
 import { stripLegacyUiActionBlocks } from "../../lib/result-actions";
 import { analyzeDanger } from "../../lib/system-command";
+import { crossedUsageThresholds, readUsageWarningConfig } from "../../lib/usage-warning";
 import type { AgentRecoveryActions } from "../agent-recovery-card";
 import { ChatDocActionsPanelBody, ChatDocActionsPanelTitle } from "../chat-doc-actions-panel";
 import { FilesPanelBody } from "../files-panel";
@@ -73,6 +74,7 @@ import {
   QueuePanel,
   type QueuedMessage,
 } from "./composer-panels";
+import { selectedModelSupportsImages } from "./composer-toolbar";
 import { IntentStrip, IntentStripHeaderExtras, IntentStripTitle } from "./intent-strip";
 
 type ActiveDocContextMessage = MessageOf<AgentToChat, "chat/activeDocContext">;
@@ -283,7 +285,11 @@ export interface ChatControllerActions {
   handleMemorySelect: (input: ChatHandleMemorySelectInput) => void;
 
   // Pure controller actions
-  startCompact: (composer?: ComposerLocalCallbacks) => void;
+  startCompact: (composer?: ComposerLocalCallbacks, customInstructions?: string) => void;
+  /** Rename the active session; the host confirms via a runtime-settings broadcast. */
+  renameSession: (name: string) => void;
+  /** Export the active session transcript; the host reveals the file. */
+  exportSession: () => void;
   handleOpenModifiedFile: (path: string, line?: number) => void;
   handleOpenAfxPreview: (path: string) => void;
   handleOpenWorkbench: () => void;
@@ -378,6 +384,8 @@ export interface FooterSlice {
   enabled: boolean;
   usageStatsEnabled: boolean;
   usage: ChatUsageStats | null;
+  /** True when an enabled usage-warning threshold is crossed for this session. */
+  usageWarningActive: boolean;
   isCheckingAgent: boolean;
   runtimeUnavailable: boolean;
   runtimeUnconfigured: boolean;
@@ -577,6 +585,15 @@ export function useChatController({
   const activeCommandRef = useRef<{ requestId: string; command: string } | null>(null);
   const pendingDangerousRef = useRef<{ requestId: string; command: string } | null>(null);
   const lastAutoOpenedSddPreviewRef = useRef<string | null>(null);
+  /** requestId of the in-flight chat/selectImages round-trip; null when idle. */
+  const pendingImageSelectRef = useRef<string | null>(null);
+  /** Mirror of `imageAttachments` for long-lived bridge handlers. */
+  const imageAttachmentsRef = useRef<ChatImageAttachmentView[]>([]);
+  /** One usage-warning toast per session per threshold type. */
+  const usageWarningFiredRef = useRef<{ cost: boolean; context: boolean }>({
+    cost: false,
+    context: false,
+  });
 
   useEffect(() => {
     latestWorkspaceModeRef.current = workspaceMode;
@@ -587,6 +604,9 @@ export function useChatController({
   useEffect(() => {
     afxCommandSuggestDismissedRef.current = afxCommandSuggestDismissed;
   }, [afxCommandSuggestDismissed]);
+  useEffect(() => {
+    imageAttachmentsRef.current = imageAttachments;
+  }, [imageAttachments]);
 
   // Derived flags read by slices, the panel-stack config, and several actions.
   // `agentStatus` prefers the external status the host passes via `ChatProps`
@@ -845,6 +865,26 @@ export function useChatController({
             contextUsage: msg.contextUsage,
           };
           setUsage(usageValue);
+          // Usage-warning thresholds: fire one toast per session per type.
+          const crossed = crossedUsageThresholds(readUsageWarningConfig(), {
+            cost: usageValue.cost,
+            contextPercent: usageValue.contextUsage?.percent ?? null,
+          });
+          if (crossed.cost && !usageWarningFiredRef.current.cost) {
+            usageWarningFiredRef.current.cost = true;
+            toast.error(
+              "Usage warning",
+              `Session cost reached $${usageValue.cost.toFixed(2)} — consider a new session.`,
+            );
+          }
+          if (crossed.context && !usageWarningFiredRef.current.context) {
+            usageWarningFiredRef.current.context = true;
+            const percent = Math.round(usageValue.contextUsage?.percent ?? 0);
+            toast.error(
+              "Usage warning",
+              `Context is ${percent}% full — compact the session to keep quality high.`,
+            );
+          }
           if (msg.messageId) {
             setMessages((prev) =>
               prev.map((m) => (m.id === msg.messageId ? { ...m, usage: usageValue } : m)),
@@ -987,12 +1027,39 @@ export function useChatController({
         }),
 
         bridge.on("chat/imagesSelected", (msg) => {
+          // A requestId correlates the message to a chat/selectImages round-trip;
+          // stale or unexpected responses are dropped. Messages without a
+          // requestId are host-initiated tray restores and always apply.
+          if (msg.requestId != null) {
+            if (pendingImageSelectRef.current !== msg.requestId) return;
+            pendingImageSelectRef.current = null;
+          }
           if (!msg.ok) {
             toast.error("Image attach failed", msg.error ?? "The host could not attach images.");
             return;
           }
           if (msg.attachments.length === 0) return;
-          setImageAttachments((current) => dedupeImageAttachments(current, msg.attachments));
+          const { attachments: nextAttachments, dropped } = dedupeImageAttachments(
+            imageAttachmentsRef.current,
+            msg.attachments,
+          );
+          setImageAttachments(nextAttachments);
+          if (dropped.length > 0) {
+            bridge.send({
+              type: "chat/discardImages",
+              requestId: createChatUid(),
+              imageAttachmentIds: dropped.map((item) => item.id),
+            });
+            toast.info("Attachment limit is 8 — oldest removed.");
+          }
+        }),
+
+        bridge.on("chat/sessionExported", (msg) => {
+          if (msg.ok) {
+            toast.success("Transcript exported");
+            return;
+          }
+          toast.error("Export failed", msg.error ?? "The transcript could not be exported.");
         }),
 
         bridge.on("agent/runtimeSettings", (msg) => {
@@ -1277,12 +1344,29 @@ export function useChatController({
     }
   });
 
-  const startCompact = useStableCallback((composer?: ComposerLocalCallbacks) => {
-    if (isCompacting) return;
-    setCompactionActive(true);
-    bridgeSend({ type: "chat/compact", requestId: createChatUid() });
-    toast.info("Compacting session…");
-    composer?.focusComposer?.();
+  const startCompact = useStableCallback(
+    (composer?: ComposerLocalCallbacks, customInstructions?: string) => {
+      if (isCompacting) return;
+      setCompactionActive(true);
+      const trimmedInstructions = customInstructions?.trim();
+      bridgeSend({
+        type: "chat/compact",
+        requestId: createChatUid(),
+        ...(trimmedInstructions ? { customInstructions: trimmedInstructions } : {}),
+      });
+      toast.info("Compacting session…");
+      composer?.focusComposer?.();
+    },
+  );
+
+  const renameSession = useStableCallback((name: string) => {
+    const trimmed = name.trim();
+    if (trimmed.length === 0) return;
+    bridgeSend({ type: "chat/renameSession", requestId: createChatUid(), name: trimmed });
+  });
+
+  const exportSession = useStableCallback(() => {
+    bridgeSend({ type: "chat/exportSession", requestId: createChatUid() });
   });
 
   const restartAgent = useStableCallback((composer?: ComposerLocalCallbacks) => {
@@ -1315,6 +1399,18 @@ export function useChatController({
       (trimmed.length === 0 && imageAttachmentIds.length === 0) ||
       (isCommandDraft ? isCheckingAgent || isCompacting : isComposerDisabledFor(input.draft))
     ) {
+      return;
+    }
+
+    // Capability gate: block image sends only when the selected model is
+    // explicitly text-only. Unknown capability fails open per the agent
+    // contract, and the tray stays staged so nothing is lost.
+    if (
+      !isCommandDraft &&
+      imageAttachmentIds.length > 0 &&
+      selectedModelSupportsImages(models, agentStatus.model) === false
+    ) {
+      toast.error("This model accepts text only — remove the attached images or switch models.");
       return;
     }
 
@@ -1447,7 +1543,9 @@ export function useChatController({
   });
 
   const selectImages = useStableCallback(() => {
-    bridgeSend({ type: "chat/selectImages", requestId: createChatUid() });
+    const requestId = createChatUid();
+    pendingImageSelectRef.current = requestId;
+    bridgeSend({ type: "chat/selectImages", requestId });
   });
 
   const removeImageAttachment = useStableCallback((id: string) => {
@@ -1466,6 +1564,11 @@ export function useChatController({
     setCommandOutputs([]);
     setNoteEvents([]);
     setUsage(null);
+    // The host clears its attachment staging map on chat/newSession; mirror
+    // that here and drop any in-flight image-select round-trip.
+    setImageAttachments([]);
+    pendingImageSelectRef.current = null;
+    usageWarningFiredRef.current = { cost: false, context: false };
     input?.composer?.resetScroll?.();
     toast.success("New session started");
     input?.composer?.focusComposer?.();
@@ -1606,11 +1709,21 @@ export function useChatController({
     ],
   );
 
+  const usageWarningActive = useMemo(() => {
+    if (!usage) return false;
+    const crossed = crossedUsageThresholds(readUsageWarningConfig(), {
+      cost: usage.cost,
+      contextPercent: usage.contextUsage?.percent ?? null,
+    });
+    return crossed.cost || crossed.context;
+  }, [usage]);
+
   const footerSlice = useMemo<FooterSlice>(
     () => ({
       enabled: mergedFlags.composerDock,
       usageStatsEnabled: mergedFlags.composerFooterUsageStats,
       usage,
+      usageWarningActive,
       isCheckingAgent,
       runtimeUnavailable,
       runtimeUnconfigured,
@@ -1633,6 +1746,7 @@ export function useChatController({
       runtimeUnavailable,
       runtimeUnconfigured,
       usage,
+      usageWarningActive,
       workspaceMode,
     ],
   );
@@ -1979,6 +2093,8 @@ export function useChatController({
       startNewSession,
       handleMemorySelect,
       startCompact,
+      renameSession,
+      exportSession,
       handleOpenModifiedFile,
       handleOpenAfxPreview,
       handleOpenWorkbench,
@@ -2016,6 +2132,8 @@ export function useChatController({
       registerDebugQueueInjection,
       restartAgent,
       removeImageAttachment,
+      renameSession,
+      exportSession,
       restoreBlockedCommand,
       saveAsNote,
       selectModel,
@@ -2136,13 +2254,22 @@ export function collectPromptHistory(
   return history.slice(-50);
 }
 
+/**
+ * Merges incoming attachments into the tray (last write wins per id) and caps
+ * the tray at the newest 8. Pure — the caller applies the new list and owns
+ * side effects (discard messages, overflow feedback) for `dropped` items.
+ */
 function dedupeImageAttachments(
   current: readonly ChatImageAttachmentView[],
   incoming: readonly ChatImageAttachmentView[],
-): ChatImageAttachmentView[] {
+): { attachments: ChatImageAttachmentView[]; dropped: ChatImageAttachmentView[] } {
   const byId = new Map(current.map((item) => [item.id, item]));
   for (const item of incoming) byId.set(item.id, item);
-  return Array.from(byId.values()).slice(-8);
+  const merged = Array.from(byId.values());
+  return {
+    attachments: merged.slice(-8),
+    dropped: merged.slice(0, Math.max(0, merged.length - 8)),
+  };
 }
 
 /** Generates a unique ID for locally-created messages/events. */

@@ -111,6 +111,11 @@ import {
 } from "../lib/settings-copy";
 import type { SettingsOpenTarget } from "../lib/settings-navigation";
 import { applyRuntimeAppearance } from "../lib/theme-preview";
+import {
+  type UsageWarningConfig,
+  readUsageWarningConfig,
+  writeUsageWarningConfig,
+} from "../lib/usage-warning";
 
 type RuntimeSettings = Pick<
   AgentStatus,
@@ -1922,6 +1927,7 @@ export default function Settings({
                   onCheckedChange={applyAutoRetry}
                   disabled={runtimeControlsDisabled}
                 />
+                <UsageWarningRows />
                 <ConfigField
                   label={RUNTIMES.responseTimeoutLabel}
                   value={`${Math.round((snapshot?.engine.responseStartTimeoutMs ?? 60_000) / 1_000)}s`}
@@ -2974,6 +2980,83 @@ function ConfigField({
  * @see docs/specs/214-app-chat-settings/spec.md [FR-1] [NFR-3]
  * @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-COMPONENT-FORM-ROWS]
  */
+/**
+ * Usage-warning thresholds. Deliberately settings-local (webview localStorage,
+ * not round-tripped through the host) — the one exception to settings
+ * round-tripping; the chat surface reads the same storage key.
+ *
+ * @see docs/specs/900-fleet/17-release-hardening-pi-features/17-release-hardening-pi-features.md [FR-25]
+ */
+function UsageWarningRows() {
+  const [config, setConfig] = useState<UsageWarningConfig>(() => readUsageWarningConfig());
+
+  function update(next: UsageWarningConfig): void {
+    setConfig(next);
+    writeUsageWarningConfig(next);
+  }
+
+  function parseThreshold(raw: string): number | null {
+    const value = Number(raw);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <SwitchRow
+        id="usage-warning"
+        label="Usage warning"
+        sublabel="(this window only)"
+        description="Warn once per session when the session cost or context usage passes a threshold."
+        checked={config.enabled}
+        onCheckedChange={(enabled) => update({ ...config, enabled })}
+      />
+      {config.enabled ? (
+        <div className="afx-field-surface flex flex-col gap-2 rounded-md border px-2.5 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="usage-warning-cost" className="text-[11px]">
+              Session cost (USD)
+            </Label>
+            <Input
+              id="usage-warning-cost"
+              type="number"
+              min="0"
+              step="0.5"
+              placeholder="e.g. 5"
+              className="h-6 w-24 text-[11px]"
+              defaultValue={config.costUsd ?? ""}
+              onChange={(event) =>
+                update({ ...config, costUsd: parseThreshold(event.currentTarget.value) })
+              }
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <Label htmlFor="usage-warning-context" className="text-[11px]">
+              Context usage (%)
+            </Label>
+            <Input
+              id="usage-warning-context"
+              type="number"
+              min="0"
+              max="100"
+              step="5"
+              placeholder="e.g. 80"
+              className="h-6 w-24 text-[11px]"
+              defaultValue={config.contextPercent ?? ""}
+              onChange={(event) =>
+                update({ ...config, contextPercent: parseThreshold(event.currentTarget.value) })
+              }
+            />
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            Leave a field empty to skip that check. The composer footer highlights when a threshold
+            is crossed.
+          </p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function SwitchRow({
   id,
   label,

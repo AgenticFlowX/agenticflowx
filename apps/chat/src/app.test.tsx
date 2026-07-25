@@ -59,6 +59,29 @@ function createControlledTransport(): Transport & {
 
 type ChatStateMessage = Extract<AgentToChat, { type: "chat/state" }>;
 
+/** Reads the requestId of the most recent outbound message of the given type. */
+function findLastSentRequestId(
+  transport: ReturnType<typeof createControlledTransport>,
+  type: string,
+): string {
+  const send = transport.send as ReturnType<typeof vi.fn>;
+  const call = [...send.mock.calls]
+    .reverse()
+    .find(([msg]) => (msg as { type: string }).type === type);
+  if (!call) throw new Error(`No outbound ${type} message was sent`);
+  return (call[0] as { requestId: string }).requestId;
+}
+
+function imageAttachment(id: string, name: string) {
+  return {
+    id,
+    kind: "image" as const,
+    name,
+    mediaType: "image/png" as const,
+    byteLength: 68,
+  };
+}
+
 function emitChatState(
   transport: ReturnType<typeof createControlledTransport>,
   overrides: Partial<Pick<ChatStateMessage, "isStreaming" | "messages" | "tools">> = {},
@@ -343,11 +366,12 @@ describe("chat App", () => {
     expect(transport.send).toHaveBeenCalledWith(
       expect.objectContaining({ type: "chat/selectImages" }),
     );
+    const selectRequestId = findLastSentRequestId(transport, "chat/selectImages");
 
     act(() => {
       transport.emit({
         type: "chat/imagesSelected",
-        requestId: "images",
+        requestId: selectRequestId,
         ok: true,
         attachments: [
           {
@@ -403,9 +427,9 @@ describe("chat App", () => {
         },
       });
       emitChatState(transport);
+      // Host-initiated tray restore: no requestId, always applied.
       transport.emit({
         type: "chat/imagesSelected",
-        requestId: "images",
         ok: true,
         attachments: [
           {
@@ -430,6 +454,260 @@ describe("chat App", () => {
         imageAttachmentIds: ["img-1"],
       }),
     );
+  });
+
+  it("blocks sending staged images to a model that is explicitly text-only", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            input: ["text", "image"],
+          },
+        },
+      });
+      emitChatState(transport);
+      transport.emit({
+        type: "chat/imagesSelected",
+        ok: true,
+        attachments: [imageAttachment("img-1", "diagram.png")],
+      });
+    });
+
+    expect(screen.getByLabelText("Selected attachments")).toHaveTextContent("diagram.png");
+
+    // Switch to a model that only accepts text while the tray is staged.
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 2,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "text-only",
+            name: "Text Only",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+            input: ["text"],
+          },
+        },
+      });
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.type(screen.getByRole("textbox", { name: "Chat composer" }), "describe this");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(send).not.toHaveBeenCalledWith(expect.objectContaining({ type: "chat/send" }));
+    expect(screen.getByLabelText("Selected attachments")).toHaveTextContent("diagram.png");
+    expect(
+      await screen.findByText(
+        "This model accepts text only — remove the attached images or switch models.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("drops stale imagesSelected responses and applies host tray restores", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Attach image" }));
+    expect(findLastSentRequestId(transport, "chat/selectImages")).toBeTruthy();
+
+    // A response correlated to a different (stale) round-trip is ignored.
+    act(() => {
+      transport.emit({
+        type: "chat/imagesSelected",
+        requestId: "stale-request",
+        ok: true,
+        attachments: [imageAttachment("img-stale", "stale.png")],
+      });
+    });
+    expect(screen.queryByLabelText("Selected attachments")).not.toBeInTheDocument();
+
+    // A host-initiated restore without a requestId always applies.
+    act(() => {
+      transport.emit({
+        type: "chat/imagesSelected",
+        ok: true,
+        attachments: [imageAttachment("img-1", "diagram.png")],
+      });
+    });
+    expect(screen.getByLabelText("Selected attachments")).toHaveTextContent("diagram.png");
+  });
+
+  it("clears staged attachments when a new session starts", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+      transport.emit({
+        type: "chat/imagesSelected",
+        ok: true,
+        attachments: [imageAttachment("img-1", "diagram.png")],
+      });
+    });
+
+    expect(screen.getByLabelText("Selected attachments")).toHaveTextContent("diagram.png");
+
+    await user.click(screen.getByRole("button", { name: "New session" }));
+
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/newSession" }),
+    );
+    expect(screen.queryByLabelText("Selected attachments")).not.toBeInTheDocument();
+  });
+
+  it("discards overflow attachments beyond the 8-item cap with feedback", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+      transport.emit({
+        type: "chat/imagesSelected",
+        ok: true,
+        attachments: Array.from({ length: 9 }, (_, index) =>
+          imageAttachment(`img-${index + 1}`, `shot-${index + 1}.png`),
+        ),
+      });
+    });
+
+    const tray = screen.getByLabelText("Selected attachments");
+    expect(tray).not.toHaveTextContent("shot-1.png");
+    expect(tray).toHaveTextContent("shot-9.png");
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/discardImages", imageAttachmentIds: ["img-1"] }),
+    );
+    expect(await screen.findByText("Attachment limit is 8 — oldest removed.")).toBeInTheDocument();
+  });
+
+  it("exports the session transcript and surfaces the result", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Export transcript" }));
+    const exportRequestId = findLastSentRequestId(transport, "chat/exportSession");
+
+    act(() => {
+      transport.emit({
+        type: "chat/sessionExported",
+        requestId: exportRequestId,
+        ok: false,
+        error: "Disk full",
+      });
+    });
+    expect(await screen.findByText("Export failed")).toBeInTheDocument();
+    expect(screen.getByText("Disk full")).toBeInTheDocument();
+
+    act(() => {
+      transport.emit({ type: "chat/sessionExported", requestId: exportRequestId, ok: true });
+    });
+    expect(await screen.findByText("Transcript exported")).toBeInTheDocument();
   });
 
   /**

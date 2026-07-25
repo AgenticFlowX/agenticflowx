@@ -153,12 +153,18 @@ export default function App({ transport }: AppProps) {
       }),
       bridgeOn("chat/toast", (msg) => {
         const duration = msg.durationMs;
+        const action = msg.cancelableRetry
+          ? {
+              label: "Cancel retry",
+              onClick: () => bridgeSend({ type: "chat/abortRetry", requestId: uid() }),
+            }
+          : undefined;
         if (msg.tone === "success") {
           toast.success(msg.message, msg.description, duration);
         } else if (msg.tone === "error") {
-          toast.error(msg.message, msg.description, duration);
+          toast.error(msg.message, msg.description, duration, action);
         } else {
-          toast.info(msg.message, msg.description, duration);
+          toast.info(msg.message, msg.description, duration, action);
         }
       }),
       bridgeOn("agent/telemetryState", (msg) => {

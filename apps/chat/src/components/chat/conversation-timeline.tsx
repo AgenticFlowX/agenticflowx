@@ -21,8 +21,10 @@ import {
 import {
   AlertTriangle,
   BookOpenCheck,
+  Check,
   ChevronDown,
   ChevronRight,
+  Copy,
   Info,
   Layers3,
   MoreHorizontal,
@@ -711,9 +713,10 @@ const TurnEventRow = memo(function TurnEventRow({
 
 function UserBlock({ event }: { event: Extract<TurnEvent, { kind: "user" }> }) {
   return (
-    <div className="min-w-0">
+    <div className="group/message relative min-w-0">
       <EventHeader event={event} />
       <EventBody event={event} onSendCommand={() => undefined} onInsertCommand={() => undefined} />
+      <CopyMessageButton content={event.message.content} />
     </div>
   );
 }
@@ -732,7 +735,7 @@ function AfxBlock({
   onOpenWorkbench?: () => void;
 }) {
   return (
-    <div className="min-w-0">
+    <div className="group/message relative min-w-0">
       <EventHeader event={event} />
       <EventBody
         event={event}
@@ -741,7 +744,43 @@ function AfxBlock({
         onOpenPreview={onOpenPreview}
         onOpenWorkbench={onOpenWorkbench}
       />
+      {event.message.streaming || !event.message.content ? null : (
+        <CopyMessageButton content={event.message.content} />
+      )}
     </div>
+  );
+}
+
+/**
+ * Hover-visible copy affordance for user and assistant rows. Copies the
+ * message's raw markdown source, mirroring the code-fence copy pattern.
+ */
+function CopyMessageButton({ content }: { content: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy(): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1000);
+    } catch {
+      // Ignore clipboard failures in restricted webview environments.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      aria-label="Copy message"
+      title="Copy message"
+      onClick={() => void onCopy()}
+      className={cn(
+        "absolute right-0 top-0 z-[9] inline-flex h-5 w-5 items-center justify-center rounded-sm text-muted-foreground/60 opacity-0 transition-opacity hover:bg-muted hover:text-foreground focus-visible:opacity-100 group-hover/message:opacity-100",
+        copied && "opacity-100 text-afx-success",
+      )}
+    >
+      {copied ? <Check size={11} /> : <Copy size={11} />}
+    </button>
   );
 }
 

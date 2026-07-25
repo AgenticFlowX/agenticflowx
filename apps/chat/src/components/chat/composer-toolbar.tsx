@@ -166,7 +166,12 @@ export const ComposerToolbar = memo(function ComposerToolbar({
   );
 });
 
-function selectedModelSupportsImages(
+/**
+ * Resolves whether the selected model accepts image input. `undefined` means
+ * capability is unknown (fail-open); `false` means the model is text-only.
+ * Shared with the controller's submit gate so both surfaces agree.
+ */
+export function selectedModelSupportsImages(
   models: readonly AgentModel[],
   selectedModel:
     Pick<AgentModel, "provider" | "id" | "instanceId" | "authMethod" | "input"> | null | undefined,

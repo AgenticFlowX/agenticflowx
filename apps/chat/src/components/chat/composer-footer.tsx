@@ -20,6 +20,8 @@ export interface ComposerFooterUsageStats {
 export interface ComposerFooterProps {
   hintId?: string;
   usage: ComposerFooterUsageStats | null;
+  /** Emphasizes the usage stats when a usage-warning threshold is crossed. */
+  usageWarningActive?: boolean;
   isCheckingAgent: boolean;
   runtimeUnavailable: boolean;
   runtimeUnconfigured: boolean;
@@ -35,6 +37,7 @@ export interface ComposerFooterProps {
 export const ComposerFooter = memo(function ComposerFooter({
   hintId,
   usage,
+  usageWarningActive,
   isCheckingAgent,
   runtimeUnavailable,
   runtimeUnconfigured,
@@ -85,10 +88,20 @@ export const ComposerFooter = memo(function ComposerFooter({
         {rpcEnabled ? <PiPill phase={agentPhase} onWarningClick={onPiWarningClick} /> : null}
         {statsText ? (
           <span
-            className="flex min-w-0 items-center gap-1 truncate font-mono text-[10px] text-muted-foreground/60"
+            data-usage-warning={usageWarningActive ? "true" : undefined}
+            className={cn(
+              "flex min-w-0 items-center gap-1 truncate font-mono text-[10px]",
+              usageWarningActive ? "font-semibold text-amber-500" : "text-muted-foreground/60",
+            )}
             title={usage ? usageTooltip(usage) : undefined}
           >
-            <Cpu size={10} className="shrink-0 text-afx-brand-soft/40" />
+            <Cpu
+              size={10}
+              className={cn(
+                "shrink-0",
+                usageWarningActive ? "text-amber-500" : "text-afx-brand-soft/40",
+              )}
+            />
             <span className="truncate">{statsText}</span>
           </span>
         ) : null}

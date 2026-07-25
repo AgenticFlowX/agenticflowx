@@ -502,6 +502,11 @@ export function ChatWindow({
     focusComposer();
   });
   const handleCompactClick = useStableCallback(() => actions.startCompact(composerLocal));
+  const handleCompactWithInstructions = useStableCallback((instructions: string) =>
+    actions.startCompact(composerLocal, instructions),
+  );
+  const handleRenameSession = useStableCallback((name: string) => actions.renameSession(name));
+  const handleExportSession = useStableCallback(() => actions.exportSession());
   const handleNewSession = useStableCallback(() =>
     actions.startNewSession({ composer: composerLocal }),
   );
@@ -552,6 +557,9 @@ export function ChatWindow({
           runtime={state.runtime}
           onNewSession={handleNewSession}
           onCompact={handleCompactClick}
+          onCompactWithInstructions={handleCompactWithInstructions}
+          onRenameSession={handleRenameSession}
+          onExportSession={handleExportSession}
           onMemorySelect={handleMemorySelect}
           onRestartAgent={handleRestartAgent}
         />
@@ -695,6 +703,7 @@ export function ChatWindow({
           <ComposerFooter
             hintId={COMPOSER_FOOTER_HINT_ID}
             usage={slices.footer.usageStatsEnabled ? slices.footer.usage : null}
+            usageWarningActive={slices.footer.usageWarningActive}
             isCheckingAgent={isCheckingAgent}
             runtimeUnavailable={slices.footer.runtimeUnavailable}
             runtimeUnconfigured={slices.footer.runtimeUnconfigured}
