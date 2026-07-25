@@ -1468,6 +1468,9 @@ function normalizeModel(value: unknown): AgentModel | null {
     maxTokens?: unknown;
     cost?: unknown;
     input?: unknown;
+    supportsStrictTools?: unknown;
+    supportsGrammarTools?: unknown;
+    compat?: unknown;
   };
   if (typeof raw.provider !== "string" || typeof raw.id !== "string") return null;
   return {
@@ -1479,7 +1482,33 @@ function normalizeModel(value: unknown): AgentModel | null {
     maxTokens: typeof raw.maxTokens === "number" ? raw.maxTokens : 0,
     cost: normalizeModelCost(raw.cost),
     input: normalizeModelInput(raw.input),
+    ...optionalCapabilities(raw.supportsStrictTools, raw.supportsGrammarTools, raw.compat),
   };
+}
+
+function optionalCapabilities(
+  strict: unknown,
+  grammar: unknown,
+  compat: unknown,
+): Pick<AgentModel, "supportsStrictTools" | "supportsGrammarTools"> {
+  const supportsStrictTools = readCapability(strict, compat, "supportsStrictTools");
+  const supportsGrammarTools = readCapability(grammar, compat, "supportsGrammarTools");
+  return {
+    ...(supportsStrictTools === undefined ? {} : { supportsStrictTools }),
+    ...(supportsGrammarTools === undefined ? {} : { supportsGrammarTools }),
+  };
+}
+
+function readCapability(direct: unknown, compat: unknown, key: string): boolean | undefined {
+  if (typeof direct === "boolean") return direct;
+  if (
+    compat &&
+    typeof compat === "object" &&
+    typeof (compat as Record<string, unknown>)[key] === "boolean"
+  ) {
+    return (compat as Record<string, boolean>)[key];
+  }
+  return undefined;
 }
 
 function normalizeModelInput(value: unknown): AgentModel["input"] {

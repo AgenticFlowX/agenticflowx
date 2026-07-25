@@ -57,6 +57,10 @@ export interface AgentModel {
    * capability as unknown instead of assuming text-only.
    */
   input?: AgentModelInputKind[];
+  /** Whether the runtime can enforce strict JSON-schema tool parameters. */
+  supportsStrictTools?: boolean;
+  /** Whether the runtime can apply grammar-based constrained tool sampling. */
+  supportsGrammarTools?: boolean;
   /** Host-assigned source label used by model pickers. */
   source?: AgentSource;
   /** Host-assigned runtime instance id used for unambiguous model routing. */

@@ -73,6 +73,7 @@ function createFakeClient(options: unknown): FakeClient {
               name: "Opus",
               reasoning: true,
               input: ["text", "image"],
+              compat: { supportsStrictTools: true, supportsGrammarTools: true },
             },
             { provider: "openai", id: "gpt-5.2", name: "GPT", reasoning: true, input: ["text"] },
           ],
@@ -810,6 +811,8 @@ describe("createPiSdkAgentManager", () => {
           source: "api-provider",
           instanceLabel: "anthropic",
           input: ["text", "image"],
+          supportsStrictTools: true,
+          supportsGrammarTools: true,
         }),
         expect.objectContaining({
           provider: "openai",

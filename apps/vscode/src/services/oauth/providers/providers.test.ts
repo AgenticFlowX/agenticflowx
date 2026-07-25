@@ -39,10 +39,16 @@ describe("OAuth provider registry", () => {
       "anthropic",
       "github-copilot",
       "openai-codex",
+      "openrouter",
+      "kimi-coding",
+      "xai",
     ]);
     expect(getOAuthProvider("anthropic")?.dualMethod).toBe(true);
     expect(getOAuthProvider("openai-codex")?.dualMethod).toBe(false);
     expect(getOAuthProvider("github-copilot")?.flow).toBe("device-code");
+    expect(getOAuthProvider("openrouter")?.flow).toBe("pkce-loopback");
+    expect(getOAuthProvider("kimi-coding")?.flow).toBe("device-code");
+    expect(getOAuthProvider("xai")?.flow).toBe("device-code");
   });
 
   it("builds Anthropic authorize URLs with verifier-as-state", async () => {

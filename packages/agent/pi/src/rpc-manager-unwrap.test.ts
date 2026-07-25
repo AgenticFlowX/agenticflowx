@@ -56,6 +56,7 @@ const PI_MODEL = {
   contextWindow: 1_000_000,
   maxTokens: 128_000,
   input: ["text", "image"],
+  compat: { supportsStrictTools: true, supportsGrammarTools: true },
 };
 
 const PI_COMMAND = {
@@ -92,6 +93,8 @@ describe("PiRpcManager response unwrap", () => {
       expect(result).toHaveLength(1);
       expect(result[0]?.provider).toBe("anthropic");
       expect(result[0]?.input).toEqual(["text", "image"]);
+      expect(result[0]?.supportsStrictTools).toBe(true);
+      expect(result[0]?.supportsGrammarTools).toBe(true);
     });
 
     it("accepts a bare array response (legacy / mock shape)", async () => {

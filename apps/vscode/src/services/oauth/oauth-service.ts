@@ -68,7 +68,11 @@ import type { SecretStore } from "../../secret-store";
 import { type CopilotCredential, runDeviceCode } from "./device-code";
 import { OAuthCancelledError, type PkceLoopbackConfig, runPkceLoopback } from "./pkce-loopback";
 import { getOAuthProvider } from "./providers";
-import type { OAuthProviderDescriptor } from "./providers/types";
+import type {
+  OAuthProviderDescriptor,
+  OAuthSignInCallbacks,
+  OAuthSignInContext,
+} from "./providers/types";
 
 /**
  * UI-facing callbacks the host wires per sign-in. The orchestrator forwards these
@@ -289,9 +293,12 @@ export function createOAuthService(deps: OAuthServiceDeps): OAuthService {
     const flow: InFlightSignIn = { controller };
     signInFlows.set(provider, flow);
 
+    const flowCallbacks: OAuthSignInCallbacks = callbacks;
+
     try {
-      const record =
-        descriptor.flow === "device-code"
+      const record = descriptor.begin
+        ? await runCustomFlow(descriptor, flowCallbacks, controller.signal)
+        : descriptor.flow === "device-code"
           ? await runDeviceCodeFlow(descriptor, callbacks, controller.signal)
           : await runPkceFlow(descriptor, flow, callbacks, controller.signal);
 
@@ -338,6 +345,30 @@ export function createOAuthService(deps: OAuthServiceDeps): OAuthService {
       verifier: authorization.verifier,
       redirectUri: authorization.redirectUri,
     });
+  }
+
+  async function runCustomFlow(
+    descriptor: OAuthProviderDescriptor,
+    callbacks: OAuthSignInCallbacks,
+    signal: AbortSignal,
+  ): Promise<OAuthRecord> {
+    if (!descriptor.begin) {
+      throw new Error(`OAuth provider "${descriptor.id}" is missing begin handler`);
+    }
+
+    const logger = log.child(`oauth:custom:${descriptor.id}`);
+    const context: OAuthSignInContext = {
+      providerId: descriptor.id,
+      signal,
+      logger,
+      callbacks: {
+        onAuthUrl: (input) => callbacks.onAuthUrl?.(input),
+        onUserCode: (input) => callbacks.onUserCode?.(input),
+        onProgress: (message) => callbacks.onProgress?.(message),
+      },
+    };
+
+    return descriptor.begin(context);
   }
 
   async function runDeviceCodeFlow(

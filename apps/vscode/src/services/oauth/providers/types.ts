@@ -17,7 +17,7 @@
  * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-3] [FR-4] [FR-5] [FR-7]
  * @see docs/specs/354-agent-oauth-provider-flows/design.md [DES-PROVIDERS]
  */
-import type { OAuthProviderId, OAuthRecord } from "@afx/shared";
+import type { Logger, OAuthProviderId, OAuthRecord } from "@afx/shared";
 
 // Re-export the canonical credential types consumed via this barrel so provider
 // descriptors and the registry keep a single import surface (`./types`) rather
@@ -35,6 +35,43 @@ export interface BuildAuthUrlResult {
   verifier: string;
   /** Random state validated against the callback before token exchange. */
   state: string;
+}
+
+/**
+ * Webview-owned callbacks driven by the descriptor's interactive sign-in path.
+ *
+ * Keep this shape intentionally small and UI-agnostic so host providers can
+ * surface OAuth progress without owning UI.
+ */
+export interface OAuthSignInCallbacks {
+  /** Authorization URL for PKCE/device flows that can open a browser. */
+  onAuthUrl?(input: { url: string; proactivePaste: boolean }): void;
+  /** Human-verification code and complete verification URL for device-code flows. */
+  onUserCode?(input: { userCode: string; verificationUri: string; expiresInMs: number }): void;
+  /** Non-secret progress breadcrumbs. */
+  onProgress?(message: string): void;
+}
+
+/**
+ * Provider-owned sign-in entry point.
+ *
+ * For fully custom providers (like OpenRouter or Kimi/XAI device-code), this
+ * lets the descriptor own browser orchestration, callback handling, token
+ * exchange, and token mapping.
+ */
+export interface OAuthSignInContext {
+  /** Running provider id for logs / telemetry attribution. */
+  readonly providerId: OAuthProviderId;
+  /** Host cancel signal. */
+  readonly signal: AbortSignal;
+  /** Logger scoped to the host orchestrator. */
+  readonly logger: Logger;
+  /** UI-facing callbacks.
+   *
+   * If a provider opens a browser tab and emits a URL, this callback must be
+   * invoked exactly once.
+   */
+  readonly callbacks: OAuthSignInCallbacks;
 }
 
 /**
@@ -79,6 +116,14 @@ export interface OAuthProviderDescriptor {
    * device-code providers omit this and use their own start step.
    */
   buildAuthUrl?(): Promise<BuildAuthUrlResult>;
+
+  /**
+   * Custom begin path for providers whose flow cannot be represented by
+   * fixed config-only descriptors (e.g., OpenRouter dynamic callback or RFC8628
+   * device-code providers).
+   * When present, `OAuthService.signIn()` prefers this path over `flow`.
+   */
+  begin?(input: OAuthSignInContext): Promise<OAuthRecord>;
 
   /**
    * Exchange an authorization code for an {@link OAuthRecord} (PKCE-loopback only).

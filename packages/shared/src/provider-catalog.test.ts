@@ -14,6 +14,9 @@ describe("provider catalog", () => {
       expect.arrayContaining([
         "cloudflare-ai-gateway",
         "cloudflare-workers-ai",
+        "ant-ling",
+        "nvidia",
+        "zai-coding-cn",
         "minimax",
         "mistral",
         "moonshotai",
@@ -50,6 +53,9 @@ describe("provider catalog", () => {
 
   it("maps AFX provider ids to Pi-compatible env vars", () => {
     expect(PROVIDER_API_KEY_ENV_ALIASES["minimax"]).toContain("MINIMAX_API_KEY");
+    expect(PROVIDER_API_KEY_ENV_ALIASES["ant-ling"]).toContain("ANT_LING_API_KEY");
+    expect(PROVIDER_API_KEY_ENV_ALIASES.nvidia).toContain("NVIDIA_API_KEY");
+    expect(PROVIDER_API_KEY_ENV_ALIASES["zai-coding-cn"]).toContain("ZAI_CODING_CN_API_KEY");
     expect(PROVIDER_API_KEY_ENV_ALIASES["kimi-coding"]).toContain("KIMI_API_KEY");
     expect(PROVIDER_API_KEY_ENV_ALIASES["vercel-ai-gateway"]).toContain("AI_GATEWAY_API_KEY");
     expect(PROVIDER_API_KEY_ENV_ALIASES["cloudflare-ai-gateway"]).toContain("CLOUDFLARE_API_KEY");
@@ -64,10 +70,28 @@ describe("provider catalog", () => {
       "QWEN_TOKEN_PLAN_CN_API_KEY",
     );
     expect(PROVIDER_API_KEY_ENV_ALIASES.radius).toContain("RADIUS_API_KEY");
+    expect(PROVIDER_DETAILS["kimi-coding"]).toMatchObject({
+      oauthCapable: true,
+      oauthFlow: "device-code",
+      dualMethod: true,
+    });
+    expect(PROVIDER_DETAILS["openrouter"]).toMatchObject({
+      oauthCapable: true,
+      oauthFlow: "pkce-loopback",
+      dualMethod: true,
+    });
+    expect(PROVIDER_DETAILS["xai"]).toMatchObject({
+      oauthCapable: true,
+      oauthFlow: "device-code",
+      dualMethod: true,
+    });
   });
 
   it("exposes Pi-compatible provider startup defaults", () => {
     expect(DEFAULT_API_PROVIDER_MODELS.minimax).toBe("MiniMax-M2.7");
+    expect(getDefaultApiProviderModel("ant-ling")).toBe("Ling-2.6-1T");
+    expect(getDefaultApiProviderModel("nvidia")).toBe("meta/llama-3.1-70b-instruct");
+    expect(getDefaultApiProviderModel("zai-coding-cn")).toBe("glm-5.1");
     expect(getDefaultApiProviderModel("minimax")).toBe("MiniMax-M2.7");
     expect(getDefaultApiProviderModel("cloudflare-ai-gateway")).toBe(
       "workers-ai/@cf/moonshotai/kimi-k2.6",

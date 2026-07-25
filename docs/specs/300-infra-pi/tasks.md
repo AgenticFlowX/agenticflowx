@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-04-28T01:37:40.000Z"
+updated_at: "2026-07-25T11:22:02.000Z"
 tags: [infra, pi, rpc, subprocess, engine, adapter]
 spec: spec.md
 design: design.md
@@ -44,6 +44,10 @@ design: design.md
 - [x] Update `AGENTS.md` — packages list, layout block, architecture rules, spec map
 - [x] Bump spec to v1.1 (FR-1/FR-5–FR-9); update design.md (all sections + File Reference Map)
 - [x] Verify: `pnpm check:types && pnpm check:lint && pnpm check:format && pnpm build:vscode` — all pass
+
+## Deferred follow-ups
+
+- [ ] Revisit full Pi provider-extension support (provider-owned auth, dynamic models, filtering, and streaming)
 
 ---
 

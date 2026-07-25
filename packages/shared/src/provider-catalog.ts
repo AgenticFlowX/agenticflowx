@@ -57,6 +57,7 @@ export interface ProviderCatalogDetails {
 
 export const PROVIDER_API_KEY_ENV_ALIASES = {
   "amazon-bedrock": ["AWS_BEARER_TOKEN_BEDROCK"],
+  "ant-ling": ["ANT_LING_API_KEY"],
   anthropic: ["ANTHROPIC_API_KEY"],
   "azure-openai-responses": ["AZURE_OPENAI_API_KEY"],
   cerebras: ["CEREBRAS_API_KEY"],
@@ -73,6 +74,7 @@ export const PROVIDER_API_KEY_ENV_ALIASES = {
   minimax: ["MINIMAX_API_KEY"],
   "minimax-cn": ["MINIMAX_CN_API_KEY"],
   mistral: ["MISTRAL_API_KEY"],
+  nvidia: ["NVIDIA_API_KEY"],
   moonshotai: ["MOONSHOT_API_KEY"],
   "moonshotai-cn": ["MOONSHOT_API_KEY"],
   openai: ["OPENAI_API_KEY"],
@@ -95,6 +97,7 @@ export const PROVIDER_API_KEY_ENV_ALIASES = {
   "xiaomi-token-plan-sgp": ["XIAOMI_TOKEN_PLAN_SGP_API_KEY"],
   xai: ["XAI_API_KEY"],
   zai: ["ZAI_API_KEY"],
+  "zai-coding-cn": ["ZAI_CODING_CN_API_KEY"],
   "vercel-ai-gateway": ["AI_GATEWAY_API_KEY"],
 } as const;
 
@@ -113,6 +116,7 @@ export const API_PROVIDER_IDS = Object.keys(
  */
 export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>> = {
   "amazon-bedrock": "us.anthropic.claude-opus-4-6-v1",
+  "ant-ling": "Ling-2.6-1T",
   anthropic: "claude-opus-4-7",
   "azure-openai-responses": "gpt-5.4",
   cerebras: "zai-glm-4.7",
@@ -129,6 +133,7 @@ export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>>
   minimax: "MiniMax-M2.7",
   "minimax-cn": "MiniMax-M2.7",
   mistral: "devstral-medium-latest",
+  nvidia: "meta/llama-3.1-70b-instruct",
   moonshotai: "kimi-k2.6",
   "moonshotai-cn": "kimi-k2.6",
   openai: "gpt-5.4",
@@ -147,6 +152,7 @@ export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>>
   "xiaomi-token-plan-sgp": "mimo-v2.5-pro",
   xai: "grok-4.20-0309-reasoning",
   zai: "glm-5.1",
+  "zai-coding-cn": "glm-5.1",
 };
 
 /**
@@ -163,6 +169,11 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   "amazon-bedrock": {
     displayName: "Amazon Bedrock",
     modelHint: "AWS-hosted foundation models via Bedrock bearer token or environment credentials",
+  },
+  "ant-ling": {
+    displayName: "Ant Ling",
+    modelHint: "Ant Ling hosted language models",
+    helpUrl: "https://ant-ling.com",
   },
   anthropic: {
     displayName: "Anthropic",
@@ -252,6 +263,9 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   "kimi-coding": {
     displayName: "Kimi For Coding",
     modelHint: "Kimi coding models",
+    oauthCapable: true,
+    oauthFlow: "device-code",
+    dualMethod: true,
   },
   minimax: {
     displayName: "MiniMax",
@@ -264,6 +278,11 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   mistral: {
     displayName: "Mistral",
     modelHint: "Mistral hosted models",
+  },
+  nvidia: {
+    displayName: "NVIDIA",
+    modelHint: "NVIDIA-hosted inference models",
+    helpUrl: "https://build.nvidia.com",
   },
   moonshotai: {
     displayName: "Moonshot",
@@ -303,6 +322,9 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
     displayName: "OpenRouter",
     modelHint: "OpenRouter-hosted model catalog",
     helpUrl: "https://openrouter.ai/keys",
+    oauthCapable: true,
+    oauthFlow: "pkce-loopback",
+    dualMethod: true,
   },
   "qwen-token-plan": {
     displayName: "Qwen Token Plan",
@@ -344,9 +366,17 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   xai: {
     displayName: "xAI",
     modelHint: "xAI Grok models",
+    oauthCapable: true,
+    oauthFlow: "device-code",
+    dualMethod: true,
   },
   zai: {
     displayName: "Z.ai",
     modelHint: "Z.ai hosted models",
+  },
+  "zai-coding-cn": {
+    displayName: "Z.AI Coding China",
+    modelHint: "Z.AI coding models via the China endpoint",
+    helpUrl: "https://open.bigmodel.cn",
   },
 };
