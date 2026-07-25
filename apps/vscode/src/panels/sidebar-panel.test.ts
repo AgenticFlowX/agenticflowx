@@ -2892,6 +2892,55 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
   });
 
+  it("stages selected images under opaque ids and passes image payloads on chat/send", async () => {
+    const imageUri = vscode.Uri.file("/private/user/secret/diagram.png");
+    vi.spyOn(vscode.window, "showOpenDialog").mockResolvedValue([imageUri]);
+    vi.spyOn(vscode.workspace.fs, "stat").mockResolvedValue({
+      type: vscode.FileType.File,
+      ctime: 0,
+      mtime: 0,
+      size: 8,
+    });
+    vi.spyOn(vscode.workspace.fs, "readFile").mockResolvedValue(
+      Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    );
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({ type: "chat/selectImages", requestId: "pick-images" });
+    await flushAsyncWork(2);
+
+    const selection = postMessage.mock.calls
+      .map(([msg]) => msg)
+      .find((msg) => msg?.type === "chat/imagesSelected");
+    expect(selection).toMatchObject({
+      type: "chat/imagesSelected",
+      requestId: "pick-images",
+      ok: true,
+      attachments: [
+        expect.objectContaining({
+          kind: "image",
+          name: "diagram.png",
+          mediaType: "image/png",
+          byteLength: 8,
+        }),
+      ],
+    });
+    expect(JSON.stringify(selection)).not.toContain("/private/user/secret");
+    const imageId = selection.attachments[0].id as string;
+
+    inbound.fire({
+      type: "chat/send",
+      requestId: "send-image",
+      content: "describe this",
+      imageAttachmentIds: [imageId],
+    });
+    await vi.waitFor(() => expect(agent.send).toHaveBeenCalledTimes(1));
+
+    expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("describe this"), [
+      { type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" },
+    ]);
+  });
+
   it("prepends the Explore guardrail prompt to chat/send", async () => {
     mockAfxConfiguration({ "mode.active": "explore" });
     const { inbound } = setupWithView();

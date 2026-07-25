@@ -10,18 +10,11 @@
 
 /** Canonical API kinds. Maps to pi-mono's four; harness adapters translate where needed. */
 export type CustomProviderApiKind =
-  | "openai-completions"
-  | "openai-responses"
-  | "anthropic-messages"
-  | "google-generative-ai";
+  "openai-completions" | "openai-responses" | "anthropic-messages" | "google-generative-ai";
 
 /** Source of an apiKey value. `vscode-secret` compiles to env-var indirection at bootstrap. */
 export type CustomProviderApiKeySource =
-  | "none"
-  | "vscode-secret"
-  | "env-var"
-  | "shell-cmd"
-  | "literal";
+  "none" | "vscode-secret" | "env-var" | "shell-cmd" | "literal";
 
 /** Origin tag — drives UI mode (editable vs readonly) and source-of-truth dispatch. */
 export type CustomProviderOrigin = "afx-managed" | "hand-edited";

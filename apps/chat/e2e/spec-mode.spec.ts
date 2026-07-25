@@ -22,11 +22,7 @@ async function selectMode(page: Page, label: "Code" | "Explore" | "Spec"): Promi
 async function openDocActionsScenario(
   page: Page,
   label:
-    | "Spec actions"
-    | "Sprint actions"
-    | "Journal actions"
-    | "Global journal"
-    | "Sign Off ready",
+    "Spec actions" | "Sprint actions" | "Journal actions" | "Global journal" | "Sign Off ready",
 ): Promise<void> {
   await page.goto("/");
   await selectMode(page, "Spec");

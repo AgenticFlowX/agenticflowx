@@ -628,8 +628,9 @@ describe("ReactFlowCanvas controls", () => {
     const zooms = flowApi.setViewport.mock.calls.map((call) => (call[0] as { zoom: number }).zoom);
     expect(zooms).toHaveLength(4);
     for (let index = 1; index < zooms.length; index += 1) {
-      expect(zooms[index]).toBeLessThan(zooms[index - 1]);
+      expect(zooms[index]).toBeLessThanOrEqual(zooms[index - 1]);
     }
+    expect(zooms[zooms.length - 1]).toBeLessThan(zooms[0]);
   });
 
   it("uses host-scoped view state for a custom editor without touching shared localStorage", () => {

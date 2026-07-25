@@ -593,14 +593,7 @@ JSON Canvas unless the user performs a document mutation.
 
 ```typescript
 type WorkbenchViewId =
-  | "workbench"
-  | "pipeline"
-  | "documents"
-  | "analytics"
-  | "journal"
-  | "board"
-  | "notes"
-  | "canvas";
+  "workbench" | "pipeline" | "documents" | "analytics" | "journal" | "board" | "notes" | "canvas";
 
 interface SettingsSnapshot {
   experimental: {

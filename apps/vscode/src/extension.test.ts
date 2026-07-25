@@ -266,8 +266,7 @@ describe("extension.activate", () => {
     await handler?.();
 
     const sidebar = vi.mocked(sidebarMod.createSidebarPanel).mock.results[0]?.value as
-      | { appendToDraft: ReturnType<typeof vi.fn> }
-      | undefined;
+      { appendToDraft: ReturnType<typeof vi.fn> } | undefined;
     expect(sidebar?.appendToDraft).toHaveBeenCalledWith("/afx-spec new ");
   });
 
@@ -292,8 +291,7 @@ describe("extension.activate", () => {
     await handler?.();
 
     const sidebar = vi.mocked(sidebarMod.createSidebarPanel).mock.results[0]?.value as
-      | { appendToDraft: ReturnType<typeof vi.fn> }
-      | undefined;
+      { appendToDraft: ReturnType<typeof vi.fn> } | undefined;
     expect(sidebar?.appendToDraft).toHaveBeenCalledWith("/afx-spec refine checkout-redesign");
   });
 
@@ -630,8 +628,7 @@ describe("extension.activate", () => {
 
   it("does not rebuild runtimes when only the remembered SDK default model changes", async () => {
     let configListener:
-      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
-      | undefined;
+      ((event: { affectsConfiguration: (key: string) => boolean }) => void) | undefined;
     vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
       configListener = listener as typeof configListener;
       return { dispose: vi.fn() };
@@ -687,8 +684,7 @@ describe("extension.activate", () => {
 
   it("rebuilds runtimes when Pi RPC is toggled", async () => {
     let configListener:
-      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
-      | undefined;
+      ((event: { affectsConfiguration: (key: string) => boolean }) => void) | undefined;
     vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
       configListener = listener as typeof configListener;
       return { dispose: vi.fn() };
@@ -705,15 +701,13 @@ describe("extension.activate", () => {
 
     expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(2);
     const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
-      | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
-      | undefined;
+      { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> } | undefined;
     expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
   });
 
   it("refreshes the sidebar when the workspace mode changes", async () => {
     let configListener:
-      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
-      | undefined;
+      ((event: { affectsConfiguration: (key: string) => boolean }) => void) | undefined;
     vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
       configListener = listener as typeof configListener;
       return { dispose: vi.fn() };
@@ -730,15 +724,13 @@ describe("extension.activate", () => {
 
     expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(1);
     const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
-      | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
-      | undefined;
+      { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> } | undefined;
     expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
   });
 
   it("refreshes the sidebar snapshot when the model warm-up timeout changes", async () => {
     let configListener:
-      | ((event: { affectsConfiguration: (key: string) => boolean }) => void)
-      | undefined;
+      ((event: { affectsConfiguration: (key: string) => boolean }) => void) | undefined;
     vi.spyOn(vscode.workspace, "onDidChangeConfiguration").mockImplementation((listener) => {
       configListener = listener as typeof configListener;
       return { dispose: vi.fn() };
@@ -755,8 +747,7 @@ describe("extension.activate", () => {
 
     expect(createConfiguredAgentInstances).toHaveBeenCalledTimes(1);
     const sidebarProvider = registerWebview.mock.calls.find(([id]) => id === "afx-sidebar")?.[1] as
-      | { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> }
-      | undefined;
+      { refreshRuntimeConfiguration?: ReturnType<typeof vi.fn> } | undefined;
     expect(sidebarProvider?.refreshRuntimeConfiguration).toHaveBeenCalledOnce();
   });
 

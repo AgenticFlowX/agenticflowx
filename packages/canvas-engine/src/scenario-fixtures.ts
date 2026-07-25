@@ -9,11 +9,7 @@ import { serializeJSONCanvas } from "./parse";
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-DATA] [DES-CANVAS-INTERACTIONS]
  */
 export type CanvasScenarioFixtureId =
-  | "beginner"
-  | "rich-architecture"
-  | "multi-root-spec-map"
-  | "nested-frame-presentation"
-  | "stress";
+  "beginner" | "rich-architecture" | "multi-root-spec-map" | "nested-frame-presentation" | "stress";
 
 /**
  * Optional sizing for the stress scenario. Small named scenarios reject it.

@@ -42,6 +42,7 @@ import type {
   AfxThemeId,
   AgentEvent,
   AgentFileView,
+  AgentImageAttachment,
   AgentManager,
   AgentModel,
   AgentRuntimeModel,
@@ -336,6 +337,14 @@ interface QueuedUserDisplay {
   content: string;
 }
 
+interface StagedImageAttachment {
+  id: string;
+  name: string;
+  mediaType: string;
+  byteLength: number;
+  image: AgentImageAttachment;
+}
+
 type ErrorPresentation = "transcript" | "toast" | "settings-toast";
 
 const DELTA_FLUSH_MS = 16;
@@ -347,6 +356,8 @@ const OAUTH_PROACTIVE_REFRESH_LEAD_MS = 5 * 60 * 1000;
 const OAUTH_PROACTIVE_REFRESH_RETRY_MS = 30_000;
 const TOOL_SUMMARY_MAX = 200;
 const MENTION_FILE_CAP_BYTES = 64 * 1024;
+const CHAT_IMAGE_MAX_ATTACHMENTS = 4;
+const CHAT_IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const EXPLORE_GUARDRAIL_PROMPT = `[AFX EXPLORE MODE: READ ONLY]
 
 Read-only investigation policy:
@@ -501,6 +512,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   const queuedUserDisplays: QueuedUserDisplay[] = [];
   let queueInjectionChain: Promise<void> = Promise.resolve();
   let queueInjectionEpoch = 0;
+  const stagedImageAttachments = new Map<string, StagedImageAttachment>();
 
   /**
    * Serializes streaming queue injections so rapid steer/follow-up submissions
@@ -553,6 +565,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     content: string;
     mentions: readonly string[];
     intentSlot?: IntentSlot;
+    images?: readonly AgentImageAttachment[];
   } | null = null;
 
   let webview: vscode.Webview | null = null;
@@ -1342,6 +1355,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     post({
       type: "chat/usage",
       messageId: undefined,
+      sessionFile: totals.sessionFile,
+      sessionId: totals.sessionId,
+      userMessages: totals.userMessages,
+      assistantMessages: totals.assistantMessages,
+      toolCalls: totals.toolCalls,
+      toolResults: totals.toolResults,
+      totalMessages: totals.totalMessages,
       tokens: totals.tokens,
       cost: totals.cost,
       contextUsage: totals.contextUsage,
@@ -1364,6 +1384,28 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       const previous = state.lastUsageTotals;
       const turnUsage: ChatUsageView = previous
         ? {
+            sessionFile: currentTotals.sessionFile,
+            sessionId: currentTotals.sessionId,
+            userMessages:
+              currentTotals.userMessages !== undefined
+                ? Math.max(0, currentTotals.userMessages - (previous.userMessages ?? 0))
+                : undefined,
+            assistantMessages:
+              currentTotals.assistantMessages !== undefined
+                ? Math.max(0, currentTotals.assistantMessages - (previous.assistantMessages ?? 0))
+                : undefined,
+            toolCalls:
+              currentTotals.toolCalls !== undefined
+                ? Math.max(0, currentTotals.toolCalls - (previous.toolCalls ?? 0))
+                : undefined,
+            toolResults:
+              currentTotals.toolResults !== undefined
+                ? Math.max(0, currentTotals.toolResults - (previous.toolResults ?? 0))
+                : undefined,
+            totalMessages:
+              currentTotals.totalMessages !== undefined
+                ? Math.max(0, currentTotals.totalMessages - (previous.totalMessages ?? 0))
+                : undefined,
             tokens: {
               input: Math.max(0, currentTotals.tokens.input - previous.tokens.input),
               output: Math.max(0, currentTotals.tokens.output - previous.tokens.output),
@@ -1387,6 +1429,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       post({
         type: "chat/usage",
         messageId,
+        sessionFile: turnUsage.sessionFile,
+        sessionId: turnUsage.sessionId,
+        userMessages: turnUsage.userMessages,
+        assistantMessages: turnUsage.assistantMessages,
+        toolCalls: turnUsage.toolCalls,
+        toolResults: turnUsage.toolResults,
+        totalMessages: turnUsage.totalMessages,
         tokens: turnUsage.tokens,
         cost: turnUsage.cost,
         contextUsage: turnUsage.contextUsage,
@@ -1591,6 +1640,8 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         return evt.role === "assistant";
       case "text_delta":
       case "thinking_delta":
+      case "tool_delta":
+      case "bash_delta":
       case "tool_start":
       case "tool_end":
       case "ui_request":
@@ -1828,6 +1879,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         post({ type: "chat/toolStart", toolCallId, toolName, args: args ?? null });
         return;
       }
+      case "tool_delta": {
+        const { toolCallId, delta } = evt;
+        if (!toolCallId || delta.length === 0) return;
+        appendToolDelta(toolCallId, delta, "tool");
+        return;
+      }
+      case "bash_delta": {
+        const toolCallId = evt.id ?? "bash";
+        if (evt.delta.length === 0) return;
+        appendToolDelta(toolCallId, evt.delta, "bash");
+        return;
+      }
       case "tool_end": {
         const { toolCallId, ok, result } = evt;
         if (!toolCallId) return;
@@ -1871,6 +1934,28 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         eventLog.warn(`unhandled type=${(_exhaustive as { type: string }).type}`);
       }
     }
+  }
+
+  function appendToolDelta(toolCallId: string, delta: string, toolName: string): void {
+    let tool = state.tools.find((t) => t.toolCallId === toolCallId);
+    if (!tool) {
+      tool = { toolCallId, toolName, status: "running" };
+      state.tools.push(tool);
+      const msg = ensureAssistantMessage();
+      msg.tools = [...(msg.tools ?? []), tool];
+      post({ type: "chat/toolStart", toolCallId, toolName, args: null });
+    }
+    tool.output = `${tool.output ?? tool.summary ?? ""}${delta}`;
+    tool.summary = tool.output;
+    for (const m of state.messages) {
+      if (!("tools" in m)) continue;
+      const mt = m.tools?.find((t: ChatToolView) => t.toolCallId === toolCallId);
+      if (mt) {
+        mt.output = `${mt.output ?? mt.summary ?? ""}${delta}`;
+        mt.summary = mt.output;
+      }
+    }
+    post({ type: "chat/toolDelta", toolCallId, delta });
   }
 
   // ---------------------------------------------------------------------------
@@ -2070,7 +2155,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/send": {
-        void handleSend(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
+        void handleSend(
+          msg.requestId,
+          msg.content,
+          msg.mentions,
+          msg.intentSlot,
+          undefined,
+          msg.imageAttachmentIds,
+        );
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
@@ -2130,6 +2222,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
       case "chat/listFiles": {
         void handleListFiles(msg.requestId, msg.query, msg.limit);
+        return;
+      }
+      case "chat/selectImages": {
+        void handleSelectImages(msg.requestId);
+        return;
+      }
+      case "chat/discardImages": {
+        handleDiscardImages(msg.requestId, msg.imageAttachmentIds);
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-FLOW]
@@ -2273,12 +2373,24 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/steer": {
-        void handleSteer(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
+        void handleSteer(
+          msg.requestId,
+          msg.content,
+          msg.mentions,
+          msg.intentSlot,
+          msg.imageAttachmentIds,
+        );
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FLOW]
       case "chat/followUp": {
-        void handleFollowUp(msg.requestId, msg.content, msg.mentions, msg.intentSlot);
+        void handleFollowUp(
+          msg.requestId,
+          msg.content,
+          msg.mentions,
+          msg.intentSlot,
+          msg.imageAttachmentIds,
+        );
         return;
       }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
@@ -2508,6 +2620,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     mentions: readonly string[] = [],
     intentSlot?: IntentSlot,
     options?: { isAuthRetry?: boolean },
+    imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
     if (state.isCompacting) {
       postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
@@ -2523,7 +2636,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
     if (!options?.isAuthRetry) {
       authRecoveryAttempted = false;
-      lastTurnSend = { content, mentions, intentSlot };
+    }
+
+    const images = options?.isAuthRetry
+      ? lastTurnSend?.images
+      : consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
+    if (!options?.isAuthRetry) {
+      lastTurnSend = { content, mentions, intentSlot, images };
     }
 
     // An auth retry replays a prompt already shown in the transcript; don't echo
@@ -2552,7 +2671,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         content,
         normalizePromptMentions(content, mentions),
       );
-      await agentManager.send(prefixWorkspaceModePrompt(inflated, intentSlot));
+      const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+      if (images) await agentManager.send(prompt, images);
+      else await agentManager.send(prompt);
     } catch (err) {
       log.error("agent.send failed", err instanceof Error ? err : undefined, { requestId });
       const message = err instanceof Error ? err.message : String(err);
@@ -3117,6 +3238,52 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       log.error("listFiles failed", err instanceof Error ? err : undefined);
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
+  }
+
+  async function handleSelectImages(requestId: string): Promise<void> {
+    try {
+      const uris = await vscode.window.showOpenDialog({
+        canSelectFiles: true,
+        canSelectFolders: false,
+        canSelectMany: true,
+        title: "Attach images to chat",
+        filters: {
+          Images: ["png", "jpg", "jpeg", "webp", "gif"],
+        },
+      });
+      if (!uris || uris.length === 0) {
+        post({ type: "chat/imagesSelected", requestId, ok: true, attachments: [] });
+        return;
+      }
+
+      const selected = uris.slice(0, CHAT_IMAGE_MAX_ATTACHMENTS);
+      const attachments: StagedImageAttachment[] = [];
+      for (const uri of selected) {
+        attachments.push(await readChatImageAttachment(uri));
+      }
+      for (const attachment of attachments) stagedImageAttachments.set(attachment.id, attachment);
+      post({
+        type: "chat/imagesSelected",
+        requestId,
+        ok: true,
+        attachments: attachments.map(({ id, name, mediaType, byteLength }) => ({
+          id,
+          kind: "image",
+          name,
+          mediaType,
+          byteLength,
+        })),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      log.error("selectImages failed", err instanceof Error ? err : undefined);
+      post({ type: "chat/imagesSelected", requestId, ok: false, attachments: [], error: message });
+    }
+  }
+
+  function handleDiscardImages(requestId: string, imageAttachmentIds: readonly string[]): void {
+    for (const id of imageAttachmentIds) stagedImageAttachments.delete(id);
+    post({ type: "chat/imagesSelected", requestId, ok: true, attachments: [] });
   }
 
   async function handleGetSettingsSnapshot(requestId: string): Promise<void> {
@@ -3965,18 +4132,22 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     content: string,
     mentions: readonly string[] = [],
     intentSlot?: IntentSlot,
+    imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot steer: no turn is currently streaming.", "toast");
       return;
     }
     try {
+      const images = consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.steer(prefixWorkspaceModePrompt(inflated, intentSlot));
+        const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+        if (images) await agentManager.steer(prompt, images);
+        else await agentManager.steer(prompt);
         if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -3992,18 +4163,22 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     content: string,
     mentions: readonly string[] = [],
     intentSlot?: IntentSlot,
+    imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
     if (!state.isStreaming) {
       postError(requestId, "Cannot queue follow-up: no turn is currently streaming.", "toast");
       return;
     }
     try {
+      const images = consumeImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
-        await agentManager.followUp(prefixWorkspaceModePrompt(inflated, intentSlot));
+        const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+        if (images) await agentManager.followUp(prompt, images);
+        else await agentManager.followUp(prompt);
         if (epoch !== queueInjectionEpoch) return;
         queuedUserDisplays.push({ content });
         void broadcastRuntimeSettings();
@@ -4035,6 +4210,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         requestId,
         settings: {
           thinkingLevel: status.thinkingLevel,
+          availableThinkingLevels: status.availableThinkingLevels,
           steeringMode: status.steeringMode,
           followUpMode: status.followUpMode,
           autoCompactionEnabled: status.autoCompactionEnabled,
@@ -4462,6 +4638,92 @@ function cryptoRandom(): string {
   return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+async function readChatImageAttachment(uri: vscode.Uri): Promise<StagedImageAttachment> {
+  const stat = await vscode.workspace.fs.stat(uri);
+  if (stat.size > CHAT_IMAGE_MAX_BYTES) {
+    throw new Error(`${path.basename(uri.fsPath || uri.path)} is larger than 8 MB.`);
+  }
+  const bytes = await vscode.workspace.fs.readFile(uri);
+  if (bytes.byteLength > CHAT_IMAGE_MAX_BYTES) {
+    throw new Error(`${path.basename(uri.fsPath || uri.path)} is larger than 8 MB.`);
+  }
+  const mediaType = detectImageMediaType(bytes);
+  if (!mediaType) {
+    throw new Error(`${path.basename(uri.fsPath || uri.path)} is not a supported image.`);
+  }
+  const id = cryptoRandom();
+  const name = path.basename(uri.fsPath || uri.path) || "image";
+  return {
+    id,
+    name,
+    mediaType,
+    byteLength: bytes.byteLength,
+    image: {
+      type: "image",
+      mimeType: mediaType,
+      data: Buffer.from(bytes).toString("base64"),
+    },
+  };
+}
+
+function detectImageMediaType(bytes: Uint8Array): string | null {
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    bytes.length >= 6 &&
+    bytes[0] === 0x47 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x38 &&
+    (bytes[4] === 0x37 || bytes[4] === 0x39) &&
+    bytes[5] === 0x61
+  ) {
+    return "image/gif";
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function consumeImageAttachments(
+  staged: Map<string, StagedImageAttachment>,
+  ids: readonly string[],
+): readonly AgentImageAttachment[] | undefined {
+  const images: AgentImageAttachment[] = [];
+  for (const id of ids) {
+    const attachment = staged.get(id);
+    if (!attachment) continue;
+    images.push(attachment.image);
+    staged.delete(id);
+  }
+  return images.length > 0 ? images : undefined;
+}
+
 function parseFatalStderrError(line: string): string | undefined {
   const jsonMatch = line.match(/\{[\s\S]*\}\s*$/);
   if (jsonMatch) {
@@ -4568,12 +4830,10 @@ async function groupProviders(
   );
   const configuredConfigFields = new Map(
     await Promise.all(
-      [...providerIds].map(
-        async (provider): Promise<[string, string[]]> => [
-          provider,
-          secretStore ? await getConfiguredProviderConfigFields(secretStore, provider) : [],
-        ],
-      ),
+      [...providerIds].map(async (provider): Promise<[string, string[]]> => [
+        provider,
+        secretStore ? await getConfiguredProviderConfigFields(secretStore, provider) : [],
+      ]),
     ),
   );
 

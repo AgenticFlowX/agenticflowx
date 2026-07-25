@@ -16,6 +16,7 @@ import type {
   AgentCommand,
   AgentEvent,
   AgentEventListener,
+  AgentImageAttachment,
   AgentManager,
   AgentModel,
   AgentSessionInfo,
@@ -95,6 +96,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
   let startDisabledError: Error | null = null;
   let isStreaming = false;
   let currentMsgId: string | null = null;
+  const toolPartialOutputs = new Map<string, string>();
   const eventListeners = new Set<AgentEventListener>();
   const stderrListeners = new Set<AgentStderrListener>();
 
@@ -245,9 +247,13 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     }
   }
 
-  async function send(message: string): Promise<void> {
+  async function send(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
     const client = await ensureStarted();
-    await request(client, { type: "prompt", message: rewriteAfxCommandPrompt(message) });
+    await request(client, {
+      type: "prompt",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
   async function abort(): Promise<void> {
@@ -255,14 +261,25 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     await request(client, { type: "abort" });
   }
 
-  async function steer(message: string): Promise<void> {
+  async function steer(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
     const client = await ensureStarted();
-    await request(client, { type: "steer", message: rewriteAfxCommandPrompt(message) });
+    await request(client, {
+      type: "steer",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
-  async function followUp(message: string): Promise<void> {
+  async function followUp(
+    message: string,
+    images?: readonly AgentImageAttachment[],
+  ): Promise<void> {
     const client = await ensureStarted();
-    await request(client, { type: "follow_up", message: rewriteAfxCommandPrompt(message) });
+    await request(client, {
+      type: "follow_up",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
   async function newSession(): Promise<void> {
@@ -281,6 +298,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     try {
       const state = await request<RpcSessionStateLike | null>(client, { type: "get_state" });
       const status = mapPiStateToStatus(state, client.isRunning, isStreaming);
+      status.availableThinkingLevels = await getAvailableThinkingLevelsSafe(client);
       return tagStatus(status, providerId, modelId);
     } catch {
       return {
@@ -313,6 +331,32 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
         error: err instanceof Error ? err.message : String(err),
       });
       return fallbackConfiguredModels();
+    }
+  }
+
+  async function getAvailableThinkingLevels(): Promise<ThinkingLevel[]> {
+    const client = await ensureStarted();
+    return getAvailableThinkingLevelsSafe(client);
+  }
+
+  async function getAvailableThinkingLevelsSafe(client: PiClient): Promise<ThinkingLevel[]> {
+    try {
+      const response = await request<{ levels?: unknown } | unknown[]>(client, {
+        type: "get_available_thinking_levels",
+      });
+      const levels = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.levels)
+          ? response.levels
+          : [];
+      return levels
+        .map((level) => asEnum(level, THINKING_LEVELS))
+        .filter((level): level is ThinkingLevel => level !== undefined);
+    } catch (err) {
+      log.debug("get_available_thinking_levels failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return [];
     }
   }
 
@@ -391,6 +435,13 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     try {
       const client = await ensureStarted();
       const stats = await request<{
+        sessionFile?: string;
+        sessionId?: string;
+        userMessages?: number;
+        assistantMessages?: number;
+        toolCalls?: number;
+        toolResults?: number;
+        totalMessages?: number;
         tokens?: {
           input?: number;
           output?: number;
@@ -402,6 +453,13 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
         contextUsage?: AgentUsageStats["contextUsage"];
       }>(client, { type: "get_session_stats" });
       return {
+        sessionFile: stats.sessionFile,
+        sessionId: stats.sessionId,
+        userMessages: stats.userMessages,
+        assistantMessages: stats.assistantMessages,
+        toolCalls: stats.toolCalls,
+        toolResults: stats.toolResults,
+        totalMessages: stats.totalMessages,
         tokens: {
           input: stats.tokens?.input ?? 0,
           output: stats.tokens?.output ?? 0,
@@ -492,6 +550,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     startDisabledError = null;
     isStreaming = false;
     currentMsgId = null;
+    toolPartialOutputs.clear();
     if (client) await client.dispose();
   }
 
@@ -573,6 +632,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     getStatus,
     getUsage,
     getAvailableModels,
+    getAvailableThinkingLevels,
     setModel,
     switchSession,
     listSessions,
@@ -601,10 +661,12 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       case "agent_start":
         isStreaming = true;
         currentMsgId = null;
+        toolPartialOutputs.clear();
         return { type: "agent_start" };
       case "agent_end":
         isStreaming = false;
         currentMsgId = null;
+        toolPartialOutputs.clear();
         return { type: "agent_end" };
       case "message_start":
         return normalizeMessageStart(raw);
@@ -646,6 +708,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       case "tool_execution_start": {
         const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
         if (!toolCallId) return null;
+        toolPartialOutputs.delete(toolCallId);
         return {
           type: "tool_start",
           toolCallId,
@@ -653,9 +716,20 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
           args: normalizePiToolArgs(raw, typeof raw.toolName === "string" ? raw.toolName : "tool"),
         };
       }
+      case "tool_execution_update": {
+        const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
+        if (!toolCallId) return null;
+        const output = extractTextContent(raw["partialResult"]);
+        if (!output) return null;
+        const previous = toolPartialOutputs.get(toolCallId) ?? "";
+        toolPartialOutputs.set(toolCallId, output);
+        const delta = output.startsWith(previous) ? output.slice(previous.length) : output;
+        return delta.length > 0 ? { type: "tool_delta", toolCallId, delta } : null;
+      }
       case "tool_execution_end": {
         const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
         if (!toolCallId) return null;
+        toolPartialOutputs.delete(toolCallId);
         return { type: "tool_end", toolCallId, ok: !raw.isError, result: raw.result };
       }
       case "queue_update": {
@@ -666,6 +740,15 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
           steeringCount,
           followUpCount,
           pendingMessageCount: steeringCount + followUpCount,
+        };
+      }
+      case "bash_execution_update": {
+        const delta = typeof raw["delta"] === "string" ? raw["delta"] : "";
+        if (!delta) return null;
+        return {
+          type: "bash_delta",
+          id: typeof raw.id === "string" ? raw.id : undefined,
+          delta,
         };
       }
       case "compaction_start":
@@ -737,8 +820,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
 
   function normalizeMessageUpdate(raw: PiEvent): AgentEvent | null {
     const delta = raw.assistantMessageEvent as
-      | { type: string; delta?: string; message?: string; error?: string }
-      | undefined;
+      { type: string; delta?: string; message?: string; error?: string } | undefined;
     if (!delta) return null;
     if (delta.type === "text_start" || delta.type === "thinking_start") {
       currentMsgId ??= generateId();
@@ -1094,6 +1176,16 @@ function summarizeAgentEvent(evt: AgentEvent | null): Record<string, unknown> {
       summary["toolCallId"] = evt.toolCallId;
       summary["toolName"] = evt.toolName;
       return summary;
+    case "tool_delta":
+      summary["toolCallId"] = evt.toolCallId;
+      summary["deltaLength"] = evt.delta.length;
+      summary["deltaPreview"] = previewText(evt.delta);
+      return summary;
+    case "bash_delta":
+      addStringField(summary, "id", evt.id);
+      summary["deltaLength"] = evt.delta.length;
+      summary["deltaPreview"] = previewText(evt.delta);
+      return summary;
     case "tool_end":
       summary["toolCallId"] = evt.toolCallId;
       summary["ok"] = evt.ok;
@@ -1260,7 +1352,13 @@ function normalizeUiRequest(raw: PiEvent): AgentEvent | null {
 }
 
 interface RpcSessionStateLike {
-  model?: { provider?: unknown; id?: unknown; name?: unknown; reasoning?: unknown } | null;
+  model?: {
+    provider?: unknown;
+    id?: unknown;
+    name?: unknown;
+    reasoning?: unknown;
+    input?: unknown;
+  } | null;
   thinkingLevel?: unknown;
   isCompacting?: unknown;
   steeringMode?: unknown;
@@ -1274,7 +1372,15 @@ interface RpcSessionStateLike {
   pendingMessageCount?: unknown;
 }
 
-const THINKING_LEVELS: readonly ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh"];
+const THINKING_LEVELS: readonly ThinkingLevel[] = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
 const QUEUE_MODES: readonly QueueMode[] = ["all", "one-at-a-time"];
 
 function mapPiStateToStatus(
@@ -1288,7 +1394,13 @@ function mapPiStateToStatus(
     running,
     isStreaming,
     model: model
-      ? { provider: model.provider, id: model.id, name: model.name, reasoning: model.reasoning }
+      ? {
+          provider: model.provider,
+          id: model.id,
+          name: model.name,
+          reasoning: model.reasoning,
+          input: model.input,
+        }
       : undefined,
     thinkingLevel: asEnum(state.thinkingLevel, THINKING_LEVELS),
     isCompacting: typeof state.isCompacting === "boolean" ? state.isCompacting : undefined,
@@ -1317,6 +1429,7 @@ function normalizeModel(value: unknown): AgentModel | null {
     contextWindow?: unknown;
     maxTokens?: unknown;
     cost?: unknown;
+    input?: unknown;
   };
   if (typeof raw.provider !== "string" || typeof raw.id !== "string") return null;
   return {
@@ -1327,7 +1440,16 @@ function normalizeModel(value: unknown): AgentModel | null {
     contextWindow: typeof raw.contextWindow === "number" ? raw.contextWindow : 0,
     maxTokens: typeof raw.maxTokens === "number" ? raw.maxTokens : 0,
     cost: normalizeModelCost(raw.cost),
+    input: normalizeModelInput(raw.input),
   };
+}
+
+function normalizeModelInput(value: unknown): AgentModel["input"] {
+  if (!Array.isArray(value)) return undefined;
+  const next = value.filter(
+    (item): item is "text" | "image" => item === "text" || item === "image",
+  );
+  return next.length > 0 ? Array.from(new Set(next)) : undefined;
 }
 
 function normalizeModelCost(value: unknown): AgentModel["cost"] {
@@ -1394,6 +1516,11 @@ function minimalModel(provider: string, id: string): AgentModel {
   return { provider, id, name: id, reasoning: false, contextWindow: 0, maxTokens: 0 };
 }
 
+function extractTextContent(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  return textFromParts((value as { content?: unknown }).content);
+}
+
 function textFromParts(parts: unknown): string {
   return Array.isArray(parts)
     ? parts
@@ -1401,6 +1528,12 @@ function textFromParts(parts: unknown): string {
         .map((part) => part.text)
         .join("")
     : "";
+}
+
+function imageCommandPayload(
+  images: readonly AgentImageAttachment[] | undefined,
+): { images: AgentImageAttachment[] } | Record<string, never> {
+  return images && images.length > 0 ? { images: images.map((image) => ({ ...image })) } : {};
 }
 
 function isTextPart(part: unknown): part is { type: "text"; text: string } {

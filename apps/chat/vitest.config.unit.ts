@@ -37,6 +37,7 @@ export default defineConfig({
     // Letting every Vitest project claim all eight host cores makes otherwise
     // sub-second interaction tests breach Vitest's 5s budget under contention.
     maxWorkers: 2,
+    testTimeout: 30_000,
     environment: "jsdom",
     execArgv: ["--no-experimental-webstorage"],
     environmentOptions: {

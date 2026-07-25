@@ -773,16 +773,16 @@ allow / ask / deny / abort
 
 Examples:
 
-| Command shape  | Default        | Reason               |
+| Command shape | Default | Reason |
 | -------------- | -------------- | -------------------- | ----------------------- |
-| `git status`   | Ask once       | Repo inspection      |
-| `pnpm test`    | Ask once       | Runs project code    |
-| `pnpm install` | Ask every time | Dependency mutation  |
-| `git commit`   | Ask every time | Mutates history      |
-| `rm -rf ...`   | Deny           | Destructive          |
-| `curl ...      | sh`            | Deny                 | Remote script execution |
-| `sudo ...`     | Deny           | Privilege escalation |
-| `cat .env`     | Deny           | Secret access        |
+| `git status` | Ask once | Repo inspection |
+| `pnpm test` | Ask once | Runs project code |
+| `pnpm install` | Ask every time | Dependency mutation |
+| `git commit` | Ask every time | Mutates history |
+| `rm -rf ...` | Deny | Destructive |
+| `curl ...      | sh` | Deny | Remote script execution |
+| `sudo ...` | Deny | Privilege escalation |
+| `cat .env` | Deny | Secret access |
 
 ## Permission UX
 

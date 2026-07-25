@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => {
 vi.mock("@afx/agent-pi", () => ({
   assertSessionPathAllowed: mocks.assertSessionPathAllowed,
   createPiClient: mocks.createPiClient,
+  normalizePiToolArgs: (raw: { args?: unknown }) => raw.args,
   piSessionRoots: mocks.piSessionRoots,
 }));
 
@@ -66,14 +67,28 @@ function createFakeClient(options: unknown): FakeClient {
       if (type === "get_available_models") {
         return {
           models: [
-            { provider: "anthropic", id: "claude-opus-4-5", name: "Opus", reasoning: true },
-            { provider: "openai", id: "gpt-5.2", name: "GPT", reasoning: true },
+            {
+              provider: "anthropic",
+              id: "claude-opus-4-5",
+              name: "Opus",
+              reasoning: true,
+              input: ["text", "image"],
+            },
+            { provider: "openai", id: "gpt-5.2", name: "GPT", reasoning: true, input: ["text"] },
           ],
         } as T;
       }
+      if (type === "get_available_thinking_levels") {
+        return { levels: ["off", "medium", "max"] } as T;
+      }
       if (type === "get_state") {
         return {
-          model: { provider: "anthropic", id: "claude-opus-4-5", name: "Opus" },
+          model: {
+            provider: "anthropic",
+            id: "claude-opus-4-5",
+            name: "Opus",
+            input: ["text", "image"],
+          },
           sessionFile: "/tmp/session.jsonl",
         } as T;
       }
@@ -421,6 +436,26 @@ describe("createPiSdkAgentManager", () => {
     expect(JSON.stringify(vi.mocked(logger.info).mock.calls)).not.toContain("secret-key");
   });
 
+  it("passes image attachments to SDK prompt requests", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai",
+      modelId: "gpt-5.4",
+      getApiKey: () => "secret-key",
+    });
+
+    await manager.send("describe this", [
+      { type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" },
+    ]);
+
+    expect(mocks.clients.at(-1)?.requests.at(-1)).toEqual({
+      type: "prompt",
+      message: "describe this",
+      images: [{ type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" }],
+    });
+  });
+
   it("logs raw and normalized SDK events with bounded response previews", async () => {
     const manager = createPiSdkAgentManager({
       logger,
@@ -560,6 +595,64 @@ describe("createPiSdkAgentManager", () => {
       running: true,
       isStreaming: false,
     });
+  });
+
+  it("exposes Pi 0.82 thinking levels from wrapped RPC responses", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai",
+      modelId: "gpt-5.4",
+      getApiKey: () => "secret-key",
+    });
+
+    await expect(manager.getAvailableThinkingLevels?.()).resolves.toEqual(["off", "medium", "max"]);
+  });
+
+  it("normalizes accumulated SDK tool updates and direct bash chunks as deltas", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai",
+      modelId: "gpt-5.4",
+      getApiKey: () => "secret-key",
+    });
+    const events: unknown[] = [];
+    manager.onEvent((event) => events.push(event));
+    await manager.getStatus();
+
+    mocks.clients[0]!.eventListener?.({
+      type: "tool_execution_start",
+      toolCallId: "call-1",
+      toolName: "bash",
+      args: { command: "printf hello" },
+    });
+    mocks.clients[0]!.eventListener?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "hello" }] },
+    });
+    mocks.clients[0]!.eventListener?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "hello world" }] },
+    });
+    mocks.clients[0]!.eventListener?.({
+      type: "bash_execution_update",
+      id: "req-1",
+      delta: "line\n",
+    });
+
+    expect(events).toContainEqual(
+      expect.objectContaining({ type: "tool_start", toolCallId: "call-1", toolName: "bash" }),
+    );
+    expect(events).toContainEqual({ type: "tool_delta", toolCallId: "call-1", delta: "hello" });
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: " world",
+    });
+    expect(events).toContainEqual({ type: "bash_delta", id: "req-1", delta: "line\n" });
   });
 
   it("normalizes SDK context overflow as recoverable compaction events", async () => {
@@ -713,6 +806,7 @@ describe("createPiSdkAgentManager", () => {
           id: "claude-opus-4-5",
           source: "api-provider",
           instanceLabel: "anthropic",
+          input: ["text", "image"],
         }),
         expect.objectContaining({
           provider: "openai",

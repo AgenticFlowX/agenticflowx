@@ -181,6 +181,7 @@ const CANVAS_MIN_ZOOM = 0.2;
 const CANVAS_MAX_ZOOM = 3;
 const CANVAS_WHEEL_ZOOM_SENSITIVITY = 0.0012;
 const CANVAS_MAX_WHEEL_ZOOM_DELTA = 120;
+const CANVAS_MODIFIER_WHEEL_BURST_MS = 500;
 
 /**
  * Provides lasso, touch/pointer graph movement, connection/reconnection,
@@ -995,7 +996,7 @@ export function ReactFlowCanvas({
       const bounds = surfaceRef.current?.getBoundingClientRect();
       if (!bounds) return;
       const now = performance.now();
-      const inBurst = now - lastModifierWheelAt.current < 200;
+      const inBurst = now - lastModifierWheelAt.current < CANVAS_MODIFIER_WHEEL_BURST_MS;
       lastModifierWheelAt.current = now;
       const current = inBurst ? viewportRef.current : instance.getViewport();
       const normalizedDelta =
@@ -1039,7 +1040,7 @@ export function ReactFlowCanvas({
         const settled = viewportRef.current;
         if (onViewStateChange) publishViewState(selectedNodeIds, selectedEdgeIds, settled);
         else writeCanvasViewport(documentKey, settled);
-      }, 200);
+      }, CANVAS_MODIFIER_WHEEL_BURST_MS);
     },
     [documentKey, instance, onViewStateChange, publishViewState, selectedEdgeIds, selectedNodeIds],
   );

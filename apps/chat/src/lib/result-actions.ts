@@ -134,7 +134,7 @@ export function stripResultActionSections(output: string): string {
   const lines = output.split(/\r?\n/);
   const kept: string[] = [];
 
-  for (let index = 0; index < lines.length; ) {
+  for (let index = 0; index < lines.length;) {
     if (NEXT_LABEL_RE.test(lines[index] ?? "")) {
       index = findNextSectionEnd(lines, index);
       continue;

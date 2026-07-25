@@ -8,10 +8,7 @@
 import { AFX_STYLE_IDS, AFX_THEME_IDS, type AfxStyleId, type AfxThemeId } from "@afx/shared";
 
 export type HostModeClass =
-  | "vscode-dark"
-  | "vscode-light"
-  | "vscode-high-contrast"
-  | "vscode-high-contrast-light";
+  "vscode-dark" | "vscode-light" | "vscode-high-contrast" | "vscode-high-contrast-light";
 
 export const HOST_MODE_CLASSES: readonly HostModeClass[] = [
   "vscode-dark",

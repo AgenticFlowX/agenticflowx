@@ -115,6 +115,7 @@ import { applyRuntimeAppearance } from "../lib/theme-preview";
 type RuntimeSettings = Pick<
   AgentStatus,
   | "thinkingLevel"
+  | "availableThinkingLevels"
   | "steeringMode"
   | "followUpMode"
   | "autoCompactionEnabled"
@@ -131,12 +132,22 @@ const ACTIONS = [
 ];
 
 const THINKING_LEVELS: ReadonlyArray<{ value: ThinkingLevel; label: string }> = [
+  { value: "off", label: RUNTIMES.thinkingOff.label },
   { value: "minimal", label: RUNTIMES.thinkingMinimal.label },
   { value: "low", label: RUNTIMES.thinkingLow.label },
   { value: "medium", label: RUNTIMES.thinkingMedium.label },
   { value: "high", label: RUNTIMES.thinkingHigh.label },
   { value: "xhigh", label: RUNTIMES.thinkingXhigh.label },
+  { value: "max", label: RUNTIMES.thinkingMax.label },
 ];
+
+function thinkingLevelOptions(
+  availableThinkingLevels: readonly ThinkingLevel[] | undefined,
+): ReadonlyArray<{ value: ThinkingLevel; label: string }> {
+  if (!availableThinkingLevels || availableThinkingLevels.length === 0) return THINKING_LEVELS;
+  const available = new Set<ThinkingLevel>(availableThinkingLevels);
+  return THINKING_LEVELS.filter((option) => available.has(option.value));
+}
 
 const QUEUE_MODES: ReadonlyArray<{ value: QueueMode; label: string }> = [
   { value: "all", label: `${RUNTIMES.steeringAll.label} — ${RUNTIMES.steeringAll.description}` },
@@ -1865,7 +1876,7 @@ export default function Settings({
                   onChange={(v) => applyThinkingLevel(v as ThinkingLevel)}
                   disabled={runtimeControlsDisabled}
                   placeholderShown={!runtime.thinkingLevel}
-                  options={THINKING_LEVELS}
+                  options={thinkingLevelOptions(runtime.availableThinkingLevels)}
                 />
                 <SelectRow
                   id="steering-mode"

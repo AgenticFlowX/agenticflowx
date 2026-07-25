@@ -6,7 +6,7 @@
 import type { ComposerAttachmentItem } from "./chat.types";
 
 export interface ComposerAttachmentTrayProps {
-  attachments: ComposerAttachmentItem[];
+  attachments: readonly ComposerAttachmentItem[];
   onRemove?: (id: string) => void;
 }
 

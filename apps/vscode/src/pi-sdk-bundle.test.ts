@@ -29,7 +29,7 @@ describe("bundled Pi SDK bootstrap", () => {
 
     expect(JSON.parse(readFileSync(packageJsonPath, "utf8"))).toMatchObject({
       type: "module",
-      afxBundledPi: { package: "@earendil-works/pi-coding-agent", version: "0.80.2" },
+      afxBundledPi: { package: "@earendil-works/pi-coding-agent", version: "0.82.0" },
     });
   });
 

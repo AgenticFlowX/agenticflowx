@@ -1209,8 +1209,7 @@ describe("CanvasApp React Flow shell", () => {
       );
 
       const save = saveCall?.[0] as
-        | { requestId: string; sessionId: string; sequence: number }
-        | undefined;
+        { requestId: string; sessionId: string; sequence: number } | undefined;
       inbound({
         type: "afxCanvasEditResult",
         requestId: save?.requestId,
@@ -1309,8 +1308,7 @@ describe("CanvasApp React Flow shell", () => {
         (call: unknown[]) => (call[0] as { type?: string }).type === "afxCanvasEdit",
       );
       const first = firstSave?.[0] as
-        | { requestId: string; sessionId: string; sequence: number }
-        | undefined;
+        { requestId: string; sessionId: string; sequence: number } | undefined;
       inbound({
         type: "afxCanvasEditResult",
         requestId: first?.requestId,
@@ -1346,8 +1344,7 @@ describe("CanvasApp React Flow shell", () => {
         (call: unknown[]) => (call[0] as { type?: string }).type === "afxCanvasEdit",
       );
       const firstMessage = firstSave?.[0] as
-        | { requestId: string; sessionId: string; sequence: number; content: string }
-        | undefined;
+        { requestId: string; sessionId: string; sequence: number; content: string } | undefined;
       expect(firstMessage).toBeDefined();
       expect(screen.getByText("Saving…")).toBeInTheDocument();
 
@@ -1395,8 +1392,7 @@ describe("CanvasApp React Flow shell", () => {
         (call: unknown[]) => (call[0] as { type?: string }).type === "afxCanvasEdit",
       );
       const firstMessage = firstSave?.[0] as
-        | { requestId: string; sessionId: string; sequence: number; content: string }
-        | undefined;
+        { requestId: string; sessionId: string; sequence: number; content: string } | undefined;
       expect(firstMessage).toBeDefined();
 
       fireEvent.click(screen.getByRole("button", { name: "Mutate graph" }));

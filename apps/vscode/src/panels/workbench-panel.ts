@@ -1065,8 +1065,7 @@ async function handleMessage(
         }
         const syncStartedAt = Date.now();
         let summary:
-          | Awaited<ReturnType<SpecDependencyIndexer["refresh"]>>["diagnostics"]
-          | undefined;
+          Awaited<ReturnType<SpecDependencyIndexer["refresh"]>>["diagnostics"] | undefined;
         const result = await mutationCoordinator.mutateText({
           requestId: msg.requestId,
           target: msg.target,

@@ -947,8 +947,7 @@ export default function BoardV2() {
 
   function onDragStart(event: DragStartEvent): void {
     const data = event.active.data.current as
-      | { kind?: string; cardId?: string; columnId?: string }
-      | undefined;
+      { kind?: string; cardId?: string; columnId?: string } | undefined;
     if (data?.kind === "card") {
       const card = rendered?.columns
         .flatMap((column) => column.cards)
@@ -964,11 +963,9 @@ export default function BoardV2() {
     setActiveDragLabel(null);
     if (!rendered || !event.over || event.active.id === event.over.id) return;
     const active = event.active.data.current as
-      | { kind?: string; cardId?: string; columnId?: string }
-      | undefined;
+      { kind?: string; cardId?: string; columnId?: string } | undefined;
     const over = event.over.data.current as
-      | { kind?: string; cardId?: string; columnId?: string }
-      | undefined;
+      { kind?: string; cardId?: string; columnId?: string } | undefined;
     if (active?.kind === "column" && active.columnId) {
       mutate({
         kind: "moveColumn",

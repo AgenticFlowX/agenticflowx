@@ -75,6 +75,13 @@ export type ChatRole = "user" | "assistant" | "compactionSummary";
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-VIEW-TYPES]
  */
 export interface ChatUsageView {
+  sessionFile?: string;
+  sessionId?: string;
+  userMessages?: number;
+  assistantMessages?: number;
+  toolCalls?: number;
+  toolResults?: number;
+  totalMessages?: number;
   tokens: {
     input: number;
     output: number;
@@ -109,6 +116,14 @@ export interface ChatMessageView {
   thinking?: string;
   /** Per-response usage snapshot for this assistant turn. */
   usage?: ChatUsageView;
+}
+
+export interface ChatImageAttachmentView {
+  id: string;
+  kind: "image";
+  name: string;
+  mediaType: string;
+  byteLength: number;
 }
 
 /**
@@ -149,6 +164,8 @@ export interface ChatToolView {
   toolName: string;
   status: "running" | "ok" | "error";
   summary?: string;
+  /** Streaming output accumulated while the tool is still running. */
+  output?: string;
   /** Tool arguments (for display). */
   args?: Record<string, unknown>;
   /**
@@ -337,14 +354,7 @@ export interface ActiveFileContextSnapshot {
 export type ActiveDocFormat = "sprint" | "standard" | null;
 export type ActiveDocSection = "SPEC" | "DESIGN" | "TASKS" | "SESSIONS" | null;
 export type ActiveDocKind =
-  | "spec"
-  | "design"
-  | "tasks"
-  | "journal"
-  | "adr"
-  | "research"
-  | "context"
-  | null;
+  "spec" | "design" | "tasks" | "journal" | "adr" | "research" | "context" | null;
 
 /**
  * Active AFX document context surfaced to the composer doc-actions strip.
@@ -452,11 +462,7 @@ export interface SettingsExperimentalSnapshot {
 
 export type SettingsProjectTrust = "ask" | "trust" | "ignore";
 export type SettingsOpenTarget =
-  | "connect"
-  | "hosted-key"
-  | "custom-provider"
-  | "runtimes"
-  | "skills";
+  "connect" | "hosted-key" | "custom-provider" | "runtimes" | "skills";
 
 export interface SettingsSkillPathSnapshot {
   kind: "afx" | "global" | "workspace" | "custom";
@@ -566,6 +572,7 @@ export type ChatToAgent =
       content: string;
       mentions?: string[];
       intentSlot?: IntentSlot;
+      imageAttachmentIds?: string[];
     }
   /**
    * User clicked a pill or header action that targets a workspace file. The
@@ -704,6 +711,13 @@ export type ChatToAgent =
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
    */
   | { type: "chat/getCommands"; requestId: string }
+  /**
+   * Composer attachment picker asks the VS Code host to select and stage local images.
+   * The host returns opaque attachment IDs; absolute file paths never enter the webview.
+   */
+  | { type: "chat/selectImages"; requestId: string }
+  /** Drop staged image payloads no longer referenced by the webview composer. */
+  | { type: "chat/discardImages"; requestId: string; imageAttachmentIds: string[] }
   /**
    * Composer mention popup requests recent/workspace files.
    *
@@ -934,6 +948,7 @@ export type ChatToAgent =
       content: string;
       mentions?: string[];
       intentSlot?: IntentSlot;
+      imageAttachmentIds?: string[];
     }
   /**
    * Queue a message for after the active turn completes.
@@ -947,6 +962,7 @@ export type ChatToAgent =
       content: string;
       mentions?: string[];
       intentSlot?: IntentSlot;
+      imageAttachmentIds?: string[];
     }
   /**
    * User saved the composer draft as a note (Cmd+Enter). Host writes to .afx/notes.md.
@@ -1248,6 +1264,17 @@ export type AgentToChat =
       args: unknown;
     }
   /**
+   * Tool execution emitted incremental output.
+   *
+   * @see docs/specs/212-app-chat-messages/spec.md [FR-2]
+   * @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-TOOLS]
+   */
+  | {
+      type: "chat/toolDelta";
+      toolCallId: string;
+      delta: string;
+    }
+  /**
    * Tool execution finished.
    *
    * @see docs/specs/212-app-chat-messages/spec.md [FR-2]
@@ -1308,6 +1335,13 @@ export type AgentToChat =
       type: "chat/usage";
       /** Assistant message id this usage belongs to (when available). */
       messageId?: string;
+      sessionFile?: string;
+      sessionId?: string;
+      userMessages?: number;
+      assistantMessages?: number;
+      toolCalls?: number;
+      toolResults?: number;
+      totalMessages?: number;
       tokens: {
         input: number;
         output: number;
@@ -1365,6 +1399,13 @@ export type AgentToChat =
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-HELPERS]
    */
   | { type: "agent/files"; requestId: string; files: AgentFileView[] }
+  | {
+      type: "chat/imagesSelected";
+      requestId: string;
+      ok: boolean;
+      attachments: ChatImageAttachmentView[];
+      error?: string;
+    }
   /**
    * Settings panel: full snapshot response.
    *
@@ -1411,6 +1452,7 @@ export type AgentToChat =
       settings: Pick<
         AgentStatus,
         | "thinkingLevel"
+        | "availableThinkingLevels"
         | "steeringMode"
         | "followUpMode"
         | "autoCompactionEnabled"
@@ -1585,8 +1627,7 @@ export type WorkbenchToHost = { type: "workbench/ready" };
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-WORKBENCH-PROTOCOL]
  */
 export type HostToWorkbench =
-  | { type: "workbench/state"; data: unknown }
-  | { type: "workbench/status"; running: boolean };
+  { type: "workbench/state"; data: unknown } | { type: "workbench/status"; running: boolean };
 
 // ---------------------------------------------------------------------------
 // Helpers

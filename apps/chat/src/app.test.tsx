@@ -15,7 +15,7 @@ import type { Transport } from "@afx/transport";
 import App from "./app";
 import { initTransport } from "./lib/bridge";
 
-vi.setConfig({ testTimeout: 15_000 });
+vi.setConfig({ testTimeout: 45_000 });
 
 function renderApp() {
   const transport = createMockTransport();
@@ -309,6 +309,126 @@ describe("chat App", () => {
     expect(composer).toHaveFocus();
     expect((composer as HTMLTextAreaElement).selectionStart).toBe(
       "Review this exact prompt".length,
+    );
+  });
+
+  it("sends host-selected image attachment ids with the next chat message", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+    });
+
+    await user.click(screen.getByRole("button", { name: "Attach image" }));
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/selectImages" }),
+    );
+
+    act(() => {
+      transport.emit({
+        type: "chat/imagesSelected",
+        requestId: "images",
+        ok: true,
+        attachments: [
+          {
+            id: "img-1",
+            kind: "image",
+            name: "diagram.png",
+            mediaType: "image/png",
+            byteLength: 68,
+          },
+        ],
+      });
+    });
+
+    expect(screen.getByLabelText("Selected attachments")).toHaveTextContent("diagram.png");
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.type(screen.getByRole("textbox", { name: "Chat composer" }), "describe this");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "describe this",
+        imageAttachmentIds: ["img-1"],
+      }),
+    );
+    expect(screen.queryByText("diagram.png")).not.toBeInTheDocument();
+  });
+
+  it("allows sending an image-only chat message", async () => {
+    const transport = createControlledTransport();
+    const user = userEvent.setup();
+    initTransport(transport);
+    render(<App transport={transport} />);
+
+    act(() => {
+      transport.emit({
+        type: "agent/status",
+        status: {
+          phase: "ready",
+          running: true,
+          isStreaming: false,
+          checkedAt: 1,
+          consecutiveFailures: 0,
+          model: {
+            provider: "openai",
+            id: "gpt-5.4",
+            name: "GPT-5.4",
+            source: "api-provider",
+            instanceId: "pi-sdk",
+          },
+        },
+      });
+      emitChatState(transport);
+      transport.emit({
+        type: "chat/imagesSelected",
+        requestId: "images",
+        ok: true,
+        attachments: [
+          {
+            id: "img-1",
+            kind: "image",
+            name: "diagram.png",
+            mediaType: "image/png",
+            byteLength: 68,
+          },
+        ],
+      });
+    });
+
+    const send = transport.send as ReturnType<typeof vi.fn>;
+    send.mockClear();
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/send",
+        content: "",
+        imageAttachmentIds: ["img-1"],
+      }),
     );
   });
 

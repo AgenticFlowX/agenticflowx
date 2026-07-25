@@ -565,10 +565,17 @@ function useUserRowScrolledAbove(ref: RefObject<HTMLElement | null>): boolean {
 
     const scrollRoot = findScrollRoot(node);
     let frame: number | null = null;
-    const requestFrame =
-      window.requestAnimationFrame ??
-      ((callback: FrameRequestCallback) => window.setTimeout(() => callback(Date.now()), 16));
-    const cancelFrame = window.cancelAnimationFrame ?? window.clearTimeout;
+    const requestFrame = (callback: FrameRequestCallback): number =>
+      window.requestAnimationFrame
+        ? window.requestAnimationFrame(callback)
+        : window.setTimeout(() => callback(Date.now()), 16);
+    const cancelFrame = (handle: number): void => {
+      if (window.cancelAnimationFrame) {
+        window.cancelAnimationFrame(handle);
+        return;
+      }
+      window.clearTimeout(handle);
+    };
     const computeScrolledAbove = (
       rowRect = node.getBoundingClientRect(),
       rootRect = scrollRoot?.getBoundingClientRect() ?? null,

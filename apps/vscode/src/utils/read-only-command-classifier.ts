@@ -20,8 +20,6 @@ import {
   tokenizeShellCommand,
 } from "./shell-command-parser";
 
-export { tokenizeShellCommand } from "./shell-command-parser";
-
 export type ReadOnlyCommandStatus = "allow" | "block";
 
 export interface ReadOnlyCommandDecision {
@@ -31,8 +29,7 @@ export interface ReadOnlyCommandDecision {
 }
 
 export type ShellInvocation =
-  | { kind: "script"; command: string }
-  | { kind: "argv"; argv: readonly string[] };
+  { kind: "script"; command: string } | { kind: "argv"; argv: readonly string[] };
 
 interface CommandSubstitutionDecision {
   command: string;

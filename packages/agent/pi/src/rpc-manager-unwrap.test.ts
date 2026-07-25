@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 let running = false;
 let getModelsResponse: unknown = null;
 let getCommandsResponse: unknown = null;
+let getThinkingLevelsResponse: unknown = null;
 let getStateResponse: unknown = null;
 let compactResponse: unknown = null;
 
@@ -30,6 +31,7 @@ const fakeClient = {
   dispose: vi.fn(async () => {}),
   request: vi.fn(async (cmd: { type: string }) => {
     if (cmd.type === "get_available_models") return getModelsResponse;
+    if (cmd.type === "get_available_thinking_levels") return getThinkingLevelsResponse;
     if (cmd.type === "get_commands") return getCommandsResponse;
     if (cmd.type === "get_state") return getStateResponse;
     if (cmd.type === "compact") return compactResponse;
@@ -53,6 +55,7 @@ const PI_MODEL = {
   reasoning: true,
   contextWindow: 1_000_000,
   maxTokens: 128_000,
+  input: ["text", "image"],
 };
 
 const PI_COMMAND = {
@@ -73,6 +76,7 @@ describe("PiRpcManager response unwrap", () => {
     running = false;
     getModelsResponse = null;
     getCommandsResponse = null;
+    getThinkingLevelsResponse = null;
     getStateResponse = null;
     compactResponse = null;
     vi.clearAllMocks();
@@ -87,6 +91,7 @@ describe("PiRpcManager response unwrap", () => {
       const result = await manager.getAvailableModels();
       expect(result).toHaveLength(1);
       expect(result[0]?.provider).toBe("anthropic");
+      expect(result[0]?.input).toEqual(["text", "image"]);
     });
 
     it("accepts a bare array response (legacy / mock shape)", async () => {
@@ -105,6 +110,16 @@ describe("PiRpcManager response unwrap", () => {
 
       const result = await manager.getAvailableModels();
       expect(result).toEqual([]);
+    });
+  });
+
+  describe("getAvailableThinkingLevels", () => {
+    it("unwraps `{ levels: [...] }` (real Pi shape)", async () => {
+      getThinkingLevelsResponse = { levels: ["off", "low", "max"] };
+      const { createAgentManager } = await import("./rpc-manager");
+      const manager = createAgentManager({ logger: createLogger(), ephemeral: true });
+
+      await expect(manager.getAvailableThinkingLevels?.()).resolves.toEqual(["off", "low", "max"]);
     });
   });
 
@@ -147,6 +162,7 @@ describe("PiRpcManager response unwrap", () => {
         followUpMode: "all",
         sessionFile: "/tmp/agenticflowx-sessions/session.jsonl",
         pendingMessageCount: 2,
+        model: PI_MODEL,
       };
       const { createAgentManager } = await import("./rpc-manager");
       const manager = createAgentManager({ logger: createLogger(), ephemeral: true });
@@ -156,6 +172,7 @@ describe("PiRpcManager response unwrap", () => {
       expect(result.sessionFile).toBe("/tmp/agenticflowx-sessions/session.jsonl");
       expect(result.steeringMode).toBe("one-at-a-time");
       expect(result.followUpMode).toBe("all");
+      expect(result.model?.input).toEqual(["text", "image"]);
     });
   });
 

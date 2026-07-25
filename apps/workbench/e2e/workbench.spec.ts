@@ -1104,8 +1104,7 @@ for (const viewport of [
       w.__afxOutboundMessages = [];
       window.addEventListener("message", (event: MessageEvent) => {
         const msg = event.data as
-          | { command?: string; mode?: string; path?: string; type?: string }
-          | undefined;
+          { command?: string; mode?: string; path?: string; type?: string } | undefined;
         if (msg?.type === "afxOpenChatCommand" || msg?.type === "afxOpenFile") {
           w.__afxOutboundMessages?.push(msg);
         }

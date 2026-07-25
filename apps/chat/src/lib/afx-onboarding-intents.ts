@@ -29,10 +29,7 @@ export type OnboardingIntent = Readonly<{
 }>;
 
 export type OnboardingSampleId =
-  | "tiny-ui-polish"
-  | "risky-backend-change"
-  | "refactor"
-  | "turn-notes-into-work";
+  "tiny-ui-polish" | "risky-backend-change" | "refactor" | "turn-notes-into-work";
 
 export type OnboardingSample = Readonly<{
   id: OnboardingSampleId;

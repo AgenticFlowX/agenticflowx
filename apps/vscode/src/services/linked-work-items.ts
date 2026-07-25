@@ -252,8 +252,7 @@ export function buildLinkedWorkCatalog(sources: readonly LinkedWorkSource[]): Li
 }
 
 export type LinkedTaskToggleOutcome =
-  | { ok: true; content: string }
-  | { ok: false; reason: "missing" | "ambiguous"; message: string };
+  { ok: true; content: string } | { ok: false; reason: "missing" | "ambiguous"; message: string };
 
 /**
  * Toggle one source-owned checklist item without regenerating its task file.

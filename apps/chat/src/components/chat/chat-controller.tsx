@@ -27,6 +27,7 @@ import type {
   AgentRuntimeStatus,
   AgentStatus,
   AgentToChat,
+  ChatImageAttachmentView,
   ChatMessageView,
   ChatTimelineItem,
   ChatToolView,
@@ -107,6 +108,7 @@ export type ChatRuntimeSettings = Partial<
   Pick<
     AgentStatus,
     | "thinkingLevel"
+    | "availableThinkingLevels"
     | "steeringMode"
     | "followUpMode"
     | "autoCompactionEnabled"
@@ -122,6 +124,13 @@ export type ChatRuntimeSettings = Partial<
 
 /** Aggregated usage stats for a turn. */
 export interface ChatUsageStats {
+  sessionFile?: string;
+  sessionId?: string;
+  userMessages?: number;
+  assistantMessages?: number;
+  toolCalls?: number;
+  toolResults?: number;
+  totalMessages?: number;
   tokens: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
   cost: number;
   contextUsage?: { tokens: number | null; contextWindow: number; percent: number | null };
@@ -263,6 +272,8 @@ export interface ChatControllerActions {
   setIntentSlot: (slot: IntentSlot) => void;
   setIntentMinimized: (minimized: boolean) => void;
   setThinkingLevel: (level: ThinkingLevel) => void;
+  selectImages: () => void;
+  removeImageAttachment: (id: string) => void;
   dispatchHostAction: (action: "tasks.signOff", uri: string) => void;
 
   // Composer-coupled (need composer-local cleanup callbacks)
@@ -347,9 +358,11 @@ export interface ComposerSlice {
   commands: readonly AgentCommand[];
   files: readonly AgentFileView[];
   selectedModel:
-    | Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod">
+    | Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod" | "input">
     | undefined;
   thinkingLevel: ThinkingLevel | undefined;
+  availableThinkingLevels: readonly ThinkingLevel[] | undefined;
+  attachments: readonly ChatImageAttachmentView[];
   includeActiveFileContext: boolean;
   activeFileDisplayName: string;
   activeFileDisplayPath: string;
@@ -514,6 +527,7 @@ export function useChatController({
   const [runtime, setRuntime] = useState<ChatRuntimeSettings>({});
   const [usage, setUsage] = useState<ChatUsageStats | null>(null);
   const [queued, setQueued] = useState<QueuedMessage[]>([]);
+  const [imageAttachments, setImageAttachments] = useState<ChatImageAttachmentView[]>([]);
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>(
     () => initialPersistedChatView?.workspaceMode ?? "code",
   );
@@ -773,6 +787,23 @@ export function useChatController({
           });
         }),
 
+        bridge.on("chat/toolDelta", (msg) => {
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (!("tools" in m)) return m;
+              const typed = m;
+              return {
+                ...typed,
+                tools: (typed.tools ?? []).map((t: ChatToolView) => {
+                  if (t.toolCallId !== msg.toolCallId) return t;
+                  const output = `${t.output ?? t.summary ?? ""}${msg.delta}`;
+                  return { ...t, output, summary: output };
+                }),
+              };
+            }),
+          );
+        }),
+
         bridge.on("chat/toolEnd", (msg) => {
           setMessages((prev) =>
             prev.map((m) => {
@@ -785,7 +816,7 @@ export function useChatController({
                     ? {
                         ...t,
                         status: msg.ok ? "ok" : "error",
-                        summary: msg.summary,
+                        summary: msg.summary ?? t.summary,
                         firstChangedLine: msg.firstChangedLine ?? t.firstChangedLine,
                       }
                     : t,
@@ -802,6 +833,13 @@ export function useChatController({
 
         bridge.on("chat/usage", (msg) => {
           const usageValue: ChatUsageStats = {
+            sessionFile: msg.sessionFile,
+            sessionId: msg.sessionId,
+            userMessages: msg.userMessages,
+            assistantMessages: msg.assistantMessages,
+            toolCalls: msg.toolCalls,
+            toolResults: msg.toolResults,
+            totalMessages: msg.totalMessages,
             tokens: msg.tokens,
             cost: msg.cost,
             contextUsage: msg.contextUsage,
@@ -884,6 +922,7 @@ export function useChatController({
               id: msg.model.id,
               name: msg.model.name,
               reasoning: msg.model.reasoning,
+              input: msg.model.input,
               source: msg.model.source,
               instanceId: msg.model.instanceId,
               instanceLabel: msg.model.instanceLabel,
@@ -945,6 +984,15 @@ export function useChatController({
 
         bridge.on("agent/files", (msg) => {
           setFiles(msg.files);
+        }),
+
+        bridge.on("chat/imagesSelected", (msg) => {
+          if (!msg.ok) {
+            toast.error("Image attach failed", msg.error ?? "The host could not attach images.");
+            return;
+          }
+          if (msg.attachments.length === 0) return;
+          setImageAttachments((current) => dedupeImageAttachments(current, msg.attachments));
         }),
 
         bridge.on("agent/runtimeSettings", (msg) => {
@@ -1262,8 +1310,9 @@ export function useChatController({
   const submit = useStableCallback((input: ChatSubmitInput) => {
     const trimmed = input.draft.trim();
     const isCommandDraft = trimmed.startsWith("!");
+    const imageAttachmentIds = imageAttachments.map((item) => item.id);
     if (
-      trimmed.length === 0 ||
+      (trimmed.length === 0 && imageAttachmentIds.length === 0) ||
       (isCommandDraft ? isCheckingAgent || isCompacting : isComposerDisabledFor(input.draft))
     ) {
       return;
@@ -1309,25 +1358,32 @@ export function useChatController({
     // Normal LLM message
     const mentions = extractMentions(trimmed);
     const mentionsArg = mentions.length > 0 ? mentions : undefined;
-    onPromptHistoryAppend?.(trimmed);
-    markAfxCommandIfCodeMode(trimmed);
+    const imagesArg = imageAttachmentIds.length > 0 ? imageAttachmentIds : undefined;
+    if (trimmed.length > 0) {
+      onPromptHistoryAppend?.(trimmed);
+      markAfxCommandIfCodeMode(trimmed);
+    }
 
     if (!isStreaming) {
+      setImageAttachments([]);
       bridgeSend({
         type: "chat/send",
         requestId: createChatUid(),
         content: trimmed,
         mentions: mentionsArg,
         intentSlot: latestIntentSlotRef.current,
+        imageAttachmentIds: imagesArg,
       });
     } else {
       const mode: QueuedMessage["mode"] = input.followUp ? "followUp" : "steer";
+      setImageAttachments([]);
       bridgeSend({
         type: mode === "steer" ? "chat/steer" : "chat/followUp",
         requestId: createChatUid(),
         content: trimmed,
         mentions: mentionsArg,
         intentSlot: latestIntentSlotRef.current,
+        imageAttachmentIds: imagesArg,
       });
       setQueued((q) => [...q, { id: createChatUid(), mode, content: trimmed, sentAt: Date.now() }]);
     }
@@ -1388,6 +1444,19 @@ export function useChatController({
       ...prev,
       { id: createChatUid(), content: trimmed, savedAt: Date.now() },
     ]);
+  });
+
+  const selectImages = useStableCallback(() => {
+    bridgeSend({ type: "chat/selectImages", requestId: createChatUid() });
+  });
+
+  const removeImageAttachment = useStableCallback((id: string) => {
+    setImageAttachments((current) => current.filter((item) => item.id !== id));
+    bridgeSend({
+      type: "chat/discardImages",
+      requestId: createChatUid(),
+      imageAttachmentIds: [id],
+    });
   });
 
   const startNewSession = useStableCallback((input?: ChatStartNewSessionInput) => {
@@ -1498,6 +1567,8 @@ export function useChatController({
       files,
       selectedModel: agentStatus.model,
       thinkingLevel: runtime.thinkingLevel,
+      availableThinkingLevels: runtime.availableThinkingLevels,
+      attachments: imageAttachments,
       includeActiveFileContext,
       activeFileDisplayName,
       activeFileDisplayPath,
@@ -1515,6 +1586,7 @@ export function useChatController({
       commands,
       customProviderLabels,
       files,
+      imageAttachments,
       includeActiveFileContext,
       isCompacting,
       isStreaming,
@@ -1527,6 +1599,7 @@ export function useChatController({
       models,
       rpcEnabled,
       runtime.thinkingLevel,
+      runtime.availableThinkingLevels,
       runtimeUnavailable,
       runtimeUnconfigured,
       workspaceMode,
@@ -1898,6 +1971,8 @@ export function useChatController({
       setIntentSlot,
       setIntentMinimized,
       setThinkingLevel,
+      selectImages,
+      removeImageAttachment,
       dispatchHostAction,
       submit,
       saveAsNote,
@@ -1940,6 +2015,7 @@ export function useChatController({
       persistAction,
       registerDebugQueueInjection,
       restartAgent,
+      removeImageAttachment,
       restoreBlockedCommand,
       saveAsNote,
       selectModel,
@@ -1951,6 +2027,7 @@ export function useChatController({
       setMode,
       setOnboardingFlag,
       setThinkingLevel,
+      selectImages,
       startCompact,
       startNewSession,
       submit,
@@ -2059,6 +2136,15 @@ export function collectPromptHistory(
   return history.slice(-50);
 }
 
+function dedupeImageAttachments(
+  current: readonly ChatImageAttachmentView[],
+  incoming: readonly ChatImageAttachmentView[],
+): ChatImageAttachmentView[] {
+  const byId = new Map(current.map((item) => [item.id, item]));
+  for (const item of incoming) byId.set(item.id, item);
+  return Array.from(byId.values()).slice(-8);
+}
+
 /** Generates a unique ID for locally-created messages/events. */
 export function createChatUid(): string {
   const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
@@ -2107,6 +2193,3 @@ function useDebugQueueInjectionEffect(setQueued: Dispatch<SetStateAction<QueuedM
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 }
-
-// Re-export to keep imports stable.
-export type { AgentToChat };

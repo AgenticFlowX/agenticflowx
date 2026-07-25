@@ -195,7 +195,8 @@ export function ChatWindow({
   const isComposerDisabled =
     isCheckingAgent || derived.isCompacting || (!isSystemCommand && derived.runtimeUnavailable);
   const hasDraft = draft.trim().length > 0;
-  const canSend = hasDraft && !isComposerDisabled;
+  const hasAttachments = slices.composer.attachments.length > 0;
+  const canSend = (hasDraft || hasAttachments) && !isComposerDisabled;
   const composerPlaceholder = getComposerPlaceholder({
     isCheckingAgent,
     runtimeUnconfigured: derived.runtimeUnconfigured,
@@ -622,7 +623,10 @@ export function ChatWindow({
               />
             ) : null}
             {chatWindowFlags.composerAttachmentTray ? (
-              <ComposerAttachmentTray attachments={[]} />
+              <ComposerAttachmentTray
+                attachments={slices.composer.attachments}
+                onRemove={actions.removeImageAttachment}
+              />
             ) : null}
             <ComposerInput
               workspaceMode={slices.composer.workspaceMode}
@@ -662,12 +666,14 @@ export function ChatWindow({
                 models={slices.composer.models}
                 selectedModel={slices.composer.selectedModel}
                 thinkingLevel={slices.composer.thinkingLevel}
+                availableThinkingLevels={slices.composer.availableThinkingLevels}
                 workspaceMode={slices.composer.workspaceMode}
                 includeActiveFileContext={slices.composer.includeActiveFileContext}
                 activeFileDisplayName={slices.composer.activeFileDisplayName}
                 activeFileDisplayPath={slices.composer.activeFileDisplayPath}
                 customProviderLabels={slices.composer.customProviderLabels}
                 onOpenMentionPicker={openMentionPicker}
+                onOpenAttachmentPicker={actions.selectImages}
                 onSelectModel={handleSelectModel}
                 onSelectThinkingLevel={actions.setThinkingLevel}
                 onOpenSettings={onOpenSettings}

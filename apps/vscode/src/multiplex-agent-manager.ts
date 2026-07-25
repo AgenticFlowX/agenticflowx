@@ -9,6 +9,7 @@ import type {
   AgentCommand,
   AgentEvent,
   AgentEventListener,
+  AgentImageAttachment,
   AgentManager,
   AgentModel,
   AgentModelSelectionTarget,
@@ -128,8 +129,9 @@ export class MultiplexedAgentManager implements AgentManager {
     }
   }
 
-  send(message: string): Promise<void> {
-    return this.requireActive().manager.send(message);
+  send(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
+    const manager = this.requireActive().manager;
+    return images && images.length > 0 ? manager.send(message, images) : manager.send(message);
   }
 
   abort(): Promise<void> {
@@ -159,6 +161,10 @@ export class MultiplexedAgentManager implements AgentManager {
 
   getUsage(): Promise<AgentUsageStats | null> {
     return this.requireActive().manager.getUsage();
+  }
+
+  async getAvailableThinkingLevels(): Promise<ThinkingLevel[]> {
+    return (await this.requireActive().manager.getAvailableThinkingLevels?.()) ?? [];
   }
 
   async getAvailableModels(): Promise<AgentModel[]> {
@@ -257,12 +263,16 @@ export class MultiplexedAgentManager implements AgentManager {
     return this.requireActive().manager.compact(customInstructions);
   }
 
-  steer(message: string): Promise<void> {
-    return this.requireActive().manager.steer(message);
+  steer(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
+    const manager = this.requireActive().manager;
+    return images && images.length > 0 ? manager.steer(message, images) : manager.steer(message);
   }
 
-  followUp(message: string): Promise<void> {
-    return this.requireActive().manager.followUp(message);
+  followUp(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
+    const manager = this.requireActive().manager;
+    return images && images.length > 0
+      ? manager.followUp(message, images)
+      : manager.followUp(message);
   }
 
   setThinkingLevel(level: ThinkingLevel): Promise<void> {

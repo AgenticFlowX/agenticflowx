@@ -36,8 +36,7 @@ import { summarizeWorkSessionSignoffs } from "./work-sessions";
 
 export type DocumentStudioAction = CommandToolbarAction;
 export type DocumentSessionBulkAction =
-  | { type: "toggleAll"; column: "agent" | "human"; completed: boolean }
-  | { type: "approve" };
+  { type: "toggleAll"; column: "agent" | "human"; completed: boolean } | { type: "approve" };
 
 interface TaskActionTarget {
   id: string;

@@ -135,6 +135,11 @@ export const RUNTIMES = {
     description: "~16k tokens. Deep reasoning, slower.",
   },
   thinkingXhigh: { value: "xhigh" as const, label: "xhigh", description: "Same as high (alias)." },
+  thinkingMax: {
+    value: "max" as const,
+    label: "max",
+    description: "Maximum reasoning when supported.",
+  },
 
   // Steering — verified against the bundled runtime steering schema.
   steeringLabel: "Steering mode",

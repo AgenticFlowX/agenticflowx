@@ -11,13 +11,7 @@ import { type SupportedAfxCommand, classifyAfxCommand } from "./command-catalog"
 import type { ActiveDocCtx } from "./doc-actions";
 
 export type ContextPresetPlaceholder =
-  | "feature"
-  | "featurePath"
-  | "filePath"
-  | "WBS"
-  | "desId"
-  | "topic"
-  | "change";
+  "feature" | "featurePath" | "filePath" | "WBS" | "desId" | "topic" | "change";
 
 export type ContextPresetCtx = Partial<ActiveDocCtx> &
   Partial<Record<ContextPresetPlaceholder, string | null>>;

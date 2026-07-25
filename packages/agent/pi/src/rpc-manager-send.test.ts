@@ -70,6 +70,25 @@ describe("PiRpcManager send rewrite", () => {
     });
   });
 
+  it("passes image attachments to Pi prompt requests", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+
+    await manager.send("describe this", [
+      { type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" },
+    ]);
+
+    expect(requests.at(-1)).toEqual({
+      type: "prompt",
+      message: "describe this",
+      images: [{ type: "image", mimeType: "image/png", data: "iVBORw0KGgo=" }],
+    });
+  });
+
   it("passes shared session dir to Pi when sessions are persistent", async () => {
     const clientMod = await import("./rpc-client");
     const { createAgentManager } = await import("./rpc-manager");
@@ -298,6 +317,50 @@ describe("PiRpcManager send rewrite", () => {
       role: "assistant",
       stopReason: "end_turn",
     });
+  });
+
+  it("normalizes accumulated Pi tool updates and direct bash chunks as deltas", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      cwd: "/tmp/workspace",
+    });
+    const events: unknown[] = [];
+    manager.onEvent((evt) => events.push(evt));
+
+    await manager.send("hello");
+    eventHandler?.({
+      type: "tool_execution_start",
+      toolCallId: "call-1",
+      toolName: "bash",
+      args: { command: "printf hello" },
+    });
+    eventHandler?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "hello" }] },
+    });
+    eventHandler?.({
+      type: "tool_execution_update",
+      toolCallId: "call-1",
+      partialResult: { content: [{ type: "text", text: "hello world" }] },
+    });
+    eventHandler?.({ type: "bash_execution_update", id: "req-1", delta: "line\n" });
+
+    expect(events).toContainEqual({
+      type: "tool_start",
+      toolCallId: "call-1",
+      toolName: "bash",
+      args: { command: "printf hello" },
+    });
+    expect(events).toContainEqual({ type: "tool_delta", toolCallId: "call-1", delta: "hello" });
+    expect(events).toContainEqual({
+      type: "tool_delta",
+      toolCallId: "call-1",
+      delta: " world",
+    });
+    expect(events).toContainEqual({ type: "bash_delta", id: "req-1", delta: "line\n" });
   });
 
   it("normalizes assistant message_end provider failures into errors", async () => {

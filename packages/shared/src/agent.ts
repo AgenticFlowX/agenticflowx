@@ -15,6 +15,20 @@ export type { Logger } from "./logger";
 
 export type AgentSource = "api-provider" | "external-agent";
 
+export interface AgentImageAttachment {
+  type: "image";
+  data: string;
+  mimeType: string;
+}
+
+/**
+ * Runtime-advertised model input modalities used by chat attachment gating.
+ *
+ * @see docs/specs/100-package-shared/spec.md [FR-5]
+ * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
+ */
+export type AgentModelInputKind = "text" | "image";
+
 /**
  * Host-assigned model routing classification for the composer picker.
  * `local` is display-only; only `subscription` / `api-key` are persisted to
@@ -38,6 +52,11 @@ export interface AgentModel {
     cacheRead: number;
     cacheWrite: number;
   };
+  /**
+   * Runtime-advertised input modalities. When absent, callers should treat the
+   * capability as unknown instead of assuming text-only.
+   */
+  input?: AgentModelInputKind[];
   /** Host-assigned source label used by model pickers. */
   source?: AgentSource;
   /** Host-assigned runtime instance id used for unambiguous model routing. */
@@ -69,7 +88,7 @@ export interface AgentModelSelectionTarget {
  */
 export type AgentRuntimeModel = Pick<
   AgentModel,
-  "provider" | "id" | "name" | "source" | "instanceId" | "instanceLabel" | "authMethod"
+  "provider" | "id" | "name" | "source" | "instanceId" | "instanceLabel" | "authMethod" | "input"
 > &
   Partial<Pick<AgentModel, "reasoning">>;
 
@@ -96,13 +115,13 @@ export interface AgentAction {
 }
 
 /**
- * Reasoning effort for models that support it. `xhigh` is Pi's name for the
- * highest tier; cheaper models often clamp `xhigh` down to `high`.
+ * Reasoning effort for models that support it. Pi 0.82 exposes `off` for
+ * non-reasoning models and `max` above `xhigh` for models that support it.
  *
  * @see docs/specs/350-agent-manager/spec.md [FR-1]
  * @see docs/specs/350-agent-manager/design.md [DES-DATA]
  */
-export type ThinkingLevel = "minimal" | "low" | "medium" | "high" | "xhigh";
+export type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
 
 /**
  * Queue mode for steering / follow-up messages while a turn is in flight.
@@ -141,6 +160,8 @@ export interface AgentStatus {
   restartRequired?: boolean;
   /** Active reasoning level (when adapter exposes one). */
   thinkingLevel?: ThinkingLevel;
+  /** Thinking levels supported by the currently selected model. */
+  availableThinkingLevels?: ThinkingLevel[];
   /** Currently compacting the message log. */
   isCompacting?: boolean;
   /** Queue mode: how many follow-up turns the engine takes from the queue. */
@@ -240,12 +261,7 @@ export interface AgentTranscriptEntry {
  * @see docs/specs/350-agent-manager/design.md [DES-API]
  */
 export type AgentRuntimePhase =
-  | "checking"
-  | "starting"
-  | "ready"
-  | "busy"
-  | "disconnected"
-  | "error";
+  "checking" | "starting" | "ready" | "busy" | "disconnected" | "error";
 
 /**
  * Host-owned runtime health snapshot. Chat, History, Settings, VS Code, and
@@ -386,6 +402,15 @@ function formatRuntimeError(error: unknown): string | undefined {
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export interface AgentUsageStats {
+  /** Engine-level session file used for runtime-to-runtime continuity. */
+  sessionFile?: string;
+  /** Engine-level session id (e.g. Pi's `sessionId`). */
+  sessionId?: string;
+  userMessages?: number;
+  assistantMessages?: number;
+  toolCalls?: number;
+  toolResults?: number;
+  totalMessages?: number;
   tokens: {
     input: number;
     output: number;
@@ -502,6 +527,8 @@ export type AgentEvent =
   | { type: "text_delta"; id: string; delta: string }
   | { type: "thinking_delta"; id: string; delta: string }
   | { type: "tool_start"; toolCallId: string; toolName: string; args?: Record<string, unknown> }
+  | { type: "tool_delta"; toolCallId: string; delta: string }
+  | { type: "bash_delta"; id?: string; delta: string }
   | { type: "tool_end"; toolCallId: string; ok: boolean; result?: unknown }
   /** Engine queue changed after a steer/follow-up was queued or consumed. */
   | {
@@ -529,12 +556,13 @@ export type AgentStderrListener = (chunk: string) => void;
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-AGENT-CONTRACT]
  */
 export interface AgentManager {
-  send(message: string): Promise<void>;
+  send(message: string, images?: readonly AgentImageAttachment[]): Promise<void>;
   abort(): Promise<void>;
   newSession(): Promise<void>;
   getStatus(): Promise<AgentStatus>;
   getUsage(): Promise<AgentUsageStats | null>;
   getAvailableModels(): Promise<AgentModel[]>;
+  getAvailableThinkingLevels?(): Promise<ThinkingLevel[]>;
   setModel(target: AgentModelSelectionTarget): Promise<AgentModel>;
   switchSession?(sessionPath: string): Promise<{ cancelled: boolean }>;
   /**
@@ -576,12 +604,12 @@ export interface AgentManager {
    * Inject a message into the active turn. Engine processes mid-stream (per Pi `steer`).
    * Adapters without mid-stream injection should reject; callers must check `getStatus().isStreaming`.
    */
-  steer(message: string): Promise<void>;
+  steer(message: string, images?: readonly AgentImageAttachment[]): Promise<void>;
   /**
    * Queue a message for after the active turn completes (per Pi `follow_up`).
    * Adapters without a queue should reject.
    */
-  followUp(message: string): Promise<void>;
+  followUp(message: string, images?: readonly AgentImageAttachment[]): Promise<void>;
   setThinkingLevel(level: ThinkingLevel): Promise<void>;
   setSteeringMode(mode: QueueMode): Promise<void>;
   setFollowUpMode(mode: QueueMode): Promise<void>;

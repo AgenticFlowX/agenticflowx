@@ -39,12 +39,7 @@ export type CanvasCommandId =
   | "prepare-sprint";
 
 export type CanvasCommandCategory =
-  | "Create"
-  | "Navigate"
-  | "Arrange"
-  | "Share"
-  | "Architecture"
-  | "AFX";
+  "Create" | "Navigate" | "Arrange" | "Share" | "Architecture" | "AFX";
 
 export interface CanvasCapabilities {
   afx: boolean;

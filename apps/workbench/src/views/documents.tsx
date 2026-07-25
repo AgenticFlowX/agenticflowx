@@ -16,7 +16,7 @@ import {
   Library,
 } from "lucide-react";
 
-import type { DocumentRow, WorkbenchInbound } from "@afx/shared";
+import type { DocumentRow } from "@afx/shared";
 import { Badge } from "@afx/ui/components/badge";
 import { Button } from "@afx/ui/components/button";
 import { Input } from "@afx/ui/components/input";
@@ -591,6 +591,3 @@ function DocReader({
     </div>
   );
 }
-
-// Re-export type so other files don't need the long import
-export type { WorkbenchInbound };

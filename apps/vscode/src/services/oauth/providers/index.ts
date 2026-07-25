@@ -13,14 +13,6 @@ import { openaiCodexOAuthProvider } from "./openai-codex";
 import type { OAuthProviderDescriptor, OAuthProviderId } from "./types";
 
 export * from "./types";
-export { anthropicOAuthProvider } from "./anthropic";
-export { openaiCodexOAuthProvider } from "./openai-codex";
-export {
-  exchangeForCopilotToken,
-  getGitHubCopilotBaseUrl,
-  githubCopilotOAuthProvider,
-} from "./github-copilot";
-export { createRandomState, generatePKCE } from "./pkce";
 
 /** Built-in subscription OAuth providers exposed by AFX. */
 export const BUILT_IN_OAUTH_PROVIDERS: readonly OAuthProviderDescriptor[] = [

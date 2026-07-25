@@ -14,12 +14,7 @@ export const MAX_CANVAS_LAYOUT_NODES = 10_000;
 export const MAX_CANVAS_LAYOUT_EDGES = 50_000;
 
 export type CanvasLayoutStrategy =
-  | "grid"
-  | "compact"
-  | "radial"
-  | "hierarchical"
-  | "dependency"
-  | "swimlane";
+  "grid" | "compact" | "radial" | "hierarchical" | "dependency" | "swimlane";
 
 export type CanvasLayoutDirection = "horizontal" | "vertical";
 

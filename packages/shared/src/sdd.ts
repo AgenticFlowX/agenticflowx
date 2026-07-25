@@ -8,13 +8,7 @@
  */
 
 export type SddDocumentKind =
-  | "spec"
-  | "design"
-  | "tasks"
-  | "journal"
-  | "sprint"
-  | "adr"
-  | "research";
+  "spec" | "design" | "tasks" | "journal" | "sprint" | "adr" | "research";
 
 export interface SddDocumentInfo {
   path: string;

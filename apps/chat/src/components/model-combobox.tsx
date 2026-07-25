@@ -37,6 +37,7 @@ export interface ModelComboboxProps {
   models: readonly AgentModel[];
   value?: Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod">;
   thinkingLevel?: ThinkingLevel;
+  availableThinkingLevels?: readonly ThinkingLevel[];
   disabled?: boolean;
   onSelect: (model: AgentModel) => void;
   onSelectThinkingLevel: (level: ThinkingLevel) => void;
@@ -52,11 +53,13 @@ export interface ModelComboboxProps {
 }
 
 const THINKING_LEVELS: ReadonlyArray<{ level: ThinkingLevel; label: string }> = [
+  { level: "off", label: "Off" },
   { level: "minimal", label: "Minimal" },
   { level: "low", label: "Low" },
   { level: "medium", label: "Medium" },
   { level: "high", label: "High" },
   { level: "xhigh", label: "Extra High" },
+  { level: "max", label: "Max" },
 ] as const;
 
 /**
@@ -71,6 +74,7 @@ export function ModelCombobox({
   models,
   value,
   thinkingLevel,
+  availableThinkingLevels,
   disabled,
   onSelect,
   onSelectThinkingLevel,
@@ -80,8 +84,16 @@ export function ModelCombobox({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const selectedModel = models.find((m) => isSameModel(m, value)) ?? null;
+  const thinkingOptions =
+    availableThinkingLevels && availableThinkingLevels.length > 0
+      ? THINKING_LEVELS.filter((item) => availableThinkingLevels.includes(item.level))
+      : THINKING_LEVELS;
   const currentThinking =
-    THINKING_LEVELS.find((item) => item.level === thinkingLevel) ?? THINKING_LEVELS[2];
+    thinkingOptions.find((item) => item.level === thinkingLevel) ??
+    THINKING_LEVELS.find((item) => item.level === thinkingLevel) ??
+    thinkingOptions.find((item) => item.level === "medium") ??
+    thinkingOptions[0] ??
+    THINKING_LEVELS.find((item) => item.level === "medium")!;
   const selectedModelKey = selectedModel ? getModelKey(selectedModel) : "";
   const displayModel = selectedModel ?? value ?? null;
   const selectedModelLabel = displayModel ? formatModelName(displayModel) : "";
@@ -185,8 +197,8 @@ export function ModelCombobox({
               <p className="mb-1.5 font-mono text-[10px] uppercase text-muted-foreground">
                 Thinking Level
               </p>
-              <div className="grid grid-cols-5 gap-1">
-                {THINKING_LEVELS.map(({ level, label }) => (
+              <div className="grid grid-cols-7 gap-1">
+                {thinkingOptions.map(({ level, label }) => (
                   <Button
                     key={level}
                     type="button"

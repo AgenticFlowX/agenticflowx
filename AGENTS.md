@@ -560,4 +560,5 @@ All agent platforms delegate to canonical skill definitions in:
 - `skills/agenticflowx/` (canonical workflow skills)
 - `.claude/skills/` (Claude Code skill target)
 - `.agents/skills/` (Codex, Copilot, Antigravity skill target)
+
 <!-- AFX-CODEX:END -->

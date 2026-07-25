@@ -12,23 +12,21 @@ export function createMockAgentManager() {
     send: vi.fn(async () => {}),
     abort: vi.fn(async () => {}),
     newSession: vi.fn(async () => {}),
-    getStatus: vi.fn(
-      async (): Promise<AgentStatus> => ({
-        running: true,
-        isStreaming: false,
-        model: { provider: "openai", id: "gpt-5.2", name: "GPT-5.2" },
-        thinkingLevel: "medium" as const,
-        isCompacting: false,
-        steeringMode: "all" as const,
-        followUpMode: "all" as const,
-        autoCompactionEnabled: true,
-        autoRetryEnabled: true,
-        sessionId: "test-session",
-        sessionFile: "/tmp/agenticflowx-session.jsonl",
-        messageCount: 0,
-        pendingMessageCount: 0,
-      }),
-    ),
+    getStatus: vi.fn(async (): Promise<AgentStatus> => ({
+      running: true,
+      isStreaming: false,
+      model: { provider: "openai", id: "gpt-5.2", name: "GPT-5.2" },
+      thinkingLevel: "medium" as const,
+      isCompacting: false,
+      steeringMode: "all" as const,
+      followUpMode: "all" as const,
+      autoCompactionEnabled: true,
+      autoRetryEnabled: true,
+      sessionId: "test-session",
+      sessionFile: "/tmp/agenticflowx-session.jsonl",
+      messageCount: 0,
+      pendingMessageCount: 0,
+    })),
     getUsage: vi.fn(async () => null),
     getAvailableModels: vi.fn(async () => [
       {
@@ -49,11 +47,9 @@ export function createMockAgentManager() {
       maxTokens: 128_000,
     })),
     switchSession: vi.fn(async () => ({ cancelled: false })),
-    getCommands: vi.fn(
-      async (): Promise<AgentCommand[]> => [
-        { name: "skill:afx-task", description: "Manage tasks", source: "skill" as const },
-      ],
-    ),
+    getCommands: vi.fn(async (): Promise<AgentCommand[]> => [
+      { name: "skill:afx-task", description: "Manage tasks", source: "skill" as const },
+    ]),
     getStderr: vi.fn(() => ""),
     compact: vi.fn(async () => ({
       summary: "compacted",

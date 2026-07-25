@@ -35,8 +35,12 @@ export interface ComposerToolbarProps {
   isSystemCommand: boolean;
   disabled: boolean;
   models: readonly AgentModel[];
-  selectedModel?: Pick<AgentModel, "provider" | "id" | "name" | "instanceId" | "authMethod">;
+  selectedModel?: Pick<
+    AgentModel,
+    "provider" | "id" | "name" | "instanceId" | "authMethod" | "input"
+  >;
   thinkingLevel?: ThinkingLevel;
+  availableThinkingLevels?: readonly ThinkingLevel[];
   workspaceMode: WorkspaceMode;
   includeActiveFileContext: boolean;
   activeFileDisplayName: string;
@@ -58,6 +62,7 @@ export const ComposerToolbar = memo(function ComposerToolbar({
   models,
   selectedModel,
   thinkingLevel,
+  availableThinkingLevels,
   workspaceMode,
   includeActiveFileContext,
   activeFileDisplayName,
@@ -71,6 +76,17 @@ export const ComposerToolbar = memo(function ComposerToolbar({
   onWorkspaceModeChange,
   onToggleActiveFileContext,
 }: ComposerToolbarProps) {
+  const selectedImageSupport = selectedModelSupportsImages(models, selectedModel);
+  const attachmentDisabled = disabled || selectedImageSupport === false;
+  const attachmentLabel =
+    selectedImageSupport === false
+      ? "Attach image (selected model does not support images)"
+      : "Attach image";
+  const attachmentTooltip =
+    selectedImageSupport === false
+      ? "Selected model only accepts text. Choose an image-capable model to attach images."
+      : "Attach files or images to this message.";
+
   return (
     <TooltipProvider>
       <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden @[260px]:gap-1">
@@ -100,18 +116,24 @@ export const ComposerToolbar = memo(function ComposerToolbar({
         {onOpenAttachmentPicker ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
-                type="button"
-                className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
-                onClick={onOpenAttachmentPicker}
-                disabled={disabled}
-                aria-label="Attach file or image"
+              <span
+                className="inline-flex shrink-0"
+                title={attachmentTooltip}
+                tabIndex={selectedImageSupport === false ? 0 : undefined}
               >
-                <Paperclip />
-              </button>
+                <button
+                  type="button"
+                  className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }))}
+                  onClick={onOpenAttachmentPicker}
+                  disabled={attachmentDisabled}
+                  aria-label={attachmentLabel}
+                >
+                  <Paperclip />
+                </button>
+              </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" align="start" className="max-w-xs text-left">
-              Attach files or images to this message.
+              {attachmentTooltip}
             </TooltipContent>
           </Tooltip>
         ) : null}
@@ -119,6 +141,7 @@ export const ComposerToolbar = memo(function ComposerToolbar({
           models={models}
           value={selectedModel}
           thinkingLevel={thinkingLevel}
+          availableThinkingLevels={availableThinkingLevels}
           disabled={disabled}
           onSelect={onSelectModel}
           onSelectThinkingLevel={onSelectThinkingLevel}
@@ -142,6 +165,23 @@ export const ComposerToolbar = memo(function ComposerToolbar({
     </TooltipProvider>
   );
 });
+
+function selectedModelSupportsImages(
+  models: readonly AgentModel[],
+  selectedModel:
+    Pick<AgentModel, "provider" | "id" | "instanceId" | "authMethod" | "input"> | null | undefined,
+): boolean | undefined {
+  if (!selectedModel) return undefined;
+  const model =
+    models.find(
+      (candidate) =>
+        candidate.provider === selectedModel.provider &&
+        candidate.id === selectedModel.id &&
+        (candidate.instanceId ?? "default") === (selectedModel.instanceId ?? "default") &&
+        (candidate.authMethod ?? "default") === (selectedModel.authMethod ?? "default"),
+    ) ?? selectedModel;
+  return model.input ? model.input.includes("image") : undefined;
+}
 
 const WORKSPACE_MODES: ReadonlyArray<{
   value: WorkspaceMode;

@@ -55,6 +55,43 @@ describe("ModelCombobox", () => {
     expect(await screen.findAllByText("Kimi K2.6 (Moonshot Open)")).not.toHaveLength(0);
   });
 
+  it("defaults to medium unless the runtime limits thinking levels", () => {
+    const { rerender } = render(
+      <TooltipProvider>
+        <ModelCombobox
+          models={MODELS}
+          value={MODELS[0]}
+          onSelect={vi.fn()}
+          onSelectThinkingLevel={vi.fn()}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Model: Kimi K2.6 (Moonshot Open). Method: API. Thinking level: Medium",
+      }),
+    ).toBeInTheDocument();
+
+    rerender(
+      <TooltipProvider>
+        <ModelCombobox
+          models={MODELS}
+          value={MODELS[0]}
+          availableThinkingLevels={["off", "low"]}
+          onSelect={vi.fn()}
+          onSelectThinkingLevel={vi.fn()}
+        />
+      </TooltipProvider>,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "Model: Kimi K2.6 (Moonshot Open). Method: API. Thinking level: Off",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("segments by method and filters across model, provider, and method labels", async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();

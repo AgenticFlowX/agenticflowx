@@ -24,6 +24,9 @@ describe("provider catalog", () => {
         "xiaomi-token-plan-cn",
         "xiaomi-token-plan-ams",
         "xiaomi-token-plan-sgp",
+        "qwen-token-plan",
+        "qwen-token-plan-cn",
+        "radius",
       ]),
     );
     expect(PROVIDER_DETAILS["minimax"]).toMatchObject({
@@ -56,6 +59,11 @@ describe("provider catalog", () => {
     expect(PROVIDER_API_KEY_ENV_ALIASES["xiaomi-token-plan-sgp"]).toContain(
       "XIAOMI_TOKEN_PLAN_SGP_API_KEY",
     );
+    expect(PROVIDER_API_KEY_ENV_ALIASES["qwen-token-plan"]).toContain("QWEN_TOKEN_PLAN_API_KEY");
+    expect(PROVIDER_API_KEY_ENV_ALIASES["qwen-token-plan-cn"]).toContain(
+      "QWEN_TOKEN_PLAN_CN_API_KEY",
+    );
+    expect(PROVIDER_API_KEY_ENV_ALIASES.radius).toContain("RADIUS_API_KEY");
   });
 
   it("exposes Pi-compatible provider startup defaults", () => {
@@ -70,5 +78,8 @@ describe("provider catalog", () => {
     expect(getDefaultApiProviderModel("openai-codex")).toBe("gpt-5.5");
     expect(getDefaultApiProviderModel("xiaomi")).toBe("mimo-v2.5-pro");
     expect(getDefaultApiProviderModel("xiaomi-token-plan-cn")).toBe("mimo-v2.5-pro");
+    expect(getDefaultApiProviderModel("qwen-token-plan")).toBe("qwen3.7-max");
+    expect(getDefaultApiProviderModel("qwen-token-plan-cn")).toBe("qwen3.7-max");
+    expect(getDefaultApiProviderModel("radius")).toBe("auto");
   });
 });

@@ -12,6 +12,7 @@ import type {
   AgentCommand,
   AgentEvent,
   AgentEventListener,
+  AgentImageAttachment,
   AgentManager,
   AgentModel,
   AgentSessionInfo,
@@ -131,6 +132,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
   let isStreaming = false;
   // Tracks the current assistant message ID for text_delta / thinking_delta events.
   let currentMsgId: string | null = null;
+  const toolPartialOutputs = new Map<string, string>();
 
   const eventListeners = new Set<AgentEventListener>();
   const stderrListeners = new Set<AgentStderrListener>();
@@ -249,11 +251,13 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       case "agent_start": {
         isStreaming = true;
         currentMsgId = null;
+        toolPartialOutputs.clear();
         return { type: "agent_start" };
       }
       case "agent_end": {
         isStreaming = false;
         currentMsgId = null;
+        toolPartialOutputs.clear();
         return { type: "agent_end" };
       }
       case "message_start": {
@@ -327,8 +331,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
       }
       case "message_update": {
         const delta = raw.assistantMessageEvent as
-          | { type: string; delta?: string; message?: string; error?: string }
-          | undefined;
+          { type: string; delta?: string; message?: string; error?: string } | undefined;
         if (!delta) return null;
         switch (delta.type) {
           case "thinking_start":
@@ -362,6 +365,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
         const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
         const toolName = typeof raw.toolName === "string" ? raw.toolName : "tool";
         if (!toolCallId) return null;
+        toolPartialOutputs.delete(toolCallId);
         return {
           type: "tool_start",
           toolCallId,
@@ -369,9 +373,20 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
           args: normalizePiToolArgs(raw, toolName),
         };
       }
+      case "tool_execution_update": {
+        const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
+        if (!toolCallId) return null;
+        const output = extractTextContent(raw["partialResult"]);
+        if (!output) return null;
+        const previous = toolPartialOutputs.get(toolCallId) ?? "";
+        toolPartialOutputs.set(toolCallId, output);
+        const delta = output.startsWith(previous) ? output.slice(previous.length) : output;
+        return delta.length > 0 ? { type: "tool_delta", toolCallId, delta } : null;
+      }
       case "tool_execution_end": {
         const toolCallId = typeof raw.toolCallId === "string" ? raw.toolCallId : "";
         if (!toolCallId) return null;
+        toolPartialOutputs.delete(toolCallId);
         return {
           type: "tool_end",
           toolCallId,
@@ -387,6 +402,15 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
           steeringCount,
           followUpCount,
           pendingMessageCount: steeringCount + followUpCount,
+        };
+      }
+      case "bash_execution_update": {
+        const delta = typeof raw["delta"] === "string" ? raw["delta"] : "";
+        if (!delta) return null;
+        return {
+          type: "bash_delta",
+          id: typeof raw.id === "string" ? raw.id : undefined,
+          delta,
         };
       }
       case "compaction_start": {
@@ -551,9 +575,13 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     return typeof value === "number" && Number.isFinite(value) ? value : fallback;
   }
 
-  async function send(message: string): Promise<void> {
+  async function send(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
     const c = await ensureStarted();
-    await c.request({ type: "prompt", message: rewriteAfxCommandPrompt(message) });
+    await c.request({
+      type: "prompt",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
   async function abort(): Promise<void> {
@@ -561,14 +589,25 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     await c.request({ type: "abort" });
   }
 
-  async function steer(message: string): Promise<void> {
+  async function steer(message: string, images?: readonly AgentImageAttachment[]): Promise<void> {
     const c = await ensureStarted();
-    await c.request({ type: "steer", message: rewriteAfxCommandPrompt(message) });
+    await c.request({
+      type: "steer",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
-  async function followUp(message: string): Promise<void> {
+  async function followUp(
+    message: string,
+    images?: readonly AgentImageAttachment[],
+  ): Promise<void> {
     const c = await ensureStarted();
-    await c.request({ type: "follow_up", message: rewriteAfxCommandPrompt(message) });
+    await c.request({
+      type: "follow_up",
+      message: rewriteAfxCommandPrompt(message),
+      ...imageCommandPayload(images),
+    });
   }
 
   async function newSession(): Promise<void> {
@@ -587,7 +626,11 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
 
     try {
       const st = await c.request<RpcSessionStateLike | null>({ type: "get_state" });
-      return mapPiStateToStatus(st, c.isRunning, isStreaming);
+      const status = mapPiStateToStatus(st, c.isRunning, isStreaming);
+      return {
+        ...status,
+        availableThinkingLevels: await getAvailableThinkingLevelsSafe(c),
+      };
     } catch {
       // not critical — return minimal status
       return { running: c.isRunning, isStreaming };
@@ -612,6 +655,32 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
         `arrayLen=${models.length}; normalizedLen=${normalized.length}`,
     );
     return normalized;
+  }
+
+  async function getAvailableThinkingLevels(): Promise<ThinkingLevel[]> {
+    const c = await ensureStarted();
+    return getAvailableThinkingLevelsSafe(c);
+  }
+
+  async function getAvailableThinkingLevelsSafe(c: PiClient): Promise<ThinkingLevel[]> {
+    try {
+      const response = await c.request<{ levels?: unknown } | unknown[]>({
+        type: "get_available_thinking_levels",
+      });
+      const levels = Array.isArray(response)
+        ? response
+        : Array.isArray(response?.levels)
+          ? response.levels
+          : [];
+      return levels
+        .map(asThinkingLevel)
+        .filter((level): level is ThinkingLevel => level !== undefined);
+    } catch (err) {
+      log.debug("get_available_thinking_levels failed", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return [];
+    }
   }
 
   async function setModel(target: { provider: string; modelId: string }): Promise<AgentModel> {
@@ -709,6 +778,13 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
 
     try {
       const stats = await c.request<{
+        sessionFile?: string;
+        sessionId?: string;
+        userMessages?: number;
+        assistantMessages?: number;
+        toolCalls?: number;
+        toolResults?: number;
+        totalMessages?: number;
         tokens?: {
           input?: number;
           output?: number;
@@ -724,6 +800,13 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
         };
       }>({ type: "get_session_stats" });
       return {
+        sessionFile: stats.sessionFile,
+        sessionId: stats.sessionId,
+        userMessages: stats.userMessages,
+        assistantMessages: stats.assistantMessages,
+        toolCalls: stats.toolCalls,
+        toolResults: stats.toolResults,
+        totalMessages: stats.totalMessages,
         tokens: {
           input: stats.tokens?.input ?? 0,
           output: stats.tokens?.output ?? 0,
@@ -822,6 +905,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     startDisabledError = null;
     isStreaming = false;
     currentMsgId = null;
+    toolPartialOutputs.clear();
     if (c) await c.dispose();
     log.info("stopped");
   }
@@ -848,6 +932,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     getStatus,
     getUsage,
     getAvailableModels,
+    getAvailableThinkingLevels,
     setModel,
     switchSession,
     listSessions,
@@ -887,7 +972,13 @@ export function rewriteAfxCommandPrompt(message: string): string {
  * exported. Pi may add more fields over time; we ignore unknown ones.
  */
 interface RpcSessionStateLike {
-  model?: { provider?: unknown; id?: unknown; name?: unknown; reasoning?: unknown } | null;
+  model?: {
+    provider?: unknown;
+    id?: unknown;
+    name?: unknown;
+    reasoning?: unknown;
+    input?: unknown;
+  } | null;
   thinkingLevel?: unknown;
   isCompacting?: unknown;
   steeringMode?: unknown;
@@ -901,7 +992,15 @@ interface RpcSessionStateLike {
   pendingMessageCount?: unknown;
 }
 
-const THINKING_LEVELS: readonly ThinkingLevel[] = ["minimal", "low", "medium", "high", "xhigh"];
+const THINKING_LEVELS: readonly ThinkingLevel[] = [
+  "off",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+];
 const QUEUE_MODES: readonly QueueMode[] = ["all", "one-at-a-time"];
 
 function asThinkingLevel(value: unknown): ThinkingLevel | undefined {
@@ -930,6 +1029,7 @@ function mapPiStateToStatus(
       id: m.id,
       name: typeof m.name === "string" && m.name.length > 0 ? m.name : m.id,
       reasoning: typeof m.reasoning === "boolean" ? m.reasoning : undefined,
+      input: normalizeModelInput(m.input),
     };
   }
   return {
@@ -962,6 +1062,7 @@ function normalizeModel(value: unknown): AgentModel | null {
     contextWindow?: unknown;
     maxTokens?: unknown;
     cost?: unknown;
+    input?: unknown;
   };
   if (typeof raw.provider !== "string" || typeof raw.id !== "string") return null;
   return {
@@ -972,7 +1073,16 @@ function normalizeModel(value: unknown): AgentModel | null {
     contextWindow: typeof raw.contextWindow === "number" ? raw.contextWindow : 0,
     maxTokens: typeof raw.maxTokens === "number" ? raw.maxTokens : 0,
     cost: normalizeModelCost(raw.cost),
+    input: normalizeModelInput(raw.input),
   };
+}
+
+function normalizeModelInput(value: unknown): AgentModel["input"] {
+  if (!Array.isArray(value)) return undefined;
+  const next = value.filter(
+    (item): item is "text" | "image" => item === "text" || item === "image",
+  );
+  return next.length > 0 ? Array.from(new Set(next)) : undefined;
 }
 
 function normalizeModelCost(value: unknown): AgentModel["cost"] {
@@ -1033,6 +1143,28 @@ function normalizeCommandSourceInfo(value: unknown): AgentCommand["sourceInfo"] 
     origin: raw.origin,
     baseDir: typeof raw.baseDir === "string" ? raw.baseDir : undefined,
   };
+}
+
+function extractTextContent(value: unknown): string {
+  if (!value || typeof value !== "object") return "";
+  const content = (value as { content?: unknown }).content;
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter(isTextPart)
+    .map((part) => part.text)
+    .join("");
+}
+
+function imageCommandPayload(
+  images: readonly AgentImageAttachment[] | undefined,
+): { images: AgentImageAttachment[] } | Record<string, never> {
+  return images && images.length > 0 ? { images: images.map((image) => ({ ...image })) } : {};
+}
+
+function isTextPart(part: unknown): part is { type: "text"; text: string } {
+  if (!part || typeof part !== "object") return false;
+  const raw = part as { type?: unknown; text?: unknown };
+  return raw.type === "text" && typeof raw.text === "string";
 }
 
 function createStartDisabledError(runtimeLabel: string, lastError: Error): Error {

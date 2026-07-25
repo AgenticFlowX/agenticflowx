@@ -49,7 +49,7 @@ describe("ComposerToolbar", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mention file" }));
     expect(onOpenMentionPicker).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Attach file or image" }));
+    fireEvent.click(screen.getByRole("button", { name: "Attach image" }));
     expect(onOpenAttachmentPicker).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole("switch", { name: "chat.tsx" }));
@@ -115,7 +115,43 @@ describe("ComposerToolbar", () => {
       />,
     );
 
-    expect(screen.queryByRole("button", { name: "Attach file or image" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Attach image" })).not.toBeInTheDocument();
+  });
+
+  it("warns and disables image attachments for known text-only models", () => {
+    const onOpenAttachmentPicker = vi.fn();
+    const textOnlyModel: AgentModel = { ...model, input: ["text"] };
+
+    render(
+      <ComposerToolbar
+        isSystemCommand={false}
+        disabled={false}
+        models={[textOnlyModel]}
+        selectedModel={textOnlyModel}
+        workspaceMode="code"
+        includeActiveFileContext={false}
+        activeFileDisplayName="No active file"
+        activeFileDisplayPath=""
+        onOpenMentionPicker={vi.fn()}
+        onOpenAttachmentPicker={onOpenAttachmentPicker}
+        onSelectModel={vi.fn()}
+        onSelectThinkingLevel={vi.fn()}
+        onWorkspaceModeChange={vi.fn()}
+        onToggleActiveFileContext={vi.fn()}
+      />,
+    );
+
+    const attach = screen.getByRole("button", {
+      name: "Attach image (selected model does not support images)",
+    });
+    expect(attach).toBeDisabled();
+    expect(attach.parentElement).toHaveAttribute(
+      "title",
+      "Selected model only accepts text. Choose an image-capable model to attach images.",
+    );
+
+    fireEvent.click(attach);
+    expect(onOpenAttachmentPicker).not.toHaveBeenCalled();
   });
 
   it("shows shell status instead of mention trigger for system commands", () => {
