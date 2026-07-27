@@ -199,8 +199,14 @@ input:disabled {
   opacity: 0;
 }
 
-.afx-canvas-surface .react-flow__node:hover article[data-node-kind="label"] .afx-label-connect-handle,
-.afx-canvas-surface .react-flow__node:hover article[data-node-kind="label"] .afx-label-resize-handle,
+.afx-canvas-surface
+  .react-flow__node:hover
+  article[data-node-kind="label"]
+  .afx-label-connect-handle,
+.afx-canvas-surface
+  .react-flow__node:hover
+  article[data-node-kind="label"]
+  .afx-label-resize-handle,
 .afx-canvas-surface article[data-node-kind="label"][data-selected="true"] .afx-label-connect-handle,
 .afx-canvas-surface article[data-node-kind="label"][data-selected="true"] .afx-label-resize-handle {
   opacity: 1;

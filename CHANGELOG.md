@@ -2,6 +2,13 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.5.2] - 2026-07-27
+
+### Fixed
+
+- Canvas labels now render as plain text with hover-only controls, and planning todos are portable text nodes.
+- Workbench Settings now exposes a single Canvas toggle and saves bottom-panel view visibility globally.
+
 ## [2.5.1] - 2026-07-26
 
 ### Fixed
