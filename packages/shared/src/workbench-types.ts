@@ -189,15 +189,27 @@ export const WORKBENCH_VIEW_IDS = [
 
 export type WorkbenchViewId = (typeof WORKBENCH_VIEW_IDS)[number];
 
+export const WORKBENCH_VISIBILITY_VIEW_IDS = [
+  "workbench",
+  "pipeline",
+  "documents",
+  "analytics",
+  "journal",
+  "board",
+  "notes",
+] as const satisfies readonly WorkbenchViewId[];
+
+export type WorkbenchVisibilityViewId = (typeof WORKBENCH_VISIBILITY_VIEW_IDS)[number];
+
 export function normalizeWorkbenchViewIds(value: unknown): WorkbenchViewId[] {
   if (!Array.isArray(value)) return [];
-  const allowed = new Set<string>(WORKBENCH_VIEW_IDS);
+  const allowed = new Set<string>(WORKBENCH_VISIBILITY_VIEW_IDS);
   const selected = new Set(
     value.filter((entry): entry is WorkbenchViewId =>
       typeof entry === "string" ? allowed.has(entry) : false,
     ),
   );
-  return WORKBENCH_VIEW_IDS.filter((id) => selected.has(id));
+  return WORKBENCH_VISIBILITY_VIEW_IDS.filter((id) => selected.has(id));
 }
 
 /**

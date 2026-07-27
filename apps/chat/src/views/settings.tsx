@@ -65,7 +65,7 @@ import type {
 import type { CustomProviderPreset, CustomProviderSummary } from "@afx/shared";
 import {
   PRESET_CUSTOM_BLANK,
-  WORKBENCH_VIEW_IDS,
+  WORKBENCH_VISIBILITY_VIEW_IDS,
   createCheckingAgentRuntimeStatus,
   getIntentPrompt,
   normalizeIntentSlot,
@@ -236,6 +236,8 @@ const WORKBENCH_VIEW_LABELS: Record<WorkbenchViewId, string> = {
   notes: "Notes",
   canvas: "Canvas",
 };
+
+const HIDEABLE_WORKBENCH_VIEW_IDS: readonly WorkbenchViewId[] = WORKBENCH_VISIBILITY_VIEW_IDS;
 
 const DEFAULT_CONTEXT_SETTINGS: SettingsSnapshot["context"] = {
   includeActiveFileContext: true,
@@ -1245,7 +1247,7 @@ export default function Settings({
     const previous = experimentalSettings.workbenchHiddenViews;
     const hidden = visible
       ? previous.filter((id) => id !== viewId)
-      : WORKBENCH_VIEW_IDS.filter((id) => id === viewId || previous.includes(id));
+      : WORKBENCH_VISIBILITY_VIEW_IDS.filter((id) => id === viewId || previous.includes(id));
     const requestId = trackExperimentalMutation(
       `${WORKBENCH_VIEW_LABELS[viewId]} ${visible ? "shown" : "hidden"}`,
     );
@@ -1270,6 +1272,7 @@ export default function Settings({
   function showAllWorkbenchViews(): void {
     const previous = experimentalSettings.workbenchHiddenViews;
     if (previous.length === 0) return;
+    const hidden = previous.filter((id) => !HIDEABLE_WORKBENCH_VIEW_IDS.includes(id));
     const requestId = trackExperimentalMutation("All Workbench views shown");
     pendingVisibilityRollbacks.current.set(requestId, previous);
     setSnapshot((current) =>
@@ -1278,12 +1281,12 @@ export default function Settings({
             ...current,
             experimental: {
               ...(current.experimental ?? DEFAULT_EXPERIMENTAL_SETTINGS),
-              workbenchHiddenViews: [],
+              workbenchHiddenViews: hidden,
             },
           }
         : current,
     );
-    bridgeSend({ type: "experimental/setWorkbenchHiddenViews", requestId, hidden: [] });
+    bridgeSend({ type: "experimental/setWorkbenchHiddenViews", requestId, hidden });
   }
   function openOutputLogs(): void {
     bridgeSend({ type: "chat/showLogs", requestId: uid() });
@@ -2329,23 +2332,17 @@ export default function Settings({
                 </Button>
               </div>
               <div className="grid gap-1 sm:grid-cols-2">
-                {WORKBENCH_VIEW_IDS.map((viewId) => {
-                  // The Canvas tab only renders when the Canvas capability is on
-                  // (FR-20 keeps the hidden set independent), so a visibility
-                  // toggle would be a dead control while Canvas is disabled.
-                  const needsCanvas = viewId === "canvas" && !experimentalSettings.canvasEnabled;
-                  return (
-                    <SwitchRow
-                      key={viewId}
-                      id={`experimental-view-${viewId}`}
-                      label={WORKBENCH_VIEW_LABELS[viewId]}
-                      description={needsCanvas ? EXPERIMENTAL.canvasViewNeedsCanvasHint : ""}
-                      checked={!experimentalSettings.workbenchHiddenViews.includes(viewId)}
-                      onCheckedChange={(visible) => setWorkbenchViewVisible(viewId, visible)}
-                      disabled={!snapshot || needsCanvas}
-                    />
-                  );
-                })}
+                {WORKBENCH_VISIBILITY_VIEW_IDS.map((viewId) => (
+                  <SwitchRow
+                    key={viewId}
+                    id={`experimental-view-${viewId}`}
+                    label={WORKBENCH_VIEW_LABELS[viewId]}
+                    description=""
+                    checked={!experimentalSettings.workbenchHiddenViews.includes(viewId)}
+                    onCheckedChange={(visible) => setWorkbenchViewVisible(viewId, visible)}
+                    disabled={!snapshot}
+                  />
+                ))}
               </div>
             </div>
             <div className="flex flex-wrap gap-2">

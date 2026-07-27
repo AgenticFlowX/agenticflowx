@@ -3406,7 +3406,7 @@ describe("chat App", () => {
 });
 
 describe("Workbench view visibility settings", () => {
-  it("disables the Canvas visibility toggle with a hint while the Canvas capability is off", () => {
+  it("uses the Workbench Canvas capability toggle as the only Canvas settings control", () => {
     const transport = createControlledTransport();
     initTransport(transport);
     render(<App transport={transport} />);
@@ -3421,28 +3421,9 @@ describe("Workbench view visibility settings", () => {
     });
     fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
 
-    const canvasToggle = screen.getByRole("switch", { name: "Canvas" });
-    expect(canvasToggle).toBeDisabled();
-    expect(screen.getByText("Enable Canvas above to show this tab.")).toBeInTheDocument();
-    // The other view toggles stay live.
-    expect(screen.getByRole("switch", { name: "Board" })).toBeEnabled();
-
-    // Turning the capability on re-enables the visibility toggle.
-    act(() => {
-      transport.emit({
-        type: "agent/settingsSnapshot",
-        requestId: "canvas-on",
-        snapshot: {
-          ...createSettingsSnapshot(),
-          experimental: {
-            canvasEnabled: true,
-            canvasPath: ".afx/project.canvas",
-            workbenchHiddenViews: [],
-          },
-        },
-      });
-    });
-    expect(screen.getByRole("switch", { name: "Canvas" })).toBeEnabled();
+    expect(screen.getByRole("switch", { name: "Workbench Canvas" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Canvas" })).not.toBeInTheDocument();
     expect(screen.queryByText("Enable Canvas above to show this tab.")).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Board" })).toBeEnabled();
   });
 });

@@ -8,7 +8,7 @@ import { nextWorkbenchView, visibleWorkbenchViews } from "./workbench-views";
 
 describe("workbench view registry", () => {
   it("keeps Canvas capability independent from tab visibility", () => {
-    expect(visibleWorkbenchViews(["canvas"], true)).not.toContain("canvas");
+    expect(visibleWorkbenchViews(["canvas"], true)).toContain("canvas");
     expect(visibleWorkbenchViews([], false)).not.toContain("canvas");
     expect(visibleWorkbenchViews([], true)).toContain("canvas");
   });
@@ -21,6 +21,6 @@ describe("workbench view registry", () => {
         ["workbench", "pipeline", "documents", "analytics", "journal", "board", "notes", "canvas"],
         true,
       ),
-    ).toEqual([]);
+    ).toEqual(["canvas"]);
   });
 });

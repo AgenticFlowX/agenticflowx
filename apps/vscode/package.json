@@ -196,7 +196,7 @@
         },
         "afx.experimental.workbenchHiddenViews": {
           "type": "array",
-          "scope": "window",
+          "scope": "application",
           "default": [],
           "uniqueItems": true,
           "items": {
@@ -208,8 +208,7 @@
               "analytics",
               "journal",
               "board",
-              "notes",
-              "canvas"
+              "notes"
             ]
           },
           "description": "Hide selected Workbench tabs without disabling their files or editor commands."

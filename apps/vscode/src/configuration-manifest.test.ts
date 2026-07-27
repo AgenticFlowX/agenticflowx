@@ -15,8 +15,10 @@ import { describe, expect, it } from "vitest";
 type ConfigurationProperty = {
   default?: unknown;
   description?: string;
+  items?: { enum?: string[]; type?: string };
   maximum?: number;
   minimum?: number;
+  scope?: string;
   type?: string;
 };
 
@@ -82,6 +84,22 @@ describe("extension configuration manifest", () => {
       default: false,
     });
     expect(setting.description).toContain("JSON Canvas");
+  });
+
+  it("contributes Workbench tab visibility as a user preference without a duplicate Canvas toggle", () => {
+    const setting =
+      readManifest().contributes.configuration.properties["afx.experimental.workbenchHiddenViews"];
+
+    expect(setting, "afx.experimental.workbenchHiddenViews must be contributed").toBeDefined();
+    if (!setting) return;
+
+    expect(setting).toMatchObject({
+      type: "array",
+      default: [],
+      scope: "application",
+    });
+    expect(setting.items?.enum).toContain("board");
+    expect(setting.items?.enum).not.toContain("canvas");
   });
 
   it("contributes AFX Canvas as an explicit optional editor", () => {

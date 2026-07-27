@@ -3817,12 +3817,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   ): Promise<void> {
     try {
       const normalized = normalizeWorkbenchViewIds(hidden);
-      await updateAfxConfigurationWithWorkspaceFallback(
-        "experimental.workbenchHiddenViews",
-        normalized,
-        vscode.ConfigurationTarget.Workspace,
-        log,
-      );
+      await vscode.workspace
+        .getConfiguration("afx")
+        .update("experimental.workbenchHiddenViews", normalized, vscode.ConfigurationTarget.Global);
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
       log.error("set Workbench hidden views failed", err instanceof Error ? err : undefined);

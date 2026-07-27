@@ -736,6 +736,40 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("experimental/setWorkbenchHiddenViews persists personal bottom-panel visibility globally", async () => {
+    const { update } = mockAfxConfiguration({ "experimental.workbenchHiddenViews": [] });
+    const { inbound, postMessage } = setupWithView();
+
+    inbound.fire({
+      type: "experimental/setWorkbenchHiddenViews",
+      requestId: "hide-workbench-views",
+      hidden: ["board", "canvas"],
+    });
+    await flushAsyncWork(2);
+
+    expect(update).toHaveBeenCalledWith(
+      "experimental.workbenchHiddenViews",
+      ["board"],
+      vscode.ConfigurationTarget.Global,
+    );
+    expect(update).not.toHaveBeenCalledWith(
+      "experimental.workbenchHiddenViews",
+      expect.anything(),
+      vscode.ConfigurationTarget.Workspace,
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        requestId: "hide-workbench-views",
+        snapshot: expect.objectContaining({
+          experimental: expect.objectContaining({
+            workbenchHiddenViews: ["board"],
+          }),
+        }),
+      }),
+    );
+  });
+
   it("chat/setIntentSlot and chat/setIntentMinimized persist Composer Intent settings", async () => {
     const { update, values } = mockAfxConfiguration();
     const { inbound, postMessage } = setupWithView();

@@ -14,7 +14,7 @@ export function visibleWorkbenchViews(
 ): WorkbenchViewId[] {
   const hiddenSet = new Set(hidden);
   return WORKBENCH_VIEW_IDS.filter(
-    (id) => (id !== "canvas" || canvasEnabled) && !hiddenSet.has(id),
+    (id) => (id !== "canvas" || canvasEnabled) && (id === "canvas" || !hiddenSet.has(id)),
   );
 }
 
