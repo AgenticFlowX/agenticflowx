@@ -40,7 +40,15 @@ describe("Canvas command registry", () => {
     const commands = canvasCommands("essentials", allCapabilities);
 
     expect(commands.map((command) => command.id)).toEqual(
-      expect.arrayContaining(["add-card", "add-file", "add-link", "fit-view", "search", "export"]),
+      expect.arrayContaining([
+        "add-card",
+        "add-todo",
+        "add-file",
+        "add-link",
+        "fit-view",
+        "search",
+        "export",
+      ]),
     );
     expect(commands.map((command) => command.id)).not.toContain("refresh-dependencies");
     expect(commands.map((command) => command.id)).not.toContain("auto-layout");

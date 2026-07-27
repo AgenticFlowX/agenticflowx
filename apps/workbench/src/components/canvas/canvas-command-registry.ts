@@ -15,6 +15,7 @@ export type CanvasMode = "freeform" | "spec-map";
 export type CanvasCommandId =
   | "add-card"
   | "add-note"
+  | "add-todo"
   | "add-label"
   | "add-annotation"
   | "add-group"
@@ -82,12 +83,20 @@ const COMMANDS: readonly CanvasCommandDefinition[] = [
     ["sticky", "thought"],
   ),
   command(
-    "add-label",
-    "Add label",
-    "Add a lightweight heading or annotation.",
+    "add-todo",
+    "Add todo",
+    "Track a planning follow-up as a portable checklist card.",
     "Create",
     ["essentials", "architecture", "afx"],
-    ["heading", "annotation"],
+    ["task", "checklist", "follow-up", "action"],
+  ),
+  command(
+    "add-label",
+    "Add label",
+    "Add lightweight text that labels a region of the canvas.",
+    "Create",
+    ["essentials", "architecture", "afx"],
+    ["heading", "caption"],
   ),
   command(
     "add-annotation",

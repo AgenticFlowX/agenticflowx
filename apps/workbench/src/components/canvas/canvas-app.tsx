@@ -14,6 +14,7 @@ import {
   FolderOpen,
   GitFork,
   LayoutTemplate,
+  ListTodo,
   MessageSquareQuote,
   MoreHorizontal,
   Plus,
@@ -967,7 +968,7 @@ export function CanvasApp({ editorClientId, editorDocument, editorViewState }: C
     stageEdit(localCanvasRef.current);
   }
 
-  function add(kind: "text" | "note" | "label" | "group" | "annotation"): void {
+  function add(kind: "text" | "note" | "todo" | "label" | "group" | "annotation"): void {
     const at = insertPoint(localCanvas.nodes?.length ?? 0);
     update(
       kind === "group"
@@ -979,12 +980,20 @@ export function CanvasApp({ editorClientId, editorDocument, editorViewState }: C
               at,
               kind === "note"
                 ? "# Note\n\n"
-                : kind === "annotation"
-                  ? "Point the arrow at what this explains."
-                  : "## New thought\n\n",
+                : kind === "todo"
+                  ? "## Todo\n\n- [ ] Follow up\n"
+                  : kind === "annotation"
+                    ? "Point the arrow at what this explains."
+                    : "## New thought\n\n",
               undefined,
-              kind === "note" ? "3" : undefined,
-              kind === "note" ? "note" : kind === "annotation" ? "annotation" : undefined,
+              kind === "note" ? "3" : kind === "todo" ? "4" : undefined,
+              kind === "note"
+                ? "note"
+                : kind === "todo"
+                  ? "todo"
+                  : kind === "annotation"
+                    ? "annotation"
+                    : undefined,
             ),
     );
   }
@@ -1416,6 +1425,7 @@ export function CanvasApp({ editorClientId, editorDocument, editorViewState }: C
   function runCanvasCommand(command: CanvasCommandId): void {
     if (command === "add-card") return add("text");
     if (command === "add-note") return add("note");
+    if (command === "add-todo") return add("todo");
     if (command === "add-label") return add("label");
     if (command === "add-annotation") return add("annotation");
     if (command === "add-group") return add("group");
@@ -1696,6 +1706,14 @@ export function CanvasApp({ editorClientId, editorDocument, editorViewState }: C
           <StickyNote size={13} />
         </IconButton>
         <IconButton
+          label="Add todo"
+          shortLabel="Todo"
+          className="@max-[46rem]/dtb:hidden"
+          onClick={() => add("todo")}
+        >
+          <ListTodo size={13} />
+        </IconButton>
+        <IconButton
           label="Add annotation"
           shortLabel="Annotate"
           className="@max-[46rem]/dtb:hidden"
@@ -1830,6 +1848,9 @@ export function CanvasApp({ editorClientId, editorDocument, editorViewState }: C
             </DropdownMenuLabel>
             <DropdownMenuItem onSelect={() => add("note")}>
               <StickyNote size={12} /> Add sticky note
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => add("todo")}>
+              <ListTodo size={12} /> Add todo
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("annotation")}>
               <MessageSquareQuote size={12} /> Add annotation

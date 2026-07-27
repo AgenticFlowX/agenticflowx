@@ -4,7 +4,7 @@
  * @see docs/specs/229-app-workbench-canvas/tasks.md [8.1] [8.2]
  * @see docs/specs/229-app-workbench-canvas/design.md [DES-CANVAS-INTERACTIONS]
  */
-import { memo, useEffect, useState } from "react";
+import { type CSSProperties, memo, useEffect, useState } from "react";
 
 import {
   Handle,
@@ -18,6 +18,7 @@ import {
   BookOpen,
   ExternalLink,
   GitFork,
+  ListTodo,
   LockKeyhole,
   MessageSquare,
   NotepadText,
@@ -82,6 +83,11 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
   const node = data.canvasNode;
   const onFileContentMount = data.onFileContentMount;
   const visuals = canvasNodeVisuals(node);
+  const textKind = node.type === "text" ? node.afxNodeKind : undefined;
+  const isLabelNode = textKind === "label";
+  const isTodoNode = textKind === "todo";
+  const isAnnotationNode = textKind === "annotation";
+  const labelTextStyle = isLabelNode && node.type === "text" ? labelTextStyleFor(node) : undefined;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(node.type === "text" ? node.text : "");
   const fileActions = node.type === "file" ? fileActionLabels(node, data.preview) : undefined;
@@ -100,14 +106,27 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
     <article
       data-testid={`react-flow-canvas-node-${id}`}
       data-node-kind={node.type === "text" ? (node.afxNodeKind ?? "text") : node.type}
-      className={`group relative h-full w-full border bg-card text-card-foreground shadow-sm ${canvasNodeShapeClass(visuals.shape)} ${
-        selected ? "border-afx-brand ring-1 ring-afx-brand/40" : "border-border"
+      data-selected={selected ? "true" : undefined}
+      className={`group relative h-full w-full ${
+        isLabelNode
+          ? "bg-transparent text-foreground shadow-none"
+          : `border bg-card text-card-foreground shadow-sm ${canvasNodeShapeClass(visuals.shape)}`
+      } ${
+        selected
+          ? isLabelNode
+            ? ""
+            : "border-afx-brand ring-1 ring-afx-brand/40"
+          : isLabelNode
+            ? "border-transparent"
+            : "border-border"
       } ${node.type === "group" ? "bg-muted/15" : ""} ${
-        visuals.locked ? "" : "cursor-grab active:cursor-grabbing"
+        isTodoNode ? "border-l-emerald-500/80" : ""
+      } ${isAnnotationNode ? "border-dashed border-afx-brand/50 bg-afx-brand/5" : ""} ${
+        visuals.locked ? "" : isLabelNode ? "cursor-text" : "cursor-grab active:cursor-grabbing"
       }`}
       style={{
         borderLeftColor: canvasColor(node.color),
-        borderLeftWidth: node.type === "group" ? 2 : 4,
+        borderLeftWidth: isLabelNode ? 0 : node.type === "group" ? 2 : 4,
         ...(node.type === "group" && node.color
           ? {
               backgroundColor: `color-mix(in srgb, ${canvasColor(node.color)} 12%, var(--card))`,
@@ -121,7 +140,7 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
       }}
     >
       <NodeResizer
-        isVisible={selected && !visuals.locked}
+        isVisible={(isLabelNode || selected) && !visuals.locked}
         minWidth={
           node.type === "text" &&
           (node.afxNodeKind === "label" || node.afxNodeKind === "annotation")
@@ -135,133 +154,159 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
             : 80
         }
         color="var(--afx-brand, #c7a74f)"
+        handleClassName={isLabelNode ? "afx-label-resize-handle" : undefined}
+        lineClassName={isLabelNode ? "afx-label-resize-line" : undefined}
       />
       {/* Bottom placement keeps node actions clear of the floating flow
           toolbar, which permanently occupies the top strip of the surface. */}
-      <NodeToolbar
-        isVisible={selected}
-        position={Position.Bottom}
-        className="flex rounded-sm border bg-popover p-0.5 shadow-md"
-      >
-        {data.showCanvasActions ? (
-          <CanvasRunActionButton
-            node={node}
-            disabled={!data.canRunCanvasActions}
-            onRun={(action) => data.onRunCanvasAction(id, action)}
-          />
-        ) : null}
-        {node.type === "file" ? (
-          <NodeAction
-            label={fileActions?.open ?? "Open source"}
-            onClick={() => data.onAction(id, "open")}
-          >
-            <ExternalLink size={12} />
-          </NodeAction>
-        ) : null}
-        {node.type === "file" && isMarkdownPath(node.file) ? (
-          <NodeAction
-            label={fileActions?.preview ?? "Rendered preview"}
-            onClick={() => data.onAction(id, "preview")}
-          >
-            <BookOpen size={12} />
-          </NodeAction>
-        ) : null}
-        {node.type === "file" ? (
-          <NodeAction label="Refresh preview" onClick={() => data.onAction(id, "loadPreview")}>
-            <RefreshCw size={12} />
-          </NodeAction>
-        ) : null}
-        {selected && node.type === "file" && isApprovedImagePreview(data.preview) ? (
-          <CanvasImageControls node={node} onUpdate={(patch) => data.onUpdate(id, patch)} />
-        ) : null}
-        {node.type === "link" ? (
-          <NodeAction label="Open URL" onClick={() => data.onAction(id, "open")}>
-            <ExternalLink size={12} />
-          </NodeAction>
-        ) : null}
-        {/* Integration actions carry visible text — icon-only buttons made the
-            Chat/Notes handoffs undiscoverable without a manual. */}
-        <NodeAction label="Send to Chat" onClick={() => data.onAction(id, "chat")}>
-          <MessageSquare size={12} />
-          <span className="text-[9px]">Chat</span>
-        </NodeAction>
-        {node.type === "text" ? (
-          <NodeAction label="Promote to Notes" onClick={() => data.onAction(id, "note")}>
-            <NotepadText size={12} />
-            <span className="text-[9px]">Notes</span>
-          </NodeAction>
-        ) : null}
-        <NodeAction label="Delete" onClick={() => data.onAction(id, "delete")}>
+      {isLabelNode ? (
+        <button
+          type="button"
+          aria-label="Delete label"
+          title="Delete label"
+          className={`nodrag absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            selected ? "opacity-100" : "group-hover:opacity-100"
+          }`}
+          onClick={() => data.onAction(id, "delete")}
+        >
           <Trash2 size={12} />
-        </NodeAction>
-      </NodeToolbar>
-      <header className="drag-handle flex h-7 cursor-grab items-center gap-1 border-b px-2 text-[10px] uppercase tracking-wide text-muted-foreground active:cursor-grabbing">
-        {data.annotationIndex !== undefined ? (
-          <span
-            aria-label={`Annotation ${data.annotationIndex}`}
-            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-afx-brand font-mono text-[9px] font-semibold text-background"
-            data-testid={`canvas-annotation-badge-${id}`}
-          >
-            {data.annotationIndex}
-          </span>
-        ) : null}
-        {visuals.icon ? <CanvasSemanticIcon name={visuals.icon} className="shrink-0" /> : null}
-        {docKindOf(node) ? (
-          <span
-            className="shrink-0 rounded-sm border border-afx-brand/40 bg-afx-brand/10 px-1 font-mono text-[8px] uppercase tracking-wide text-afx-brand-soft"
-            data-testid={`canvas-doc-kind-${id}`}
-          >
-            {docKindOf(node)}
-          </span>
-        ) : null}
-        <span className="truncate">{nodeTitle(node)}</span>
-        {visuals.lane ? (
-          <span
-            className="ml-auto max-w-20 truncate rounded bg-muted px-1 text-[9px] normal-case"
-            title={`Lane: ${visuals.lane}`}
-          >
-            {visuals.lane}
-          </span>
-        ) : null}
-        {data.expandableCount && data.expandableCount > 0 ? (
-          <button
-            type="button"
-            className="nodrag ml-auto flex shrink-0 items-center gap-0.5 rounded-sm border border-afx-brand/40 bg-afx-brand/10 px-1 text-[9px] text-afx-brand-soft hover:bg-afx-brand/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label={`Load ${data.expandableCount} dependencies`}
-            title={`${data.expandableCount} declared ${
-              data.expandableCount === 1 ? "dependency" : "dependencies"
-            } not loaded — click to load`}
-            onClick={() => data.onAction(id, "expand")}
-            data-testid={`canvas-expand-badge-${id}`}
-          >
-            <GitFork size={9} /> {data.expandableCount}
-          </button>
-        ) : null}
-        {visuals.pinned ? (
-          <span aria-label="Pinned" title="Pinned" className="shrink-0">
-            <Pin size={10} />
-          </span>
-        ) : null}
-        {visuals.locked ? (
-          <span aria-label="Locked" title="Locked" className="shrink-0">
-            <LockKeyhole size={10} />
-          </span>
-        ) : null}
-        {data.preview?.revision?.dirty ? (
-          <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[9px] text-amber-300">
-            Unsaved
-          </span>
-        ) : null}
-      </header>
+        </button>
+      ) : (
+        <NodeToolbar
+          isVisible={selected}
+          position={Position.Bottom}
+          className="flex rounded-sm border bg-popover p-0.5 shadow-md"
+        >
+          {data.showCanvasActions ? (
+            <CanvasRunActionButton
+              node={node}
+              disabled={!data.canRunCanvasActions}
+              onRun={(action) => data.onRunCanvasAction(id, action)}
+            />
+          ) : null}
+          {node.type === "file" ? (
+            <NodeAction
+              label={fileActions?.open ?? "Open source"}
+              onClick={() => data.onAction(id, "open")}
+            >
+              <ExternalLink size={12} />
+            </NodeAction>
+          ) : null}
+          {node.type === "file" && isMarkdownPath(node.file) ? (
+            <NodeAction
+              label={fileActions?.preview ?? "Rendered preview"}
+              onClick={() => data.onAction(id, "preview")}
+            >
+              <BookOpen size={12} />
+            </NodeAction>
+          ) : null}
+          {node.type === "file" ? (
+            <NodeAction label="Refresh preview" onClick={() => data.onAction(id, "loadPreview")}>
+              <RefreshCw size={12} />
+            </NodeAction>
+          ) : null}
+          {selected && node.type === "file" && isApprovedImagePreview(data.preview) ? (
+            <CanvasImageControls node={node} onUpdate={(patch) => data.onUpdate(id, patch)} />
+          ) : null}
+          {node.type === "link" ? (
+            <NodeAction label="Open URL" onClick={() => data.onAction(id, "open")}>
+              <ExternalLink size={12} />
+            </NodeAction>
+          ) : null}
+          {/* Integration actions carry visible text — icon-only buttons made the
+              Chat/Notes handoffs undiscoverable without a manual. */}
+          <NodeAction label="Send to Chat" onClick={() => data.onAction(id, "chat")}>
+            <MessageSquare size={12} />
+            <span className="text-[9px]">Chat</span>
+          </NodeAction>
+          {node.type === "text" ? (
+            <NodeAction label="Promote to Notes" onClick={() => data.onAction(id, "note")}>
+              <NotepadText size={12} />
+              <span className="text-[9px]">Notes</span>
+            </NodeAction>
+          ) : null}
+          <NodeAction label="Delete" onClick={() => data.onAction(id, "delete")}>
+            <Trash2 size={12} />
+          </NodeAction>
+        </NodeToolbar>
+      )}
+      {isLabelNode ? null : (
+        <header className="drag-handle flex h-7 cursor-grab items-center gap-1 border-b px-2 text-[10px] uppercase tracking-wide text-muted-foreground active:cursor-grabbing">
+          {data.annotationIndex !== undefined ? (
+            <span
+              aria-label={`Annotation ${data.annotationIndex}`}
+              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-afx-brand font-mono text-[9px] font-semibold text-background"
+              data-testid={`canvas-annotation-badge-${id}`}
+            >
+              {data.annotationIndex}
+            </span>
+          ) : null}
+          {isTodoNode ? <ListTodo size={11} className="shrink-0" /> : null}
+          {visuals.icon ? <CanvasSemanticIcon name={visuals.icon} className="shrink-0" /> : null}
+          {docKindOf(node) ? (
+            <span
+              className="shrink-0 rounded-sm border border-afx-brand/40 bg-afx-brand/10 px-1 font-mono text-[8px] uppercase tracking-wide text-afx-brand-soft"
+              data-testid={`canvas-doc-kind-${id}`}
+            >
+              {docKindOf(node)}
+            </span>
+          ) : null}
+          <span className="truncate">{nodeTitle(node)}</span>
+          {visuals.lane ? (
+            <span
+              className="ml-auto max-w-20 truncate rounded bg-muted px-1 text-[9px] normal-case"
+              title={`Lane: ${visuals.lane}`}
+            >
+              {visuals.lane}
+            </span>
+          ) : null}
+          {data.expandableCount && data.expandableCount > 0 ? (
+            <button
+              type="button"
+              className="nodrag ml-auto flex shrink-0 items-center gap-0.5 rounded-sm border border-afx-brand/40 bg-afx-brand/10 px-1 text-[9px] text-afx-brand-soft hover:bg-afx-brand/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`Load ${data.expandableCount} dependencies`}
+              title={`${data.expandableCount} declared ${
+                data.expandableCount === 1 ? "dependency" : "dependencies"
+              } not loaded — click to load`}
+              onClick={() => data.onAction(id, "expand")}
+              data-testid={`canvas-expand-badge-${id}`}
+            >
+              <GitFork size={9} /> {data.expandableCount}
+            </button>
+          ) : null}
+          {visuals.pinned ? (
+            <span aria-label="Pinned" title="Pinned" className="shrink-0">
+              <Pin size={10} />
+            </span>
+          ) : null}
+          {visuals.locked ? (
+            <span aria-label="Locked" title="Locked" className="shrink-0">
+              <LockKeyhole size={10} />
+            </span>
+          ) : null}
+          {data.preview?.revision?.dirty ? (
+            <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[9px] text-amber-300">
+              Unsaved
+            </span>
+          ) : null}
+        </header>
+      )}
       <div
         data-testid={`canvas-node-body-${id}`}
-        className={`nowheel h-[calc(100%-1.75rem)] overflow-auto ${canvasNodeDensityClass(visuals.density)} ${canvasNodeTypographyClass(visuals.typography)}`}
+        className={`nowheel ${
+          isLabelNode
+            ? "h-full overflow-hidden px-1 py-0.5 text-sm font-medium leading-tight"
+            : `h-[calc(100%-1.75rem)] overflow-auto ${canvasNodeDensityClass(visuals.density)} ${canvasNodeTypographyClass(visuals.typography)}`
+        }`}
       >
         {node.type === "text" && editing ? (
           <textarea
             autoFocus
             aria-label="Canvas node markdown"
-            className="nodrag h-full min-h-16 w-full resize-none cursor-text bg-transparent font-mono text-xs outline-none"
+            className={`nodrag h-full w-full resize-none cursor-text bg-transparent outline-none ${
+              isLabelNode ? "min-h-0 font-sans font-medium" : "min-h-16 font-mono text-xs"
+            }`}
+            style={labelTextStyle}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onBlur={commit}
@@ -273,6 +318,10 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
               if ((event.metaKey || event.ctrlKey) && event.key === "Enter") commit();
             }}
           />
+        ) : node.type === "text" && isLabelNode ? (
+          <PlainLabelText content={node.text} style={labelTextStyle} />
+        ) : node.type === "text" && isTodoNode ? (
+          <TodoPreview content={node.text} />
         ) : node.type === "text" ? (
           <MinimalMarkdown content={node.text} />
         ) : node.type === "file" || node.type === "link" ? (
@@ -301,26 +350,110 @@ function CanvasFlowNodeComponent({ id, data, selected }: NodeProps<CanvasFlowNod
       {([Position.Top, Position.Right, Position.Bottom, Position.Left] as const).flatMap(
         (position) => {
           const side = position.toLowerCase();
+          const handleClassName = isLabelNode
+            ? "afx-label-connect-handle !h-2 !w-2 !border-background !bg-afx-brand"
+            : "!h-2 !w-2 !border-background !bg-afx-brand";
           return [
             <Handle
               key={`target:${side}`}
               id={side}
               type="target"
               position={position}
-              className="!h-2 !w-2 !border-background !bg-afx-brand"
+              className={handleClassName}
             />,
             <Handle
               key={`source:${side}`}
               id={side}
               type="source"
               position={position}
-              className="!h-2 !w-2 !border-background !bg-afx-brand"
+              className={handleClassName}
             />,
           ];
         },
       )}
     </article>
   );
+}
+
+function PlainLabelText({ content, style }: { content: string; style?: CSSProperties }) {
+  const lines = plainLabelLines(content);
+  return (
+    <span
+      className="block whitespace-pre-wrap break-words"
+      data-testid="canvas-label-text"
+      style={style}
+    >
+      {lines.join("\n") || "Label"}
+    </span>
+  );
+}
+
+function plainLabelLines(content: string): string[] {
+  return content
+    .replace(/^#{1,6}\s+/gm, "")
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function labelTextStyleFor(node: CanvasTextNode): CSSProperties {
+  const lineCount = Math.max(1, plainLabelLines(node.text).length);
+  const fontSize = clamp(Math.round(((node.height ?? 36) - 6) / lineCount), 12, 96);
+  return { fontSize, lineHeight: 1.05 };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function TodoPreview({ content }: { content: string }) {
+  const items = parseTodoItems(content);
+  const title = content.match(/^#{1,6}\s+(.+)$/m)?.[1] ?? "Todo";
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        <ListTodo size={11} />
+        {title}
+      </div>
+      {items.length > 0 ? (
+        <ul className="space-y-1">
+          {items.slice(0, 8).map((item, index) => (
+            <li key={`${item.text}:${index}`} className="flex items-start gap-1.5">
+              <input
+                type="checkbox"
+                checked={item.done}
+                readOnly
+                tabIndex={-1}
+                aria-label={item.done ? "Completed todo" : "Open todo"}
+                className="mt-0.5 h-3 w-3 shrink-0 accent-[var(--afx-brand)]"
+              />
+              <span
+                className={`min-w-0 break-words text-[11px] leading-4 ${
+                  item.done ? "text-muted-foreground line-through" : ""
+                }`}
+              >
+                {item.text}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <MinimalMarkdown content={content} />
+      )}
+    </div>
+  );
+}
+
+function parseTodoItems(content: string): Array<{ done: boolean; text: string }> {
+  return content
+    .split(/\n/)
+    .map((line) => line.match(/^\s*[-*]\s+\[([ xX])\]\s+(.+)$/))
+    .filter((match): match is RegExpMatchArray => Boolean(match))
+    .map((match) => ({
+      done: match[1]?.toLowerCase() === "x",
+      text: match[2]?.trim() ?? "",
+    }))
+    .filter((item) => item.text.length > 0);
 }
 
 function CanvasPreviewBody({

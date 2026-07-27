@@ -583,6 +583,56 @@ test("React Flow Canvas switches named documents, modes, starters, and connector
   await expectNoReactFlowWarnings(page);
 });
 
+test("React Flow Canvas renders labels as plain text with hover-only controls", async ({
+  page,
+}, testInfo) => {
+  await bootReactFlowCanvas(page, { width: 1180, height: 620 });
+
+  await page.getByRole("button", { name: "Add label" }).click();
+  const label = page.locator('article[data-node-kind="label"]').first();
+  await expect(label).toBeVisible();
+  await expect(label.getByText("Label", { exact: true })).toBeVisible();
+
+  const plainStyle = await label.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const handle = element.querySelector<HTMLElement>(".afx-label-connect-handle");
+    const resize = element.querySelector<HTMLElement>(".afx-label-resize-handle");
+    return {
+      background: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      boxShadow: style.boxShadow,
+      handleOpacity: handle ? getComputedStyle(handle).opacity : "missing",
+      resizeOpacity: resize ? getComputedStyle(resize).opacity : "missing",
+    };
+  });
+  expect(plainStyle.background).toBe("rgba(0, 0, 0, 0)");
+  expect(plainStyle.borderTopWidth).toBe("0px");
+  expect(plainStyle.boxShadow).toBe("none");
+  expect(plainStyle.handleOpacity).toBe("0");
+  expect(plainStyle.resizeOpacity).toBe("0");
+  await expect(label.locator("header")).toHaveCount(0);
+  await expect(label.getByRole("button", { name: "Send to Chat" })).toHaveCount(0);
+  await expect(label.getByRole("button", { name: "Promote to Notes" })).toHaveCount(0);
+
+  await label.hover();
+  await expect(label.getByRole("button", { name: "Delete label" })).toBeVisible();
+  await expect
+    .poll(() =>
+      label.evaluate((element) => {
+        const handle = element.querySelector<HTMLElement>(".afx-label-connect-handle");
+        const resize = element.querySelector<HTMLElement>(".afx-label-resize-handle");
+        return {
+          handleOpacity: handle ? getComputedStyle(handle).opacity : "missing",
+          resizeOpacity: resize ? getComputedStyle(resize).opacity : "missing",
+        };
+      }),
+    )
+    .toEqual({ handleOpacity: "1", resizeOpacity: "1" });
+
+  await capture(page, testInfo, "canvas-react-flow-label-plain-text.png");
+  await expectNoReactFlowWarnings(page);
+});
+
 test("React Flow Canvas reports multi-file lifecycle outcomes and opens the exact editor target", async ({
   page,
 }, testInfo) => {

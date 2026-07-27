@@ -454,11 +454,12 @@ export interface CanvasTextNode extends CanvasGenericNode {
   type: "text";
   text: string;
   /**
-   * Presentation style for AFX surfaces. "annotation" renders a numbered
-   * callout card with a leader arrow; foreign tools see a standard text node.
-   * @see docs/specs/229-app-workbench-canvas/spec.md [FR-46]
+   * Presentation style for AFX surfaces. Labels and todos remain ordinary text
+   * nodes in portable JSON Canvas tools; AFX gives them planning-native chrome.
+   * "annotation" renders a numbered callout card with a leader arrow.
+   * @see docs/specs/229-app-workbench-canvas/spec.md [FR-23] [FR-46]
    */
-  afxNodeKind?: "note" | "label" | "annotation";
+  afxNodeKind?: "note" | "label" | "annotation" | "todo";
 }
 
 export interface CanvasFileNode extends CanvasGenericNode {

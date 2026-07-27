@@ -16,8 +16,25 @@ import {
 } from "./canvas-flow-node";
 
 vi.mock("@xyflow/react", () => ({
-  Handle: () => null,
-  NodeResizer: () => null,
+  Handle: ({ className }: { className?: string }) => (
+    <span className={className} data-testid="canvas-handle" />
+  ),
+  NodeResizer: ({
+    handleClassName,
+    isVisible,
+    lineClassName,
+  }: {
+    handleClassName?: string;
+    isVisible?: boolean;
+    lineClassName?: string;
+  }) =>
+    isVisible ? (
+      <span
+        data-testid="node-resizer"
+        data-handle-class={handleClassName ?? ""}
+        data-line-class={lineClassName ?? ""}
+      />
+    ) : null,
   NodeToolbar: ({ children }: { children?: React.ReactNode }) => <>{children}</>,
   Position: { Top: "top", Right: "right", Bottom: "bottom", Left: "left" },
 }));
@@ -398,6 +415,79 @@ describe("CanvasFlowNode referenced Markdown lifecycle", () => {
     expect(screen.getByLabelText("Locked")).toBeInTheDocument();
     expect(screen.getByLabelText("Pinned")).toBeInTheDocument();
     expect(screen.getByText("Platform")).toBeInTheDocument();
+  });
+
+  it("renders labels as lightweight canvas text rather than note cards", () => {
+    const node = {
+      id: "boundary-label",
+      type: "text",
+      text: "Architecture boundary",
+      x: 0,
+      y: 0,
+      width: 180,
+      height: 36,
+      afxNodeKind: "label",
+    } as unknown as CanvasNode;
+    render(<CanvasFlowNode {...flowProps(node, data(node), true)} />);
+
+    const card = screen.getByTestId("react-flow-canvas-node-boundary-label");
+    expect(card).toHaveAttribute("data-node-kind", "label");
+    expect(card).not.toHaveClass("border");
+    expect(card).not.toHaveClass("ring-1");
+    expect(card.querySelector("header")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Send to Chat" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete label" })).toHaveClass("opacity-100");
+    expect(screen.getAllByTestId("canvas-handle")).toHaveLength(8);
+    expect(screen.getAllByTestId("canvas-handle")[0]).toHaveClass("afx-label-connect-handle");
+    expect(screen.getByTestId("node-resizer")).toHaveAttribute(
+      "data-handle-class",
+      "afx-label-resize-handle",
+    );
+    expect(screen.getByTestId("node-resizer")).toHaveAttribute(
+      "data-line-class",
+      "afx-label-resize-line",
+    );
+    expect(screen.getByTestId("canvas-label-text")).toHaveTextContent("Architecture boundary");
+    expect(screen.getByTestId("canvas-label-text")).toHaveStyle({ fontSize: "30px" });
+    expect(screen.queryByRole("button", { name: "Promote to Notes" })).not.toBeInTheDocument();
+  });
+
+  it("scales label text from the label node height", () => {
+    const node = {
+      id: "large-label",
+      type: "text",
+      text: "Large label",
+      x: 0,
+      y: 0,
+      width: 420,
+      height: 88,
+      afxNodeKind: "label",
+    } as unknown as CanvasNode;
+    render(<CanvasFlowNode {...flowProps(node, data(node), false)} />);
+
+    expect(screen.getByTestId("canvas-label-text")).toHaveStyle({ fontSize: "82px" });
+  });
+
+  it("renders todo text nodes as portable checklist cards", () => {
+    const node = {
+      id: "todo",
+      type: "text",
+      text: "## Launch follow-ups\n\n- [ ] Invite pilot\n- [x] Draft spec",
+      x: 0,
+      y: 0,
+      width: 260,
+      height: 140,
+      afxNodeKind: "todo",
+    } as unknown as CanvasNode;
+    render(<CanvasFlowNode {...flowProps(node, data(node), true)} />);
+
+    expect(screen.getByTestId("react-flow-canvas-node-todo")).toHaveAttribute(
+      "data-node-kind",
+      "todo",
+    );
+    expect(screen.getAllByText("Launch follow-ups")).toHaveLength(2);
+    expect(screen.getByText("Invite pilot")).toBeInTheDocument();
+    expect(screen.getByText("Draft spec")).toHaveClass("line-through");
   });
 
   it("renders colored collapsed groups without exposing AFX actions outside the AFX profile", () => {

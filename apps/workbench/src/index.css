@@ -165,7 +165,7 @@ input:disabled {
  * ═══════════════════════════════════════════════════════════════ */
 
 /* Node cards: soft elevation with a hover lift; selection ring stays brass. */
-.afx-canvas-surface .react-flow__node article[data-node-kind] {
+.afx-canvas-surface .react-flow__node article[data-node-kind]:not([data-node-kind="label"]) {
   border-radius: 6px;
   box-shadow:
     0 1px 2px color-mix(in srgb, var(--foreground) 8%, transparent),
@@ -175,10 +175,35 @@ input:disabled {
     translate 120ms ease;
 }
 
-.afx-canvas-surface .react-flow__node:hover article[data-node-kind]:not([data-node-kind="group"]) {
+.afx-canvas-surface
+  .react-flow__node:hover
+  article[data-node-kind]:not([data-node-kind="group"], [data-node-kind="label"]) {
   box-shadow:
     0 2px 4px color-mix(in srgb, var(--foreground) 10%, transparent),
     0 8px 22px color-mix(in srgb, var(--foreground) 9%, transparent);
+}
+
+.afx-canvas-surface article[data-node-kind="label"] {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.afx-canvas-surface article[data-node-kind="label"] .afx-label-connect-handle,
+.afx-canvas-surface article[data-node-kind="label"] .afx-label-resize-handle {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.afx-canvas-surface article[data-node-kind="label"] .afx-label-resize-line {
+  opacity: 0;
+}
+
+.afx-canvas-surface .react-flow__node:hover article[data-node-kind="label"] .afx-label-connect-handle,
+.afx-canvas-surface .react-flow__node:hover article[data-node-kind="label"] .afx-label-resize-handle,
+.afx-canvas-surface article[data-node-kind="label"][data-selected="true"] .afx-label-connect-handle,
+.afx-canvas-surface article[data-node-kind="label"][data-selected="true"] .afx-label-resize-handle {
+  opacity: 1;
 }
 
 /* Annotation callouts: serif italic voice, brass dashed border, slight tilt. */

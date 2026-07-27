@@ -420,6 +420,26 @@ describe("CanvasApp React Flow shell", () => {
     expect(Number(screen.getByTestId("canvas-node-count").textContent)).toBe(before + 1);
   });
 
+  it("adds a todo as a standard text node with portable checklist metadata", () => {
+    renderCanvas();
+    const before = Number(screen.getByTestId("canvas-node-count").textContent);
+    fireEvent.click(screen.getByRole("button", { name: "Add todo" }));
+
+    expect(Number(screen.getByTestId("canvas-node-count").textContent)).toBe(before + 1);
+    const edit = [...postMessage.mock.calls]
+      .reverse()
+      .find((call: unknown[]) => (call[0] as { type?: string }).type === "afxCanvasEdit")?.[0] as
+      { content: string } | undefined;
+    const saved = JSON.parse(edit?.content ?? "{}") as JSONCanvas;
+    const todo = saved.nodes?.find(
+      (node): node is Extract<CanvasNode, { type: "text" }> =>
+        node.type === "text" && node.afxNodeKind === "todo",
+    );
+    expect(todo).toBeTruthy();
+    expect(todo?.text).toContain("- [ ] Follow up");
+    expect(todo?.color).toBe("4");
+  });
+
   it("opens file-node source in the editor and exposes Markdown preview separately", () => {
     renderCanvas();
 
