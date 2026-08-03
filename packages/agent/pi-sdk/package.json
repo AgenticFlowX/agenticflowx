@@ -18,10 +18,10 @@
   "dependencies": {
     "@afx/agent-pi": "workspace:*",
     "@afx/shared": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.82.0",
-    "@earendil-works/pi-ai": "0.82.0",
-    "@earendil-works/pi-coding-agent": "0.82.0",
-    "@earendil-works/pi-tui": "0.82.0"
+    "@earendil-works/pi-agent-core": "0.83.0",
+    "@earendil-works/pi-ai": "0.83.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
+    "@earendil-works/pi-tui": "0.83.0"
   },
   "devDependencies": {
     "@types/node": "^25.9.4",

@@ -18,7 +18,7 @@
     "@afx/shared": "workspace:*"
   },
   "devDependencies": {
-    "@earendil-works/pi-coding-agent": "0.82.0",
+    "@earendil-works/pi-coding-agent": "0.83.0",
     "@types/node": "^25.9.4",
     "typescript": "^5.9.3",
     "vitest": "^4.1.9"
