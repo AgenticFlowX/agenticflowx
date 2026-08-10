@@ -210,7 +210,7 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v6
-      - uses: google/osv-scanner-action/osv-scanner-action@v2.3.8
+      - uses: google/osv-scanner-action/osv-scanner-action@v2.5.0
         with:
           scan-args: |-
             --lockfile=pnpm-lock.yaml
