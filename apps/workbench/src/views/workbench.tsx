@@ -1620,15 +1620,28 @@ function hasUnresolvedOpenQuestions(markdown: string): boolean {
     const sectionStart = match.index + match[0].length;
     const remaining = markdown.slice(sectionStart);
     const nextHeading = remaining.match(new RegExp(`^#{1,${headingLevel}}\\s+`, "m"));
-    const section = remaining
-      .slice(0, nextHeading?.index ?? remaining.length)
-      .replace(/<!--[^]*?-->/g, "")
-      .trim();
+    const section = withoutComments(
+      remaining.slice(0, nextHeading?.index ?? remaining.length),
+    ).trim();
 
     if (openQuestionSectionHasUnresolvedRows(section)) return true;
   }
 
   return false;
+}
+
+function withoutComments(value: string): string {
+  const chunks: string[] = [];
+  let cursor = 0;
+  let start: number;
+  while ((start = value.indexOf("<!--", cursor)) !== -1) {
+    chunks.push(value.slice(cursor, start), " ");
+    const end = value.indexOf("-->", start + 4);
+    if (end === -1) return chunks.join("");
+    cursor = end + 3;
+  }
+  chunks.push(value.slice(cursor));
+  return chunks.join("");
 }
 
 function openQuestionSectionHasUnresolvedRows(section: string): boolean {

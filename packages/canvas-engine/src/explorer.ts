@@ -261,7 +261,7 @@ export function analyzeCanvasArchitecture(canvas: JSONCanvas): CanvasArchitectur
 function nodeTitle(node: CanvasNode): string {
   if (node.type === "text") {
     return (
-      node.text.match(/^#{1,6}\s+(.+)$/m)?.[1]?.trim() ??
+      node.text.match(/^#{1,6}[^\S\r\n]+(\S.*)$/m)?.[1]?.trim() ??
       node.text.split(/\r?\n/)[0]?.trim() ??
       "Text"
     );

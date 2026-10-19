@@ -86,6 +86,40 @@ function coordinator(
 describe("createKanbanBoardLifecycleService", () => {
   afterEach(() => vi.restoreAllMocks());
 
+  it("quotes YAML titles and preserves literal replacement tokens when creating and renaming", async () => {
+    const mutations: WorkbenchTextMutation[] = [];
+    const writes = coordinator(async (request) => {
+      mutations.push(request);
+      return {
+        type: "afxMutationResult",
+        requestId: request.requestId,
+        outcome: "success",
+        target: request.target,
+        revision: { contentRevision: "next", diskRevision: "next", dirty: false },
+      };
+    });
+    vi.spyOn(vscode.workspace.fs, "delete").mockResolvedValue(undefined);
+    const service = createKanbanBoardLifecycleService({
+      fileState: fileState(),
+      coordinator: writes,
+      getWorkspaceFolders: () => roots,
+    });
+    const name = 'Release \\"quoted" $& $`';
+    await service.create({ requestId: "quoted-create", targetRootUri: "file:///other", name });
+    await service.rename({
+      requestId: "quoted-rename",
+      target: sourceFor(vscode.Uri.file("/other/.afx/kanban/roadmap.md"))!,
+      expectedRevision: "rev-1",
+      name,
+    });
+    for (const mutation of mutations) {
+      const text = await mutation.transform('---\ntitle: "Original"\n---\n\n# Original\n');
+      expect(text).toContain(`title: ${JSON.stringify(name)}\n`);
+      expect(text).toContain(`# ${name}\n`);
+    }
+    expect(mutations).toHaveLength(2);
+  });
+
   it("creates in the exact requested workspace root with a collision guard", async () => {
     const mutations: WorkbenchTextMutation[] = [];
     const service = createKanbanBoardLifecycleService({

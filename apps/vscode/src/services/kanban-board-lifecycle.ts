@@ -252,14 +252,15 @@ function boardFilename(value: string): string | undefined {
 }
 
 function starterBoard(title: string): string {
-  const escaped = title.replace(/"/g, '\\"');
-  return `---\nafx: true\ntype: KANBAN\ntitle: "${escaped}"\nstatus: active\n---\n\n# ${title}\n\n## Backlog\n\n## In Progress\n\n## Review\n\n## Done\n`;
+  return `---\nafx: true\ntype: KANBAN\ntitle: ${JSON.stringify(title)}\nstatus: active\n---\n\n# ${title}\n\n## Backlog\n\n## In Progress\n\n## Review\n\n## Done\n`;
 }
 
 function updateBoardTitle(content: string, title: string): string {
-  const escaped = title.replace(/"/g, '\\"');
-  const withTitle = content.replace(/^title:\s*.*$/m, `title: "${escaped}"`);
-  return withTitle.replace(/^#(?!#)\s+.*$/m, `# ${title}`);
+  const withTitle = content.replace(
+    /^title:[^\S\r\n]*.*$/m,
+    () => `title: ${JSON.stringify(title)}`,
+  );
+  return withTitle.replace(/^#(?!#)[^\S\r\n]+.*$/m, () => `# ${title}`);
 }
 
 function serializeUri(uri: vscode.Uri): string {

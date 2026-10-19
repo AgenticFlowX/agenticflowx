@@ -25,7 +25,14 @@ export interface SddDocumentAction {
 }
 
 const MARKDOWN_PATH_RE = /\.(?:md|markdown)$/i;
-const DOCS_SPECS_RE = /(?:^|\/)docs\/specs\/(.+)$/i;
+function specsRelativePath(path: string): string | undefined {
+  const parts = path.split("/");
+  const index = parts.findIndex(
+    (part, i) => part.toLowerCase() === "docs" && parts[i + 1]?.toLowerCase() === "specs",
+  );
+  const relative = index < 0 ? "" : parts.slice(index + 2).join("/");
+  return relative || undefined;
+}
 const DOCS_RESEARCH_RE = /(?:^|\/)docs\/research\//i;
 const DOCS_ADR_RE = /(?:^|\/)docs\/(?:adr|adrs)\//i;
 
@@ -126,12 +133,12 @@ function kindFromPath(path: string): SddDocumentKind | null {
   const basename = parts[parts.length - 1]?.toLowerCase() ?? "";
   if (DOCS_ADR_RE.test(path) || basename.startsWith("adr-")) return "adr";
   if (DOCS_RESEARCH_RE.test(path)) return "research";
-  if (DOCS_SPECS_RE.test(path)) return "sprint";
+  if (specsRelativePath(path)) return "sprint";
   return null;
 }
 
 function featureFromSddPath(path: string, kind: SddDocumentKind): string | null {
-  const specs = DOCS_SPECS_RE.exec(path)?.[1];
+  const specs = specsRelativePath(path);
   if (specs) {
     const parts = specs.split("/").filter(Boolean);
     if (parts.length <= 1) return parts[0] ?? null;

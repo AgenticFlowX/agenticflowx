@@ -12,6 +12,17 @@ import { parseJournal } from "./journal";
 import { parseSpec } from "./spec";
 import { parseTasks } from "./tasks";
 
+describe("line-bounded document parsing", () => {
+  it("does not consume the next line as an empty heading, requirement, or task title", () => {
+    const padding = " ".repeat(100_000);
+    expect(parseSpec(`FR-1${padding}\nNext line\n`).requirements).toEqual([]);
+    expect(parseTasks(`[ ] (1-1)${padding}\nNext line\n##${padding}\nNext line\n`).tasks).toEqual(
+      [],
+    );
+    expect(parseJournal(`##${padding}\nNext line\n`).discussions).toEqual([]);
+  });
+});
+
 describe("parseFrontmatter", () => {
   it("extracts frontmatter data and content", () => {
     const raw = `---\ntitle: Test\nstatus: Draft\n---\n\nBody text.`;

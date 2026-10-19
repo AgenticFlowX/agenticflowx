@@ -159,7 +159,7 @@ function findKey(
       if (candidate.content.trim() === "" || candidate.content.trimStart().startsWith("#")) {
         continue;
       }
-      const item = /^([ \t]+)-[ \t]+(.*)$/.exec(candidate.content);
+      const item = /^([ \t]+)-[ \t]+(\S.*|)$/.exec(candidate.content);
       if (!item) break;
       items.push({
         line: itemLine,

@@ -237,7 +237,9 @@ export function canvasDocumentId(source: WorkbenchSourceIdentity): string {
     .replace(/\\/g, "/")
     .replace(/^\.\/+/, "")
     .replace(/\/+/g, "/");
-  return `${source.rootUri.replace(/\/+$/, "")}::${relativePath}`;
+  let end = source.rootUri.length;
+  while (end > 0 && source.rootUri[end - 1] === "/") end--;
+  return `${source.rootUri.slice(0, end)}::${relativePath}`;
 }
 
 /** Replace a machine URI with a stable logical workspace hint before persisting Canvas metadata. */

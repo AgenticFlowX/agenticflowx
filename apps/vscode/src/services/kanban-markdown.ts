@@ -304,9 +304,7 @@ function renderPlainCard(text: string, newline: string): string {
 
 function markdownLinkTarget(ref: KanbanLinkedWorkItemRef): string {
   const relative = ref.source.relativePath;
-  return ref.kind === "task"
-    ? `${relative}#${ref.wbsId.replace(/\./g, "")}`
-    : relative.replace(/\/spec\.md$/, "/spec.md");
+  return ref.kind === "task" ? `${relative}#${ref.wbsId.replace(/\./g, "")}` : relative;
 }
 
 function renderLinkedCard(text: string, ref: KanbanLinkedWorkItemRef, newline: string): string {

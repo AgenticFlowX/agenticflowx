@@ -22,7 +22,7 @@ export function parseJournal(raw: string): JournalParseResult {
   const discussions: Discussion[] = [];
 
   const discRegex = /\b(\d{2}-[Dd]\d{3,})\b/g;
-  const headingRegex = /^##\s+(.+?)\s*$/;
+  const headingRegex = /^##[^\S\r\n]+(\S.*)$/;
   const dateRegex = /(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?(?:\.\d{3})?Z?)/;
 
   for (let i = 0; i < lines.length; i++) {

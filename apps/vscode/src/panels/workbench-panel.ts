@@ -1229,7 +1229,7 @@ async function handleMessage(
         const dir = await resolvePath(".afx/kanban");
         const uri = vscode.Uri.joinPath(dir, `${slug}.md`);
         const title = msg.name.trim();
-        const content = `---\nafx: true\ntype: KANBAN\ntitle: "${title.replace(/"/g, '\\"')}"\nstatus: active\n---\n\n# ${title}\n\n## Backlog\n\n## In Progress\n\n## Review\n\n## Done\n`;
+        const content = `---\nafx: true\ntype: KANBAN\ntitle: ${JSON.stringify(title)}\nstatus: active\n---\n\n# ${title}\n\n## Backlog\n\n## In Progress\n\n## Review\n\n## Done\n`;
         await vscode.workspace.fs.createDirectory(dir);
         await vscode.workspace.fs.writeFile(uri, Buffer.from(content, "utf8"));
         await refreshAndPost();
@@ -1253,9 +1253,11 @@ async function handleMessage(
         // Update title field + h1 in the file body
         const buf = await vscode.workspace.fs.readFile(oldUri);
         const oldText = Buffer.from(buf).toString("utf8");
-        const escaped = newTitle.replace(/"/g, '\\"');
-        const withTitle = oldText.replace(/^title:\s*.*$/m, `title: "${escaped}"`);
-        const withH1 = withTitle.replace(/^#\s+.*$/m, `# ${newTitle}`);
+        const withTitle = oldText.replace(
+          /^title:[^\S\r\n]*.*$/m,
+          () => `title: ${JSON.stringify(newTitle)}`,
+        );
+        const withH1 = withTitle.replace(/^#[^\S\r\n]+.*$/m, () => `# ${newTitle}`);
         await vscode.workspace.fs.writeFile(newUri, Buffer.from(withH1, "utf8"));
         await vscode.workspace.fs.delete(oldUri);
         await refreshAndPost();

@@ -30,8 +30,8 @@ export interface TasksParseResult {
 }
 
 export function parseTasks(raw: string): TasksParseResult {
-  const taskIdRegex = /^\[ \]\s*\((\d+-\d+)\)\s+(.+)$/gm;
-  const doneIdRegex = /^\[[xX]]\s*\((\d+-\d+)\)\s+(.+)$/gm;
+  const taskIdRegex = /^\[ \][^\S\r\n]*\((\d+-\d+)\)[^\S\r\n]+(\S.*)$/gm;
+  const doneIdRegex = /^\[[xX]][^\S\r\n]*\((\d+-\d+)\)[^\S\r\n]+(\S.*)$/gm;
 
   const tasks: TaskItem[] = [];
   let match: RegExpExecArray | null;
@@ -49,7 +49,7 @@ export function parseTasks(raw: string): TasksParseResult {
   }
 
   const phases: PhaseGroup[] = [];
-  const phaseRegex = /^##\s+(.+)$/gm;
+  const phaseRegex = /^##[^\S\r\n]+(\S.*)$/gm;
   let phaseMatch: RegExpExecArray | null;
   const phaseNames: string[] = [];
 

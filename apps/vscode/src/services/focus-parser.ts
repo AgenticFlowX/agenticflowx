@@ -111,8 +111,7 @@ export function parseFocuses(
 }
 
 function cleanHeadingTitle(title: string): string {
-  return title
-    .replace(/<!--.*?-->/g, "")
+  return withoutComments(title)
     .replace(/\s+\{#[^}]+\}\s*$/g, "")
     .replace(/[`*_]/g, "")
     .trim();
@@ -171,8 +170,7 @@ function sectionExcerpt(
 }
 
 function cleanExcerptLine(line: string): string {
-  return line
-    .replace(/<!--.*?-->/g, "")
+  return withoutComments(line)
     .replace(/^\s*[-*+]\s+\[[ xX]?\]\s+/, "")
     .replace(/^\s*[-*+]\s+/, "")
     .replace(/^\s*\d+\.\s+/, "")
@@ -184,6 +182,21 @@ function cleanExcerptLine(line: string): string {
     .replace(/^-{3,}$/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Omit authoring comments from display text without joining fragments into new markup.
+function withoutComments(value: string): string {
+  const chunks: string[] = [];
+  let cursor = 0;
+  let start: number;
+  while ((start = value.indexOf("<!--", cursor)) !== -1) {
+    chunks.push(value.slice(cursor, start), " ");
+    const end = value.indexOf("-->", start + 4);
+    if (end === -1) return chunks.join("");
+    cursor = end + 3;
+  }
+  chunks.push(value.slice(cursor));
+  return chunks.join("");
 }
 
 function truncateExcerpt(value: string): string {

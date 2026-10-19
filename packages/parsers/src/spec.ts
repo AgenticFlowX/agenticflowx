@@ -35,7 +35,7 @@ export interface SpecParseResult {
 export function parseSpec(raw: string): SpecParseResult {
   const { data, content } = parseFrontmatter<SpecFrontmatter>(raw);
 
-  const reqLineRegex = /^(FR-\d+|NFR-\d+)\s+(.+)$/gm;
+  const reqLineRegex = /^(FR-\d+|NFR-\d+)[^\S\r\n]+(\S.*)$/gm;
   const requirements: SpecRequirement[] = [];
   let match: RegExpExecArray | null;
 
