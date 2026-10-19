@@ -382,32 +382,35 @@ test.describe("Spec mode UX (FR-11 / FR-14 / FR-8)", () => {
     await page.setViewportSize({ width: 360, height: 720 });
     await expect(primaryRow).toContainText("Note");
 
-    const tightMetrics = await page.evaluate(() => {
-      const primary = document.querySelector<HTMLElement>(
-        '[data-testid="doc-actions-primary-row"]',
-      );
-      const intentLabel = document.querySelector<HTMLElement>(
-        '[data-testid="spec-stepper-intent-label"]',
-      );
-      if (!primary || !intentLabel) {
-        throw new Error("Expected journal doc-actions regression elements to be mounted");
-      }
+    // ResizeObserver updates the visible actions after the viewport changes.
+    await expect(async () => {
+      const tightMetrics = await page.evaluate(() => {
+        const primary = document.querySelector<HTMLElement>(
+          '[data-testid="doc-actions-primary-row"]',
+        );
+        const intentLabel = document.querySelector<HTMLElement>(
+          '[data-testid="spec-stepper-intent-label"]',
+        );
+        if (!primary || !intentLabel) {
+          throw new Error("Expected journal doc-actions regression elements to be mounted");
+        }
 
-      const labelBox = intentLabel.getBoundingClientRect();
+        const labelBox = intentLabel.getBoundingClientRect();
 
-      return {
-        primaryText: primary.textContent ?? "",
-        clippedPrimaryButtons: Array.from(primary.querySelectorAll("button")).filter(
-          (button) =>
-            button.getBoundingClientRect().right > primary.getBoundingClientRect().right + 1,
-        ).length,
-        labelHeight: labelBox.height,
-      };
-    });
+        return {
+          primaryText: primary.textContent ?? "",
+          clippedPrimaryButtons: Array.from(primary.querySelectorAll("button")).filter(
+            (button) =>
+              button.getBoundingClientRect().right > primary.getBoundingClientRect().right + 1,
+          ).length,
+          labelHeight: labelBox.height,
+        };
+      });
 
-    expect(tightMetrics.primaryText.trim()).not.toBe("...");
-    expect(tightMetrics.clippedPrimaryButtons).toBe(0);
-    expect(tightMetrics.labelHeight).toBeLessThanOrEqual(32);
+      expect(tightMetrics.primaryText.trim()).not.toBe("...");
+      expect(tightMetrics.clippedPrimaryButtons).toBe(0);
+      expect(tightMetrics.labelHeight).toBeLessThanOrEqual(32);
+    }).toPass({ timeout: 5_000 });
   });
 
   test("global journal doc-actions stay session-only when no feature is selected", async ({

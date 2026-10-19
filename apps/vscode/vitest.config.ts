@@ -30,6 +30,7 @@ export default defineConfig({
     // The root verify task runs this coverage project beside both webviews.
     // Bound local file workers so activation tests keep their normal 5s budget.
     maxWorkers: 2,
+    sequence: { groupOrder: 3 },
     environment: "node",
     globals: true,
     include: ["src/**/*.test.ts"],
