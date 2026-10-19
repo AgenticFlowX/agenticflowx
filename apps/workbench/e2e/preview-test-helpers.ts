@@ -5,7 +5,7 @@
  * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-PREVIEW-STANDALONE] [DES-TEST]
  */
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { basename, isAbsolute, relative, resolve } from "node:path";
 
 import { type Locator, type Page, type TestInfo, expect } from "@playwright/test";
@@ -89,7 +89,7 @@ export async function postPreview(
 ) {
   await page.evaluate(
     ({ filePath, content, isAfxHint }) => {
-      window.postMessage({ type: "afxPreviewShow", filePath, content, isAfxHint }, "*");
+      window.postMessage({ type: "afxPreviewShow", filePath, content, isAfxHint }, window.origin);
     },
     { filePath, content, isAfxHint },
   );
@@ -129,14 +129,13 @@ export async function attachCorpusScreenshot(page: Page, testInfo: TestInfo, nam
 export function markdownFilesUnder(root: string): string[] {
   const files: string[] = [];
   const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir)) {
-      const fullPath = resolve(dir, entry);
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
         walk(fullPath);
         continue;
       }
-      if (entry.endsWith(".md")) files.push(relative(REPO_ROOT, fullPath));
+      if (entry.isFile() && entry.name.endsWith(".md")) files.push(relative(REPO_ROOT, fullPath));
     }
   };
   walk(resolve(REPO_ROOT, root));
@@ -149,14 +148,13 @@ export function markdownSamplesUnder(root: string): MarkdownSample[] {
 
   const samples: MarkdownSample[] = [];
   const walk = (dir: string): void => {
-    for (const entry of readdirSync(dir)) {
-      const fullPath = resolve(dir, entry);
-      const stat = statSync(fullPath);
-      if (stat.isDirectory()) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
         walk(fullPath);
         continue;
       }
-      if (!entry.endsWith(".md")) continue;
+      if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
 
       const repoRelative = relative(REPO_ROOT, fullPath);
       const filePath =

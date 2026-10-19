@@ -301,7 +301,7 @@ async function bootEditorCanvas(
         document: canvasDocument,
         enabled: true,
       },
-      "*",
+      window.origin,
     );
   }, snapshot(canvas));
   await expect(page.getByTestId("react-flow-canvas")).toBeVisible();
@@ -320,6 +320,7 @@ async function installWorkbenchCanvasHost(page: Page, canvas: JSONCanvas): Promi
       localStorage.clear();
 
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         host.__afxCanvasA11yOutbound?.push(message);
@@ -327,12 +328,12 @@ async function installWorkbenchCanvasHost(page: Page, canvas: JSONCanvas): Promi
         if (message.type === "afxCanvasList") {
           window.postMessage(
             { type: "afxCanvasLibrary", canvases: [descriptor], selectedId: descriptor.id },
-            "*",
+            window.origin,
           );
           return;
         }
         if (message.type === "afxCanvasSelect") {
-          window.postMessage({ type: "afxCanvasDocument", document }, "*");
+          window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
           return;
         }
         if (message.type === "afxFetchDocContent") {
@@ -349,7 +350,7 @@ async function installWorkbenchCanvasHost(page: Page, canvas: JSONCanvas): Promi
                 dirty: false,
               },
             },
-            "*",
+            window.origin,
           );
           return;
         }
@@ -372,7 +373,7 @@ async function installWorkbenchCanvasHost(page: Page, canvas: JSONCanvas): Promi
                   dirty: false,
                 },
               },
-              "*",
+              window.origin,
             );
           }, 10);
         }
@@ -391,7 +392,7 @@ async function installWorkbenchCanvasHost(page: Page, canvas: JSONCanvas): Promi
             documentId: document.documentId,
           },
         },
-        "*",
+        window.origin,
       );
     },
     { descriptor: PROJECT, document },

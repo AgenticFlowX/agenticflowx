@@ -76,6 +76,7 @@ async function bootSpecMap(page: Page): Promise<void> {
       };
       state.__afxCanvasOutbound = [];
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         if (
@@ -92,7 +93,7 @@ async function bootSpecMap(page: Page): Promise<void> {
         if (message.type === "afxCanvasList") {
           window.postMessage(
             { type: "afxCanvasLibrary", canvases: [project], selectedId: project.id },
-            "*",
+            window.origin,
           );
         }
         if (message.type === "afxCanvasDocIndex") {
@@ -138,7 +139,7 @@ async function bootSpecMap(page: Page): Promise<void> {
                 },
               ],
             },
-            "*",
+            window.origin,
           );
         }
       });
@@ -148,9 +149,9 @@ async function bootSpecMap(page: Page): Promise<void> {
           canvasEnabled: true,
           canvas: { content: doc.content, source: doc.source, revision: doc.revision },
         },
-        "*",
+        window.origin,
       );
-      window.postMessage({ type: "afxCanvasDocument", document: doc }, "*");
+      window.postMessage({ type: "afxCanvasDocument", document: doc }, window.origin);
     },
     { project: PROJECT, doc: snapshot(GRAPH) },
   );
@@ -217,7 +218,7 @@ test("live re-syncs when a document changes behind the canvas (FR-14)", async ({
   // A human or agent edits a spec's frontmatter on disk → the host invalidates
   // the doc → Spec Map reconciles itself without any user action.
   await page.evaluate((owner) => {
-    window.postMessage({ type: "afxDocContentInvalidated", owner }, "*");
+    window.postMessage({ type: "afxDocContentInvalidated", owner }, window.origin);
   }, PROJECT.source);
 
   await expect

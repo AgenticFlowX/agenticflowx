@@ -139,6 +139,7 @@ function postPreview(filePath: string, content: string, isAfxHint?: boolean) {
   act(() => {
     window.dispatchEvent(
       new MessageEvent("message", {
+        origin: window.origin,
         data: { type: "afxPreviewShow", filePath, content, isAfxHint },
       }),
     );
@@ -215,7 +216,7 @@ describe("PreviewApp", () => {
         command: "/afx-task code checkout-redesign#1.2",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -254,7 +255,7 @@ describe("PreviewApp", () => {
         command: "/afx-spec refine checkout-redesign Requirements",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Answer questions in Open Questions" }));
@@ -264,7 +265,7 @@ describe("PreviewApp", () => {
         command: "/afx-spec refine checkout-redesign Open Questions answers",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Draft answer for open question/i }));
@@ -275,7 +276,7 @@ describe("PreviewApp", () => {
           '/afx-spec refine checkout-redesign answer open question "Should approval happen before design?"',
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Resolve questions" }));
@@ -285,7 +286,7 @@ describe("PreviewApp", () => {
         command: "/afx-spec refine checkout-redesign open questions",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /Capture questions/i }));
@@ -295,7 +296,7 @@ describe("PreviewApp", () => {
         command: "/afx-session capture --links checkout-redesign open-questions",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -318,7 +319,7 @@ describe("PreviewApp", () => {
         line: 17,
         completed: true,
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -353,7 +354,7 @@ describe("PreviewApp", () => {
         command: "/afx-sprint code checkout-redesign 1.2",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -376,7 +377,7 @@ describe("PreviewApp", () => {
         command: "/afx-sprint spec 900-fleet/01-upgrade-package",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     const codeTask = screen.getByRole("button", { name: "Code 1.2: Wire preview actions" });
@@ -387,7 +388,7 @@ describe("PreviewApp", () => {
         command: "/afx-sprint code 900-fleet/01-upgrade-package 1.2",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -412,7 +413,7 @@ describe("PreviewApp", () => {
         completed: true,
         line: expect.any(Number),
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -435,7 +436,7 @@ describe("PreviewApp", () => {
         column: "agent",
         completed: true,
       },
-      "*",
+      window.origin,
     );
 
     const approve = screen.getByRole("button", { name: "Approve Work Sessions" });
@@ -446,7 +447,7 @@ describe("PreviewApp", () => {
         type: "afxApproveSessions",
         filePath: "docs/specs/checkout-redesign/checkout-redesign.md",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });

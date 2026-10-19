@@ -50,7 +50,7 @@ async function postPreview(
 ) {
   await page.evaluate(
     ({ filePath, content, isAfxHint }) => {
-      window.postMessage({ type: "afxPreviewShow", filePath, content, isAfxHint }, "*");
+      window.postMessage({ type: "afxPreviewShow", filePath, content, isAfxHint }, window.origin);
     },
     { filePath, content, isAfxHint },
   );

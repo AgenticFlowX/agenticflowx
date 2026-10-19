@@ -38,7 +38,7 @@ describe("Analytics", () => {
 
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxCreateSampleDocs", kind: "full-spec" },
-      "*",
+      window.origin,
     );
   });
 });

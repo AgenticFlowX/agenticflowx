@@ -289,6 +289,7 @@ async function bootCanvas(
       }
 
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         state.__afxAdvancedCanvasOutbound?.push(message);
@@ -300,10 +301,10 @@ async function bootCanvas(
               canvases: [descriptor],
               selectedId: descriptor.id,
             },
-            "*",
+            window.origin,
           );
         } else if (message.type === "afxCanvasSelect") {
-          window.postMessage({ type: "afxCanvasDocument", document }, "*");
+          window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
         } else if (message.type === "afxFetchDocContent") {
           const filePath = String(message.filePath);
           window.postMessage(
@@ -318,7 +319,7 @@ async function bootCanvas(
                 dirty: false,
               },
             },
-            "*",
+            window.origin,
           );
         } else if (message.type === "afxCanvasEdit") {
           const content = String(message.content);
@@ -340,7 +341,7 @@ async function bootCanvas(
                 target: message.target,
                 revision,
               },
-              "*",
+              window.origin,
             );
           }, 10);
         }
@@ -359,7 +360,7 @@ async function bootCanvas(
             documentId: document.documentId,
           },
         },
-        "*",
+        window.origin,
       );
     },
     { descriptor: PROJECT, document, documentId: DOCUMENT_ID, initialProfile: profile },

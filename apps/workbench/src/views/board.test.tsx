@@ -66,7 +66,7 @@ function renderBoard(board: KanbanBoard = BOARD) {
 }
 
 function dispatchInbound(data: unknown): void {
-  window.dispatchEvent(new MessageEvent("message", { data }));
+  window.dispatchEvent(new MessageEvent("message", { origin: window.origin, data }));
 }
 
 describe("Board", () => {
@@ -128,7 +128,7 @@ describe("Board", () => {
 
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxCreateKanbanBoard", name: "Roadmap" },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -300,7 +300,7 @@ describe("Board", () => {
         expectedRevision: "revision-1",
         requestId: expect.stringMatching(/^board-delete-/),
       }),
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });
@@ -507,7 +507,7 @@ describe("Board", () => {
         itemFingerprint: "item-one",
         completed: true,
       }),
-      "*",
+      window.origin,
     );
     const boardMutations = postMessage.mock.calls.filter(
       ([message]) => (message as { type?: string }).type === "afxMutateKanbanBoard",

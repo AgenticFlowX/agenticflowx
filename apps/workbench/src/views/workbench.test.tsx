@@ -132,6 +132,7 @@ function dispatchDocContent(filePath: string, content: string) {
   act(() => {
     window.dispatchEvent(
       new MessageEvent("message", {
+        origin: window.origin,
         data: { type: "afxDocContent", filePath, content },
       }),
     );
@@ -188,7 +189,7 @@ describe("Workbench", () => {
         command: "/afx-spec refine checkout-redesign",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -248,7 +249,7 @@ describe("Workbench", () => {
         command: "/afx-design review checkout-redesign",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
     expect(screen.getByTestId("sdd-studio-focus")).toBeInTheDocument();
     expect(screen.getByText("docs/specs/checkout-redesign/design.md")).toBeInTheDocument();
@@ -278,7 +279,7 @@ describe("Workbench", () => {
         command: "/afx-spec refine checkout-redesign",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -365,7 +366,7 @@ describe("Workbench", () => {
         type: "afxSelectFeature",
         name: "branding",
       },
-      "*",
+      window.origin,
     );
     expect(window.localStorage.getItem("afx.workbench.selectedFeature.v1")).toBe("branding");
     expect(window.localStorage.getItem("afx.workbench.recentFeatures.v1")).toContain("branding");
@@ -469,7 +470,7 @@ describe("Workbench", () => {
         command: "/afx-task code checkout-redesign#1.2 phase 1 Reader polish",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -489,7 +490,7 @@ describe("Workbench", () => {
         path: PIPELINE_ROW.specPath,
         mode: "afxPreview",
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -530,7 +531,7 @@ describe("Workbench", () => {
         line: 11,
         completed: true,
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -559,7 +560,7 @@ describe("Workbench", () => {
         completed: true,
         line: 17,
       },
-      "*",
+      window.origin,
     );
   });
 

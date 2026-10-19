@@ -71,6 +71,7 @@ async function bootCanvas(page: Page): Promise<void> {
       state.__afxCanvasOutbound = [];
       let revisionSequence = 1;
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         if (
@@ -101,13 +102,13 @@ async function bootCanvas(page: Page): Promise<void> {
                 },
               ],
             },
-            "*",
+            window.origin,
           );
         }
         if (message.type === "afxCanvasList") {
           window.postMessage(
             { type: "afxCanvasLibrary", canvases: [project], selectedId: project.id },
-            "*",
+            window.origin,
           );
         }
         if (message.type === "afxCanvasEdit") {
@@ -128,7 +129,7 @@ async function bootCanvas(page: Page): Promise<void> {
                   dirty: false,
                 },
               },
-              "*",
+              window.origin,
             );
           }, 25);
         }
@@ -143,9 +144,9 @@ async function bootCanvas(page: Page): Promise<void> {
             revision: projectDocument.revision,
           },
         },
-        "*",
+        window.origin,
       );
-      window.postMessage({ type: "afxCanvasDocument", document: projectDocument }, "*");
+      window.postMessage({ type: "afxCanvasDocument", document: projectDocument }, window.origin);
     },
     { project: PROJECT, projectDocument: snapshot(PROJECT, PROJECT_CANVAS) },
   );

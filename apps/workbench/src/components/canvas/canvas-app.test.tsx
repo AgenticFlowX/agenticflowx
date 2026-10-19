@@ -266,7 +266,7 @@ function renderCanvasWithoutSource(content = BASE_CANVAS) {
 
 function inbound(data: object): void {
   act(() => {
-    window.dispatchEvent(new MessageEvent("message", { data }));
+    window.dispatchEvent(new MessageEvent("message", { origin: window.origin, data }));
   });
 }
 
@@ -310,7 +310,10 @@ describe("CanvasApp React Flow shell", () => {
     const picker = screen.getByRole("combobox", { name: "Canvas file" });
     expect(picker).toHaveValue("project");
     fireEvent.change(picker, { target: { value: "release" } });
-    expect(postMessage).toHaveBeenCalledWith({ type: "afxCanvasSelect", canvasId: "release" }, "*");
+    expect(postMessage).toHaveBeenCalledWith(
+      { type: "afxCanvasSelect", canvasId: "release" },
+      window.origin,
+    );
 
     inbound({ type: "afxCanvasDocument", document: documentSnapshot(BASE_CANVAS, release) });
     fireEvent.click(screen.getByRole("button", { name: "New canvas" }));
@@ -333,23 +336,23 @@ describe("CanvasApp React Flow shell", () => {
         name: "Roadmap Q3",
         template: "ideas",
       }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "afxCanvasRename", name: "Release 2" }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "afxCanvasDuplicate", name: "Release copy" }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxOpenCanvasEditor", target: release.source },
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ type: "afxCanvasDelete", target: release.source }),
-      "*",
+      window.origin,
     );
   });
 
@@ -383,7 +386,7 @@ describe("CanvasApp React Flow shell", () => {
         target: SOURCE,
         expectedRevision: REVISION.contentRevision,
       }),
-      "*",
+      window.origin,
     );
     fireEvent.click(screen.getByRole("button", { name: "Freeform" }));
     expect(screen.queryByRole("button", { name: "Sync specs" })).not.toBeInTheDocument();
@@ -454,7 +457,7 @@ describe("CanvasApp React Flow shell", () => {
         owner: SOURCE,
         subpath: "#requirements",
       },
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       {
@@ -464,7 +467,7 @@ describe("CanvasApp React Flow shell", () => {
         owner: SOURCE,
         subpath: "#requirements",
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -502,7 +505,7 @@ describe("CanvasApp React Flow shell", () => {
         requestId: expect.any(String),
         owner: generatedSource,
       }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -511,7 +514,7 @@ describe("CanvasApp React Flow shell", () => {
         mode: "editor",
         owner: generatedSource,
       }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -520,7 +523,7 @@ describe("CanvasApp React Flow shell", () => {
         mode: "afxPreview",
         owner: generatedSource,
       }),
-      "*",
+      window.origin,
     );
   });
 
@@ -700,7 +703,7 @@ describe("CanvasApp React Flow shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open URL" }));
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxOpenExternalUrl", url: "https://example.com/architecture" },
-      "*",
+      window.origin,
     );
   });
 
@@ -731,7 +734,7 @@ describe("CanvasApp React Flow shell", () => {
         clientId: "editor-a",
         viewState: { x: 120, y: -45, zoom: 1.4, selectedIds: ["idea"] },
       },
-      "*",
+      window.origin,
     );
   });
 
@@ -797,7 +800,7 @@ describe("CanvasApp React Flow shell", () => {
         remove: false,
         source: expect.objectContaining({ relativePath: "docs/specs/220-checkout/spec.md" }),
       }),
-      "*",
+      window.origin,
     );
 
     // Drawing to a journal is a free-form edge — no authoring.
@@ -828,7 +831,7 @@ describe("CanvasApp React Flow shell", () => {
     expect(screen.getByRole("button", { name: "Delete canvas" })).toBeInTheDocument();
     // Already inside the editor — no self-referential open button.
     expect(screen.queryByRole("button", { name: "Open in Canvas editor" })).not.toBeInTheDocument();
-    expect(postMessage).toHaveBeenCalledWith({ type: "afxCanvasList" }, "*");
+    expect(postMessage).toHaveBeenCalledWith({ type: "afxCanvasList" }, window.origin);
   });
 
   it("applies every planning starter and previews exact spec and sprint handoffs", () => {
@@ -872,7 +875,7 @@ describe("CanvasApp React Flow shell", () => {
         mode: "insert",
         command: expect.stringContaining("/afx-sprint"),
       }),
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -880,7 +883,7 @@ describe("CanvasApp React Flow shell", () => {
         mode: "insert",
         command: expect.stringContaining("/afx-spec refine"),
       }),
-      "*",
+      window.origin,
     );
   });
 
@@ -947,7 +950,7 @@ describe("CanvasApp React Flow shell", () => {
         name: "Placed elsewhere",
         pickLocation: true,
       }),
-      "*",
+      window.origin,
     );
 
     // A host-side picker dismissal resolves quietly — no error banner, unlocked.

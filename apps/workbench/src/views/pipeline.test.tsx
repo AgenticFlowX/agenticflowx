@@ -87,7 +87,7 @@ describe("Pipeline", () => {
         path: "docs/specs/blocked-release/tasks.md",
         mode: "afxPreview",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });

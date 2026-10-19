@@ -91,7 +91,7 @@ async function postEmptyWorkbenchUpdate(page: Page) {
         notesFilePath: "",
         ghostTasks: { count: 0, items: [] },
       },
-      "*",
+      window.origin,
     );
   });
 }
@@ -151,7 +151,7 @@ async function postNotesWorkbenchUpdate(page: Page, notesSources: NotesSourceFix
         notesRaw: "",
         notesFilePath: active?.source.relativePath ?? "",
       },
-      "*",
+      window.origin,
     );
   }, notesSources);
 }
@@ -163,6 +163,7 @@ async function captureNotesOutboundMessages(page: Page) {
     };
     state.__afxNotesOutboundMessages = [];
     window.addEventListener("message", (event: MessageEvent) => {
+      if (event.origin !== window.origin) return;
       const message = event.data as { type?: string } | undefined;
       if (message?.type === "afxMutateNotes") {
         state.__afxNotesOutboundMessages?.push(message as Record<string, unknown>);
@@ -198,7 +199,7 @@ async function postRealSpecWorkbenchUpdate(page: Page) {
         notesFilePath: "",
         ghostTasks: { count: 0, items: [] },
       },
-      "*",
+      window.origin,
     );
   }, REAL_SPEC_PATH);
 }
@@ -206,7 +207,7 @@ async function postRealSpecWorkbenchUpdate(page: Page) {
 async function postDocContent(page: Page, filePath: string, content: string) {
   await page.evaluate(
     ({ filePath, content }) => {
-      window.postMessage({ type: "afxDocContent", filePath, content }, "*");
+      window.postMessage({ type: "afxDocContent", filePath, content }, window.origin);
     },
     { filePath, content },
   );
@@ -293,7 +294,7 @@ async function postBoardReviewUpdate(page: Page, editorDirty = false) {
           ],
         },
       },
-      "*",
+      window.origin,
     );
   }, editorDirty);
 }
@@ -475,6 +476,7 @@ test("task phase code action drafts a scoped command", async ({ page }) => {
     };
     w.__afxOutboundMessages = [];
     window.addEventListener("message", (event: MessageEvent) => {
+      if (event.origin !== window.origin) return;
       const msg = event.data as { command?: string; type?: string } | undefined;
       if (msg?.type === "afxOpenChatCommand") {
         w.__afxOutboundMessages?.push(msg);
@@ -510,7 +512,7 @@ test("task phase code action drafts a scoped command", async ({ page }) => {
           },
         ],
       },
-      "*",
+      window.origin,
     );
   });
   await expect(page.getByText("Marketplace Asset Recovery").first()).toBeVisible();
@@ -605,7 +607,7 @@ test("notes capture keeps its draft until acknowledged refresh", async ({ page }
             dirty: false,
           },
         },
-        "*",
+        window.origin,
       );
     },
     { id: requestId, target: PRIMARY_NOTES_SOURCE },
@@ -708,7 +710,7 @@ test("notes narrow mode routes an exact source and retains a conflicted draft", 
           message: "Notes changed on disk. Review and retry.",
           retryable: true,
         },
-        "*",
+        window.origin,
       );
     },
     { id: outbound?.requestId, target: secondSource },
@@ -788,7 +790,7 @@ test("workbench keeps a default feature selected after refresh updates", async (
         ],
         featureTasks: [],
       },
-      "*",
+      window.origin,
     );
   });
   await expect(page.getByText("Replacement Feature").first()).toBeVisible();
@@ -1103,6 +1105,7 @@ for (const viewport of [
       };
       w.__afxOutboundMessages = [];
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const msg = event.data as
           { command?: string; mode?: string; path?: string; type?: string } | undefined;
         if (msg?.type === "afxOpenChatCommand" || msg?.type === "afxOpenFile") {
@@ -1363,6 +1366,7 @@ test("documents library Refine opens the correct AFX Preview cockpit", async ({
     };
     w.__afxOutboundMessages = [];
     window.addEventListener("message", (event: MessageEvent) => {
+      if (event.origin !== window.origin) return;
       const msg = event.data as { mode?: string; path?: string; type?: string } | undefined;
       if (msg?.type === "afxOpenFile") w.__afxOutboundMessages?.push(msg);
     });
@@ -1411,6 +1415,7 @@ test("pipeline Refine blockers opens the blocked feature in AFX Preview", async 
     };
     w.__afxOutboundMessages = [];
     window.addEventListener("message", (event: MessageEvent) => {
+      if (event.origin !== window.origin) return;
       const msg = event.data as { mode?: string; path?: string; type?: string } | undefined;
       if (msg?.type === "afxOpenFile") w.__afxOutboundMessages?.push(msg);
     });
@@ -1432,7 +1437,7 @@ test("pipeline Refine blockers opens the blocked feature in AFX Preview", async 
           },
         ],
       },
-      "*",
+      window.origin,
     );
   });
   await page.getByRole("tab", { name: "Pipeline" }).click();
@@ -1599,7 +1604,7 @@ test("notes tab renders markdown through the shared reader and toggles checkboxe
             dirty: false,
           },
         },
-        "*",
+        window.origin,
       );
     },
     { id: outbound?.requestId, target: PRIMARY_NOTES_SOURCE },

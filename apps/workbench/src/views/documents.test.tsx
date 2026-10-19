@@ -4,7 +4,7 @@
  * @see docs/specs/222-app-workbench-documents/spec.md [FR-3] [FR-4] [FR-7] [FR-8]
  * @see docs/specs/222-app-workbench-documents/design.md [DES-DOCS-READER] [DES-DOCS-STUDIO] [DES-DOCS-LAUNCHPAD] [DES-TEST]
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DocumentRow } from "@afx/shared";
@@ -85,10 +85,14 @@ describe("Documents", () => {
     renderDocuments();
 
     fireEvent.click(screen.getByRole("button", { name: "Read sample / spec.md SPEC" }));
-    window.postMessage(
-      { type: "afxDocContent", filePath: SPEC_DOC.filePath, content: SPEC_CONTENT },
-      "*",
-    );
+    act(() => {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          origin: window.origin,
+          data: { type: "afxDocContent", filePath: SPEC_DOC.filePath, content: SPEC_CONTENT },
+        }),
+      );
+    });
 
     await waitFor(() => {
       expect(screen.getAllByText("Sample Workbench PRD").length).toBeGreaterThan(0);
@@ -119,7 +123,7 @@ describe("Documents", () => {
         path: SPEC_DOC.filePath,
         mode: "afxPreview",
       },
-      "*",
+      window.origin,
     );
     postMessage.mockRestore();
   });

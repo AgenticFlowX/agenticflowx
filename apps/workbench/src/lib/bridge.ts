@@ -50,10 +50,11 @@ export function initWorkbenchBridge(): void {
     });
   } else {
     _hasVsCodeApi = false;
-    _send = (msg) => window.parent.postMessage(msg, "*");
+    _send = (msg) => window.parent.postMessage(msg, window.origin);
   }
 
   _windowMessageHandler = (e: MessageEvent) => {
+    if (e.origin !== window.origin) return;
     const msg = e.data as WorkbenchInbound | undefined;
     if (!msg || typeof msg !== "object" || typeof msg.type !== "string") return;
     const set = _listeners.get(msg.type);

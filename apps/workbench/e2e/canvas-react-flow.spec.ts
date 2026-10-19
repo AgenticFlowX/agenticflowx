@@ -196,12 +196,13 @@ async function bootReactFlowCanvas(
         originalWarn(...args);
       };
       let selectedId = project.id;
-      const documents: Record<string, CanvasDocumentSnapshot> = {
-        [project.id]: projectDocument,
-        [release.id]: releaseDocument,
-      };
+      const documents = new Map<string, CanvasDocumentSnapshot>([
+        [project.id, projectDocument],
+        [release.id, releaseDocument],
+      ]);
 
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         if (
@@ -224,13 +225,13 @@ async function bootReactFlowCanvas(
         if (message.type === "afxCanvasList") {
           window.postMessage(
             { type: "afxCanvasLibrary", canvases: [project, release], selectedId },
-            "*",
+            window.origin,
           );
         }
         if (message.type === "afxCanvasSelect") {
           selectedId = String(message.canvasId);
-          const document = documents[selectedId];
-          if (document) window.postMessage({ type: "afxCanvasDocument", document }, "*");
+          const document = documents.get(selectedId);
+          if (document) window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
         }
         if (message.type === "afxFetchDocContent") {
           const filePath = String(message.filePath);
@@ -240,11 +241,11 @@ async function bootReactFlowCanvas(
               filePath,
               content: `# ${filePath.split("/").slice(-2).join(" / ")}\n\nLive markdown preview.`,
             },
-            "*",
+            window.origin,
           );
         }
         if (message.type === "afxCanvasEdit") {
-          const current = documents[selectedId];
+          const current = documents.get(selectedId);
           if (!current) return;
           revisionSequence += 1;
           const nextRevision = `revision-${revisionSequence}`;
@@ -257,7 +258,7 @@ async function bootReactFlowCanvas(
               dirty: false,
             },
           };
-          documents[selectedId] = next;
+          documents.set(selectedId, next);
           if (state.__afxCanvasAutoAcknowledgeEdits === false) return;
           window.setTimeout(() => {
             window.postMessage(
@@ -270,7 +271,7 @@ async function bootReactFlowCanvas(
                 target: message.target,
                 revision: next.revision,
               },
-              "*",
+              window.origin,
             );
           }, 25);
         }
@@ -289,7 +290,7 @@ async function bootReactFlowCanvas(
               message: "A Canvas with that name already exists.",
               retryable: true,
             },
-            "*",
+            window.origin,
           );
         }
         if (
@@ -309,7 +310,7 @@ async function bootReactFlowCanvas(
                 dirty: false,
               },
             },
-            "*",
+            window.origin,
           );
         }
       });
@@ -327,7 +328,7 @@ async function bootReactFlowCanvas(
             documentId: projectDocument.documentId,
           },
         },
-        "*",
+        window.origin,
       );
     },
     {
@@ -791,7 +792,7 @@ test("React Flow Canvas keeps conflict and invalid JSON safe at 360px", async ({
     edges: [],
   });
   await page.evaluate((document) => {
-    window.postMessage({ type: "afxCanvasDocument", document }, "*");
+    window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
   }, external);
   await expect(page.getByRole("alert")).toContainText("file changed");
   await expect(page.getByText("Conflict")).toBeVisible();
@@ -810,7 +811,10 @@ test("React Flow Canvas keeps conflict and invalid JSON safe at 360px", async ({
   await page.getByRole("button", { name: "Reload external" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(1);
   await page.evaluate((document) => {
-    window.postMessage({ type: "afxCanvasDocument", document: { ...document, content: "{" } }, "*");
+    window.postMessage(
+      { type: "afxCanvasDocument", document: { ...document, content: "{" } },
+      window.origin,
+    );
   }, external);
   await expect(page.getByRole("alert")).toContainText("Manual JSON is invalid");
   await expect(page.getByText("Invalid", { exact: true })).toBeVisible();
@@ -830,7 +834,7 @@ test("editor-area Canvas boots the shared React Flow document surface", async ({
     (document) => {
       window.postMessage(
         { type: "afxCanvasEditorDocument", clientId: "pending", document, enabled: true },
-        "*",
+        window.origin,
       );
     },
     snapshot(RELEASE, RELEASE_CANVAS),
@@ -860,7 +864,7 @@ test("React Flow Canvas remains responsive with 150 nodes and 200 edges", async 
   const denseDocument = snapshot(PROJECT, denseCanvas, "dense-revision");
   const started = await page.evaluate((document) => {
     const startedAt = performance.now();
-    window.postMessage({ type: "afxCanvasDocument", document }, "*");
+    window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
     return startedAt;
   }, denseDocument);
 

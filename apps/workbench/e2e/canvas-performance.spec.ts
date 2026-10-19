@@ -300,6 +300,7 @@ async function installStressBridge(page: Page, canvas: JSONCanvas): Promise<numb
       }
 
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (message.type === "afxCanvasList") {
           window.postMessage(
@@ -308,10 +309,10 @@ async function installStressBridge(page: Page, canvas: JSONCanvas): Promise<numb
               canvases: [descriptor],
               selectedId: descriptor.id,
             },
-            "*",
+            window.origin,
           );
         } else if (message.type === "afxCanvasSelect") {
-          window.postMessage({ type: "afxCanvasDocument", document }, "*");
+          window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
         }
       });
 
@@ -329,7 +330,7 @@ async function installStressBridge(page: Page, canvas: JSONCanvas): Promise<numb
             documentId: document.documentId,
           },
         },
-        "*",
+        window.origin,
       );
       return startedAt;
     },

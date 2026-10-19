@@ -166,6 +166,7 @@ async function installCanvasHost(
       };
 
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as Record<string, unknown> & { type?: string };
         if (!message?.type) return;
         if (recordedTypes.has(message.type)) host.__afxCanvasOutbound?.push(message);
@@ -173,14 +174,20 @@ async function installCanvasHost(
         if (message.type === "afxCanvasList") {
           window.postMessage(
             { type: "afxCanvasLibrary", canvases: [project], selectedId: project.id },
-            "*",
+            window.origin,
           );
-          window.postMessage({ type: "afxCanvasDocument", document: currentDocument }, "*");
+          window.postMessage(
+            { type: "afxCanvasDocument", document: currentDocument },
+            window.origin,
+          );
           return;
         }
 
         if (message.type === "afxCanvasSelect" && message["canvasId"] === project.id) {
-          window.postMessage({ type: "afxCanvasDocument", document: currentDocument }, "*");
+          window.postMessage(
+            { type: "afxCanvasDocument", document: currentDocument },
+            window.origin,
+          );
           return;
         }
 
@@ -208,7 +215,7 @@ async function installCanvasHost(
                 target: message["target"],
                 revision,
               },
-              "*",
+              window.origin,
             );
           }, 250);
           return;
@@ -235,14 +242,17 @@ async function installCanvasHost(
                   byteLength: previewContent.length,
                 },
               },
-              "*",
+              window.origin,
             );
           }, 25);
           return;
         }
 
         if (message.type === "afxPickMarkdownFile") {
-          window.postMessage({ type: "afxMarkdownFilePicked", filePath: pickedFilePath }, "*");
+          window.postMessage(
+            { type: "afxMarkdownFilePicked", filePath: pickedFilePath },
+            window.origin,
+          );
         }
       });
 
@@ -259,7 +269,7 @@ async function installCanvasHost(
             documentId: document.documentId,
           },
         },
-        "*",
+        window.origin,
       );
     },
     {
@@ -481,7 +491,7 @@ test("Canvas blocks an external replacement until the user resolves the conflict
   };
   await page.evaluate(
     (document) => {
-      window.postMessage({ type: "afxCanvasDocument", document }, "*");
+      window.postMessage({ type: "afxCanvasDocument", document }, window.origin);
     },
     snapshot(externalCanvas, "external-r2"),
   );

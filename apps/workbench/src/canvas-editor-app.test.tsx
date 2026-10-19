@@ -47,6 +47,7 @@ describe("CanvasEditorApp", () => {
     act(() => {
       window.dispatchEvent(
         new MessageEvent("message", {
+          origin: window.origin,
           data: {
             type: "afxCanvasEditorDocument",
             clientId: "pending",
@@ -63,7 +64,7 @@ describe("CanvasEditorApp", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enable in Settings" }));
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxOpenSettings", setting: "afx.experimental.canvas" },
-      "*",
+      window.origin,
     );
   });
 });

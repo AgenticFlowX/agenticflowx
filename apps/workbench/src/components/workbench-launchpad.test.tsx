@@ -114,14 +114,14 @@ describe("WorkbenchLaunchpad", () => {
         command: "/afx-spec new checkout-redesign ask open questions first",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: /^Sample SDD set/i }));
 
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxCreateSampleDocs", kind: "full-spec" },
-      "*",
+      window.origin,
     );
   });
 
@@ -143,7 +143,7 @@ describe("WorkbenchLaunchpad", () => {
         command: "/afx-spec refine checkout-redesign",
         mode: "insert",
       },
-      "*",
+      window.origin,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Preview" }));
@@ -153,7 +153,7 @@ describe("WorkbenchLaunchpad", () => {
         path: "docs/specs/checkout-redesign/spec.md",
         mode: "afxPreview",
       },
-      "*",
+      window.origin,
     );
   });
 

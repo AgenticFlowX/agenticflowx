@@ -75,7 +75,7 @@ function renderNotes(notes: QuickNote[], overrides: Partial<NotesSourceSnapshot>
 
 function dispatchInbound(message: WorkbenchInbound): void {
   act(() => {
-    window.dispatchEvent(new MessageEvent("message", { data: message }));
+    window.dispatchEvent(new MessageEvent("message", { origin: window.origin, data: message }));
   });
 }
 
@@ -150,7 +150,7 @@ describe("Notes", () => {
           completed: true,
         },
       }),
-      "*",
+      window.origin,
     );
   });
 
@@ -182,7 +182,7 @@ describe("Notes", () => {
     fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
     expect(postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ type: "afxMutateNotes" }),
-      "*",
+      window.origin,
     );
     fireEvent.keyDown(textarea, { key: "Enter" });
 
@@ -450,7 +450,7 @@ describe("Notes", () => {
       expect.objectContaining({
         mutation: { kind: "edit", noteId: quickNote.id, text: "Updated draft" },
       }),
-      "*",
+      window.origin,
     );
 
     dispatchInbound({
@@ -548,7 +548,7 @@ describe("Notes", () => {
         target: second.source,
         expectedRevision: "revision-second",
       }),
-      "*",
+      window.origin,
     );
   });
 

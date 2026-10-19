@@ -278,11 +278,15 @@ async function seedCuratedWorkbench(page: Page) {
   await page.evaluate(
     ({ docContents }) => {
       window.addEventListener("message", (event: MessageEvent) => {
+        if (event.origin !== window.origin) return;
         const message = event.data as { filePath?: string; type?: string } | undefined;
         if (message?.type !== "afxFetchDocContent" || !message.filePath) return;
         const content = docContents[message.filePath];
         if (content === undefined) return;
-        window.postMessage({ type: "afxDocContent", filePath: message.filePath, content }, "*");
+        window.postMessage(
+          { type: "afxDocContent", filePath: message.filePath, content },
+          window.origin,
+        );
       });
 
       window.postMessage(
@@ -396,7 +400,7 @@ async function seedCuratedWorkbench(page: Page) {
           ghostTasks: { count: 0, items: [] },
           canvasEnabled: false,
         },
-        "*",
+        window.origin,
       );
     },
     { docContents },
@@ -497,7 +501,7 @@ async function enableCanvas(page: Page) {
         canvasEnabled: true,
         canvas: { path: ".afx/project.canvas", exists: true, content },
       },
-      "*",
+      window.origin,
     );
   }, content);
 }

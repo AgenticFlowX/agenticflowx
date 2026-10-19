@@ -57,11 +57,11 @@ describe("Journal", () => {
 
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxOpenChatCommand", command: "/afx-session log", mode: "insert" },
-      "*",
+      window.origin,
     );
     expect(postMessage).toHaveBeenCalledWith(
       { type: "afxOpenChatCommand", command: "/afx-session note ", mode: "insert" },
-      "*",
+      window.origin,
     );
   });
 
@@ -79,13 +79,14 @@ describe("Journal", () => {
     await waitFor(() => {
       expect(postMessage).toHaveBeenCalledWith(
         { type: "afxFetchDocContent", filePath: JOURNAL_ENTRY.filePath },
-        "*",
+        window.origin,
       );
     });
 
     act(() => {
       window.dispatchEvent(
         new MessageEvent("message", {
+          origin: window.origin,
           data: {
             type: "afxDocContent",
             filePath: JOURNAL_ENTRY.filePath,

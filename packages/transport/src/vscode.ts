@@ -45,6 +45,7 @@ export function createVscodeTransport(): Transport {
   }
 
   function handleWindowMessage(event: MessageEvent): void {
+    if (event.origin !== window.origin) return;
     const msg = event.data as AgentToChat | null;
     if (!msg || typeof msg !== "object" || typeof msg.type !== "string") return;
     const set = listeners.get(msg.type);
