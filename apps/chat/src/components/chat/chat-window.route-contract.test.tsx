@@ -50,6 +50,17 @@ describe("Chat route contract", () => {
     });
   });
 
+  it("keeps keyboard focus on composer controls when the runtime becomes ready", () => {
+    const { rerender } = renderWindow({ isCheckingAgent: true });
+    const mode = screen.getByRole("button", { name: "Workspace mode: Code" });
+    mode.focus();
+    expect(mode).toHaveFocus();
+
+    rerender(<ChatWindow {...createChatProps({ isCheckingAgent: false })} />);
+
+    expect(mode).toHaveFocus();
+  });
+
   it("does not submit while IME composition is committing with Enter", () => {
     const onDraftChange = vi.fn();
     const transport = createMockTransport();

@@ -234,13 +234,12 @@ export function ChatWindow({
     scrollToBottom,
   ]);
 
-  // Focus management — when the agent transitions out of streaming/checking
-  // and no element inside the composer is focused, snap focus back to the
-  // textarea so the user can keep typing without clicking.
+  // Restore typing focus after runtime transitions only when no control is
+  // focused. Toolbar buttons and menu triggers keep the user's keyboard focus.
   useEffect(() => {
     if (!isCheckingAgent && !derived.isStreaming) {
       const active = document.activeElement as HTMLElement | null;
-      if (!active || active === document.body || composerRef.current?.contains(active)) {
+      if (!active || active === document.body) {
         getTextarea()?.focus();
       }
     }
