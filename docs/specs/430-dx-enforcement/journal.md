@@ -17,6 +17,18 @@ tags: ["430-dx-enforcement", "journal", "codeql"]
 
 ## Captures
 
+### 2026-10-19T06:36:47.000Z — Dependency and security release preparation
+
+- User requested current npm dependencies and remediation of six Dependabot PRs and 87 security flags. Pi remains pinned to **0.84.4** by explicit user choice; the user will push and publish.
+- Baseline: zero open Dependabot vulnerability alerts; 87 open CodeQL alerts, including 26 referencing deleted files. The complete dependency audit reported 40 findings (11 high, 25 moderate, four low).
+- Applied compatible dependency updates and the changes covered by Dependabot PRs #30, #31, #42, #52, #56, and #57, using current releases. Major TypeScript, ESLint, Vitest, and other unrelated toolchain migrations remain outside this surgical pass.
+- Updated vulnerable transitive overrides and refreshed artifact license evidence. Fixed current source paths for OAuth HTML injection, origin checks, atomic file creation, cryptographic identifiers, YAML title quoting, comment removal, and parser backtracking. Browser fixtures now enforce origins and use explicit postMessage target origins; removed-file alerts require a fresh upload in the existing CodeQL analysis category.
+- **Local patch exception:** upstream `braces@3.0.3` has no published fix for [GHSA-vfj7-8cjw-p6xm](https://github.com/micromatch/braces/issues/70). The pnpm patch bounds brace and parenthesis AST nesting before recursive walkers run. Installed-package tests exercise parse, compile, expand, ordinary expansions, and escaped braces. The exact advisory is excluded from pnpm/OSV results because this checkout applies the patch; the OSV exception expires on 2026-11-19. Remove the patch and both exceptions when a fixed upstream release is adopted. Registry metadata still reports the unpatched upstream version as vulnerable.
+- Final verification at **2026-10-19T06:46:08.000Z**: `pnpm verify:full` passed. Unit coverage: **2,137 tests in 190 files**; Chat Playwright: **84 passed**; Workbench Playwright: **110 passed, one optional external-corpus test skipped**; native VS Code: **33 passed**. All three bundle budgets and legal inventory checks passed (248 components).
+- Local CodeQL CLI **2.27.2**, query pack **2.4.7**, `javascript-security-extended`: **zero findings**, 105 queries, 592/592 JavaScript/TypeScript files scanned. No query exclusions or source suppressions were added. Production audit: zero findings. Full audit and OSV: zero unmitigated findings with the single documented local-patch exception above.
+- The downloader now accepts canonical public release tags from manifest metadata; explicit `AFX_REF` environment overrides remain available for development refs. The native custom-provider test retains one file handle and checks both content and inode identity, detecting in-place writes and replacements without a check-then-open race.
+- GitHub's 87-alert view remains unchanged until the user pushes and the existing CodeQL category uploads a fresh analysis. No push, release, PR merge, or remote alert dismissal was performed.
+
 <!-- Quick notes during active chat - cleared when recorded -->
 
 ---
