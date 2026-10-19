@@ -40,7 +40,6 @@ jobs:
         with:
           args: |-
             --no-progress
-            --exclude-mail
             --exclude '^https?://localhost'
             --exclude '^https?://127\.0\.0\.1'
             './**/*.md'

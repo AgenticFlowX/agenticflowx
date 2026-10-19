@@ -33,6 +33,7 @@ const config = {
   outfile: "out/extension.js",
   external: ["vscode"],
   sourcemap: true,
+  minifyWhitespace: !watch,
   logLevel: "silent",
   plugins: [problemMatcherPlugin],
 };
