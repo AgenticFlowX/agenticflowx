@@ -60,6 +60,10 @@ export function createMockAgentManager() {
     abortRetry: vi.fn(async () => {}),
     steer: vi.fn(async () => {}),
     followUp: vi.fn(async () => {}),
+    clearQueue: vi.fn(async (): Promise<{ steering: string[]; followUp: string[] }> => ({
+      steering: [],
+      followUp: [],
+    })),
     setThinkingLevel: vi.fn(async () => {}),
     setSteeringMode: vi.fn(async () => {}),
     setFollowUpMode: vi.fn(async () => {}),

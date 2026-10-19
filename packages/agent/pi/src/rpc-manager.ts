@@ -878,6 +878,21 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     await c.request({ type: "abort_retry" });
   }
 
+  async function clearQueue(): Promise<{ steering: string[]; followUp: string[] }> {
+    const c = await ensureStarted();
+    const response = await c.request<{ steering?: unknown; followUp?: unknown } | null>({
+      type: "clear_queue",
+    });
+    return {
+      steering: Array.isArray(response?.steering)
+        ? response.steering.filter((value): value is string => typeof value === "string")
+        : [],
+      followUp: Array.isArray(response?.followUp)
+        ? response.followUp.filter((value): value is string => typeof value === "string")
+        : [],
+    };
+  }
+
   async function setThinkingLevel(level: ThinkingLevel): Promise<void> {
     const c = await ensureStarted();
     await c.request({ type: "set_thinking_level", level });
@@ -979,6 +994,7 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     abortRetry,
     steer,
     followUp,
+    clearQueue,
     setThinkingLevel,
     setSteeringMode,
     setFollowUpMode,

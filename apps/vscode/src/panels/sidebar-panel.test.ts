@@ -4132,6 +4132,82 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("clears cancelled queue display entries before the next queued message is consumed", async () => {
+    agent.clearQueue = vi.fn(async () => ({ steering: [], followUp: ["cancel me"] }));
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+    listener?.({ type: "agent_start" });
+    inbound.fire({ type: "chat/followUp", requestId: "cancelled", content: "cancel me" });
+    await flushAsyncWork(3);
+
+    inbound.fire({ type: "chat/clearQueue", requestId: "clear" });
+    await flushAsyncWork(3);
+    inbound.fire({ type: "chat/followUp", requestId: "kept", content: "keep me" });
+    await flushAsyncWork(3);
+    listener?.({ type: "message_start", role: "user", content: "inflated keep me" });
+
+    expect(agent.clearQueue).toHaveBeenCalledOnce();
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/messageStart", role: "user", content: "keep me" }),
+    );
+  });
+
+  it("serializes queue clearing behind an in-flight injection and before later injections", async () => {
+    const calls: string[] = [];
+    let resolveSteer: (() => void) | undefined;
+    agent.steer.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSteer = resolve;
+          calls.push("steer");
+        }),
+    );
+    agent.clearQueue = vi.fn(async () => {
+      calls.push("clear");
+      return { steering: ["cancel me"], followUp: [] };
+    });
+    agent.followUp.mockImplementationOnce(async () => {
+      calls.push("follow-up");
+    });
+    const { inbound } = setupWithView();
+    firstAgentEventListener()?.({ type: "agent_start" });
+    inbound.fire({ type: "chat/steer", requestId: "steer", content: "cancel me" });
+    await flushAsyncWork(2);
+    inbound.fire({ type: "chat/clearQueue", requestId: "clear" });
+    inbound.fire({ type: "chat/followUp", requestId: "next", content: "keep me" });
+    await flushAsyncWork(2);
+    expect(calls).toEqual(["steer"]);
+
+    resolveSteer?.();
+    await flushAsyncWork(5);
+    expect(calls).toEqual(["steer", "clear", "follow-up"]);
+  });
+
+  it("preserves queued display entries when runtime queue clearing fails", async () => {
+    agent.clearQueue = vi.fn(async () => {
+      throw new Error("unsupported command");
+    });
+    const { inbound, postMessage } = setupWithView();
+    const listener = firstAgentEventListener();
+    listener?.({ type: "agent_start" });
+    inbound.fire({ type: "chat/followUp", requestId: "keep", content: "keep me" });
+    await flushAsyncWork(3);
+    inbound.fire({ type: "chat/clearQueue", requestId: "clear" });
+    await flushAsyncWork(3);
+    listener?.({ type: "message_start", role: "user", content: "inflated keep me" });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "chat/error",
+        requestId: "clear",
+        message: "unsupported command",
+      }),
+    );
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/messageStart", role: "user", content: "keep me" }),
+    );
+  });
+
   it("closes each assistant message on message_end inside one agent run", () => {
     const { postMessage } = setupWithView();
     const listener = firstAgentEventListener();

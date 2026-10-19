@@ -167,6 +167,15 @@ export class MultiplexedAgentManager implements AgentManager {
     return (await this.requireActive().manager.getAvailableThinkingLevels?.()) ?? [];
   }
 
+  /** @see docs/specs/350-agent-manager/design.md [DES-API] */
+  clearQueue(): Promise<{ steering: string[]; followUp: string[] }> {
+    const manager = this.requireActive().manager;
+    if (!manager.clearQueue) {
+      throw new Error("The active runtime does not support clearing queued messages");
+    }
+    return manager.clearQueue();
+  }
+
   async getAvailableModels(): Promise<AgentModel[]> {
     const grouped = await Promise.all(
       this.instances.map(async (instance) => {

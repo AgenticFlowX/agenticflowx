@@ -650,6 +650,11 @@ export interface AgentManager {
    * Adapters without a queue should reject.
    */
   followUp(message: string, images?: readonly AgentImageAttachment[]): Promise<void>;
+  /**
+   * Clear queued steering and follow-up messages when supported by the runtime.
+   * @see docs/specs/351-agent-pi/design.md [DES-API]
+   */
+  clearQueue?(): Promise<{ steering: string[]; followUp: string[] }>;
   setThinkingLevel(level: ThinkingLevel): Promise<void>;
   setSteeringMode(mode: QueueMode): Promise<void>;
   setFollowUpMode(mode: QueueMode): Promise<void>;

@@ -613,6 +613,19 @@ describe("createPiSdkAgentManager", () => {
     await expect(manager.getAvailableThinkingLevels?.()).resolves.toEqual(["off", "medium", "max"]);
   });
 
+  it("clears engine-backed steering and follow-up queues through Pi 0.84 RPC", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "openai",
+      modelId: "gpt-5.4",
+      getApiKey: () => "secret-key",
+    });
+
+    await expect(manager.clearQueue?.()).resolves.toEqual({ steering: [], followUp: [] });
+    expect(mocks.clients[0]?.requests).toContainEqual({ type: "clear_queue" });
+  });
+
   it("normalizes accumulated SDK tool updates and direct bash chunks as deltas", async () => {
     const manager = createPiSdkAgentManager({
       logger,

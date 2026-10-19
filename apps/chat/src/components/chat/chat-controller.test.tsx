@@ -71,6 +71,31 @@ function createControllableTransport(initialState?: unknown): Transport & {
 }
 
 describe("chat controller", () => {
+  it("requests engine queue clearing and waits for the runtime queue count before hiding rows", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    const { result } = renderHook(() => useChatController());
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("afx:debug:inject-queue", {
+          detail: { items: [{ mode: "followUp", content: "queued prompt" }] },
+        }),
+      );
+    });
+    expect(result.current.state.queued).toHaveLength(1);
+
+    act(() => result.current.actions.clearAllQueued());
+    expect(transport.send).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/clearQueue", requestId: expect.any(String) }),
+    );
+    expect(result.current.state.queued).toHaveLength(1);
+
+    act(() =>
+      transport.emit({ type: "agent/runtimeSettings", settings: { pendingMessageCount: 0 } }),
+    );
+    expect(result.current.state.queued).toHaveLength(0);
+  });
+
   it("reads and writes persisted chat view state without mutating unrelated state", () => {
     const transport = createStatefulTransport({ draft: "keep me" });
     initTransport(transport);

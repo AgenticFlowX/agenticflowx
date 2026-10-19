@@ -273,6 +273,15 @@ describe("PiRpcManager send rewrite", () => {
     }
   });
 
+  it("clears queued steering and follow-up messages through Pi RPC", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const manager = createAgentManager({ logger: createLogger(), ephemeral: true });
+
+    await manager.clearQueue?.();
+
+    expect(requests.at(-1)).toEqual({ type: "clear_queue" });
+  });
+
   it("normalizes Pi queue updates and assistant message boundaries", async () => {
     const { createAgentManager } = await import("./rpc-manager");
     const manager = createAgentManager({

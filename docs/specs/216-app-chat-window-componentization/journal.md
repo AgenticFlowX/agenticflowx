@@ -330,3 +330,10 @@ End-state achieved:
 - `pnpm exec markdownlint-cli2 'docs/specs/216-app-chat-window-componentization/**/*.md'` ✓
 
 Out of scope (carried as documented post-refactor work): screen-reader QA pass on macOS VoiceOver / NVDA / JAWS.
+
+## Captures
+
+- **2026-10-19T05:53:51.000Z** - [AUTO:afx-dev] Verify and commit the pending Pi 0.84.4, modified-files, queue, and Workbench fixes before the next sprint.
+  `[release-verification, queue, pi-0.84.4, auto-capture]`
+  **Impact**: The baseline passed 2,114 tests. New regressions reproduced missing RPC queue clearing, cancelled prompt display reuse, and clearing that raced an in-flight injection. Both adapters and the host queue now follow the same serialized clearing path; a real shipped-runtime smoke test checks the Pi protocol without provider requests. Browser checks also exposed runtime-ready focus stealing from composer controls; a failing shell regression and a focused guard now preserve keyboard focus on controls.
+  **Action**: decided → make focused local commits after full verification; the user handles pushing and publishing. Broader workflow lifecycle reconciliation remains follow-up sprint work. Release checks also require patched transitive dependencies, the existing bundle budget, and pnpm setup that follows packageManager.

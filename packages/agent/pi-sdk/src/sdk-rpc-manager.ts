@@ -566,6 +566,21 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     return Promise.resolve();
   }
 
+  async function clearQueue(): Promise<{ steering: string[]; followUp: string[] }> {
+    const client = await ensureStarted();
+    const response = await request<{ steering?: unknown; followUp?: unknown } | null>(client, {
+      type: "clear_queue",
+    });
+    return {
+      steering: Array.isArray(response?.steering)
+        ? response.steering.filter((value): value is string => typeof value === "string")
+        : [],
+      followUp: Array.isArray(response?.followUp)
+        ? response.followUp.filter((value): value is string => typeof value === "string")
+        : [],
+    };
+  }
+
   function onEvent(listener: AgentEventListener): Disposable {
     eventListeners.add(listener);
     return { dispose: () => eventListeners.delete(listener) };
@@ -682,6 +697,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
     abortRetry,
     steer,
     followUp,
+    clearQueue,
     setThinkingLevel,
     setSteeringMode,
     setFollowUpMode,

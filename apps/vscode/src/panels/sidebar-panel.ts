@@ -2423,6 +2423,10 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         );
         return;
       }
+      case "chat/clearQueue": {
+        void handleClearQueue(msg.requestId);
+        return;
+      }
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-RUNTIME]
       case "chat/setThinkingLevel": {
         void handleSetRuntimeSetting(msg.requestId, () => agentManager.setThinkingLevel(msg.level));
@@ -4320,6 +4324,23 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       await broadcastRuntimeSettings(requestId);
     } catch (err) {
       log.error("runtime setting failed", err instanceof Error ? err : undefined);
+      postError(requestId, err instanceof Error ? err.message : String(err), "toast");
+    }
+  }
+
+  async function handleClearQueue(requestId: string): Promise<void> {
+    try {
+      if (!agentManager.clearQueue) {
+        throw new Error("Clearing queued messages is not supported by the active runtime.");
+      }
+      await enqueueQueueInjection(async (epoch) => {
+        await agentManager.clearQueue!();
+        if (epoch !== queueInjectionEpoch) return;
+        queuedUserDisplays.length = 0;
+        await broadcastRuntimeSettings(requestId);
+      });
+    } catch (err) {
+      log.error("clearQueue failed", err instanceof Error ? err : undefined, { requestId });
       postError(requestId, err instanceof Error ? err.message : String(err), "toast");
     }
   }

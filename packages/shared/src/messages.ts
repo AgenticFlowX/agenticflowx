@@ -975,6 +975,8 @@ export type ChatToAgent =
       intentSlot?: IntentSlot;
       imageAttachmentIds?: string[];
     }
+  /** Clear all messages already queued in the active agent runtime. */
+  | { type: "chat/clearQueue"; requestId: string }
   /**
    * User saved the composer draft as a note (Cmd+Enter). Host writes to .afx/notes.md.
    *

@@ -1264,7 +1264,7 @@ export function useChatController({
   });
 
   const clearAllQueued = useStableCallback(() => {
-    setQueued([]);
+    bridgeSend({ type: "chat/clearQueue", requestId: createChatUid() });
   });
 
   const restoreBlockedCommand = useStableCallback((composer?: ComposerLocalCallbacks) => {
