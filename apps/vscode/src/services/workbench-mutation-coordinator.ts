@@ -203,6 +203,9 @@ export function createWorkbenchMutationCoordinator(
           );
           const applied = await vscode.workspace.applyEdit(edit);
           if (!applied) throw new Error("VS Code rejected the workspace edit.");
+          const editedDocument = openDocument ?? (await vscode.workspace.openTextDocument(uri));
+          const saved = await editedDocument.save();
+          if (!saved) throw new Error("VS Code could not save the workspace edit.");
         } else {
           if (!current) {
             const parent = vscode.Uri.joinPath(uri, "..");

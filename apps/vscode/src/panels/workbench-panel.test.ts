@@ -840,7 +840,7 @@ describe("createWorkbenchPanel", () => {
     mockAfxConfiguration(false);
     const specsData = makeSpecsData();
     const created: string[] = [];
-    const writes: string[] = [];
+    const save = vi.fn(async () => true);
     const { view, fireMessage } = makeView(true);
     vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
       { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
@@ -848,9 +848,11 @@ describe("createWorkbenchPanel", () => {
     vi.spyOn(vscode.workspace.fs, "createDirectory").mockImplementation(async (uri) => {
       created.push(uri.fsPath);
     });
-    vi.spyOn(vscode.workspace.fs, "writeFile").mockImplementation(async (uri) => {
-      writes.push(uri.fsPath);
-    });
+    vi.spyOn(vscode.workspace, "openTextDocument").mockResolvedValue({
+      uri: vscode.Uri.file("/repo/.afx/project.canvas"),
+      save,
+    } as unknown as vscode.TextDocument);
+    const applyEdit = vi.spyOn(vscode.workspace, "applyEdit").mockResolvedValue(true);
 
     createWorkbenchPanel({
       extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
@@ -862,7 +864,8 @@ describe("createWorkbenchPanel", () => {
 
     await vi.waitFor(() => {
       expect(created).toEqual(["/repo/.afx"]);
-      expect(writes).toEqual(["/repo/.afx/project.canvas"]);
+      expect(applyEdit).toHaveBeenCalledOnce();
+      expect(save).toHaveBeenCalledOnce();
     });
     expect(specsData.refresh).toHaveBeenCalled();
   });
@@ -1102,6 +1105,62 @@ describe("createWorkbenchPanel", () => {
       }),
     );
     expect(specsData.refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("routes legacy task toggles through the conflict-safe mutation coordinator", async () => {
+    const source = {
+      rootUri: "file:///repo",
+      rootName: "repo",
+      relativePath: "docs/specs/demo/tasks.md",
+    };
+    vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
+      { uri: vscode.Uri.file("/repo"), name: "repo", index: 0 },
+    ]);
+    const fileState: WorkbenchFileState = {
+      classify: () => "docs",
+      identify: () => source,
+      resolve: () => vscode.Uri.file("/repo/docs/specs/demo/tasks.md"),
+      readText: vi.fn(async () => null),
+      onDidChange: () => ({ dispose() {} }),
+      dispose() {},
+    };
+    const mutateText = vi.fn(async (request) => ({
+      type: "afxMutationResult" as const,
+      requestId: request.requestId,
+      outcome: "success" as const,
+      target: request.target,
+      revision: { contentRevision: "next", diskRevision: "next", dirty: false },
+    }));
+    const mutationCoordinator: WorkbenchMutationCoordinator = {
+      mutateText,
+      dispose: vi.fn(),
+    };
+    const writeFile = vi.spyOn(vscode.workspace.fs, "writeFile");
+    const specsData = makeSpecsData();
+    const { view, fireMessage } = makeView(true);
+
+    createWorkbenchPanel({
+      extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
+      extensionMode: vscode.ExtensionMode.Test,
+      specsData,
+      fileState,
+      mutationCoordinator,
+    }).resolveWebviewView(view, {} as never, {} as never);
+
+    fireMessage({
+      type: "afxToggleTask",
+      path: "docs/specs/demo/tasks.md",
+      line: 3,
+      completed: true,
+    });
+
+    await vi.waitFor(() => expect(mutateText).toHaveBeenCalledOnce());
+    const request = mutateText.mock.calls[0]?.[0];
+    expect(request?.target).toEqual(source);
+    await expect(Promise.resolve(request?.transform("# Tasks\n\n- [ ] Ship it"))).resolves.toBe(
+      "# Tasks\n\n- [x] Ship it",
+    );
+    expect(writeFile).not.toHaveBeenCalled();
   });
 
   it("refreshes spec dependencies against the live dirty Canvas buffer", async () => {

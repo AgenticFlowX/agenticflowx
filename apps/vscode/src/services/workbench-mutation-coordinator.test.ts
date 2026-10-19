@@ -95,7 +95,7 @@ describe("createWorkbenchMutationCoordinator", () => {
     const fixture = fakeState("current", true);
     const uri = vscode.Uri.file("/workspace/.afx/project.canvas");
     (vscode.workspace as unknown as { textDocuments: vscode.TextDocument[] }).textDocuments = [
-      { uri } as vscode.TextDocument,
+      { uri, save: vi.fn(async () => true) } as unknown as vscode.TextDocument,
     ];
     vi.spyOn(vscode.workspace, "applyEdit").mockImplementation(async () => {
       fixture.setContent("next");
@@ -118,8 +118,13 @@ describe("createWorkbenchMutationCoordinator", () => {
     expect(vscode.workspace.applyEdit).toHaveBeenCalledOnce();
   });
 
-  it("uses an undoable WorkspaceEdit for an existing closed document", async () => {
+  it("uses an undoable WorkspaceEdit and saves an existing document", async () => {
     const fixture = fakeState("current");
+    const save = vi.fn(async () => true);
+    vi.spyOn(vscode.workspace, "openTextDocument").mockResolvedValue({
+      uri: vscode.Uri.file("/workspace/.afx/project.canvas"),
+      save,
+    } as unknown as vscode.TextDocument);
     vi.spyOn(vscode.workspace, "applyEdit").mockImplementation(async () => {
       fixture.setContent("next");
       return true;
@@ -136,7 +141,27 @@ describe("createWorkbenchMutationCoordinator", () => {
 
     expect(result.outcome).toBe("success");
     expect(vscode.workspace.applyEdit).toHaveBeenCalledOnce();
+    expect(save).toHaveBeenCalledOnce();
     expect(write).not.toHaveBeenCalled();
+  });
+
+  it("reports a write failure when VS Code cannot save an applied edit", async () => {
+    const fixture = fakeState("current");
+    vi.spyOn(vscode.workspace, "applyEdit").mockResolvedValue(true);
+    vi.spyOn(vscode.workspace, "openTextDocument").mockResolvedValue({
+      uri: vscode.Uri.file("/workspace/.afx/project.canvas"),
+      save: vi.fn(async () => false),
+    } as unknown as vscode.TextDocument);
+    const coordinator = createWorkbenchMutationCoordinator({ fileState: fixture.state });
+
+    const result = await coordinator.mutateText({
+      requestId: "save-failed",
+      target: SOURCE,
+      expectedRevision: hash("current"),
+      transform: () => "next",
+    });
+
+    expect(result).toMatchObject({ outcome: "error", code: "write-failed" });
   });
 
   it("serializes same-path mutations and confirms each terminal result", async () => {

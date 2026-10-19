@@ -782,6 +782,34 @@ async function handleMessage(
     post({ type: "afxUpdate", ...data });
   }
 
+  async function mutateLegacyTextFile(
+    uri: vscode.Uri,
+    transform: (content: string) => string,
+    allowCreate = false,
+  ): Promise<void> {
+    const target = fileState?.identify(uri);
+    if (mutationCoordinator && target) {
+      const result = await mutationCoordinator.mutateText({
+        requestId: `workbench-legacy-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        target,
+        allowCreate,
+        transform,
+      });
+      if (result.outcome !== "success") throw new Error(result.message);
+      return;
+    }
+
+    const content = await vscode.workspace.fs.readFile(uri).then(
+      (bytes) => Buffer.from(bytes).toString("utf8"),
+      (error) => {
+        if (allowCreate) return "";
+        throw error;
+      },
+    );
+    const next = transform(content);
+    if (next !== content) await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+  }
+
   try {
     switch (msg.type) {
       case "afxReady": {
@@ -961,7 +989,7 @@ async function handleMessage(
         if (realPath.replace(/\\/g, "/") === PROJECT_CANVAS_PATH) {
           await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(rootUri, ".afx"));
         }
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(msg.content, "utf8"));
+        await mutateLegacyTextFile(uri, () => msg.content, true);
         if (realPath.replace(/\\/g, "/") === PROJECT_CANVAS_PATH) {
           markCanvasSaved?.(msg.content);
         }
@@ -1243,53 +1271,42 @@ async function handleMessage(
       case "afxToggleTask": {
         const { path: realPath, section } = parseSprintPath(msg.path);
         const uri = await resolvePath(realPath, true);
-        const buf = await vscode.workspace.fs.readFile(uri);
-        const text = Buffer.from(buf).toString("utf8");
-        let line = msg.line;
-        if (section) {
-          const slice = sliceSprintSection(text, section);
-          if (slice) line = slice.contentStartLine + msg.line;
-        }
-        const next = toggleMarkdownCheckboxLine(text, line, msg.completed);
-        if (next === text) return;
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await mutateLegacyTextFile(uri, (text) => {
+          let line = msg.line;
+          if (section) {
+            const slice = sliceSprintSection(text, section);
+            if (slice) line = slice.contentStartLine + msg.line;
+          }
+          return toggleMarkdownCheckboxLine(text, line, msg.completed);
+        });
         await refreshAndPost();
         return;
       }
       case "afxToggleSession": {
         const { path: realPath } = parseSprintPath(msg.filePath);
         const uri = await resolvePath(realPath, true);
-        const buf = await vscode.workspace.fs.readFile(uri);
-        const text = Buffer.from(buf).toString("utf8");
-        const column = msg.column === "human" ? "human" : "agent";
-        const next =
-          typeof msg.line === "number"
+        await mutateLegacyTextFile(uri, (text) => {
+          const column = msg.column === "human" ? "human" : "agent";
+          return typeof msg.line === "number"
             ? toggleWorkSessionCheckboxLine(text, msg.line, column, msg.completed)
             : toggleWorkSessionCheckbox(text, msg.sessionIndex, column, msg.completed);
-        if (next === text) return;
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        });
         await refreshAndPost();
         return;
       }
       case "afxToggleAllSessions": {
         const { path: realPath } = parseSprintPath(msg.filePath);
         const uri = await resolvePath(realPath, true);
-        const buf = await vscode.workspace.fs.readFile(uri);
-        const text = Buffer.from(buf).toString("utf8");
-        const next = toggleAllWorkSessionCheckboxes(text, msg.column, msg.completed);
-        if (next === text) return;
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await mutateLegacyTextFile(uri, (text) =>
+          toggleAllWorkSessionCheckboxes(text, msg.column, msg.completed),
+        );
         await refreshAndPost();
         return;
       }
       case "afxApproveSessions": {
         const { path: realPath } = parseSprintPath(msg.filePath);
         const uri = await resolvePath(realPath, true);
-        const buf = await vscode.workspace.fs.readFile(uri);
-        const text = Buffer.from(buf).toString("utf8");
-        const next = approveWorkSessionCheckboxes(text);
-        if (next === text) return;
-        await vscode.workspace.fs.writeFile(uri, Buffer.from(next, "utf8"));
+        await mutateLegacyTextFile(uri, approveWorkSessionCheckboxes);
         await refreshAndPost();
         return;
       }
