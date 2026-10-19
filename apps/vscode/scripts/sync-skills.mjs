@@ -7,11 +7,12 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
-  statSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { skillReleaseRef } from "./skill-release-ref.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const extensionRoot = join(__dirname, "..");
@@ -19,7 +20,7 @@ const workspaceRoot = join(extensionRoot, "..", "..");
 const targetDir = join(extensionRoot, "resources", "skills", "agenticflowx");
 const packageJson = JSON.parse(readFileSync(join(extensionRoot, "package.json"), "utf8"));
 const verifyOnly = process.argv.includes("--verify");
-const AFX_REF = process.env.AFX_REF ?? packageJson.afxSkillsPin ?? "main";
+const AFX_REF = process.env.AFX_REF ?? skillReleaseRef(packageJson.afxSkillsPin);
 
 /**
  * Fetches the pinned upstream source archive without running remote code. Both
@@ -31,10 +32,14 @@ const AFX_REF = process.env.AFX_REF ?? packageJson.afxSkillsPin ?? "main";
 function fetchSkillsArchiveToTemp(target) {
   const archivePath = join(target, "afx.tar.gz");
   const url = `https://github.com/AgenticFlowX/afx/archive/${AFX_REF}.tar.gz`;
-  const download = spawnSync("curl", ["-fsSL", "--output", archivePath, url], {
-    cwd: workspaceRoot,
-    stdio: "inherit",
-  });
+  const download = spawnSync(
+    "curl",
+    ["-fsSL", "--proto", "=https", "--proto-redir", "=https", "--output", archivePath, url],
+    {
+      cwd: workspaceRoot,
+      stdio: "inherit",
+    },
+  );
 
   if (download.error) {
     throw download.error;
@@ -147,12 +152,7 @@ function verifyVendoredBundle(sourceDir) {
     }
     const sourcePath = join(sourceDir, file);
     const targetPath = join(targetDir, file);
-    const sourceStat = statSync(sourcePath);
-    const targetStat = statSync(targetPath);
-    return (
-      sourceStat.size !== targetStat.size ||
-      readFileSync(sourcePath, "utf8") !== readFileSync(targetPath, "utf8")
-    );
+    return readFileSync(sourcePath, "utf8") !== readFileSync(targetPath, "utf8");
   });
 
   if (missing.length > 0 || extra.length > 0 || changed.length > 0) {
