@@ -1,5 +1,8 @@
 /**
  * OpenRouter OAuth descriptor with dynamic PKCE callback handling.
+ *
+ * @see docs/specs/354-agent-oauth-provider-flows/spec.md [FR-1] [FR-7]
+ * @see docs/specs/354-agent-oauth-provider-flows/design.md [DES-PROVIDERS]
  */
 import { type Server, type ServerResponse, createServer } from "node:http";
 
@@ -31,7 +34,13 @@ function sendHtml(response: ServerResponse, status: number, html: string): void 
 }
 
 function renderServerError(message: string): string {
-  return `<!doctype html><meta charset="utf-8"><h1>Sign-in failed</h1><p>${message}</p>`;
+  const escaped = message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+  return `<!doctype html><meta charset="utf-8"><h1>Sign-in failed</h1><p>${escaped}</p>`;
 }
 
 function renderServerSuccess(): string {
