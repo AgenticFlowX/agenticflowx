@@ -740,19 +740,19 @@
     "postpackage": "node ../../scripts/legal/third-party-notices.mjs verify-vsix bin"
   },
   "dependencies": {
-    "@afx/canvas-engine": "workspace:*",
     "@afx/agent-pi": "workspace:*",
     "@afx/agent-pi-sdk": "workspace:*",
+    "@afx/canvas-engine": "workspace:*",
     "@afx/parsers": "workspace:*",
     "@afx/shared": "workspace:*",
-    "@types/vscode": "^1.125.0"
+    "@types/vscode": "^1.134.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.4",
-    "@vitest/coverage-v8": "^4.1.9",
+    "@types/node": "^25.9.5",
+    "@vitest/coverage-v8": "^4.1.11",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

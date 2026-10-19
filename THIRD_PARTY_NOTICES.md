@@ -5,7 +5,7 @@
 This file is generated from the production bundles and copied runtime assets.
 Do not edit it manually. Run `pnpm legal:write` after `pnpm build`.
 
-Inventory: 274 shipped package-version components.
+Inventory: 248 shipped package-version components.
 
 ## Shipped components
 
@@ -16,20 +16,6 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `f8508be03f7b`
 
-### @aws-crypto/crc32 5.2.0
-
-- License: `Apache-2.0`
-- Repository: https://github.com/aws/aws-sdk-js-crypto-helpers
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `db1ed8cccea0`
-
-### @aws-crypto/util 5.2.0
-
-- License: `Apache-2.0`
-- Repository: https://github.com/aws/aws-sdk-js-crypto-helpers
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `db1ed8cccea0`
-
 ### @aws-sdk/client-bedrock-runtime 3.1048.0
 
 - License: `Apache-2.0`
@@ -37,98 +23,98 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `18c295fdd68d`
 
-### @aws-sdk/core 3.974.18
+### @aws-sdk/core 3.977.9
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-env 3.972.44
+### @aws-sdk/credential-provider-env 3.972.70
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-http 3.972.46
+### @aws-sdk/credential-provider-http 3.972.72
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-ini 3.972.50
+### @aws-sdk/credential-provider-ini 3.973.15
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-login 3.972.49
+### @aws-sdk/credential-provider-login 3.972.77
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-node 3.972.52
+### @aws-sdk/credential-provider-node 3.972.81
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-process 3.972.44
+### @aws-sdk/credential-provider-process 3.972.70
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-sso 3.972.49
+### @aws-sdk/credential-provider-sso 3.973.14
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-web-identity 3.972.49
+### @aws-sdk/credential-provider-web-identity 3.972.76
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/eventstream-handler-node 3.972.20
+### @aws-sdk/eventstream-handler-node 3.972.34
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/middleware-eventstream 3.972.16
+### @aws-sdk/middleware-eventstream 3.972.29
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `e345c2ee7df4`
 
-### @aws-sdk/middleware-websocket 3.972.26
+### @aws-sdk/middleware-websocket 3.972.52
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/nested-clients 3.997.17
+### @aws-sdk/nested-clients 3.997.44
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/signature-v4-multi-region 3.996.32
+### @aws-sdk/signature-v4-multi-region 3.996.46
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
@@ -142,21 +128,21 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/token-providers 3.1063.0
+### @aws-sdk/token-providers 3.1116.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/xml-builder 3.972.28
+### @aws-sdk/xml-builder 3.972.40
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws/lambda-invoke-store 0.2.4
+### @aws/lambda-invoke-store 0.3.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/awslabs/aws-lambda-invoke-store
@@ -191,63 +177,70 @@ Inventory: 274 shipped package-version components.
 - Included by: Workbench webview
 - Exact license evidence: `537607e3f153`
 
-### @earendil-works/pi-agent-core 0.82.0
+### @earendil-works/pi-agent-core 0.84.4
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-ai 0.82.0
+### @earendil-works/pi-ai 0.84.4
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-coding-agent 0.82.0
+### @earendil-works/pi-coding-agent 0.84.4
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers, Pi export templates, Pi interactive themes and assets
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-tui 0.82.0
+### @earendil-works/pi-telemetry 0.84.4
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @floating-ui/core 1.7.5
+### @earendil-works/pi-tui 0.84.4
+
+- License: `MIT`
+- Repository: https://github.com/earendil-works/pi
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `4f6a1985796d`
+
+### @floating-ui/core 1.8.0
 
 - License: `MIT`
 - Repository: https://github.com/floating-ui/floating-ui
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e4c9a9b6c71`
 
-### @floating-ui/dom 1.7.6
+### @floating-ui/dom 1.8.0
 
 - License: `MIT`
 - Repository: https://github.com/floating-ui/floating-ui
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e4c9a9b6c71`
 
-### @floating-ui/react-dom 2.1.8
+### @floating-ui/react-dom 2.1.9
 
 - License: `MIT`
 - Repository: https://github.com/floating-ui/floating-ui
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e4c9a9b6c71`
 
-### @floating-ui/utils 0.2.11
+### @floating-ui/utils 0.2.12
 
 - License: `MIT`
 - Repository: https://github.com/floating-ui/floating-ui
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e4c9a9b6c71`
 
-### @fontsource-variable/jetbrains-mono 5.2.8
+### @fontsource-variable/jetbrains-mono 5.3.0
 
 - License: `OFL-1.1`
 - Repository: https://github.com/fontsource/font-files
@@ -261,39 +254,11 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `cfc7749b96f6`
 
-### @mistralai/mistralai 2.2.6
-
-- License: `Apache-2.0`
-- Repository: https://github.com/mistralai/client-ts
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `ad4b50ffd183`
-
-### @opentelemetry/api 1.9.0
-
-- License: `Apache-2.0`
-- Repository: open-telemetry/opentelemetry-js
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `c71d239df917`
-
-### @opentelemetry/semantic-conventions 1.43.0
-
-- License: `Apache-2.0`
-- Repository: open-telemetry/opentelemetry-js
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `c71d239df917`
-
 ### @radix-ui/number 1.1.3
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/primitive 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
 ### @radix-ui/primitive 1.1.7
@@ -303,385 +268,280 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-alert-dialog 1.1.21
+### @radix-ui/react-alert-dialog 1.1.23
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-arrow 1.1.13
+### @radix-ui/react-arrow 1.1.15
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-checkbox 1.3.9
+### @radix-ui/react-checkbox 1.3.11
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-collection 1.1.13
+### @radix-ui/react-collection 1.1.15
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-compose-refs 1.1.2
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-compose-refs 1.1.4
+### @radix-ui/react-compose-refs 1.1.5
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-context 1.1.2
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-context 1.2.1
+### @radix-ui/react-context 1.2.2
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dialog 1.1.15
+### @radix-ui/react-dialog 1.1.23
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-direction 1.1.4
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-dismissable-layer 1.1.19
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-dropdown-menu 2.1.24
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-focus-guards 1.1.6
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-focus-scope 1.1.16
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-id 1.1.4
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-label 2.1.15
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dialog 1.1.21
+### @radix-ui/react-menu 2.1.24
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-popover 1.1.23
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-popper 1.3.7
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-portal 1.1.17
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-presence 1.1.10
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-primitive 2.1.10
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-progress 1.1.16
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-direction 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-dismissable-layer 1.1.11
+### @radix-ui/react-radio-group 1.4.7
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dismissable-layer 1.1.17
+### @radix-ui/react-roving-focus 1.1.19
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dropdown-menu 2.1.22
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-focus-guards 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-focus-guards 1.1.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-focus-scope 1.1.14
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-focus-scope 1.1.7
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-id 1.1.1
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-id 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-label 2.1.13
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-menu 2.1.22
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-popover 1.1.21
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-popper 1.3.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-portal 1.1.15
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-portal 1.1.9
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-presence 1.1.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-presence 1.1.9
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-primitive 2.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-primitive 2.1.8
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-progress 1.1.14
+### @radix-ui/react-scroll-area 1.2.18
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-radio-group 1.4.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-roving-focus 1.1.17
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-scroll-area 1.2.16
+### @radix-ui/react-select 2.3.7
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-select 2.3.5
+### @radix-ui/react-separator 1.1.15
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-separator 1.1.13
+### @radix-ui/react-slot 1.3.3
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-switch 1.3.7
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-tabs 1.1.21
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-toggle 1.1.18
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-slot 1.2.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-slot 1.3.1
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-switch 1.3.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-tabs 1.1.19
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-toggle 1.1.16
+### @radix-ui/react-toggle-group 1.1.19
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-toggle-group 1.1.17
+### @radix-ui/react-tooltip 1.2.16
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-callback-ref 1.1.4
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-controllable-state 1.2.6
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-effect-event 0.0.5
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-is-hydrated 0.1.3
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-layout-effect 1.1.4
+
+- License: `MIT`
+- Repository: https://github.com/radix-ui/primitives
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `0e80a2d229d2`
+
+### @radix-ui/react-use-previous 1.1.4
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-tooltip 1.2.14
+### @radix-ui/react-use-size 1.1.4
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-use-callback-ref 1.1.1
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-callback-ref 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-controllable-state 1.2.2
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-controllable-state 1.2.5
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-effect-event 0.0.4
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-escape-keydown 1.1.1
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-is-hydrated 0.1.2
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-layout-effect 1.1.1
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-layout-effect 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-previous 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-size 1.1.3
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Chat webview, Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-visually-hidden 1.2.9
+### @radix-ui/react-visually-hidden 1.2.11
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
@@ -695,31 +555,31 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `db5502bc3655`
 
-### @smithy/core 3.24.6
+### @smithy/core 3.33.3
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @smithy/credential-provider-imds 4.3.8
+### @smithy/credential-provider-imds 4.5.2
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/fetch-http-handler 5.4.6
+### @smithy/fetch-http-handler 5.7.2
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/is-array-buffer 2.2.0
+### @smithy/node-http-handler 4.11.3
 
 - License: `Apache-2.0`
-- Repository: https://github.com/awslabs/smithy-typescript
+- Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
@@ -730,56 +590,35 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/node-http-handler 4.7.7
+### @smithy/signature-v4 5.7.3
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/signature-v4 5.4.6
-
-- License: `Apache-2.0`
-- Repository: https://github.com/smithy-lang/smithy-typescript
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `b659ef9e3ce8`
-
-### @smithy/types 4.14.3
+### @smithy/types 4.17.2
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @smithy/util-buffer-from 2.2.0
-
-- License: `Apache-2.0`
-- Repository: https://github.com/awslabs/smithy-typescript
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `b659ef9e3ce8`
-
-### @smithy/util-utf8 2.3.0
-
-- License: `Apache-2.0`
-- Repository: https://github.com/awslabs/smithy-typescript
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `b659ef9e3ce8`
-
-### @ungap/structured-clone 1.3.0
+### @ungap/structured-clone 1.4.0
 
 - License: `ISC`
 - Repository: https://github.com/ungap/structured-clone
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dc6d4961d8b6`
 
-### @xyflow/react 12.11.2
+### @xyflow/react 12.11.5
 
 - License: `MIT`
 - Repository: https://github.com/xyflow/xyflow
 - Included by: Workbench webview
 - Exact license evidence: `023119ac20fb`
 
-### @xyflow/system 0.0.79
+### @xyflow/system 0.0.81
 
 - License: `MIT`
 - Repository: https://github.com/xyflow/xyflow
@@ -835,7 +674,7 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `dfde54fedc27`
 
-### brace-expansion 5.0.6
+### brace-expansion 5.0.11
 
 - License: `MIT`
 - Repository: https://github.com/juliangruber/brace-expansion
@@ -1031,13 +870,6 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Pi SDK bootstrap and providers, Workbench webview
 - Exact license evidence: `c354ef13b369`
 
-### fast-xml-parser 5.7.3
-
-- License: `MIT`
-- Repository: https://github.com/NaturalIntelligence/fast-xml-parser
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `7883225d5e84`
-
 ### fetch-blob 3.2.0
 
 - License: `MIT`
@@ -1052,10 +884,10 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `435a6437e47e`
 
-### gaxios 7.1.5
+### gaxios 7.3.1
 
 - License: `Apache-2.0`
-- Repository: https://github.com/googleapis/google-cloud-node-core
+- Repository: https://github.com/googleapis/google-cloud-node
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `cfc7749b96f6`
 
@@ -1080,17 +912,10 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `acf3b087b348`
 
-### glob 13.0.6
-
-- License: `BlueOak-1.0.0`
-- Repository: https://github.com/isaacs/node-glob
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `a49c9ba46479`
-
-### google-auth-library 10.7.0
+### google-auth-library 10.9.1
 
 - License: `Apache-2.0`
-- Repository: https://github.com/googleapis/google-cloud-node-core
+- Repository: https://github.com/googleapis/google-cloud-node
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `cfc7749b96f6`
 
@@ -1107,6 +932,13 @@ Inventory: 274 shipped package-version components.
 - Repository: https://github.com/isaacs/node-graceful-fs
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `f65c5d9f22a3`
+
+### grok-mermaid 0.2.2
+
+- License: `Apache-2.0`
+- Repository: https://github.com/xl0/grok-mermaid
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `d7aefc126206`
 
 ### has-flag 4.0.0
 
@@ -1206,7 +1038,7 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `46231df5a773`
 
-### js-yaml 4.2.0
+### js-yaml 4.3.2
 
 - License: `MIT`
 - Repository: nodeca/js-yaml
@@ -1241,14 +1073,14 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `9f084fac69d8`
 
-### lru-cache 11.5.1
+### lru-cache 11.5.2
 
 - License: `BlueOak-1.0.0`
 - Repository: https://github.com/isaacs/node-lru-cache
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `8a1af140fdfb`
 
-### lucide-react 1.26.0
+### lucide-react 1.35.0
 
 - License: `ISC`
 - Repository: https://github.com/lucide-icons/lucide
@@ -1556,7 +1388,7 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `182caebbe3ce`
 
-### openai 6.26.0
+### openai 6.40.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/openai/openai-node
@@ -1591,24 +1423,24 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `aaa78451b6fe`
 
-### property-information 7.1.0
+### property-information 7.2.0
 
 - License: `MIT`
 - Repository: wooorm/property-information
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `5d0698266086`
 
-### react 19.2.7
+### react 19.2.8
 
 - License: `MIT`
-- Repository: https://github.com/facebook/react
+- Repository: https://github.com/react/react
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
-### react-dom 19.2.7
+### react-dom 19.2.8
 
 - License: `MIT`
-- Repository: https://github.com/facebook/react
+- Repository: https://github.com/react/react
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
@@ -1633,7 +1465,7 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `88de0af64f3f`
 
-### react-resizable-panels 4.11.2
+### react-resizable-panels 4.12.3
 
 - License: `MIT`
 - Repository: https://github.com/bvaughn/react-resizable-panels
@@ -1787,14 +1619,14 @@ Inventory: 274 shipped package-version components.
 - Included by: Chat webview, Pi SDK bootstrap and providers, Workbench webview
 - Exact license evidence: `598935964591`
 
-### typebox 1.1.38
+### typebox 1.3.7
 
 - License: `MIT`
 - Repository: https://github.com/sinclairzx81/typebox
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `baaa39822b65`
 
-### undici 8.5.0
+### undici 8.10.2
 
 - License: `MIT`
 - Repository: https://github.com/nodejs/undici
@@ -1906,20 +1738,6 @@ Inventory: 274 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `5bba27375d93`
 
-### zod 4.4.3
-
-- License: `MIT`
-- Repository: https://github.com/colinhacks/zod
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `3f1189b28e38`
-
-### zod-to-json-schema 3.25.2
-
-- License: `ISC`
-- Repository: https://github.com/StefanTerdell/zod-to-json-schema
-- Included by: Pi SDK bootstrap and providers
-- Exact license evidence: `7beaa85b57d7`
-
 ### zustand 4.5.7
 
 - License: `MIT`
@@ -1929,19 +1747,14 @@ Inventory: 274 shipped package-version components.
 
 ## Audited evidence overrides
 
-- **@aws-sdk/credential-provider-http@3.972.46** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/v3.974.0/LICENSE
-- **@aws-sdk/credential-provider-login@3.972.49** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/v3.974.0/LICENSE
-- **@aws-sdk/nested-clients@3.997.17** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/v3.974.0/LICENSE
-- **@earendil-works/pi-agent-core@0.82.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE
-- **@earendil-works/pi-ai@0.82.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE
-- **@earendil-works/pi-coding-agent@0.82.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE
-- **@earendil-works/pi-tui@0.82.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE
-- **@radix-ui/react-compose-refs@1.1.2** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
-- **@radix-ui/react-context@1.1.2** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
-- **@radix-ui/react-id@1.1.1** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
-- **@radix-ui/react-use-callback-ref@1.1.1** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
-- **@radix-ui/react-use-escape-keydown@1.1.1** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
-- **@radix-ui/react-use-layout-effect@1.1.1** — The npm artifact for this exact Radix UI version omits its MIT LICENSE file; the audited license text is preserved locally. Source: https://github.com/radix-ui/primitives/blob/main/LICENSE
+- **@aws-sdk/credential-provider-http@3.972.72** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
+- **@aws-sdk/credential-provider-login@3.972.77** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
+- **@aws-sdk/nested-clients@3.997.44** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
+- **@earendil-works/pi-agent-core@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@earendil-works/pi-ai@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@earendil-works/pi-coding-agent@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@earendil-works/pi-telemetry@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@earendil-works/pi-tui@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **data-uri-to-buffer@4.0.1** — The npm artifact carries its exact MIT license in README.md rather than a LICENSE file. Source: https://github.com/TooTallNate/node-data-uri-to-buffer/blob/v4.0.1/README.md#license
 - **highlight.js@11.9.0** — Pi ships a prebuilt Highlight.js 11.9.0 browser runtime whose version differs from its Node dependency. Source: https://github.com/highlightjs/highlight.js
 - **marked@18.0.5** — Pi ships Marked as a prebuilt browser runtime rather than an installed runtime package. Source: https://github.com/markedjs/marked
@@ -1987,7 +1800,7 @@ Felix Geisendörfer (felix@debuggable.com)
 
 ### 023119ac20fb
 
-Used by: @xyflow/react@12.11.2, @xyflow/system@0.0.79
+Used by: @xyflow/react@12.11.5, @xyflow/system@0.0.81
 
 ~~~~text
 MIT License
@@ -2043,7 +1856,7 @@ THE SOFTWARE.
 
 ### 07364a5f7d01
 
-Used by: @aws-sdk/eventstream-handler-node@3.972.20, @aws-sdk/middleware-websocket@3.972.26, @aws-sdk/signature-v4-multi-region@3.996.32, @smithy/core@3.24.6, @smithy/types@4.14.3
+Used by: @aws-sdk/eventstream-handler-node@3.972.34, @aws-sdk/middleware-websocket@3.972.52, @aws-sdk/signature-v4-multi-region@3.996.46, @smithy/core@3.33.3, @smithy/types@4.17.2
 
 ~~~~text
                                 Apache License
@@ -2251,7 +2064,7 @@ Used by: @aws-sdk/eventstream-handler-node@3.972.20, @aws-sdk/middleware-websock
 
 ### 09e8a9bcec80
 
-Used by: @aws/lambda-invoke-store@0.2.4
+Used by: @aws/lambda-invoke-store@0.3.0
 
 ~~~~text
 
@@ -2630,7 +2443,7 @@ Used by: class-variance-authority@0.7.1
 
 ### 0e4c9a9b6c71
 
-Used by: @floating-ui/core@1.7.5, @floating-ui/dom@1.7.6, @floating-ui/react-dom@2.1.8, @floating-ui/utils@0.2.11
+Used by: @floating-ui/core@1.8.0, @floating-ui/dom@1.8.0, @floating-ui/react-dom@2.1.9, @floating-ui/utils@0.2.12
 
 ~~~~text
 MIT License
@@ -2657,7 +2470,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 0e80a2d229d2
 
-Used by: @radix-ui/number@1.1.3, @radix-ui/primitive@1.1.3, @radix-ui/primitive@1.1.7, @radix-ui/react-alert-dialog@1.1.21, @radix-ui/react-arrow@1.1.13, @radix-ui/react-checkbox@1.3.9, @radix-ui/react-collection@1.1.13, @radix-ui/react-compose-refs@1.1.2, @radix-ui/react-compose-refs@1.1.4, @radix-ui/react-context@1.1.2, @radix-ui/react-context@1.2.1, @radix-ui/react-dialog@1.1.15, @radix-ui/react-dialog@1.1.21, @radix-ui/react-direction@1.1.3, @radix-ui/react-dismissable-layer@1.1.11, @radix-ui/react-dismissable-layer@1.1.17, @radix-ui/react-dropdown-menu@2.1.22, @radix-ui/react-focus-guards@1.1.3, @radix-ui/react-focus-guards@1.1.5, @radix-ui/react-focus-scope@1.1.14, @radix-ui/react-focus-scope@1.1.7, @radix-ui/react-id@1.1.1, @radix-ui/react-id@1.1.3, @radix-ui/react-label@2.1.13, @radix-ui/react-menu@2.1.22, @radix-ui/react-popover@1.1.21, @radix-ui/react-popper@1.3.5, @radix-ui/react-portal@1.1.15, @radix-ui/react-portal@1.1.9, @radix-ui/react-presence@1.1.5, @radix-ui/react-presence@1.1.9, @radix-ui/react-primitive@2.1.3, @radix-ui/react-primitive@2.1.8, @radix-ui/react-progress@1.1.14, @radix-ui/react-radio-group@1.4.5, @radix-ui/react-roving-focus@1.1.17, @radix-ui/react-scroll-area@1.2.16, @radix-ui/react-select@2.3.5, @radix-ui/react-separator@1.1.13, @radix-ui/react-slot@1.2.3, @radix-ui/react-slot@1.3.1, @radix-ui/react-switch@1.3.5, @radix-ui/react-tabs@1.1.19, @radix-ui/react-toggle-group@1.1.17, @radix-ui/react-toggle@1.1.16, @radix-ui/react-tooltip@1.2.14, @radix-ui/react-use-callback-ref@1.1.1, @radix-ui/react-use-callback-ref@1.1.3, @radix-ui/react-use-controllable-state@1.2.2, @radix-ui/react-use-controllable-state@1.2.5, @radix-ui/react-use-effect-event@0.0.4, @radix-ui/react-use-escape-keydown@1.1.1, @radix-ui/react-use-is-hydrated@0.1.2, @radix-ui/react-use-layout-effect@1.1.1, @radix-ui/react-use-layout-effect@1.1.3, @radix-ui/react-use-previous@1.1.3, @radix-ui/react-use-size@1.1.3, @radix-ui/react-visually-hidden@1.2.9
+Used by: @radix-ui/number@1.1.3, @radix-ui/primitive@1.1.7, @radix-ui/react-alert-dialog@1.1.23, @radix-ui/react-arrow@1.1.15, @radix-ui/react-checkbox@1.3.11, @radix-ui/react-collection@1.1.15, @radix-ui/react-compose-refs@1.1.5, @radix-ui/react-context@1.2.2, @radix-ui/react-dialog@1.1.23, @radix-ui/react-direction@1.1.4, @radix-ui/react-dismissable-layer@1.1.19, @radix-ui/react-dropdown-menu@2.1.24, @radix-ui/react-focus-guards@1.1.6, @radix-ui/react-focus-scope@1.1.16, @radix-ui/react-id@1.1.4, @radix-ui/react-label@2.1.15, @radix-ui/react-menu@2.1.24, @radix-ui/react-popover@1.1.23, @radix-ui/react-popper@1.3.7, @radix-ui/react-portal@1.1.17, @radix-ui/react-presence@1.1.10, @radix-ui/react-primitive@2.1.10, @radix-ui/react-progress@1.1.16, @radix-ui/react-radio-group@1.4.7, @radix-ui/react-roving-focus@1.1.19, @radix-ui/react-scroll-area@1.2.18, @radix-ui/react-select@2.3.7, @radix-ui/react-separator@1.1.15, @radix-ui/react-slot@1.3.3, @radix-ui/react-switch@1.3.7, @radix-ui/react-tabs@1.1.21, @radix-ui/react-toggle-group@1.1.19, @radix-ui/react-toggle@1.1.18, @radix-ui/react-tooltip@1.2.16, @radix-ui/react-use-callback-ref@1.1.4, @radix-ui/react-use-controllable-state@1.2.6, @radix-ui/react-use-effect-event@0.0.5, @radix-ui/react-use-is-hydrated@0.1.3, @radix-ui/react-use-layout-effect@1.1.4, @radix-ui/react-use-previous@1.1.4, @radix-ui/react-use-size@1.1.4, @radix-ui/react-visually-hidden@1.2.11
 
 ~~~~text
 MIT License
@@ -3159,37 +2972,9 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### 3f1189b28e38
-
-Used by: zod@4.4.3
-
-~~~~text
-MIT License
-
-Copyright (c) 2025 Colin McDonnell
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-~~~~
-
 ### 403581b69dac
 
-Used by: @fontsource-variable/jetbrains-mono@5.2.8
+Used by: @fontsource-variable/jetbrains-mono@5.3.0
 
 ~~~~text
 Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono) JetBrainsMono-Italic[wght].ttf: Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
@@ -3317,7 +3102,7 @@ THE SOFTWARE.
 
 ### 4186c3f89c23
 
-Used by: @aws-sdk/core@3.974.18, @aws-sdk/credential-provider-http@3.972.46, @aws-sdk/credential-provider-login@3.972.49, @aws-sdk/nested-clients@3.997.17
+Used by: @aws-sdk/core@3.977.9, @aws-sdk/credential-provider-http@3.972.72, @aws-sdk/credential-provider-login@3.972.77, @aws-sdk/nested-clients@3.997.44
 
 ~~~~text
 Apache License
@@ -3619,7 +3404,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### 4f6a1985796d
 
-Used by: @earendil-works/pi-agent-core@0.82.0, @earendil-works/pi-ai@0.82.0, @earendil-works/pi-coding-agent@0.82.0, @earendil-works/pi-tui@0.82.0
+Used by: @earendil-works/pi-agent-core@0.84.4, @earendil-works/pi-ai@0.84.4, @earendil-works/pi-coding-agent@0.84.4, @earendil-works/pi-telemetry@0.84.4, @earendil-works/pi-tui@0.84.4
 
 ~~~~text
 MIT License
@@ -4023,7 +3808,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### 5d0698266086
 
-Used by: property-information@7.1.0
+Used by: property-information@7.2.0
 
 ~~~~text
 (The MIT License)
@@ -4052,7 +3837,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 636eb7d79da9
 
-Used by: openai@6.26.0
+Used by: openai@6.40.0
 
 ~~~~text
                                  Apache License
@@ -4444,56 +4229,6 @@ Redistribution and use in source and binary forms, with or without modification,
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ~~~~
 
-### 7883225d5e84
-
-Used by: fast-xml-parser@5.7.3
-
-~~~~text
-MIT License
-
-Copyright (c) 2017 Amit Kumar Gupta
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-~~~~
-
-### 7beaa85b57d7
-
-Used by: zod-to-json-schema@3.25.2
-
-~~~~text
-ISC License
-
-Copyright (c) 2020, Stefan Terdell
-
-Permission to use, copy, modify, and/or distribute this software for any
-purpose with or without fee is hereby granted, provided that the above
-copyright notice and this permission notice appear in all copies.
-
-THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-~~~~
-
 ### 807a88522a85
 
 Used by: micromark-extension-gfm-footnote@2.1.0
@@ -4583,7 +4318,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 84d995af201d
 
-Used by: @aws-sdk/credential-provider-process@3.972.44, @aws-sdk/credential-provider-sso@3.972.49, @aws-sdk/credential-provider-web-identity@3.972.49
+Used by: @aws-sdk/credential-provider-process@3.972.70, @aws-sdk/credential-provider-sso@3.973.14, @aws-sdk/credential-provider-web-identity@3.972.76
 
 ~~~~text
 Apache License
@@ -4848,7 +4583,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 8a1af140fdfb
 
-Used by: lru-cache@11.5.1
+Used by: lru-cache@11.5.2
 
 ~~~~text
 # Blue Oak Model License
@@ -5005,7 +4740,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### 9c63a23124d6
 
-Used by: brace-expansion@5.0.6
+Used by: brace-expansion@5.0.11
 
 ~~~~text
 MIT License
@@ -5064,7 +4799,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### a07bc24468b9
 
-Used by: js-yaml@4.2.0
+Used by: js-yaml@4.3.2
 
 ~~~~text
 (The MIT License)
@@ -5088,76 +4823,6 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
-~~~~
-
-### a49c9ba46479
-
-Used by: glob@13.0.6
-
-~~~~text
-All packages under `src/` are licensed according to the terms in
-their respective `LICENSE` or `LICENSE.md` files.
-
-The remainder of this project is licensed under the Blue Oak
-Model License, as follows:
-
------
-
-# Blue Oak Model License
-
-Version 1.0.0
-
-## Purpose
-
-This license gives everyone as much permission to work with
-this software as possible, while protecting contributors
-from liability.
-
-## Acceptance
-
-In order to receive this license, you must agree to its
-rules.  The rules of this license are both obligations
-under that agreement and conditions to your license.
-You must not do anything with this software that triggers
-a rule that you cannot or will not follow.
-
-## Copyright
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe that contributor's
-copyright in it.
-
-## Notices
-
-You must ensure that everyone who gets a copy of
-any part of this software from you, with or without
-changes, also gets the text of this license or a link to
-<https://blueoakcouncil.org/license/1.0.0>.
-
-## Excuse
-
-If anyone notifies you in writing that you have not
-complied with [Notices](#notices), you can keep your
-license by taking all practical steps to comply within 30
-days after the notice.  If you do not do so, your license
-ends immediately.
-
-## Patent
-
-Each contributor licenses you to do everything with this
-software that would otherwise infringe any patent claims
-they can license or become able to license.
-
-## Reliability
-
-No contributor can revoke this license.
-
-## No Liability
-
-***As far as the law allows, this software comes as is,
-without any warranty or condition, and no contributor
-will be liable to anyone for any damages related to this
-software or this license, under any kind of legal claim.***
 ~~~~
 
 ### a5edccac92c3
@@ -5190,7 +4855,7 @@ SOFTWARE.
 
 ### a6db8096b270
 
-Used by: undici@8.5.0
+Used by: undici@8.10.2
 
 ~~~~text
 MIT License
@@ -5218,7 +4883,7 @@ SOFTWARE.
 
 ### a8f1e0280bf1
 
-Used by: react-resizable-panels@4.11.2
+Used by: react-resizable-panels@4.12.3
 
 ~~~~text
 The MIT License (MIT)
@@ -5300,217 +4965,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### ad4b50ffd183
-
-Used by: @mistralai/mistralai@2.2.6
-
-~~~~text
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-   1. Definitions.
-
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-   APPENDIX: How to apply the Apache License to your work.
-
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
-
-   Copyright 2024 Mistral AI
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-~~~~
-
 ### b495047bd93a
 
-Used by: lucide-react@1.26.0
+Used by: lucide-react@1.35.0
 
 ~~~~text
 ISC License
@@ -5588,7 +5045,7 @@ SOFTWARE.
 
 ### b659ef9e3ce8
 
-Used by: @aws-sdk/credential-provider-env@3.972.44, @aws-sdk/credential-provider-ini@3.972.50, @aws-sdk/credential-provider-node@3.972.52, @aws-sdk/token-providers@3.1048.0, @aws-sdk/token-providers@3.1063.0, @aws-sdk/xml-builder@3.972.28, @smithy/credential-provider-imds@4.3.8, @smithy/fetch-http-handler@5.4.6, @smithy/is-array-buffer@2.2.0, @smithy/node-http-handler@4.7.3, @smithy/node-http-handler@4.7.7, @smithy/signature-v4@5.4.6, @smithy/util-buffer-from@2.2.0, @smithy/util-utf8@2.3.0
+Used by: @aws-sdk/credential-provider-env@3.972.70, @aws-sdk/credential-provider-ini@3.973.15, @aws-sdk/credential-provider-node@3.972.81, @aws-sdk/token-providers@3.1048.0, @aws-sdk/token-providers@3.1116.0, @aws-sdk/xml-builder@3.972.40, @smithy/credential-provider-imds@4.5.2, @smithy/fetch-http-handler@5.7.2, @smithy/node-http-handler@4.11.3, @smithy/node-http-handler@4.7.3, @smithy/signature-v4@5.7.3
 
 ~~~~text
 Apache License
@@ -5861,7 +5318,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### baaa39822b65
 
-Used by: typebox@1.1.38
+Used by: typebox@1.3.7
 
 ~~~~text
 TypeBox
@@ -5995,214 +5452,6 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
-### c71d239df917
-
-Used by: @opentelemetry/api@1.9.0, @opentelemetry/semantic-conventions@1.43.0
-
-~~~~text
-                                 Apache License
-                           Version 2.0, January 2004
-                        http://www.apache.org/licenses/
-
-   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
-
-   1. Definitions.
-
-      "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
-
-      "Licensor" shall mean the copyright owner or entity authorized by
-      the copyright owner that is granting the License.
-
-      "Legal Entity" shall mean the union of the acting entity and all
-      other entities that control, are controlled by, or are under common
-      control with that entity. For the purposes of this definition,
-      "control" means (i) the power, direct or indirect, to cause the
-      direction or management of such entity, whether by contract or
-      otherwise, or (ii) ownership of fifty percent (50%) or more of the
-      outstanding shares, or (iii) beneficial ownership of such entity.
-
-      "You" (or "Your") shall mean an individual or Legal Entity
-      exercising permissions granted by this License.
-
-      "Source" form shall mean the preferred form for making modifications,
-      including but not limited to software source code, documentation
-      source, and configuration files.
-
-      "Object" form shall mean any form resulting from mechanical
-      transformation or translation of a Source form, including but
-      not limited to compiled object code, generated documentation,
-      and conversions to other media types.
-
-      "Work" shall mean the work of authorship, whether in Source or
-      Object form, made available under the License, as indicated by a
-      copyright notice that is included in or attached to the work
-      (an example is provided in the Appendix below).
-
-      "Derivative Works" shall mean any work, whether in Source or Object
-      form, that is based on (or derived from) the Work and for which the
-      editorial revisions, annotations, elaborations, or other modifications
-      represent, as a whole, an original work of authorship. For the purposes
-      of this License, Derivative Works shall not include works that remain
-      separable from, or merely link (or bind by name) to the interfaces of,
-      the Work and Derivative Works thereof.
-
-      "Contribution" shall mean any work of authorship, including
-      the original version of the Work and any modifications or additions
-      to that Work or Derivative Works thereof, that is intentionally
-      submitted to Licensor for inclusion in the Work by the copyright owner
-      or by an individual or Legal Entity authorized to submit on behalf of
-      the copyright owner. For the purposes of this definition, "submitted"
-      means any form of electronic, verbal, or written communication sent
-      to the Licensor or its representatives, including but not limited to
-      communication on electronic mailing lists, source code control systems,
-      and issue tracking systems that are managed by, or on behalf of, the
-      Licensor for the purpose of discussing and improving the Work, but
-      excluding communication that is conspicuously marked or otherwise
-      designated in writing by the copyright owner as "Not a Contribution."
-
-      "Contributor" shall mean Licensor and any individual or Legal Entity
-      on behalf of whom a Contribution has been received by Licensor and
-      subsequently incorporated within the Work.
-
-   2. Grant of Copyright License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      copyright license to reproduce, prepare Derivative Works of,
-      publicly display, publicly perform, sublicense, and distribute the
-      Work and such Derivative Works in Source or Object form.
-
-   3. Grant of Patent License. Subject to the terms and conditions of
-      this License, each Contributor hereby grants to You a perpetual,
-      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
-      (except as stated in this section) patent license to make, have made,
-      use, offer to sell, sell, import, and otherwise transfer the Work,
-      where such license applies only to those patent claims licensable
-      by such Contributor that are necessarily infringed by their
-      Contribution(s) alone or by combination of their Contribution(s)
-      with the Work to which such Contribution(s) was submitted. If You
-      institute patent litigation against any entity (including a
-      cross-claim or counterclaim in a lawsuit) alleging that the Work
-      or a Contribution incorporated within the Work constitutes direct
-      or contributory patent infringement, then any patent licenses
-      granted to You under this License for that Work shall terminate
-      as of the date such litigation is filed.
-
-   4. Redistribution. You may reproduce and distribute copies of the
-      Work or Derivative Works thereof in any medium, with or without
-      modifications, and in Source or Object form, provided that You
-      meet the following conditions:
-
-      (a) You must give any other recipients of the Work or
-          Derivative Works a copy of this License; and
-
-      (b) You must cause any modified files to carry prominent notices
-          stating that You changed the files; and
-
-      (c) You must retain, in the Source form of any Derivative Works
-          that You distribute, all copyright, patent, trademark, and
-          attribution notices from the Source form of the Work,
-          excluding those notices that do not pertain to any part of
-          the Derivative Works; and
-
-      (d) If the Work includes a "NOTICE" text file as part of its
-          distribution, then any Derivative Works that You distribute must
-          include a readable copy of the attribution notices contained
-          within such NOTICE file, excluding those notices that do not
-          pertain to any part of the Derivative Works, in at least one
-          of the following places: within a NOTICE text file distributed
-          as part of the Derivative Works; within the Source form or
-          documentation, if provided along with the Derivative Works; or,
-          within a display generated by the Derivative Works, if and
-          wherever such third-party notices normally appear. The contents
-          of the NOTICE file are for informational purposes only and
-          do not modify the License. You may add Your own attribution
-          notices within Derivative Works that You distribute, alongside
-          or as an addendum to the NOTICE text from the Work, provided
-          that such additional attribution notices cannot be construed
-          as modifying the License.
-
-      You may add Your own copyright statement to Your modifications and
-      may provide additional or different license terms and conditions
-      for use, reproduction, or distribution of Your modifications, or
-      for any such Derivative Works as a whole, provided Your use,
-      reproduction, and distribution of the Work otherwise complies with
-      the conditions stated in this License.
-
-   5. Submission of Contributions. Unless You explicitly state otherwise,
-      any Contribution intentionally submitted for inclusion in the Work
-      by You to the Licensor shall be under the terms and conditions of
-      this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
-      the terms of any separate license agreement you may have executed
-      with Licensor regarding such Contributions.
-
-   6. Trademarks. This License does not grant permission to use the trade
-      names, trademarks, service marks, or product names of the Licensor,
-      except as required for reasonable and customary use in describing the
-      origin of the Work and reproducing the content of the NOTICE file.
-
-   7. Disclaimer of Warranty. Unless required by applicable law or
-      agreed to in writing, Licensor provides the Work (and each
-      Contributor provides its Contributions) on an "AS IS" BASIS,
-      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
-      implied, including, without limitation, any warranties or conditions
-      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
-      PARTICULAR PURPOSE. You are solely responsible for determining the
-      appropriateness of using or redistributing the Work and assume any
-      risks associated with Your exercise of permissions under this License.
-
-   8. Limitation of Liability. In no event and under no legal theory,
-      whether in tort (including negligence), contract, or otherwise,
-      unless required by applicable law (such as deliberate and grossly
-      negligent acts) or agreed to in writing, shall any Contributor be
-      liable to You for damages, including any direct, indirect, special,
-      incidental, or consequential damages of any character arising as a
-      result of this License or out of the use or inability to use the
-      Work (including but not limited to damages for loss of goodwill,
-      work stoppage, computer failure or malfunction, or any and all
-      other commercial damages or losses), even if such Contributor
-      has been advised of the possibility of such damages.
-
-   9. Accepting Warranty or Additional Liability. While redistributing
-      the Work or Derivative Works thereof, You may choose to offer,
-      and charge a fee for, acceptance of support, warranty, indemnity,
-      or other liability obligations and/or rights consistent with this
-      License. However, in accepting such obligations, You may act only
-      on Your own behalf and on Your sole responsibility, not on behalf
-      of any other Contributor, and only if You agree to indemnify,
-      defend, and hold each Contributor harmless for any liability
-      incurred by, or claims asserted against, such Contributor by reason
-      of your accepting any such warranty or additional liability.
-
-   END OF TERMS AND CONDITIONS
-
-   APPENDIX: How to apply the Apache License to your work.
-
-      To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "[]"
-      replaced with your own identifying information. (Don't include
-      the brackets!)  The text should be enclosed in the appropriate
-      comment syntax for the file format. We also recommend that a
-      file or class name and description of purpose be included on the
-      same "printed page" as the copyright notice for easier
-      identification within third-party archives.
-
-   Copyright [yyyy] [name of copyright owner]
-
-   Licensed under the Apache License, Version 2.0 (the "License");
-   you may not use this file except in compliance with the License.
-   You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-~~~~
-
 ### c7cc929b5708
 
 Used by: safe-buffer@5.2.1
@@ -6322,7 +5571,7 @@ SOFTWARE.
 
 ### cfc7749b96f6
 
-Used by: @google/genai@1.52.0, gaxios@7.1.5, gcp-metadata@8.1.2, google-auth-library@10.7.0, google-logging-utils@1.1.3
+Used by: @google/genai@1.52.0, gaxios@7.3.1, gcp-metadata@8.1.2, google-auth-library@10.9.1, google-logging-utils@1.1.3
 
 ~~~~text
 
@@ -6587,69 +5836,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
-### d8fc337aaf98
+### d7aefc126206
 
-Used by: mdast-util-newline-to-break@2.0.0, remark-breaks@4.0.0
-
-~~~~text
-(The MIT License)
-
-Copyright (c) 2017 Titus Wormer <tituswormer@gmail.com>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-~~~~
-
-### da6d3703ed11
-
-Used by: react-dom@19.2.7, react@19.2.7, scheduler@0.27.0, use-sync-external-store@1.6.0
+Used by: grok-mermaid@0.2.2
 
 ~~~~text
-MIT License
+Copyright 2023-2026 SpaceXAI
+Copyright 2026 Alexey Zaytsev
 
-Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-~~~~
-
-### db1ed8cccea0
-
-Used by: @aws-crypto/crc32@5.2.0, @aws-crypto/util@5.2.0
-
-~~~~text
-                                Apache License
+                                 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
 
@@ -6829,7 +6025,7 @@ Used by: @aws-crypto/crc32@5.2.0, @aws-crypto/util@5.2.0
    APPENDIX: How to apply the Apache License to your work.
 
       To apply the Apache License to your work, attach the following
-      boilerplate notice, with the fields enclosed by brackets "{}"
+      boilerplate notice, with the fields enclosed by brackets "[]"
       replaced with your own identifying information. (Don't include
       the brackets!)  The text should be enclosed in the appropriate
       comment syntax for the file format. We also recommend that a
@@ -6837,7 +6033,7 @@ Used by: @aws-crypto/crc32@5.2.0, @aws-crypto/util@5.2.0
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright {yyyy} {name of copyright owner}
+   Copyright [yyyy] [name of copyright owner]
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -6850,6 +6046,63 @@ Used by: @aws-crypto/crc32@5.2.0, @aws-crypto/util@5.2.0
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+~~~~
+
+### d8fc337aaf98
+
+Used by: mdast-util-newline-to-break@2.0.0, remark-breaks@4.0.0
+
+~~~~text
+(The MIT License)
+
+Copyright (c) 2017 Titus Wormer <tituswormer@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+~~~~
+
+### da6d3703ed11
+
+Used by: react-dom@19.2.8, react@19.2.8, scheduler@0.27.0, use-sync-external-store@1.6.0
+
+~~~~text
+MIT License
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ~~~~
 
 ### db5502bc3655
@@ -7062,7 +6315,7 @@ Used by: @silvia-odwyer/photon-node@0.3.4
 
 ### dc6d4961d8b6
 
-Used by: @ungap/structured-clone@1.3.0
+Used by: @ungap/structured-clone@1.4.0
 
 ~~~~text
 ISC License
@@ -7257,7 +6510,7 @@ THE SOFTWARE.
 
 ### e345c2ee7df4
 
-Used by: @aws-sdk/middleware-eventstream@3.972.16
+Used by: @aws-sdk/middleware-eventstream@3.972.29
 
 ~~~~text
                                 Apache License

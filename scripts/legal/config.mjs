@@ -115,30 +115,31 @@ export const auditedOverrides = [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-telemetry",
     "@earendil-works/pi-tui",
   ].map((name) => ({
     name,
-    version: "0.82.0",
+    version: "0.84.4",
     license: "MIT",
     repository: "https://github.com/earendil-works/pi",
     licenseFiles: ["scripts/legal/licenses/pi-mit.txt"],
     reason:
       "The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package.",
-    source: "https://github.com/earendil-works/pi/blob/v0.82.0/LICENSE",
+    source: "https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE",
   })),
   ...[
-    ["@aws-sdk/credential-provider-http", "3.972.46"],
-    ["@aws-sdk/credential-provider-login", "3.972.49"],
-    ["@aws-sdk/nested-clients", "3.997.17"],
+    ["@aws-sdk/credential-provider-http", "3.972.72"],
+    ["@aws-sdk/credential-provider-login", "3.972.77"],
+    ["@aws-sdk/nested-clients", "3.997.44"],
   ].map(([name, version]) => ({
     name,
     version,
     license: "Apache-2.0",
     repository: "https://github.com/aws/aws-sdk-js-v3",
-    licenseFiles: ["node_modules/.pnpm/@aws-sdk+core@3.974.18/node_modules/@aws-sdk/core/LICENSE"],
+    licenseFiles: ["scripts/legal/licenses/aws-apache-2.txt"],
     reason:
       "This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact.",
-    source: "https://github.com/aws/aws-sdk-js-v3/blob/v3.974.0/LICENSE",
+    source: "https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9",
   })),
   {
     name: "data-uri-to-buffer",

@@ -60,6 +60,7 @@ export const PROVIDER_API_KEY_ENV_ALIASES = {
   "ant-ling": ["ANT_LING_API_KEY"],
   anthropic: ["ANTHROPIC_API_KEY"],
   "azure-openai-responses": ["AZURE_OPENAI_API_KEY"],
+  baseten: ["BASETEN_API_KEY"],
   cerebras: ["CEREBRAS_API_KEY"],
   "cloudflare-ai-gateway": ["CLOUDFLARE_API_KEY"],
   "cloudflare-workers-ai": ["CLOUDFLARE_API_KEY"],
@@ -89,6 +90,7 @@ export const PROVIDER_API_KEY_ENV_ALIASES = {
   openrouter: ["OPENROUTER_API_KEY"],
   "qwen-token-plan": ["QWEN_TOKEN_PLAN_API_KEY"],
   "qwen-token-plan-cn": ["QWEN_TOKEN_PLAN_CN_API_KEY"],
+  "qwen-token-plan-individual": ["QWEN_TOKEN_PLAN_API_KEY"],
   radius: ["RADIUS_API_KEY"],
   together: ["TOGETHER_API_KEY"],
   xiaomi: ["XIAOMI_API_KEY"],
@@ -119,6 +121,7 @@ export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>>
   "ant-ling": "Ling-2.6-1T",
   anthropic: "claude-opus-4-7",
   "azure-openai-responses": "gpt-5.4",
+  baseten: "zai-org/GLM-5.2",
   cerebras: "zai-glm-4.7",
   "cloudflare-ai-gateway": "workers-ai/@cf/moonshotai/kimi-k2.6",
   "cloudflare-workers-ai": "@cf/moonshotai/kimi-k2.6",
@@ -143,6 +146,7 @@ export const DEFAULT_API_PROVIDER_MODELS: Partial<Record<ApiProviderId, string>>
   openrouter: "moonshotai/kimi-k2.6",
   "qwen-token-plan": "qwen3.7-max",
   "qwen-token-plan-cn": "qwen3.7-max",
+  "qwen-token-plan-individual": "qwen3.8-max",
   radius: "auto",
   together: "moonshotai/Kimi-K2.6",
   "vercel-ai-gateway": "zai/glm-5.1",
@@ -187,6 +191,11 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   "azure-openai-responses": {
     displayName: "Azure OpenAI",
     modelHint: "Azure-hosted OpenAI deployments",
+  },
+  baseten: {
+    displayName: "Baseten",
+    modelHint: "Baseten-hosted open and reasoning models",
+    helpUrl: "https://app.baseten.co/settings/api_keys",
   },
   cerebras: {
     displayName: "Cerebras",
@@ -333,6 +342,10 @@ export const PROVIDER_DETAILS: Record<string, ProviderCatalogDetails> = {
   "qwen-token-plan-cn": {
     displayName: "Qwen Token Plan China",
     modelHint: "Qwen token-plan models routed through the China endpoint",
+  },
+  "qwen-token-plan-individual": {
+    displayName: "Qwen Token Plan Individual",
+    modelHint: "Qwen Individual token-plan models via API-key authentication",
   },
   radius: {
     displayName: "Radius",

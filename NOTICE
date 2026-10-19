@@ -6,11 +6,11 @@ This product is licensed under the Apache License, Version 2.0.
 Third-party project acknowledgments
 =====================================
 
-Pi (0.82.0)
+Pi (0.84.4)
 Agent runtime and coding-agent SDK by Mario Zechner and Pi contributors.
 https://github.com/earendil-works/pi
 
-React Flow (12.11.2)
+React Flow (12.11.5)
 Node-based canvas interaction and rendering by the React Flow contributors.
 https://reactflow.dev/
 
@@ -18,11 +18,11 @@ dnd kit (@dnd-kit/accessibility 3.1.1; @dnd-kit/core 6.3.1; @dnd-kit/sortable 10
 Accessible drag-and-drop primitives by the dnd kit contributors.
 https://dndkit.com/
 
-JetBrains Mono (5.2.8)
+JetBrains Mono (5.3.0)
 JetBrains Mono font software by the JetBrains Mono Project Authors.
 https://www.jetbrains.com/lp/mono/
 
-Lucide and Feather (1.26.0)
+Lucide and Feather (1.35.0)
 Icons by the Lucide contributors, including icons derived from Feather by Cole Bemis.
 https://lucide.dev/
 
