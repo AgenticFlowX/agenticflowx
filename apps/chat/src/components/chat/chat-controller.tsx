@@ -79,8 +79,6 @@ import { IntentStrip, IntentStripHeaderExtras, IntentStripTitle } from "./intent
 
 type ActiveDocContextMessage = MessageOf<AgentToChat, "chat/activeDocContext">;
 
-const EDIT_TOOL_NAME_PATTERN = /(edit|write|patch|create|notebookedit)/i;
-
 function resolveMarkdownPreviewPath(
   docContext: ActiveDocCtx,
   activeFileContext: ActiveFileContextSnapshot | null,
@@ -95,10 +93,6 @@ function activeDocContextFromMessage(msg: ActiveDocContextMessage): ActiveDocCtx
   const { type: _type, ...ctx } = msg;
   void _type;
   return ctx;
-}
-
-function isEditLikeToolName(toolName: string): boolean {
-  return EDIT_TOOL_NAME_PATTERN.test(toolName);
 }
 
 // ---------------------------------------------------------------------------
@@ -171,6 +165,8 @@ export interface PersistedChatViewState {
   /** @see docs/specs/212-app-chat-messages/spec.md [FR-8] */
   workspaceMode?: WorkspaceMode;
   intentSlot?: IntentSlot;
+  /** Modified-files batch dismissed by the user; survives webview remounts. */
+  dismissedAtAssistantMessageId?: string | null;
 }
 
 /** Webview state persisted by VS Code so remounts can hydrate instantly. */
@@ -570,7 +566,7 @@ export function useChatController({
   const [afxCommandSuggestVisible, setAfxCommandSuggestVisibleState] = useState(false);
   const [afxCommandSuggestDismissed, setAfxCommandSuggestDismissedState] = useState(false);
   const [dismissedAtAssistantMessageId, setDismissedAtAssistantMessageId] = useState<string | null>(
-    null,
+    () => initialPersistedChatView?.dismissedAtAssistantMessageId ?? null,
   );
 
   // Refs keep long-lived bridge handlers aligned with the latest mode,
@@ -780,9 +776,6 @@ export function useChatController({
 
         bridge.on("chat/toolStart", (msg) => {
           const args = msg.args as Record<string, unknown> | undefined;
-          if (isEditLikeToolName(msg.toolName)) {
-            setDismissedAtAssistantMessageId(null);
-          }
           setMessages((prev) => {
             const copy = [...prev];
             for (let i = copy.length - 1; i >= 0; i--) {
@@ -1178,13 +1171,22 @@ export function useChatController({
             noteEvents: [...noteEvents],
             workspaceMode,
             intentSlot,
+            dismissedAtAssistantMessageId,
           }
         : shouldPersistMode
-          ? { messages: [], commandOutputs: [], noteEvents: [], workspaceMode, intentSlot }
+          ? {
+              messages: [],
+              commandOutputs: [],
+              noteEvents: [],
+              workspaceMode,
+              intentSlot,
+              dismissedAtAssistantMessageId,
+            }
           : null,
     );
   }, [
     commandOutputs,
+    dismissedAtAssistantMessageId,
     hasReceivedSettingsSnapshot,
     hasReceivedStateSnapshot,
     intentSlot,
@@ -2214,6 +2216,7 @@ export function readPersistedChatViewState(): PersistedChatViewState | null {
     noteEvents,
     workspaceMode: persisted.workspaceMode,
     intentSlot: normalizeIntentSlot(persisted.intentSlot),
+    dismissedAtAssistantMessageId: persisted.dismissedAtAssistantMessageId ?? null,
   };
 }
 

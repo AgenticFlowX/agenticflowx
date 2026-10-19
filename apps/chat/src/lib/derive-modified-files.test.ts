@@ -155,6 +155,18 @@ describe("deriveModifiedFiles", () => {
     expect(out.files.map((f) => f.path).sort()).toEqual(["a.ts", "b.ts", "c.ts"]);
   });
 
+  it("ignores unrelated tools whose names merely contain write, edit, or create", () => {
+    const tl: ChatTimelineItem[] = [
+      asst("a1", [
+        tool("TodoWrite", { path: "docs/specs/demo/tasks.md" }),
+        tool("create_issue", { path: "docs/issues/123" }),
+        tool("edit_comment", { path: "docs/comments/123" }),
+      ]),
+    ];
+
+    expect(deriveModifiedFiles(tl).files).toEqual([]);
+  });
+
   it("reports the LATEST assistant message id when multiple turns edit", () => {
     const tl: ChatTimelineItem[] = [
       asst("a1", [tool("Edit", { path: "x.ts" })]),

@@ -80,6 +80,7 @@ describe("chat controller", () => {
       commandOutputs: [],
       noteEvents: [],
       workspaceMode: "spec",
+      dismissedAtAssistantMessageId: "a-dismissed",
     });
 
     expect(transport.state).toMatchObject({
@@ -89,6 +90,7 @@ describe("chat controller", () => {
     expect(readPersistedChatViewState()).toMatchObject({
       messages: [{ id: "m1", role: "user", content: "hi", createdAt: 1 }],
       workspaceMode: "spec",
+      dismissedAtAssistantMessageId: "a-dismissed",
     });
 
     persistChatViewState(null);
@@ -432,6 +434,71 @@ After.`,
     expect(
       result.current.composerPanelStackConfig.panels.some((p) => p.id === "modified-files"),
     ).toBe(true);
+  });
+
+  it("keeps modified files dismissed when another tool starts in the same assistant message", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    const { result } = renderHook(() => useChatController());
+
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "t1",
+        toolName: "edit_file",
+        args: { path: "src/one.ts" },
+      });
+    });
+    act(() => result.current.actions.dismissComposerPanel("modified-files"));
+
+    act(() => {
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "t2",
+        toolName: "write_file",
+        args: { path: "src/two.ts" },
+      });
+    });
+
+    expect(
+      result.current.composerPanelStackConfig.panels.some((panel) => panel.id === "modified-files"),
+    ).toBe(false);
+  });
+
+  it("hydrates a dismissed modified-files batch without reopening it", () => {
+    initTransport(
+      createStatefulTransport({
+        chatView: {
+          messages: [
+            {
+              id: "a1",
+              role: "assistant",
+              content: "",
+              createdAt: 1,
+              tools: [
+                {
+                  toolCallId: "t1",
+                  toolName: "edit_file",
+                  status: "ok",
+                  args: { path: "src/one.ts" },
+                },
+              ],
+            },
+          ],
+          commandOutputs: [],
+          noteEvents: [],
+          workspaceMode: "code",
+          dismissedAtAssistantMessageId: "a1",
+        },
+      }),
+    );
+
+    const { result } = renderHook(() => useChatController());
+
+    expect(
+      result.current.composerPanelStackConfig.panels.some((panel) => panel.id === "modified-files"),
+    ).toBe(false);
   });
 
   it("auto-opens AFX preview once after a fresh SDD edit succeeds", () => {

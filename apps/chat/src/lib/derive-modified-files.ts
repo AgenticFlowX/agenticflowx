@@ -27,7 +27,30 @@ export interface DerivedModifiedFiles {
   latestEditingAssistantMessageId: string | null;
 }
 
-const EDIT_TOOL_PATTERN = /(edit|write|patch|create|notebookedit)/i;
+const EDIT_TOOL_NAMES = new Set([
+  "edit",
+  "write",
+  "patch",
+  "create",
+  "edit_file",
+  "write_file",
+  "apply_patch",
+  "create_file",
+  "notebookedit",
+  "notebook_edit",
+  "multiedit",
+  "multi_edit",
+  "str_replace_editor",
+]);
+const EDIT_TOOL_SUFFIXES = [
+  "_edit_file",
+  "_write_file",
+  "_apply_patch",
+  "_create_file",
+  "_notebook_edit",
+  "_multi_edit",
+  "_str_replace_editor",
+] as const;
 const PATH_KEYS = ["path", "filePath", "file_path", "notebook_path"] as const;
 
 /**
@@ -85,7 +108,16 @@ export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): Deri
 }
 
 function isEditTool(t: ChatToolView): boolean {
-  return EDIT_TOOL_PATTERN.test(t.toolName);
+  const normalized = t.toolName
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toLowerCase();
+  return (
+    EDIT_TOOL_NAMES.has(normalized) ||
+    EDIT_TOOL_SUFFIXES.some((suffix) => normalized.endsWith(suffix))
+  );
 }
 
 function extractPath(args: Record<string, unknown> | undefined): string | null {
