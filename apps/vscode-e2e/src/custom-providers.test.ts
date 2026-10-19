@@ -8,10 +8,20 @@
  *
  * @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-9] [FR-10] [NFR-1]
  * @see docs/specs/351-agent-pi/spec.md [FR-5] [FR-6]
+ * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  * @see docs/specs/420-dx-testing/spec.md [FR-3]
  */
 import * as assert from "node:assert";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fstatSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -58,13 +68,12 @@ suite("Custom Providers (Pi SDK track)", function () {
   let scratchAgentDir: string | null = null;
   let previousPiAgentDir: string | undefined;
   let handEditedPath: string | null = null;
-  let handEditedMtimeBefore: number | null = null;
 
   suiteSetup(async () => {
     // Point PI_CODING_AGENT_DIR at a scratch directory so the Pi RPC display
     // surface reads from a stable location and we can assert AFX never touches
     // the user's real ~/.pi/agent/models.json.
-    scratchAgentDir = join(tmpdir(), `afx-custom-providers-e2e-${Date.now()}`);
+    scratchAgentDir = mkdtempSync(join(tmpdir(), "afx-custom-providers-e2e-"));
     handEditedPath = join(scratchAgentDir, "models.json");
     previousPiAgentDir = process.env["PI_CODING_AGENT_DIR"];
     process.env["PI_CODING_AGENT_DIR"] = scratchAgentDir;
@@ -159,32 +168,41 @@ suite("Custom Providers (Pi SDK track)", function () {
       assert.fail("handEditedPath unset");
       return;
     }
-    if (!existsSync(seedPath)) {
-      const dir = dirname(seedPath);
-      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-      writeFileSync(seedPath, JSON.stringify({ providers: {} }), "utf-8");
+    mkdirSync(dirname(seedPath), { recursive: true });
+    try {
+      writeFileSync(seedPath, JSON.stringify({ providers: {} }), {
+        encoding: "utf-8",
+        flag: "wx",
+        mode: 0o600,
+      });
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
     }
-    handEditedMtimeBefore = statSync(seedPath).mtimeMs;
-
-    // Upsert + remove an AFX-managed record.
-    await requiredApi().upsertCustomProvider({
-      id: "e2e-write-check",
-      baseUrl: "http://localhost:11434/v1",
-      api: "openai-completions",
-      apiKeyRef: { source: "none" },
-      models: [{ id: "tiny", name: "Tiny" }],
-    });
-    await requiredApi().removeCustomProvider("e2e-write-check");
-
-    const after = statSync(seedPath).mtimeMs;
-    assert.strictEqual(
-      after,
-      handEditedMtimeBefore,
-      `hand-edited models.json mtime changed: AFX must never write this file (${seedPath})`,
-    );
-    // And confirm the contents are exactly what we seeded.
-    const text = readFileSync(seedPath, "utf-8");
-    assert.strictEqual(text, JSON.stringify({ providers: {} }));
+    const fd = openSync(seedPath, "r");
+    try {
+      const before = fstatSync(fd);
+      // Upsert + remove an AFX-managed record while retaining the original file handle.
+      await requiredApi().upsertCustomProvider({
+        id: "e2e-write-check",
+        baseUrl: "http://localhost:11434/v1",
+        api: "openai-completions",
+        apiKeyRef: { source: "none" },
+        models: [{ id: "tiny", name: "Tiny" }],
+      });
+      await requiredApi().removeCustomProvider("e2e-write-check");
+      const after = fstatSync(fd).mtimeMs;
+      assert.strictEqual(
+        after,
+        before.mtimeMs,
+        `hand-edited models.json mtime changed: ${seedPath}`,
+      );
+      assert.strictEqual(readFileSync(fd, "utf-8"), JSON.stringify({ providers: {} }));
+      const currentPath = lstatSync(seedPath);
+      assert.strictEqual(currentPath.ino, before.ino, "hand-edited file was replaced");
+      assert.strictEqual(currentPath.dev, before.dev, "hand-edited file moved to another device");
+    } finally {
+      closeSync(fd);
+    }
   });
 
   test("remove brings the snapshot back to a clean state", async () => {

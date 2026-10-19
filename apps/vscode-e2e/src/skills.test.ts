@@ -10,7 +10,7 @@
  * @see docs/specs/420-dx-testing/design.md [DES-DX-TESTING-RUNNER-ISOLATION] [DES-TEST]
  */
 import * as assert from "node:assert";
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { type IncomingMessage, type ServerResponse, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -241,6 +241,7 @@ function createPiAgentDir(baseUrl: string): string {
       null,
       2,
     ),
+    { flag: "wx", mode: 0o600 },
   );
   writeFileSync(
     join(dir, "settings.json"),
@@ -262,6 +263,7 @@ function createPiAgentDir(baseUrl: string): string {
       null,
       2,
     ),
+    { flag: "wx", mode: 0o600 },
   );
   return dir;
 }
@@ -352,9 +354,9 @@ async function readJson(
       throw new Error("Request body must be a JSON object");
     }
     return parsed as Record<string, unknown>;
-  } catch (err) {
+  } catch {
     res.writeHead(400, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+    res.end(JSON.stringify({ error: "Invalid JSON request body" }));
     return undefined;
   }
 }
@@ -452,9 +454,7 @@ function delay(ms: number): Promise<void> {
 }
 
 function mkdtemp(prefix: string): string {
-  const dir = join(tmpdir(), `${prefix}${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  mkdirSync(dir, { recursive: true });
-  return dir;
+  return mkdtempSync(join(tmpdir(), prefix));
 }
 
 function restoreEnv(key: string, value: string | undefined): void {

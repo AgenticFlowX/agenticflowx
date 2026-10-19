@@ -2350,13 +2350,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
       case "chat/openModelsJson": {
         const modelsJsonPath = path.join(piAgentDir, "models.json");
-        if (!existsSync(modelsJsonPath)) {
-          mkdirSync(piAgentDir, { recursive: true });
+        mkdirSync(piAgentDir, { recursive: true });
+        try {
           writeFileSync(
             modelsJsonPath,
             JSON.stringify({ providers: [], modelOverrides: {} }, null, 2) + "\n",
-            "utf-8",
+            { encoding: "utf-8", flag: "wx", mode: 0o600 },
           );
+        } catch (error) {
+          if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
         }
         void vscode.window.showTextDocument(vscode.Uri.file(modelsJsonPath));
         return;
@@ -3632,11 +3634,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       if (!skillName) return;
       const skillDir = path.join(target.path, skillName);
       const skillFile = path.join(skillDir, "SKILL.md");
-      if (existsSync(skillFile)) {
-        throw new Error(`Skill already exists: ${skillFile}`);
-      }
       mkdirSync(skillDir, { recursive: true });
-      writeFileSync(skillFile, createSkillTemplate(skillName), "utf8");
+      writeFileSync(skillFile, createSkillTemplate(skillName), {
+        encoding: "utf8",
+        flag: "wx",
+        mode: 0o600,
+      });
       await vscode.window.showTextDocument(vscode.Uri.file(skillFile), { preview: false });
       await deps.reconfigureAgentRuntimes?.("Pi skill created");
       await handleGetSettingsSnapshot(requestId);
@@ -4777,9 +4780,7 @@ function piAuthFailureRemediation(runtimeLabel: string, provider: string): strin
 // -----------------------------------------------------------------------------
 
 function cryptoRandom(): string {
-  const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
-  if (g.crypto?.randomUUID) return g.crypto.randomUUID();
-  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return crypto.randomUUID();
 }
 
 async function readChatImageAttachment(uri: vscode.Uri): Promise<StagedImageAttachment> {

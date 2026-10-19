@@ -13,10 +13,7 @@ import { WorkbenchProvider } from "./context/workbench-context";
 import { workbenchOn, workbenchSend } from "./lib/bridge";
 
 function clientId(): string {
-  return (
-    globalThis.crypto?.randomUUID?.() ??
-    `canvas-editor-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  return crypto.randomUUID();
 }
 
 export function CanvasEditorApp() {

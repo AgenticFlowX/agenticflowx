@@ -138,10 +138,20 @@ function tryDevModeHtml(
 }
 
 function readViteDevServer(vitePortFile: string): { host: string; port: string } | null {
-  if (!fs.existsSync(vitePortFile)) return null;
-
-  const stat = fs.statSync(vitePortFile);
-  const raw = fs.readFileSync(vitePortFile, "utf8").trim();
+  let fd: number;
+  try {
+    fd = fs.openSync(vitePortFile, "r");
+  } catch {
+    return null;
+  }
+  let raw: string;
+  let modifiedAt: number;
+  try {
+    modifiedAt = fs.fstatSync(fd).mtimeMs;
+    raw = fs.readFileSync(fd, "utf8").trim();
+  } finally {
+    fs.closeSync(fd);
+  }
   if (!raw) {
     deleteStalePortFile(vitePortFile);
     return null;
@@ -156,7 +166,7 @@ function readViteDevServer(vitePortFile: string): { host: string; port: string }
     deleteStalePortFile(vitePortFile);
     return null;
   }
-  if (parsed.legacy && Date.now() - stat.mtimeMs > LEGACY_PORT_FILE_MAX_AGE_MS) {
+  if (parsed.legacy && Date.now() - modifiedAt > LEGACY_PORT_FILE_MAX_AGE_MS) {
     deleteStalePortFile(vitePortFile);
     return null;
   }

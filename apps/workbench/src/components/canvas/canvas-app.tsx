@@ -2375,10 +2375,7 @@ function fileLabel(value: string): string {
 }
 
 function uid(): string {
-  return (
-    globalThis.crypto?.randomUUID?.() ??
-    `canvas-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  );
+  return crypto.randomUUID();
 }
 
 type DocRelationship = "depends_on" | "supersedes" | "relates_to";
