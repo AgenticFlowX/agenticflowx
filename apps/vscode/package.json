@@ -745,14 +745,14 @@
     "@afx/canvas-engine": "workspace:*",
     "@afx/parsers": "workspace:*",
     "@afx/shared": "workspace:*",
-    "@types/vscode": "^1.134.0"
+    "@types/vscode": "^1.140.0"
   },
   "devDependencies": {
-    "@types/node": "^25.9.5",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@types/node": "^25.9.9",
+    "@vitest/coverage-v8": "^4.1.12",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }

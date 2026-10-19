@@ -1,0 +1,8 @@
+# The installed package is patched; upstream has not published a fixed version.
+# Regression coverage: scripts/conventions/security-patches.test.ts.
+# Remove this exception and the patch when a fixed braces release is available.
+# @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-20] [DES-SUPPLY]
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-11-19T06:30:00.000Z
+reason = "braces@3.0.3 has a pnpm patch bounding AST nesting at 100; installed-package regression tests cover parse, compile, expand, and normal patterns."

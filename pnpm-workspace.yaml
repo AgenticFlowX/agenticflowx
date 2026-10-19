@@ -2,3 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
   - "packages/agent/*"
+
+# Locally fixed by patches/braces@3.0.3.patch; covered by installed-package tests.
+# Revisit with the expiring OSV exception in osv-scanner.toml.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-vfj7-8cjw-p6xm

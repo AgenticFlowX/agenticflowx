@@ -23,98 +23,98 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `18c295fdd68d`
 
-### @aws-sdk/core 3.977.9
+### @aws-sdk/core 3.978.3
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-env 3.972.70
+### @aws-sdk/credential-provider-env 3.972.74
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-http 3.972.72
+### @aws-sdk/credential-provider-http 3.972.76
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-ini 3.973.15
+### @aws-sdk/credential-provider-ini 3.973.19
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-login 3.972.77
+### @aws-sdk/credential-provider-login 3.972.81
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-node 3.972.81
+### @aws-sdk/credential-provider-node 3.972.86
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-process 3.972.70
+### @aws-sdk/credential-provider-process 3.972.74
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-sso 3.973.14
+### @aws-sdk/credential-provider-sso 3.973.18
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-web-identity 3.972.76
+### @aws-sdk/credential-provider-web-identity 3.972.80
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/eventstream-handler-node 3.972.34
+### @aws-sdk/eventstream-handler-node 3.972.36
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/middleware-eventstream 3.972.29
+### @aws-sdk/middleware-eventstream 3.972.31
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `e345c2ee7df4`
 
-### @aws-sdk/middleware-websocket 3.972.52
+### @aws-sdk/middleware-websocket 3.972.56
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/nested-clients 3.997.44
+### @aws-sdk/nested-clients 3.997.48
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/signature-v4-multi-region 3.996.46
+### @aws-sdk/signature-v4-multi-region 3.996.48
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
@@ -128,14 +128,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/token-providers 3.1116.0
+### @aws-sdk/token-providers 3.1150.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/xml-builder 3.972.40
+### @aws-sdk/xml-builder 3.972.41
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
@@ -261,35 +261,35 @@ Inventory: 248 shipped package-version components.
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/primitive 1.1.7
+### @radix-ui/primitive 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-alert-dialog 1.1.23
+### @radix-ui/react-alert-dialog 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-arrow 1.1.15
+### @radix-ui/react-arrow 1.1.17
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-checkbox 1.3.11
+### @radix-ui/react-checkbox 1.4.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-collection 1.1.15
+### @radix-ui/react-collection 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
@@ -303,49 +303,49 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-context 1.2.2
+### @radix-ui/react-context 1.3.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dialog 1.1.23
+### @radix-ui/react-dialog 1.3.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-direction 1.1.4
+### @radix-ui/react-direction 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dismissable-layer 1.1.19
+### @radix-ui/react-dismissable-layer 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-dropdown-menu 2.1.24
+### @radix-ui/react-dropdown-menu 2.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-focus-guards 1.1.6
+### @radix-ui/react-focus-guards 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-focus-scope 1.1.16
+### @radix-ui/react-focus-scope 1.3.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
@@ -359,147 +359,147 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-label 2.1.15
+### @radix-ui/react-label 2.1.17
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-menu 2.1.24
+### @radix-ui/react-menu 2.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-popover 1.1.23
+### @radix-ui/react-popover 1.3.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-popper 1.3.7
+### @radix-ui/react-popper 1.4.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-portal 1.1.17
+### @radix-ui/react-portal 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-presence 1.1.10
+### @radix-ui/react-presence 1.1.11
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-primitive 2.1.10
+### @radix-ui/react-primitive 2.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-progress 1.1.16
+### @radix-ui/react-progress 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-radio-group 1.4.7
+### @radix-ui/react-radio-group 1.5.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-roving-focus 1.1.19
+### @radix-ui/react-roving-focus 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-scroll-area 1.2.18
+### @radix-ui/react-scroll-area 1.4.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-select 2.3.7
+### @radix-ui/react-select 2.4.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-separator 1.1.15
+### @radix-ui/react-separator 1.2.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-slot 1.3.3
+### @radix-ui/react-slot 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-switch 1.3.7
+### @radix-ui/react-switch 1.4.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-tabs 1.1.21
+### @radix-ui/react-tabs 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-toggle 1.1.18
+### @radix-ui/react-toggle 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-toggle-group 1.1.19
+### @radix-ui/react-toggle-group 1.2.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-tooltip 1.2.16
+### @radix-ui/react-tooltip 1.4.1
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-use-callback-ref 1.1.4
+### @radix-ui/react-use-callback-ref 1.1.5
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-use-controllable-state 1.2.6
+### @radix-ui/react-use-controllable-state 1.3.0
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
@@ -527,21 +527,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-use-previous 1.1.4
-
-- License: `MIT`
-- Repository: https://github.com/radix-ui/primitives
-- Included by: Workbench webview
-- Exact license evidence: `0e80a2d229d2`
-
-### @radix-ui/react-use-size 1.1.4
+### @radix-ui/react-use-size 1.1.5
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `0e80a2d229d2`
 
-### @radix-ui/react-visually-hidden 1.2.11
+### @radix-ui/react-visually-hidden 1.2.13
 
 - License: `MIT`
 - Repository: https://github.com/radix-ui/primitives
@@ -555,7 +548,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `db5502bc3655`
 
-### @smithy/core 3.33.3
+### @smithy/core 3.36.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
@@ -569,14 +562,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/fetch-http-handler 5.7.2
+### @smithy/fetch-http-handler 5.8.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/node-http-handler 4.11.3
+### @smithy/node-http-handler 4.12.1
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
@@ -590,14 +583,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/signature-v4 5.7.3
+### @smithy/signature-v4 5.7.4
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/types 4.17.2
+### @smithy/types 4.19.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
@@ -611,14 +604,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dc6d4961d8b6`
 
-### @xyflow/react 12.11.5
+### @xyflow/react 12.12.0
 
 - License: `MIT`
 - Repository: https://github.com/xyflow/xyflow
 - Included by: Workbench webview
 - Exact license evidence: `023119ac20fb`
 
-### @xyflow/system 0.0.81
+### @xyflow/system 0.0.83
 
 - License: `MIT`
 - Repository: https://github.com/xyflow/xyflow
@@ -674,7 +667,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `dfde54fedc27`
 
-### brace-expansion 5.0.11
+### brace-expansion 5.0.12
 
 - License: `MIT`
 - Repository: https://github.com/juliangruber/brace-expansion
@@ -1073,14 +1066,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `9f084fac69d8`
 
-### lru-cache 11.5.2
+### lru-cache 11.5.3
 
 - License: `BlueOak-1.0.0`
 - Repository: https://github.com/isaacs/node-lru-cache
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `8a1af140fdfb`
 
-### lucide-react 1.35.0
+### lucide-react 1.59.0
 
 - License: `ISC`
 - Repository: https://github.com/lucide-icons/lucide
@@ -1101,14 +1094,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Marked export runtime, Pi SDK bootstrap and providers
 - Exact license evidence: `8e3a3f82f59a`
 
-### mdast-util-find-and-replace 3.0.2
+### mdast-util-find-and-replace 3.0.3
 
 - License: `MIT`
 - Repository: syntax-tree/mdast-util-find-and-replace
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### mdast-util-from-markdown 2.0.3
+### mdast-util-from-markdown 2.1.0
 
 - License: `MIT`
 - Repository: syntax-tree/mdast-util-from-markdown
@@ -1136,12 +1129,12 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### mdast-util-gfm-strikethrough 2.0.0
+### mdast-util-gfm-strikethrough 2.0.1
 
 - License: `MIT`
 - Repository: syntax-tree/mdast-util-gfm-strikethrough
 - Included by: Chat webview, Workbench webview
-- Exact license evidence: `536804b3adbf`
+- Exact license evidence: `dd1081884a92`
 
 ### mdast-util-gfm-table 2.0.0
 
@@ -1178,7 +1171,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `ca4662cb5d1b`
 
-### mdast-util-to-markdown 2.1.2
+### mdast-util-to-markdown 2.2.0
 
 - License: `MIT`
 - Repository: syntax-tree/mdast-util-to-markdown
@@ -1192,14 +1185,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `63cb98b3f6ab`
 
-### micromark 4.0.2
+### micromark 4.0.3
 
 - License: `MIT`
 - Repository: https://github.com/micromark/micromark/tree/main/packages/micromark
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### micromark-core-commonmark 2.0.3
+### micromark-core-commonmark 2.0.4
 
 - License: `MIT`
 - Repository: https://github.com/micromark/micromark/tree/main/packages/micromark-core-commonmark
@@ -1234,7 +1227,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `536804b3adbf`
 
-### micromark-extension-gfm-table 2.1.1
+### micromark-extension-gfm-table 2.1.2
 
 - License: `MIT`
 - Repository: micromark/micromark-extension-gfm-table
@@ -1262,7 +1255,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### micromark-factory-space 2.0.1
+### micromark-factory-space 2.1.0
 
 - License: `MIT`
 - Repository: https://github.com/micromark/micromark/tree/main/packages/micromark-factory-space
@@ -1322,6 +1315,13 @@ Inventory: 248 shipped package-version components.
 
 - License: `MIT`
 - Repository: https://github.com/micromark/micromark/tree/main/packages/micromark-util-decode-string
+- Included by: Chat webview, Workbench webview
+- Exact license evidence: `dd1081884a92`
+
+### micromark-util-edit-map 1.0.0
+
+- License: `MIT`
+- Repository: https://github.com/micromark/micromark/tree/main/packages/micromark-util-edit-map
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
@@ -1430,14 +1430,14 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `5d0698266086`
 
-### react 19.2.8
+### react 19.3.1
 
 - License: `MIT`
 - Repository: https://github.com/react/react
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
-### react-dom 19.2.8
+### react-dom 19.3.1
 
 - License: `MIT`
 - Repository: https://github.com/react/react
@@ -1465,7 +1465,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `88de0af64f3f`
 
-### react-resizable-panels 4.12.3
+### react-resizable-panels 4.14.6
 
 - License: `MIT`
 - Repository: https://github.com/bvaughn/react-resizable-panels
@@ -1528,10 +1528,10 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `c7cc929b5708`
 
-### scheduler 0.27.0
+### scheduler 0.28.0
 
 - License: `MIT`
-- Repository: https://github.com/facebook/react
+- Repository: https://github.com/react/react
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
@@ -1591,7 +1591,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `5c932d88256b`
 
-### tailwind-merge 2.6.1
+### tailwind-merge 3.7.0
 
 - License: `MIT`
 - Repository: https://github.com/dcastil/tailwind-merge
@@ -1689,10 +1689,10 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `30f0cfddf483`
 
-### use-sync-external-store 1.6.0
+### use-sync-external-store 1.7.0
 
 - License: `MIT`
-- Repository: https://github.com/facebook/react
+- Repository: https://github.com/react/react
 - Included by: Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
@@ -1747,9 +1747,9 @@ Inventory: 248 shipped package-version components.
 
 ## Audited evidence overrides
 
-- **@aws-sdk/credential-provider-http@3.972.72** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
-- **@aws-sdk/credential-provider-login@3.972.77** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
-- **@aws-sdk/nested-clients@3.997.44** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9
+- **@aws-sdk/credential-provider-http@3.972.76** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
+- **@aws-sdk/credential-provider-login@3.972.81** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
+- **@aws-sdk/nested-clients@3.997.48** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
 - **@earendil-works/pi-agent-core@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-ai@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-coding-agent@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
@@ -1800,7 +1800,7 @@ Felix Geisendörfer (felix@debuggable.com)
 
 ### 023119ac20fb
 
-Used by: @xyflow/react@12.11.5, @xyflow/system@0.0.81
+Used by: @xyflow/react@12.12.0, @xyflow/system@0.0.83
 
 ~~~~text
 MIT License
@@ -1856,7 +1856,7 @@ THE SOFTWARE.
 
 ### 07364a5f7d01
 
-Used by: @aws-sdk/eventstream-handler-node@3.972.34, @aws-sdk/middleware-websocket@3.972.52, @aws-sdk/signature-v4-multi-region@3.996.46, @smithy/core@3.33.3, @smithy/types@4.17.2
+Used by: @aws-sdk/eventstream-handler-node@3.972.36, @aws-sdk/middleware-websocket@3.972.56, @aws-sdk/signature-v4-multi-region@3.996.48, @smithy/core@3.36.0, @smithy/types@4.19.0
 
 ~~~~text
                                 Apache License
@@ -2470,7 +2470,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 0e80a2d229d2
 
-Used by: @radix-ui/number@1.1.3, @radix-ui/primitive@1.1.7, @radix-ui/react-alert-dialog@1.1.23, @radix-ui/react-arrow@1.1.15, @radix-ui/react-checkbox@1.3.11, @radix-ui/react-collection@1.1.15, @radix-ui/react-compose-refs@1.1.5, @radix-ui/react-context@1.2.2, @radix-ui/react-dialog@1.1.23, @radix-ui/react-direction@1.1.4, @radix-ui/react-dismissable-layer@1.1.19, @radix-ui/react-dropdown-menu@2.1.24, @radix-ui/react-focus-guards@1.1.6, @radix-ui/react-focus-scope@1.1.16, @radix-ui/react-id@1.1.4, @radix-ui/react-label@2.1.15, @radix-ui/react-menu@2.1.24, @radix-ui/react-popover@1.1.23, @radix-ui/react-popper@1.3.7, @radix-ui/react-portal@1.1.17, @radix-ui/react-presence@1.1.10, @radix-ui/react-primitive@2.1.10, @radix-ui/react-progress@1.1.16, @radix-ui/react-radio-group@1.4.7, @radix-ui/react-roving-focus@1.1.19, @radix-ui/react-scroll-area@1.2.18, @radix-ui/react-select@2.3.7, @radix-ui/react-separator@1.1.15, @radix-ui/react-slot@1.3.3, @radix-ui/react-switch@1.3.7, @radix-ui/react-tabs@1.1.21, @radix-ui/react-toggle-group@1.1.19, @radix-ui/react-toggle@1.1.18, @radix-ui/react-tooltip@1.2.16, @radix-ui/react-use-callback-ref@1.1.4, @radix-ui/react-use-controllable-state@1.2.6, @radix-ui/react-use-effect-event@0.0.5, @radix-ui/react-use-is-hydrated@0.1.3, @radix-ui/react-use-layout-effect@1.1.4, @radix-ui/react-use-previous@1.1.4, @radix-ui/react-use-size@1.1.4, @radix-ui/react-visually-hidden@1.2.11
+Used by: @radix-ui/number@1.1.3, @radix-ui/primitive@1.2.0, @radix-ui/react-alert-dialog@1.2.1, @radix-ui/react-arrow@1.1.17, @radix-ui/react-checkbox@1.4.1, @radix-ui/react-collection@1.2.0, @radix-ui/react-compose-refs@1.1.5, @radix-ui/react-context@1.3.0, @radix-ui/react-dialog@1.3.1, @radix-ui/react-direction@1.2.0, @radix-ui/react-dismissable-layer@1.2.1, @radix-ui/react-dropdown-menu@2.2.1, @radix-ui/react-focus-guards@1.2.0, @radix-ui/react-focus-scope@1.3.1, @radix-ui/react-id@1.1.4, @radix-ui/react-label@2.1.17, @radix-ui/react-menu@2.2.1, @radix-ui/react-popover@1.3.1, @radix-ui/react-popper@1.4.0, @radix-ui/react-portal@1.2.0, @radix-ui/react-presence@1.1.11, @radix-ui/react-primitive@2.2.0, @radix-ui/react-progress@1.2.1, @radix-ui/react-radio-group@1.5.1, @radix-ui/react-roving-focus@1.2.1, @radix-ui/react-scroll-area@1.4.0, @radix-ui/react-select@2.4.1, @radix-ui/react-separator@1.2.0, @radix-ui/react-slot@1.5.0, @radix-ui/react-switch@1.4.1, @radix-ui/react-tabs@1.2.1, @radix-ui/react-toggle-group@1.2.1, @radix-ui/react-toggle@1.2.1, @radix-ui/react-tooltip@1.4.1, @radix-ui/react-use-callback-ref@1.1.5, @radix-ui/react-use-controllable-state@1.3.0, @radix-ui/react-use-effect-event@0.0.5, @radix-ui/react-use-is-hydrated@0.1.3, @radix-ui/react-use-layout-effect@1.1.4, @radix-ui/react-use-size@1.1.5, @radix-ui/react-visually-hidden@1.2.13
 
 ~~~~text
 MIT License
@@ -3102,7 +3102,7 @@ THE SOFTWARE.
 
 ### 4186c3f89c23
 
-Used by: @aws-sdk/core@3.977.9, @aws-sdk/credential-provider-http@3.972.72, @aws-sdk/credential-provider-login@3.972.77, @aws-sdk/nested-clients@3.997.44
+Used by: @aws-sdk/core@3.978.3, @aws-sdk/credential-provider-http@3.972.76, @aws-sdk/credential-provider-login@3.972.81, @aws-sdk/nested-clients@3.997.48
 
 ~~~~text
 Apache License
@@ -3640,7 +3640,7 @@ Apache License
 
 ### 536804b3adbf
 
-Used by: estree-util-is-identifier-name@3.0.0, mdast-util-gfm-autolink-literal@2.0.1, mdast-util-gfm-strikethrough@2.0.0, mdast-util-gfm-table@2.0.0, mdast-util-gfm-task-list-item@2.0.0, micromark-extension-gfm-autolink-literal@2.1.0, micromark-extension-gfm-strikethrough@2.1.0, micromark-extension-gfm-task-list-item@2.1.0, micromark-extension-gfm@3.0.0
+Used by: estree-util-is-identifier-name@3.0.0, mdast-util-gfm-autolink-literal@2.0.1, mdast-util-gfm-table@2.0.0, mdast-util-gfm-task-list-item@2.0.0, micromark-extension-gfm-autolink-literal@2.1.0, micromark-extension-gfm-strikethrough@2.1.0, micromark-extension-gfm-task-list-item@2.1.0, micromark-extension-gfm@3.0.0
 
 ~~~~text
 (The MIT License)
@@ -4318,7 +4318,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 84d995af201d
 
-Used by: @aws-sdk/credential-provider-process@3.972.70, @aws-sdk/credential-provider-sso@3.973.14, @aws-sdk/credential-provider-web-identity@3.972.76
+Used by: @aws-sdk/credential-provider-process@3.972.74, @aws-sdk/credential-provider-sso@3.973.18, @aws-sdk/credential-provider-web-identity@3.972.80
 
 ~~~~text
 Apache License
@@ -4583,7 +4583,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 8a1af140fdfb
 
-Used by: lru-cache@11.5.2
+Used by: lru-cache@11.5.3
 
 ~~~~text
 # Blue Oak Model License
@@ -4740,7 +4740,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### 9c63a23124d6
 
-Used by: brace-expansion@5.0.11
+Used by: brace-expansion@5.0.12
 
 ~~~~text
 MIT License
@@ -4883,7 +4883,7 @@ SOFTWARE.
 
 ### a8f1e0280bf1
 
-Used by: react-resizable-panels@4.12.3
+Used by: react-resizable-panels@4.14.6
 
 ~~~~text
 The MIT License (MIT)
@@ -4967,7 +4967,7 @@ SOFTWARE.
 
 ### b495047bd93a
 
-Used by: lucide-react@1.35.0
+Used by: lucide-react@1.59.0
 
 ~~~~text
 ISC License
@@ -5045,7 +5045,7 @@ SOFTWARE.
 
 ### b659ef9e3ce8
 
-Used by: @aws-sdk/credential-provider-env@3.972.70, @aws-sdk/credential-provider-ini@3.973.15, @aws-sdk/credential-provider-node@3.972.81, @aws-sdk/token-providers@3.1048.0, @aws-sdk/token-providers@3.1116.0, @aws-sdk/xml-builder@3.972.40, @smithy/credential-provider-imds@4.5.2, @smithy/fetch-http-handler@5.7.2, @smithy/node-http-handler@4.11.3, @smithy/node-http-handler@4.7.3, @smithy/signature-v4@5.7.3
+Used by: @aws-sdk/credential-provider-env@3.972.74, @aws-sdk/credential-provider-ini@3.973.19, @aws-sdk/credential-provider-node@3.972.86, @aws-sdk/token-providers@3.1048.0, @aws-sdk/token-providers@3.1150.0, @aws-sdk/xml-builder@3.972.41, @smithy/credential-provider-imds@4.5.2, @smithy/fetch-http-handler@5.8.0, @smithy/node-http-handler@4.12.1, @smithy/node-http-handler@4.7.3, @smithy/signature-v4@5.7.4
 
 ~~~~text
 Apache License
@@ -5810,7 +5810,7 @@ SOFTWARE.
 
 ### d4c70c7ce38c
 
-Used by: tailwind-merge@2.6.1
+Used by: tailwind-merge@3.7.0
 
 ~~~~text
 MIT License
@@ -6079,7 +6079,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### da6d3703ed11
 
-Used by: react-dom@19.2.8, react@19.2.8, scheduler@0.27.0, use-sync-external-store@1.6.0
+Used by: react-dom@19.3.1, react@19.3.1, scheduler@0.28.0, use-sync-external-store@1.7.0
 
 ~~~~text
 MIT License
@@ -6337,7 +6337,7 @@ PERFORMANCE OF THIS SOFTWARE.
 
 ### dd1081884a92
 
-Used by: decode-named-character-reference@1.3.0, hast-util-to-jsx-runtime@2.3.6, markdown-table@3.0.4, mdast-util-find-and-replace@3.0.2, mdast-util-from-markdown@2.0.3, mdast-util-gfm-footnote@2.1.0, mdast-util-gfm@3.1.0, mdast-util-to-markdown@2.1.2, micromark-core-commonmark@2.0.3, micromark-extension-gfm-table@2.1.1, micromark-factory-destination@2.0.1, micromark-factory-label@2.0.1, micromark-factory-space@2.0.1, micromark-factory-title@2.0.1, micromark-factory-whitespace@2.0.1, micromark-util-character@2.1.1, micromark-util-chunked@2.0.1, micromark-util-classify-character@2.0.1, micromark-util-combine-extensions@2.0.1, micromark-util-decode-numeric-character-reference@2.0.2, micromark-util-decode-string@2.0.1, micromark-util-html-tag-name@2.0.1, micromark-util-normalize-identifier@2.0.1, micromark-util-resolve-all@2.0.1, micromark-util-sanitize-uri@2.0.1, micromark-util-subtokenize@2.1.0, micromark@4.0.2, remark-gfm@4.0.1, remark-rehype@11.1.2, vfile-message@4.0.3
+Used by: decode-named-character-reference@1.3.0, hast-util-to-jsx-runtime@2.3.6, markdown-table@3.0.4, mdast-util-find-and-replace@3.0.3, mdast-util-from-markdown@2.1.0, mdast-util-gfm-footnote@2.1.0, mdast-util-gfm-strikethrough@2.0.1, mdast-util-gfm@3.1.0, mdast-util-to-markdown@2.2.0, micromark-core-commonmark@2.0.4, micromark-extension-gfm-table@2.1.2, micromark-factory-destination@2.0.1, micromark-factory-label@2.0.1, micromark-factory-space@2.1.0, micromark-factory-title@2.0.1, micromark-factory-whitespace@2.0.1, micromark-util-character@2.1.1, micromark-util-chunked@2.0.1, micromark-util-classify-character@2.0.1, micromark-util-combine-extensions@2.0.1, micromark-util-decode-numeric-character-reference@2.0.2, micromark-util-decode-string@2.0.1, micromark-util-edit-map@1.0.0, micromark-util-html-tag-name@2.0.1, micromark-util-normalize-identifier@2.0.1, micromark-util-resolve-all@2.0.1, micromark-util-sanitize-uri@2.0.1, micromark-util-subtokenize@2.1.0, micromark@4.0.3, remark-gfm@4.0.1, remark-rehype@11.1.2, vfile-message@4.0.3
 
 ~~~~text
 (The MIT License)
@@ -6510,7 +6510,7 @@ THE SOFTWARE.
 
 ### e345c2ee7df4
 
-Used by: @aws-sdk/middleware-eventstream@3.972.29
+Used by: @aws-sdk/middleware-eventstream@3.972.31
 
 ~~~~text
                                 Apache License

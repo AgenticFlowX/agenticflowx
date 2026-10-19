@@ -128,9 +128,9 @@ export const auditedOverrides = [
     source: "https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE",
   })),
   ...[
-    ["@aws-sdk/credential-provider-http", "3.972.72"],
-    ["@aws-sdk/credential-provider-login", "3.972.77"],
-    ["@aws-sdk/nested-clients", "3.997.44"],
+    ["@aws-sdk/credential-provider-http", "3.972.76"],
+    ["@aws-sdk/credential-provider-login", "3.972.81"],
+    ["@aws-sdk/nested-clients", "3.997.48"],
   ].map(([name, version]) => ({
     name,
     version,
@@ -139,7 +139,7 @@ export const auditedOverrides = [
     licenseFiles: ["scripts/legal/licenses/aws-apache-2.txt"],
     reason:
       "This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact.",
-    source: "https://www.npmjs.com/package/@aws-sdk/core/v/3.977.9",
+    source: "https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3",
   })),
   {
     name: "data-uri-to-buffer",

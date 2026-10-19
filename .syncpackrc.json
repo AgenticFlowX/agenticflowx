@@ -1,13 +1,14 @@
 {
   "$schema": "https://raw.githubusercontent.com/JamieMason/syncpack/master/syncpack.schema.json",
   "source": [
-    "package.json",
     "apps/chat/package.json",
-    "apps/vscode/package.json",
     "apps/vscode-e2e/package.json",
+    "apps/vscode/package.json",
     "apps/workbench/package.json",
-    "packages/agent/pi/package.json",
+    "package.json",
     "packages/agent/pi-sdk/package.json",
+    "packages/agent/pi/package.json",
+    "packages/canvas-engine/package.json",
     "packages/parsers/package.json",
     "packages/shared/package.json",
     "packages/transport/package.json",
@@ -26,7 +27,7 @@
     },
     {
       "label": "pnpm overrides pin exact remediation versions",
-      "dependencyTypes": ["pnpmOverrides"],
+      "dependencyTypes": ["pnpmOverridesLegacy"],
       "isIgnored": true
     },
     {
@@ -60,9 +61,15 @@
       "isIgnored": true
     },
     {
-      "label": "Internal workspace packages — pinned to current source",
+      "label": "Internal workspace packages \u2014 pinned to current source",
       "dependencies": ["@afx/**"],
       "policy": "sameRange"
     }
-  ]
+  ],
+  "customTypes": {
+    "pnpmOverridesLegacy": {
+      "strategy": "versionsByName",
+      "path": "pnpm.overrides"
+    }
+  }
 }

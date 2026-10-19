@@ -24,9 +24,9 @@
     "@earendil-works/pi-tui": "0.84.4"
   },
   "devDependencies": {
-    "@types/node": "^25.9.5",
+    "@types/node": "^25.9.9",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.12"
   }
 }
