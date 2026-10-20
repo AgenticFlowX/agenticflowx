@@ -2,6 +2,23 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.5.3] - 2026-10-20
+
+### Changed
+
+- Upgraded the bundled Pi runtime to 0.84.4.
+- Updated dependencies and applied security fixes.
+- Refreshed CI actions, restored verification and packaging checks, and improved test reliability.
+
+### Fixed
+
+- Chat now preserves modified-file dismissals and control focus across remounts and runtime startup.
+- Clearing runtime queues no longer leaves stale prompt displays.
+- Workbench saves now use conflict-safe coordination to protect concurrent edits.
+- Escaped OAuth callback errors and enforced trusted origins for webview messages.
+- Prevented accidental overwrites when creating skills and model configuration files.
+- Hardened document parsing and YAML title serialization.
+
 ## [2.5.2] - 2026-07-27
 
 ### Fixed
