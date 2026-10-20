@@ -415,7 +415,36 @@ AFX periodically upgrades the bundled Pi runtime. Existing Pi RPC configuration 
 
 No VS Code? The workflow also runs as standard skills through the [AFX CLI and skill pack](https://github.com/AgenticFlowX/afx).
 
-Claude Code, Codex, Gemini CLI, GitHub Copilot, and Pi-compatible agents can run the same SDD workflow against the same markdown files.
+Claude Code, Codex, GitHub Copilot, and Pi-compatible agents can run the same SDD workflow against the same markdown files.
+
+### AFX CLI for coding agents
+
+The CLI remains the installer for Codex, GitHub Copilot, Claude Code, and compatible coding agents. Run it from your project directory and select your agents:
+
+```bash
+curl -sL https://raw.githubusercontent.com/AgenticFlowX/afx/main/afx-cli | bash -s -- .
+```
+
+It installs standard skills, project configuration, document templates, and agent context files. You can use the CLI for Codex or another coding agent and the Claude plugin alongside it in the same project. Avoid loading duplicate copies of the same AFX skills into one agent.
+
+### Claude Code plugin
+
+```bash
+claude plugin marketplace add AgenticFlowX/afx
+claude plugin install afx@afx --scope user
+```
+
+Restart Claude Code or run `/reload-plugins`, then verify with `/afx:hello`. The core plugin contains 18 skills; use `/afx:scaffold init` to set up a new project's AFX configuration and document directories. User scope makes the plugin available across projects; project scope enables it only in that project.
+
+Plugin commands include the namespace: `/afx:spec`, `/afx:task`, and `/afx:hello`. Role plugins use the same convention: install `afx-dev@afx` for commands such as `/afx-dev:tdd`. The afx-cli installer uses `/afx-spec`, `/afx-task`, and `/afx-hello` instead.
+
+### Claude Desktop or Cowork
+
+Open **Customize → Plugins → Add plugin → Add marketplace → Add from a repository**. Enter `AgenticFlowX/afx` (or `https://github.com/AgenticFlowX/afx`) and select **Sync**. Once the seven plugins appear, open **Afx** and select **Add**. The enabled Afx switch confirms installation of the 18-skill core.
+
+Claude may show **“Auto-sync requires the Claude GitHub App to have access to this repository.”** This concerns automatic updates; the initial import and plugin installation can still succeed. Automatic sync needs separate GitHub App access to the repository.
+
+These instructions use the AgenticFlowX-hosted marketplace. A public listing in Anthropic's Claude plugin directory has a separate submission and review process. See the [workflow installation and publishing reference](https://github.com/AgenticFlowX/afx#readme) for updates, other agents, and role packs.
 
 ## Good to know
 
