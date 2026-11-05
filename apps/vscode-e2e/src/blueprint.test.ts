@@ -105,6 +105,15 @@ suite("AFX Blueprint — real host lifecycle", () => {
         "vscode.executeCodeLensProvider",
         sourceUri,
       )) ?? [];
+    const waitForLenses = async (predicate: (current: vscode.CodeLens[]) => boolean) => {
+      const deadline = Date.now() + 6000;
+      let current = await lenses();
+      while (!predicate(current) && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        current = await lenses();
+      }
+      return current;
+    };
     try {
       await vscode.commands.executeCommand("afx.openBlueprint", vscode.Uri.file(root));
       await vscode.window.showTextDocument(sourceUri);
@@ -120,18 +129,23 @@ suite("AFX Blueprint — real host lifecycle", () => {
         documentRootIds: [],
       });
       assert.ok(
-        (await lenses()).some((lens) => lens.command?.title.includes("FR-1")),
+        (
+          await waitForLenses((current) =>
+            current.some((lens) => lens.command?.title.includes("FR-1")),
+          )
+        ).some((lens) => lens.command?.title.includes("FR-1")),
         "Attached external link should appear without @see",
       );
       const edit = new vscode.WorkspaceEdit();
       edit.insert(sourceUri, new vscode.Position(0, 0), "\n\n");
       await vscode.workspace.applyEdit(edit);
-      let moved = (await lenses()).find((lens) => lens.command?.title.includes("FR-1"));
-      const deadline = Date.now() + 6000;
-      while (moved?.range.start.line !== 2 && Date.now() < deadline) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        moved = (await lenses()).find((lens) => lens.command?.title.includes("FR-1"));
-      }
+      const moved = (
+        await waitForLenses((current) =>
+          current.some(
+            (lens) => lens.command?.title.includes("FR-1") && lens.range.start.line === 2,
+          ),
+        )
+      ).find((lens) => lens.command?.title.includes("FR-1"));
       assert.equal(
         moved?.range.start.line,
         2,
@@ -154,7 +168,11 @@ suite("AFX Blueprint — real host lifecycle", () => {
         JSON.stringify({ ...updatedLinks, revision: updatedLinks.revision + 1, links: [] }),
       );
       assert.ok(
-        !(await lenses()).some((lens) => lens.command?.title.includes("FR-1")),
+        !(
+          await waitForLenses(
+            (current) => !current.some((lens) => lens.command?.title.includes("FR-1")),
+          )
+        ).some((lens) => lens.command?.title.includes("FR-1")),
         "Agent/CLI trace updates must be read from the external artifact store",
       );
       await vscode.commands.executeCommand("afx.detachBlueprint");
