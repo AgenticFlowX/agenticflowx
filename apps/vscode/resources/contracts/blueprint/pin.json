@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 3,
+  "source": {
+    "repository": "https://github.com/AgenticFlowX/afx",
+    "path": "assets/contracts/blueprint",
+    "ref": "unreleased-working-tree"
+  },
+  "files": {
+    "README.md": "a99cbc76b2e6ab4365e17148e6d5d2cc784c071c005886bb690b2ca797cca5d6",
+    "blueprint-v2.schema.json": "f2990bc712d16d05fdc2c0c423de79a72a711783857c27625203423a5591270f",
+    "blueprint-v3.schema.json": "dae4d19e896c3c47e635242e0d935a8b7e1e3ca1a97ed238fd6aad0ae355a12e",
+    "blueprint.schema.json": "8989416711bf3f3780c0f0efc7a69bddff17cdf4699748cca815b477ccee20f4",
+    "examples/blueprint-v2.json": "6fbd3ce73aec1c3977d7b03b1743a7b98cd44f59524236d7eb45bcc1e14dea17",
+    "examples/blueprint-v3.json": "50100df3cee552be53f2195c139d1894233f5eef480cb11c3d77acc6449f8177",
+    "examples/blueprint.json": "8fdb71ca0c7093bf5e87a2381cb7f4492c06592cc2e67444d0b1f114cfc8b3dc",
+    "examples/links.json": "4603bba23b4beb476359097a9bfafcc2d6d92a3126db24a8af8aa935a84f8203",
+    "examples/model-v2.json": "1f591009df1310664329258216e607fb500ebd7bc88b74bbdcb072d0cd21def8",
+    "validate.cjs": "cbcff21af321aa6a308534c1ed188ebed89baa584bc7ea90eab26defc5ad0f30",
+    "validator-NOTICES.txt": "a300528a27acc153f33b40e2096351d0b1f457d81f93ae95a728f31aea3a683d"
+  }
+}

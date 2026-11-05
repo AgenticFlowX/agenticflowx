@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:afx:blueprint:3",
+  "title": "AFX Blueprint portable contract v3",
+  "description": "Compact canonical Blueprint. Local checkout and document-root paths belong to host bindings, never this portable file.",
+  "$ref": "#/$defs/manifest",
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\u0000]+$"
+    },
+    "repository": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["git", "folder"] },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "name", "kind"],
+      "additionalProperties": false
+    },
+    "documentRoot": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "const": "sdd" }
+      },
+      "required": ["id", "name", "kind"],
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 },
+        "character": { "type": "integer", "minimum": 0 }
+      },
+      "required": ["line", "character"],
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      },
+      "required": ["start", "end"],
+      "additionalProperties": false
+    },
+    "symbol": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "type": "integer", "minimum": 1, "maximum": 26 },
+        "range": { "$ref": "#/$defs/range" },
+        "selectionRange": { "$ref": "#/$defs/range" }
+      },
+      "required": ["name", "kind", "range", "selectionRange"],
+      "additionalProperties": true
+    },
+    "trace": {
+      "type": "object",
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "source": {
+          "type": "object",
+          "properties": {
+            "repositoryId": { "$ref": "#/$defs/uuid" },
+            "path": { "$ref": "#/$defs/relativePath" },
+            "languageId": { "type": "string" },
+            "range": { "$ref": "#/$defs/range" },
+            "symbol": { "$ref": "#/$defs/symbol" },
+            "containerPath": { "type": "array", "items": { "type": "string" } },
+            "contentHash": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "scope": { "enum": ["file", "symbol", "range"] }
+          },
+          "required": ["repositoryId", "path", "scope"],
+          "additionalProperties": false
+        },
+        "target": {
+          "type": "object",
+          "properties": {
+            "documentRootId": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]*$"
+            },
+            "path": { "$ref": "#/$defs/relativePath" },
+            "anchor": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "enum": ["requirement", "design", "task", "section"]
+                },
+                "id": { "type": "string", "minLength": 1 }
+              },
+              "required": ["kind", "id"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["documentRootId", "path"],
+          "additionalProperties": false
+        },
+        "relation": { "enum": ["relates-to", "implements", "tests"] },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "createdBy": { "enum": ["human", "agent"] },
+        "lastKnownResolution": {
+          "enum": ["resolved", "stale", "unresolved", "ambiguous"]
+        },
+        "description": { "type": "string" }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relation",
+        "createdAt",
+        "createdBy"
+      ],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "kind": { "const": "afx-blueprint-model" },
+        "schemaVersion": { "const": 3 },
+        "blueprintId": { "$ref": "#/$defs/uuid" },
+        "repositoryId": { "$ref": "#/$defs/uuid" },
+        "modelRevisionId": { "$ref": "#/$defs/uuid" },
+        "parentModelRevisionId": { "$ref": "#/$defs/uuid" },
+        "baseline": { "type": "object" },
+        "entities": { "type": "array", "items": { "type": "object" } },
+        "claims": { "type": "array", "items": { "type": "object" } },
+        "flows": { "type": "array", "items": { "type": "object" } },
+        "relationships": { "type": "array", "items": { "type": "object" } },
+        "commands": { "type": "array", "items": { "type": "object" } },
+        "investigation": { "type": "object" }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "repositoryId",
+        "modelRevisionId",
+        "baseline",
+        "entities",
+        "claims",
+        "flows",
+        "relationships",
+        "commands",
+        "investigation"
+      ],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "$schema": { "type": "string" },
+        "kind": { "const": "afx-blueprint" },
+        "schemaVersion": { "const": 3 },
+        "id": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "createdAt": { "$ref": "#/$defs/timestamp" },
+        "updatedAt": { "$ref": "#/$defs/timestamp" },
+        "repositories": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": { "$ref": "#/$defs/repository" }
+        },
+        "documents": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/documentRoot" }
+        },
+        "traceability": {
+          "type": "object",
+          "properties": {
+            "mode": { "const": "external" },
+            "policyVersion": { "const": 1 }
+          },
+          "required": ["mode", "policyVersion"],
+          "additionalProperties": false
+        },
+        "model": { "$ref": "#/$defs/model" },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/trace" } },
+        "reviews": { "type": "array", "items": { "type": "object" } },
+        "reconciliation": { "type": "object" },
+        "evidence": { "type": "array", "items": { "type": "object" } }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "name",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "repositories",
+        "documents",
+        "traceability",
+        "links",
+        "reviews",
+        "evidence"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

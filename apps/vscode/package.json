@@ -382,102 +382,102 @@
       },
       {
         "command": "afx.action.specRefine",
-        "title": "Spec — Refine",
+        "title": "Spec \u2014 Refine",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.specValidate",
-        "title": "Spec — Validate",
+        "title": "Spec \u2014 Validate",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.specReview",
-        "title": "Spec — Review",
+        "title": "Spec \u2014 Review",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.specApprove",
-        "title": "Spec — Approve",
+        "title": "Spec \u2014 Approve",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.designRefine",
-        "title": "Design — Refine",
+        "title": "Design \u2014 Refine",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.designValidate",
-        "title": "Design — Validate",
+        "title": "Design \u2014 Validate",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.designReview",
-        "title": "Design — Review",
+        "title": "Design \u2014 Review",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.designApprove",
-        "title": "Design — Approve",
+        "title": "Design \u2014 Approve",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.taskCode",
-        "title": "Task — Code",
+        "title": "Task \u2014 Code",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.taskVerify",
-        "title": "Task — Verify",
+        "title": "Task \u2014 Verify",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.taskPick",
-        "title": "Task — Pick Next",
+        "title": "Task \u2014 Pick Next",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.taskStatus",
-        "title": "Task — Status",
+        "title": "Task \u2014 Status",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.taskBrief",
-        "title": "Task — Brief",
+        "title": "Task \u2014 Brief",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.journalRecap",
-        "title": "Journal — Recap",
+        "title": "Journal \u2014 Recap",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.journalPromote",
-        "title": "Journal — Promote",
+        "title": "Journal \u2014 Promote",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.adrReview",
-        "title": "ADR — Review",
+        "title": "ADR \u2014 Review",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.adrList",
-        "title": "ADR — List",
+        "title": "ADR \u2014 List",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.adrSupersede",
-        "title": "ADR — Supersede",
+        "title": "ADR \u2014 Supersede",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.adrAccept",
-        "title": "ADR — Accept",
+        "title": "ADR \u2014 Accept",
         "category": "AgenticFlowX"
       },
       {
         "command": "afx.action.researchFinalize",
-        "title": "Research — Finalize",
+        "title": "Research \u2014 Finalize",
         "category": "AgenticFlowX"
       },
       {
@@ -488,6 +488,101 @@
           "light": "resources/activity-icon.svg",
           "dark": "resources/activity-icon.svg"
         }
+      },
+      {
+        "command": "afx.inspectRepository",
+        "title": "Inspect Repository",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.checkBlueprintChanges",
+        "title": "Check Blueprint Changes",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.openBlueprint",
+        "title": "Open Blueprint\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.saveBlueprint",
+        "title": "Save Blueprint\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.changeBlueprintProject",
+        "title": "Change Blueprint Project\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.refreshBlueprint",
+        "title": "Refresh Blueprint",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.copyBlueprintContext",
+        "title": "Copy Blueprint Context",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.clearBlueprintCache",
+        "title": "Clear Blueprint Observation Cache",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.showBlueprintCacheDetails",
+        "title": "Blueprint Storage Details",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.linkSourceToBlueprint",
+        "title": "Link to Blueprint\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.reviewBlueprintLinks",
+        "title": "Review or Relink Blueprint Reference\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.newBlueprintSprint",
+        "title": "New Blueprint Sprint\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.continueBlueprintTask",
+        "title": "Continue Blueprint Sprint\u2026",
+        "category": "AgenticFlowX"
+      },
+      {
+        "command": "afx.attachBlueprint",
+        "title": "Attach Blueprint\u2026",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.detachBlueprint",
+        "title": "Detach Blueprint",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.saveBlueprintRevision",
+        "title": "Save Blueprint Model Revision",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.migrateBlueprint",
+        "title": "Migrate Blueprint to v2",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.recoverBlueprintMigration",
+        "title": "Recover Blueprint Migration\u2026",
+        "category": "AFX"
+      },
+      {
+        "command": "afx.reviewBlueprintFinding",
+        "title": "Review Blueprint Finding\u2026",
+        "category": "AFX"
       }
     ],
     "submenus": [
@@ -498,6 +593,13 @@
       }
     ],
     "menus": {
+      "explorer/context": [
+        {
+          "submenu": "afx.editorContext",
+          "group": "navigation@1",
+          "when": "explorerResourceIsFolder"
+        }
+      ],
       "editor/context": [
         {
           "submenu": "afx.editorContext",
@@ -514,6 +616,25 @@
           "command": "afx.refineCurrentDocument",
           "group": "navigation@1",
           "when": "editorLangId == markdown && afx.activeSddDocument"
+        },
+        {
+          "command": "afx.inspectRepository",
+          "group": "navigation@1.5"
+        },
+        {
+          "command": "afx.saveBlueprint",
+          "group": "navigation@2",
+          "when": "resourceScheme == afx-blueprint"
+        },
+        {
+          "command": "afx.refreshBlueprint",
+          "group": "navigation@3",
+          "when": "resourceScheme == afx-blueprint"
+        },
+        {
+          "command": "afx.copyBlueprintContext",
+          "group": "navigation@4",
+          "when": "resourceScheme == afx-blueprint"
         }
       ],
       "afx.editorContext": [
@@ -530,6 +651,20 @@
           "command": "afx.refineCurrentDocument",
           "group": "0_preview@2",
           "when": "editorLangId == markdown && afx.activeSddDocument"
+        },
+        {
+          "command": "afx.inspectRepository",
+          "group": "0_blueprint@0"
+        },
+        {
+          "command": "afx.linkSourceToBlueprint",
+          "group": "0_blueprint@1",
+          "when": "editorLangId != markdown"
+        },
+        {
+          "command": "afx.reviewBlueprintLinks",
+          "group": "0_blueprint@2",
+          "when": "editorLangId != markdown"
         },
         {
           "command": "afx.action.saveToNotes",
@@ -751,6 +886,8 @@
     "@types/node": "^25.9.9",
     "@vitest/coverage-v8": "^4.1.12",
     "@vscode/vsce": "^3.9.2",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
     "vitest": "^4.1.12"

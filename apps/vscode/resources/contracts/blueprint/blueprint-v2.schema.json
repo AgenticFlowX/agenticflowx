@@ -1,0 +1,1597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:afx:blueprint:2",
+  "title": "AFX Blueprint portable contract v2",
+  "description": "Canonical workflow-owned Blueprint manifest, trace and evidence schemas. Shape validation must be followed by semantic, root, trust and revision validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/manifest"
+    },
+    {
+      "$ref": "#/$defs/traceStore"
+    },
+    {
+      "$ref": "#/$defs/evidence"
+    },
+    {
+      "$ref": "#/$defs/model"
+    },
+    {
+      "$ref": "#/$defs/modelIndex"
+    },
+    {
+      "$ref": "#/$defs/reconciliation"
+    },
+    {
+      "$ref": "#/$defs/review"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\u0000]+$",
+      "description": "Literal root-relative forward-slash path. Host must additionally validate canonical containment and symlinks."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": [
+        "line",
+        "character"
+      ],
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "additionalProperties": false
+    },
+    "documentSymbol": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 26,
+          "description": "LSP 3.17 SymbolKind values, not raw vscode.SymbolKind values."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "const": 1
+          },
+          "uniqueItems": true
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "selectionRange": {
+          "$ref": "#/$defs/range"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/documentSymbol"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "range",
+        "selectionRange"
+      ],
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "git",
+            "folder"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "artifactAnchor": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "anchor": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "requirement",
+                "design",
+                "task",
+                "section"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "additionalProperties": false
+    },
+    "sourceAnchor": {
+      "type": "object",
+      "properties": {
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "languageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "symbol": {
+          "$ref": "#/$defs/documentSymbol"
+        },
+        "containerPath": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "contentHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scope": {
+          "enum": [
+            "file",
+            "symbol",
+            "range"
+          ]
+        }
+      },
+      "required": [
+        "repositoryId",
+        "path",
+        "scope"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "symbol"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "symbol": {
+                "$ref": "#/$defs/documentSymbol"
+              }
+            },
+            "required": [
+              "symbol"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "range"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "range": {
+                "$ref": "#/$defs/range"
+              }
+            },
+            "required": [
+              "range"
+            ]
+          }
+        }
+      ]
+    },
+    "traceLink": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceAnchor"
+        },
+        "target": {
+          "$ref": "#/$defs/artifactAnchor"
+        },
+        "relation": {
+          "enum": [
+            "relates-to",
+            "implements",
+            "tests"
+          ]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "createdBy": {
+          "enum": [
+            "human",
+            "agent"
+          ]
+        },
+        "lastKnownResolution": {
+          "enum": [
+            "resolved",
+            "stale",
+            "unresolved",
+            "ambiguous"
+          ]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relation",
+        "createdAt",
+        "createdBy"
+      ],
+      "additionalProperties": false
+    },
+    "codeSnapshot": {
+      "type": "object",
+      "properties": {
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "path",
+              "contentHash"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "repositoryId",
+        "dirty",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "repositories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/repository"
+          },
+          "minItems": 1
+        },
+        "artifacts": {
+          "type": "object",
+          "properties": {
+            "overview": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "research": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "sprints": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "decisions": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "traces": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "evidence": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "specs": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "modelIndex": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "modelRevisions": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "evolution": {
+              "$ref": "#/$defs/relativePath"
+            }
+          },
+          "required": [
+            "overview",
+            "research",
+            "sprints",
+            "decisions",
+            "traces",
+            "evidence",
+            "specs",
+            "modelIndex",
+            "modelRevisions",
+            "evolution"
+          ],
+          "additionalProperties": false
+        },
+        "traceability": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "external"
+            },
+            "policyVersion": {
+              "const": 1
+            }
+          },
+          "required": [
+            "mode",
+            "policyVersion"
+          ],
+          "additionalProperties": false
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "name",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "repositories",
+        "artifacts",
+        "traceability"
+      ],
+      "additionalProperties": false
+    },
+    "traceStore": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint-traces"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "positionEncoding": {
+          "const": "utf-16"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/traceLink"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "revision",
+        "updatedAt",
+        "positionEncoding",
+        "links"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint-evidence"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "recordedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "actor": {
+          "enum": [
+            "agent",
+            "human"
+          ]
+        },
+        "procedure": {
+          "enum": [
+            "command",
+            "manual-review"
+          ]
+        },
+        "outcome": {
+          "enum": [
+            "passed",
+            "failed",
+            "unknown"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/codeSnapshot"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "path",
+              "contentHash"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "command": {
+          "type": "object",
+          "properties": {
+            "argv": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "exitCode": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "argv",
+            "exitCode"
+          ],
+          "additionalProperties": false
+        },
+        "outputPath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "blueprintId",
+        "recordedAt",
+        "actor",
+        "procedure",
+        "outcome",
+        "code",
+        "artifacts"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "procedure": {
+                "const": "command"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "command"
+            ],
+            "properties": {
+              "command": true
+            }
+          }
+        }
+      ]
+    },
+    "sourceEvidence": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "startLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "endLine": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "contentHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "collectedAt": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "id",
+        "path",
+        "startLine",
+        "endLine",
+        "contentHash",
+        "collectedAt"
+      ],
+      "additionalProperties": false
+    },
+    "finding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "category": {
+          "enum": [
+            "purpose",
+            "component",
+            "flow",
+            "build",
+            "test",
+            "release",
+            "integration",
+            "risk"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "classification": {
+          "enum": [
+            "observed",
+            "inferred"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/uuid"
+                }
+              }
+            },
+            "required": [
+              "description",
+              "evidenceIds"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "command": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string"
+              }
+            },
+            "workingDirectory": {
+              "anyOf": [
+                {
+                  "const": "."
+                },
+                {
+                  "$ref": "#/$defs/relativePath"
+                }
+              ]
+            },
+            "prerequisites": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "argv",
+            "workingDirectory",
+            "prerequisites"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "category",
+        "title",
+        "description",
+        "evidenceIds",
+        "classification"
+      ],
+      "additionalProperties": false
+    },
+    "investigation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "collectedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "gitRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "symbols": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "symbols": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/documentSymbol"
+                }
+              }
+            },
+            "required": [
+              "path",
+              "contentHash",
+              "symbols"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "outcome": {
+          "enum": [
+            "complete",
+            "partial",
+            "cancelled",
+            "failed"
+          ]
+        },
+        "stopReason": {
+          "type": "string"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceEvidence"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "usage": {
+          "type": "object",
+          "properties": {
+            "calls": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "estimatedInputTokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "estimatedOutputTokens": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "calls",
+            "bytes",
+            "estimatedInputTokens",
+            "estimatedOutputTokens"
+          ],
+          "additionalProperties": false
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/uuid"
+              },
+              "fromFindingId": {
+                "$ref": "#/$defs/uuid"
+              },
+              "toFindingId": {
+                "$ref": "#/$defs/uuid"
+              },
+              "type": {
+                "enum": [
+                  "contains",
+                  "calls",
+                  "depends-on",
+                  "reads",
+                  "writes",
+                  "integrates-with"
+                ]
+              },
+              "description": {
+                "type": "string"
+              },
+              "classification": {
+                "enum": [
+                  "observed",
+                  "inferred"
+                ]
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/uuid"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "fromFindingId",
+              "toFindingId",
+              "type",
+              "description",
+              "classification",
+              "evidenceIds"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "collectedAt",
+        "outcome",
+        "stopReason",
+        "findings",
+        "evidence",
+        "gaps",
+        "inventory",
+        "usage"
+      ],
+      "additionalProperties": false
+    },
+    "baseline": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "collectedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "gitRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              },
+              "source": {
+                "const": "disk"
+              }
+            },
+            "required": [
+              "path",
+              "contentHash",
+              "source"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "repositoryId",
+        "collectedAt",
+        "files"
+      ],
+      "additionalProperties": false
+    },
+    "entity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "type": {
+          "enum": [
+            "component",
+            "file",
+            "symbol",
+            "integration"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "source": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "positionEncoding": {
+              "const": "utf-16"
+            },
+            "symbol": {
+              "$ref": "#/$defs/documentSymbol"
+            }
+          },
+          "required": [
+            "path",
+            "positionEncoding"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "name",
+        "description",
+        "evidenceIds"
+      ],
+      "additionalProperties": false
+    },
+    "claim": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "description": {
+          "type": "string"
+        },
+        "entityIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "classification": {
+          "enum": [
+            "observed",
+            "inferred"
+          ]
+        },
+        "confidence": {
+          "type": "object",
+          "properties": {
+            "level": {
+              "enum": [
+                "high",
+                "medium",
+                "low"
+              ]
+            },
+            "basis": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "level",
+            "basis"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "id",
+        "description",
+        "entityIds",
+        "evidenceIds",
+        "classification",
+        "confidence"
+      ],
+      "additionalProperties": false
+    },
+    "flow": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "observed",
+            "inferred"
+          ]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "evidenceIds": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/uuid"
+                }
+              }
+            },
+            "required": [
+              "description",
+              "evidenceIds"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "classification",
+        "evidenceIds",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "model": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "afx-blueprint-model"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "modelRevisionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "parentModelRevisionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "baseline": {
+          "$ref": "#/$defs/baseline"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/entity"
+          }
+        },
+        "claims": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/claim"
+          }
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/flow"
+          }
+        },
+        "investigation": {
+          "$ref": "#/$defs/investigation"
+        },
+        "relationships": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relationship"
+          }
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/command"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "repositoryId",
+        "modelRevisionId",
+        "baseline",
+        "entities",
+        "claims",
+        "flows",
+        "investigation",
+        "relationships",
+        "commands"
+      ],
+      "additionalProperties": false
+    },
+    "modelIndex": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "afx-blueprint-model-index"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "repositoryId": {
+                "$ref": "#/$defs/uuid"
+              },
+              "baselineId": {
+                "$ref": "#/$defs/uuid"
+              },
+              "modelRevisionId": {
+                "$ref": "#/$defs/uuid"
+              },
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": [
+              "repositoryId",
+              "baselineId",
+              "modelRevisionId",
+              "path",
+              "contentHash"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "revision",
+        "updatedAt",
+        "entries"
+      ],
+      "additionalProperties": false
+    },
+    "reconciliation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "afx-blueprint-reconciliation"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "modelRevisionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "fromBaselineId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "toGitRevision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40,64}$"
+        },
+        "affectedClaimIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "affectedEntityIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "renameCandidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "to": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "basis": {
+                "const": "identical-content"
+              },
+              "state": {
+                "const": "needs-review"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "basis",
+              "state"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "current": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "unknown": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "repositoryId",
+        "id",
+        "createdAt",
+        "modelRevisionId",
+        "fromBaselineId",
+        "affectedClaimIds",
+        "affectedEntityIds",
+        "renameCandidates",
+        "changed",
+        "missing",
+        "added",
+        "current",
+        "unknown"
+      ],
+      "additionalProperties": false
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "afx-blueprint-review"
+        },
+        "schemaVersion": {
+          "const": 2
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "modelRevisionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "findingId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "recordedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "decision": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "corrected"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "actor": {
+          "const": "human"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "blueprintId",
+        "repositoryId",
+        "modelRevisionId",
+        "findingId",
+        "recordedAt",
+        "decision",
+        "notes",
+        "actor"
+      ]
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "type": {
+          "enum": [
+            "contains",
+            "calls",
+            "depends-on",
+            "reads",
+            "writes",
+            "integrates-with"
+          ]
+        },
+        "description": {
+          "type": "string"
+        },
+        "classification": {
+          "enum": [
+            "observed",
+            "inferred"
+          ]
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        },
+        "fromEntityId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "toEntityId": {
+          "$ref": "#/$defs/uuid"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "description",
+        "classification",
+        "evidenceIds",
+        "fromEntityId",
+        "toEntityId"
+      ]
+    },
+    "command": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "purpose": {
+          "enum": [
+            "build",
+            "test",
+            "release"
+          ]
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "workingDirectory": {
+          "anyOf": [
+            {
+              "const": "."
+            },
+            {
+              "$ref": "#/$defs/relativePath"
+            }
+          ]
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidenceIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/uuid"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "purpose",
+        "argv",
+        "workingDirectory",
+        "prerequisites",
+        "evidenceIds"
+      ]
+    }
+  }
+}

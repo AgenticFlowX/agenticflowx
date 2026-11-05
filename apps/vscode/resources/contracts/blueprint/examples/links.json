@@ -1,0 +1,67 @@
+{
+  "$schema": "../blueprint.schema.json",
+  "kind": "afx-blueprint-traces",
+  "schemaVersion": 1,
+  "blueprintId": "38da110d-8910-4f55-a61c-cf02118eb4e5",
+  "revision": 1,
+  "updatedAt": "2026-10-20T10:12:01.000Z",
+  "positionEncoding": "utf-16",
+  "links": [
+    {
+      "id": "ed28b784-ddc8-4bed-8f72-88081d1f2f09",
+      "source": {
+        "repositoryId": "74767f0e-a606-4ed6-90c3-cb4cefaf55cd",
+        "path": "src/auth.ts",
+        "languageId": "typescript",
+        "range": {
+          "start": {
+            "line": 20,
+            "character": 0
+          },
+          "end": {
+            "line": 30,
+            "character": 1
+          }
+        },
+        "symbol": {
+          "name": "login",
+          "kind": 6,
+          "range": {
+            "start": {
+              "line": 20,
+              "character": 0
+            },
+            "end": {
+              "line": 30,
+              "character": 1
+            }
+          },
+          "selectionRange": {
+            "start": {
+              "line": 20,
+              "character": 16
+            },
+            "end": {
+              "line": 20,
+              "character": 21
+            }
+          }
+        },
+        "scope": "symbol",
+        "containerPath": ["AuthService"]
+      },
+      "target": {
+        "path": "docs/specs/auth/spec.md",
+        "anchor": {
+          "kind": "requirement",
+          "id": "FR-2"
+        }
+      },
+      "relation": "relates-to",
+      "createdAt": "2026-10-20T10:08:51.000Z",
+      "createdBy": "human",
+      "lastKnownResolution": "unresolved",
+      "description": "Connect the login method to the authentication requirement retained in the private AFX repo."
+    }
+  ]
+}

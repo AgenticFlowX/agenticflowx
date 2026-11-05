@@ -1,0 +1,31 @@
+{
+  "$schema": "../blueprint.schema.json",
+  "kind": "afx-blueprint",
+  "schemaVersion": 1,
+  "id": "38da110d-8910-4f55-a61c-cf02118eb4e5",
+  "name": "Example App",
+  "revision": 1,
+  "createdAt": "2026-10-20T10:08:51.000Z",
+  "updatedAt": "2026-10-20T10:12:01.000Z",
+  "repositories": [
+    {
+      "id": "74767f0e-a606-4ed6-90c3-cb4cefaf55cd",
+      "name": "public-app",
+      "kind": "git"
+    }
+  ],
+  "artifacts": {
+    "overview": "blueprint.md",
+    "research": "research",
+    "sprints": "docs/specs",
+    "decisions": "decisions",
+    "traces": "traces/links.json",
+    "evidence": "evidence",
+    "specs": "docs/specs"
+  },
+  "traceability": {
+    "mode": "external",
+    "policyVersion": 1
+  },
+  "description": "Private research, SDD planning and external code traceability for Example App."
+}

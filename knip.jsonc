@@ -6,6 +6,7 @@
     "apps/workbench/src/lib/pipeline.ts",
     // Vendored from the pinned AFX release; packaging and runtime tests cover these resources.
     "apps/vscode/resources/skills/**",
+    "apps/vscode/resources/contracts/**",
   ],
   "ignoreExportsUsedInFile": true,
   "workspaces": {

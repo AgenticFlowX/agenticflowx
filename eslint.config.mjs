@@ -34,6 +34,7 @@ export default tseslint.config(
       "apps/vscode/resources/pi-sdk/**",
       // Vendored from the pinned AgenticFlowX release and verified independently.
       "apps/vscode/resources/skills/**",
+      "apps/vscode/resources/contracts/**",
       "pnpm-lock.yaml",
       // Shadcn-generated files — owned by the registry, regenerated via `shadcn add`.
       // Lint and filename rules don't apply; manual edits should stay minimal.

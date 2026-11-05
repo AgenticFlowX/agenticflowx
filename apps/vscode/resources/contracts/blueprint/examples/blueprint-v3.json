@@ -1,0 +1,32 @@
+{
+  "$schema": "urn:afx:blueprint:3",
+  "kind": "afx-blueprint",
+  "schemaVersion": 3,
+  "id": "33f76529-7867-4da6-8ad0-dcc3e699958b",
+  "name": "Example repository",
+  "description": "A compact portable repository Blueprint.",
+  "revision": 1,
+  "createdAt": "2026-11-05T05:45:00.000Z",
+  "updatedAt": "2026-11-05T05:45:00.000Z",
+  "repositories": [
+    {
+      "id": "6ef3d21e-23d2-4924-a098-dc3d8aa57b03",
+      "name": "example",
+      "kind": "git"
+    }
+  ],
+  "documents": [
+    {
+      "id": "sdd",
+      "name": "AFX documents",
+      "kind": "sdd"
+    }
+  ],
+  "traceability": {
+    "mode": "external",
+    "policyVersion": 1
+  },
+  "links": [],
+  "reviews": [],
+  "evidence": []
+}

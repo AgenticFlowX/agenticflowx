@@ -1,0 +1,547 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:afx:blueprint:1",
+  "title": "AFX Blueprint portable contract v1",
+  "description": "Canonical workflow-owned Blueprint manifest, trace and evidence schemas. Shape validation must be followed by semantic, root, trust and revision validation.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/manifest"
+    },
+    {
+      "$ref": "#/$defs/traceStore"
+    },
+    {
+      "$ref": "#/$defs/evidence"
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*:)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\u0000]+$",
+      "description": "Literal root-relative forward-slash path. Host must additionally validate canonical containment and symlinks."
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "character": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        }
+      },
+      "required": ["line", "character"],
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "$ref": "#/$defs/position"
+        },
+        "end": {
+          "$ref": "#/$defs/position"
+        }
+      },
+      "required": ["start", "end"],
+      "additionalProperties": false
+    },
+    "documentSymbol": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "detail": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 26,
+          "description": "LSP 3.17 SymbolKind values, not raw vscode.SymbolKind values."
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "const": 1
+          },
+          "uniqueItems": true
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "selectionRange": {
+          "$ref": "#/$defs/range"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/documentSymbol"
+          }
+        }
+      },
+      "required": ["name", "kind", "range", "selectionRange"],
+      "additionalProperties": false
+    },
+    "repository": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["git", "folder"]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "name", "kind"],
+      "additionalProperties": false
+    },
+    "artifactAnchor": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "anchor": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": ["requirement", "design", "task", "section"]
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": ["kind", "id"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["path"],
+      "additionalProperties": false
+    },
+    "sourceAnchor": {
+      "type": "object",
+      "properties": {
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "languageId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "range": {
+          "$ref": "#/$defs/range"
+        },
+        "symbol": {
+          "$ref": "#/$defs/documentSymbol"
+        },
+        "containerPath": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "contentHash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "scope": {
+          "enum": ["file", "symbol", "range"]
+        }
+      },
+      "required": ["repositoryId", "path", "scope"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "symbol"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "symbol": {
+                "$ref": "#/$defs/documentSymbol"
+              }
+            },
+            "required": ["symbol"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "scope": {
+                "const": "range"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "range": {
+                "$ref": "#/$defs/range"
+              }
+            },
+            "required": ["range"]
+          }
+        }
+      ]
+    },
+    "traceLink": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "source": {
+          "$ref": "#/$defs/sourceAnchor"
+        },
+        "target": {
+          "$ref": "#/$defs/artifactAnchor"
+        },
+        "relation": {
+          "enum": ["relates-to", "implements", "tests"]
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "createdBy": {
+          "enum": ["human", "agent"]
+        },
+        "lastKnownResolution": {
+          "enum": ["resolved", "stale", "unresolved", "ambiguous"]
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "relation",
+        "createdAt",
+        "createdBy"
+      ],
+      "additionalProperties": false
+    },
+    "codeSnapshot": {
+      "type": "object",
+      "properties": {
+        "repositoryId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": ["path", "contentHash"],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": ["repositoryId", "dirty", "files"],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "createdAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "repositories": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/repository"
+          },
+          "minItems": 1
+        },
+        "artifacts": {
+          "type": "object",
+          "properties": {
+            "overview": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "research": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "sprints": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "decisions": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "traces": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "evidence": {
+              "$ref": "#/$defs/relativePath"
+            },
+            "specs": {
+              "$ref": "#/$defs/relativePath"
+            }
+          },
+          "required": [
+            "overview",
+            "research",
+            "sprints",
+            "decisions",
+            "traces",
+            "evidence",
+            "specs"
+          ],
+          "additionalProperties": false
+        },
+        "traceability": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "const": "external"
+            },
+            "policyVersion": {
+              "const": 1
+            }
+          },
+          "required": ["mode", "policyVersion"],
+          "additionalProperties": false
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "name",
+        "revision",
+        "createdAt",
+        "updatedAt",
+        "repositories",
+        "artifacts",
+        "traceability"
+      ],
+      "additionalProperties": false
+    },
+    "traceStore": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint-traces"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "updatedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "positionEncoding": {
+          "const": "utf-16"
+        },
+        "links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/traceLink"
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "blueprintId",
+        "revision",
+        "updatedAt",
+        "positionEncoding",
+        "links"
+      ],
+      "additionalProperties": false
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "$schema": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "afx-blueprint-evidence"
+        },
+        "schemaVersion": {
+          "const": 1
+        },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "blueprintId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "recordedAt": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "actor": {
+          "enum": ["agent", "human"]
+        },
+        "procedure": {
+          "enum": ["command", "manual-review"]
+        },
+        "outcome": {
+          "enum": ["passed", "failed", "unknown"]
+        },
+        "code": {
+          "$ref": "#/$defs/codeSnapshot"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "contentHash": {
+                "$ref": "#/$defs/sha256"
+              }
+            },
+            "required": ["path", "contentHash"],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "command": {
+          "type": "object",
+          "properties": {
+            "argv": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "exitCode": {
+              "type": ["integer", "null"]
+            }
+          },
+          "required": ["argv", "exitCode"],
+          "additionalProperties": false
+        },
+        "outputPath": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "schemaVersion",
+        "id",
+        "blueprintId",
+        "recordedAt",
+        "actor",
+        "procedure",
+        "outcome",
+        "code",
+        "artifacts"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "procedure": {
+                "const": "command"
+              }
+            }
+          },
+          "then": {
+            "required": ["command"],
+            "properties": {
+              "command": true
+            }
+          }
+        }
+      ]
+    }
+  }
+}

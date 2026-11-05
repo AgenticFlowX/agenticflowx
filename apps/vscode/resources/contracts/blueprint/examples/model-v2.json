@@ -1,0 +1,94 @@
+{
+  "kind": "afx-blueprint-model",
+  "schemaVersion": 2,
+  "blueprintId": "00000000-0000-4000-8000-000000000001",
+  "repositoryId": "00000000-0000-4000-8000-000000000002",
+  "modelRevisionId": "00000000-0000-4000-8000-000000000005",
+  "baseline": {
+    "id": "00000000-0000-4000-8000-000000000006",
+    "repositoryId": "00000000-0000-4000-8000-000000000002",
+    "collectedAt": "2026-10-21T10:25:01.000Z",
+    "files": [
+      {
+        "path": "src/engine.ts",
+        "contentHash": "sha256:5214de2d46710220f75c70059346e99b621ff7eafad818ef94f73f430b06c5f0",
+        "source": "disk"
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "type": "file",
+      "name": "src/engine.ts",
+      "description": "Illustrative source selector",
+      "evidenceIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "source": {
+        "path": "src/engine.ts",
+        "positionEncoding": "utf-16"
+      }
+    }
+  ],
+  "claims": [
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "description": "Synthetic example component; source not inspected.",
+      "entityIds": [
+        "00000000-0000-4000-8000-000000000007"
+      ],
+      "evidenceIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "classification": "inferred",
+      "confidence": {
+        "level": "medium",
+        "basis": "Synthetic shape fixture, not investigated behavior."
+      }
+    }
+  ],
+  "flows": [],
+  "investigation": {
+    "id": "00000000-0000-4000-8000-000000000009",
+    "collectedAt": "2026-10-21T10:25:01.000Z",
+    "outcome": "partial",
+    "stopReason": "Synthetic example only.",
+    "findings": [
+      {
+        "id": "00000000-0000-4000-8000-000000000004",
+        "category": "component",
+        "title": "Audio engine",
+        "description": "Synthetic example component; source not inspected.",
+        "classification": "inferred",
+        "evidenceIds": [
+          "00000000-0000-4000-8000-000000000003"
+        ]
+      }
+    ],
+    "evidence": [
+      {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "path": "src/engine.ts",
+        "startLine": 1,
+        "endLine": 1,
+        "contentHash": "sha256:5214de2d46710220f75c70059346e99b621ff7eafad818ef94f73f430b06c5f0",
+        "collectedAt": "2026-10-21T10:25:01.000Z"
+      }
+    ],
+    "gaps": [
+      "Repository not actually inspected."
+    ],
+    "inventory": [
+      "src/engine.ts"
+    ],
+    "usage": {
+      "calls": 0,
+      "bytes": 0,
+      "estimatedInputTokens": 0,
+      "estimatedOutputTokens": 0
+    }
+  },
+  "relationships": [],
+  "commands": []
+}
