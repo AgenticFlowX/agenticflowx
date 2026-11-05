@@ -1,2 +1,3 @@
-# Keep bundled skill frontmatter and helper scripts identical on Windows.
+# Keep document frontmatter and bundled helpers identical on Windows.
+*.md text eol=lf
 apps/vscode/resources/skills/** text eol=lf
