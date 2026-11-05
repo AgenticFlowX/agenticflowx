@@ -1,5 +1,5 @@
 /**
- * Opt-in real Pi 0.84.4 subprocess/HTTP protocol integration; deterministic local model responses.
+ * Opt-in real Pi 1.5.0 subprocess/HTTP protocol integration; deterministic local model responses.
  * @see docs/specs/231-app-vscode-blueprint/spec.md [FR-16] [FR-19]
  * @see docs/specs/231-app-vscode-blueprint/design.md [DES-TEST] [DES-API]
  */
@@ -19,7 +19,7 @@ import { investigateRepository } from "./blueprint-investigation";
 import { loadBlueprintModel, saveBlueprintModel } from "./blueprint-model-store";
 
 it.skipIf(process.env["AFX_PI_INTEGRATION"] !== "1").each(["sdk", "rpc"] as const)(
-  "investigates through Pi 0.84.4 (%s), validates citations and reopens its model",
+  "investigates through Pi 1.5.0 (%s), validates citations and reopens its model",
   async (adapter) => {
     const temporary = await mkdtemp(path.join(tmpdir(), "afx-real-pi-"));
     const root = path.join(temporary, "code");

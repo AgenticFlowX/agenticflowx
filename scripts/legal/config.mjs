@@ -80,7 +80,7 @@ export const copiedAssets = [
     files: ["packages/agent/pi-sdk/dist/core/export-html/vendor/marked.min.js"],
     component: {
       name: "marked",
-      version: "18.0.5",
+      version: "18.0.11",
       license: "MIT",
       repository: "https://github.com/markedjs/marked",
       licenseFiles: ["scripts/legal/licenses/marked-mit.txt"],
@@ -125,22 +125,25 @@ export const auditedOverrides = [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
+    "@earendil-works/pi-codemode",
+    "@earendil-works/pi-mcp",
+    "@earendil-works/pi-schema",
     "@earendil-works/pi-telemetry",
     "@earendil-works/pi-tui",
   ].map((name) => ({
     name,
-    version: "0.84.4",
+    version: "1.5.0",
     license: "MIT",
     repository: "https://github.com/earendil-works/pi",
     licenseFiles: ["scripts/legal/licenses/pi-mit.txt"],
     reason:
       "The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package.",
-    source: "https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE",
+    source: "https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE",
   })),
   ...[
-    ["@aws-sdk/credential-provider-http", "3.972.76"],
-    ["@aws-sdk/credential-provider-login", "3.972.81"],
-    ["@aws-sdk/nested-clients", "3.997.48"],
+    ["@aws-sdk/credential-provider-http", "3.972.83"],
+    ["@aws-sdk/credential-provider-login", "3.972.88"],
+    ["@aws-sdk/nested-clients", "3.998.0"],
   ].map(([name, version]) => ({
     name,
     version,
@@ -151,6 +154,27 @@ export const auditedOverrides = [
       "This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact.",
     source: "https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE",
   })),
+  {
+    name: "standardwebhooks",
+    version: "1.1.1",
+    license: "MIT",
+    repository: "https://github.com/standard-webhooks/standard-webhooks",
+    licenseFiles: ["scripts/legal/licenses/standardwebhooks-mit.txt"],
+    reason:
+      "The published package declares MIT but omits the license file; preserve the upstream libraries license for this exact version.",
+    source: "https://github.com/standard-webhooks/standard-webhooks/blob/main/libraries/LICENSE",
+  },
+  {
+    name: "proxy-agent-negotiate",
+    version: "1.1.0",
+    license: "MIT",
+    repository: "https://github.com/TooTallNate/proxy-agents",
+    licenseFiles: ["scripts/legal/licenses/proxy-agents-mit.txt"],
+    reason:
+      "The published package declares MIT but omits a LICENSE file; preserve the upstream monorepo's MIT text for this exact version.",
+    source:
+      "https://github.com/TooTallNate/proxy-agents/blob/main/packages/http-proxy-agent/LICENSE",
+  },
   {
     name: "data-uri-to-buffer",
     version: "4.0.1",

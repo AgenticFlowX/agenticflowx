@@ -82,4 +82,24 @@ describe("project context", () => {
     );
     expect(left?.id).not.toBe(right?.id);
   });
+
+  it("does not assign sibling or unrelated files to a project root", async () => {
+    const root = await fixture();
+    const result = await discoverProjects([{ uri: vscode.Uri.file(root), name: "root", index: 0 }]);
+    const childRoot = path.join(root, "apps", "child-a");
+    const child = result.projects.find((project) => project.rootUri.fsPath === childRoot);
+    expect(child).toBeDefined();
+    expect(
+      resolveProject(vscode.Uri.file(path.join(childRoot, "src", "index.ts")), result.projects),
+    ).toBe(child);
+    expect(
+      resolveProject(vscode.Uri.file(`${root}-other/src/index.ts`), result.projects),
+    ).toBeUndefined();
+    expect(
+      resolveProject(
+        vscode.Uri.file(path.join(path.dirname(root), "unrelated.ts")),
+        result.projects,
+      ),
+    ).toBeUndefined();
+  });
 });

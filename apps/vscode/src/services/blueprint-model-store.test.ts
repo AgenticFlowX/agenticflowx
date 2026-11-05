@@ -189,6 +189,37 @@ describe("durable semantic Blueprint models", () => {
     expect(review.actor).toBe("human");
   });
 
+  it("retains authored reviews through twenty saved and reopened model revisions", async () => {
+    const f = await setup(3);
+    const first = await saveBlueprintModel(
+      f.artifactRoot,
+      f.manifest,
+      f.repositoryId,
+      f.investigation,
+    );
+    const review = await saveFindingReview(
+      f.artifactRoot,
+      await openBlueprint(f.artifactRoot),
+      first,
+      f.investigation.findings[0]!.id,
+      "corrected",
+      "Keep this human correction.",
+    );
+
+    for (let cycle = 0; cycle < 20; cycle += 1) {
+      const reopened = await openBlueprint(f.artifactRoot);
+      const next = await saveBlueprintModel(f.artifactRoot, reopened, f.repositoryId, {
+        ...f.investigation,
+        id: randomUUID(),
+      });
+      const current = await openBlueprint(f.artifactRoot);
+      expect(current.reviews).toEqual([review]);
+      expect(
+        (await loadBlueprintModel(f.artifactRoot, current, f.repositoryId))?.modelRevisionId,
+      ).toBe(next.modelRevisionId);
+    }
+  });
+
   it("rejects tampered snapshots, foreign evidence and unknown future contracts", async () => {
     const f = await setup();
     const model = await saveBlueprintModel(

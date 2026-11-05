@@ -224,12 +224,33 @@ describe("createPiSdkAgentManager", () => {
     expect(mocks.clients[0]!.options).toMatchObject({
       args: expect.arrayContaining([
         "--no-tools",
+        "--no-mcp",
         "--no-extensions",
         "--no-skills",
         "--no-context-files",
         "--no-prompt-templates",
         "--no-session",
       ]),
+    });
+    await manager.dispose();
+  });
+
+  it("uses the renamed Azure provider with an existing AFX credential", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "azure-openai-responses",
+      modelId: "gpt-5.4",
+      getApiKey: (provider) =>
+        provider === "azure-openai-responses" ? "existing-azure-key" : undefined,
+    });
+
+    await manager.send("hello");
+    expect(mocks.clients[0]!.options).toMatchObject({
+      env: {
+        AFX_PROVIDER: "azure",
+        AZURE_OPENAI_API_KEY: "existing-azure-key",
+      },
     });
     await manager.dispose();
   });

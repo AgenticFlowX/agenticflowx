@@ -122,6 +122,7 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       ...(opts.inspectionMode
         ? [
             "--no-tools",
+            "--no-mcp",
             "--no-extensions",
             "--no-skills",
             "--no-context-files",
@@ -1005,7 +1006,7 @@ function providerApiKeyEnvEntries(provider: string, apiKey: string): Array<[stri
   const aliases =
     PROVIDER_API_KEY_ENV_ALIASES[
       normalizeProvider(provider) as keyof typeof PROVIDER_API_KEY_ENV_ALIASES
-    ] ?? [];
+    ] ?? (provider === "azure" ? PROVIDER_API_KEY_ENV_ALIASES["azure-openai-responses"] : []);
   return [...new Set([`AFX_API_KEY_${providerKey}`, `${providerKey}_API_KEY`, ...aliases])].map(
     (key) => [key, apiKey],
   );
@@ -1647,7 +1648,9 @@ async function getConfiguredApiKeys(
 ): Promise<Record<string, string>> {
   const entries = await Promise.all(
     providers.map(async (provider) => {
-      const apiKey = await getApiKey(provider);
+      const apiKey =
+        (await getApiKey(provider)) ??
+        (provider === "azure" ? await getApiKey("azure-openai-responses") : undefined);
       return apiKey ? ([provider, apiKey] as const) : null;
     }),
   );
@@ -1661,7 +1664,9 @@ async function getConfiguredAuthMethods(
   if (!getAuthMethod) return {};
   const entries = await Promise.all(
     providers.map(async (provider) => {
-      const method = await getAuthMethod(provider);
+      const method =
+        (await getAuthMethod(provider)) ??
+        (provider === "azure" ? await getAuthMethod("azure-openai-responses") : undefined);
       return method ? ([provider, method] as const) : null;
     }),
   );
@@ -1696,7 +1701,8 @@ function asEnum<T extends string>(value: unknown, allowed: readonly T[]): T | un
 }
 
 function normalizeProvider(provider: string): string {
-  return provider.toLowerCase();
+  const normalized = provider.toLowerCase();
+  return normalized === "azure-openai-responses" ? "azure" : normalized;
 }
 
 function formatError(error: unknown): string {
