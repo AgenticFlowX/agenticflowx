@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-26T04:32:48.000Z"
-updated_at: "2026-05-17T14:35:46.000Z"
+updated_at: "2026-11-05T04:25:41.000Z"
 tags: ["ci", "code-qa", "pr-gate", "lint", "types", "e2e", "traceability"]
 spec: spec.md
 ---
@@ -16,7 +16,7 @@ spec: spec.md
 
 ## [DES-OVR] Overview
 
-`code-qa.yml` runs on every PR to `main`. Eight jobs execute in parallel after a shared `build` step: lint, types, unit, e2e-webview, e2e-vscode (matrix), bundle-size, and pr-title. All must pass before merge. The workflow sets `concurrency` to cancel superseded runs on the same PR branch.
+`code-qa.yml` runs on every PR to `main` and every push to `main`. Jobs independently install their dependencies and perform lint, type, skills-drift, unit, browser, extension-host, size, secret, supply-chain and workflow checks. PR title validation runs only for PR events. Bundle-size reporting uses the PR action for pull requests and the same `size-limit` budgets directly on main; actionlint reports a PR review or a commit check according to the event. A release waits for the checks on its main commit to pass.
 
 ---
 
@@ -24,8 +24,7 @@ spec: spec.md
 
 ```text
 .github/workflows/code-qa.yml
-  trigger: pull_request → main (opened, synchronize, reopened)
-  concurrency: cancel-in-progress per PR branch
+  trigger: pull_request → main (opened, synchronize, reopened), push → main
 
   jobs:
     build       → pnpm install + pnpm build  (shared artifact)

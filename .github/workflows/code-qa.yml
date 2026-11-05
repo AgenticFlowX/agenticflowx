@@ -1,4 +1,4 @@
-# PR quality gate — runs on every pull request targeting main.
+# Quality gate — runs on pull requests targeting main and pushes to main.
 # Jobs: lint → types → skills-drift → unit+coverage → bundle-size → e2e-webview → e2e-vscode → pr-title
 # All jobs must pass before merge (enforced via branch protection rules).
 #
@@ -13,6 +13,8 @@
 name: code-qa
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -90,10 +92,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - name: Enforce bundle-size budgets (FR-30)
+        if: github.event_name == 'pull_request'
         uses: andresz1/size-limit-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           skip_step: build
+      - name: Enforce bundle-size budgets on main
+        if: github.event_name == 'push'
+        run: pnpm exec size-limit
 
   e2e-webview:
     name: E2E — Sidebar webview (Playwright)
@@ -138,6 +144,7 @@ jobs:
 
   pr-title:
     name: PR title lint (Conventional Commit)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v6
@@ -205,10 +212,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v7
       - uses: reviewdog/action-actionlint@v1
         with:
-          reporter: github-pr-review
+          reporter: ${{ github.event_name == 'pull_request' && 'github-pr-review' || 'github-check' }}
           fail_level: error
           level: error
