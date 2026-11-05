@@ -41,6 +41,8 @@ export interface PiSdkManagerOptions {
   projectTrust?: "trust" | "ignore";
   /** Comma-separated Pi tool denylist passed as `--exclude-tools`. */
   excludedTools?: readonly string[];
+  /** Isolated host-mediated Blueprint investigation with native tools disabled. */
+  inspectionMode?: boolean;
   /** Optional Ollama endpoint for local provider models. */
   ollamaBaseUrl?: string;
   /**

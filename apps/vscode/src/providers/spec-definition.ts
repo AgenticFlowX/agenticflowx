@@ -10,12 +10,12 @@ import * as vscode from "vscode";
 import { getSeeContextAt, resolveNode } from "./see-resolver";
 
 export function createSpecDefinitionProvider(
-  getRoot: () => string | undefined,
+  getRoot: (document: vscode.TextDocument) => string | undefined,
 ): vscode.DefinitionProvider {
   // Flow: [SeeNavigation.Definition]
   return {
     provideDefinition(document, position): vscode.Location | undefined {
-      const root = getRoot();
+      const root = getRoot(document);
       if (!root) return undefined;
       const ctx = getSeeContextAt(document, position, root);
       if (!ctx?.exists) return undefined;

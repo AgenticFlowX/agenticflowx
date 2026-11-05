@@ -20,12 +20,12 @@ const NODE_ID_RE = /\[([A-Z]+(?:-[A-Z0-9-]+)?|\d+\.\d+)\]/g;
 export const OPEN_SPEC_AT_LINE_COMMAND = "afx.openSpecAtLine";
 
 export function createSeeDocumentLinkProvider(
-  getRoot: () => string | undefined,
+  getRoot: (document: vscode.TextDocument) => string | undefined,
 ): vscode.DocumentLinkProvider {
   // Flow: [SeeNavigation.DocumentLink]
   return {
     provideDocumentLinks(document): vscode.DocumentLink[] | undefined {
-      const root = getRoot();
+      const root = getRoot(document);
       if (!root) return undefined;
       const links: vscode.DocumentLink[] = [];
       const text = document.getText();

@@ -68,6 +68,8 @@ export interface AgentFactoryOptions {
   additionalSkillPaths?: readonly string[];
   projectTrust?: "trust" | "ignore";
   excludedTools?: readonly string[];
+  /** @see docs/specs/231-app-vscode-blueprint/design.md [DES-INSPECT] */
+  inspectionMode?: boolean;
   runtimeEnv?: Record<string, string>;
   secretStore?: SecretStore;
   /**
@@ -248,6 +250,7 @@ export async function createConfiguredAgentInstances(
         additionalSkillPaths: opts.additionalSkillPaths,
         projectTrust: opts.projectTrust,
         excludedTools: opts.excludedTools,
+        inspectionMode: opts.inspectionMode,
         ollamaBaseUrl: opts.ollamaBaseUrl,
         extraEnv: piSdkExtraEnv,
       }),

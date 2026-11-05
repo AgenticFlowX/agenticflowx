@@ -25,11 +25,13 @@ const SECTION_LABEL: Record<SprintSection, string> = {
   SESSIONS: "Sessions",
 };
 
-export function createSpecHoverProvider(getRoot: () => string | undefined): vscode.HoverProvider {
+export function createSpecHoverProvider(
+  getRoot: (document: vscode.TextDocument) => string | undefined,
+): vscode.HoverProvider {
   // Flow: [SeeNavigation.Hover]
   return {
     provideHover(document, position): vscode.Hover | undefined {
-      const root = getRoot();
+      const root = getRoot(document);
       if (!root) return undefined;
       const ctx = getSeeContextAt(document, position, root);
       if (!ctx) return undefined;

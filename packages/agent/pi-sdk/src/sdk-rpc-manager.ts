@@ -119,9 +119,21 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       opts.getAuthMethod,
     );
     const args = [
+      ...(opts.inspectionMode
+        ? [
+            "--no-tools",
+            "--no-extensions",
+            "--no-skills",
+            "--no-context-files",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--no-session",
+            "--no-approve",
+          ]
+        : []),
       ...(!opts.ephemeral && opts.sessionDir ? ["--session-dir", opts.sessionDir] : []),
       ...(opts.ephemeral ? ["--no-session"] : []),
-      ...(opts.projectTrust === "trust"
+      ...(!opts.inspectionMode && opts.projectTrust === "trust"
         ? ["--approve"]
         : opts.projectTrust === "ignore"
           ? ["--no-approve"]
@@ -129,8 +141,12 @@ export function createPiSdkAgentManager(opts: PiSdkManagerOptions): AgentManager
       ...(opts.excludedTools && opts.excludedTools.length > 0
         ? ["--exclude-tools", opts.excludedTools.join(",")]
         : []),
-      ...(opts.additionalSkillPaths?.flatMap((p) => ["--skill", p]) ?? []),
-      ...(opts.additionalSystemPromptPaths?.flatMap((p) => ["--append-system-prompt", p]) ?? []),
+      ...(opts.inspectionMode
+        ? []
+        : (opts.additionalSkillPaths?.flatMap((p) => ["--skill", p]) ?? [])),
+      ...(opts.inspectionMode
+        ? []
+        : (opts.additionalSystemPromptPaths?.flatMap((p) => ["--append-system-prompt", p]) ?? [])),
     ];
     const env = buildBootstrapEnv({
       provider: providerId,

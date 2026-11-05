@@ -9,18 +9,30 @@ import { join } from "node:path";
 
 import * as vscode from "vscode";
 
+import type { ResolvedBlueprintReference } from "../services/blueprint-traces";
+import { OPEN_SPEC_AT_LINE_COMMAND } from "./see-document-links";
+import { resolveNode } from "./see-resolver";
+
 const SEE_RE = /@see\s+(docs\/specs\/[^\s]+\.md)(?:\s+(\[[A-Z0-9-]+\](?:\s*\[[A-Z0-9-]+\])*))?/g;
 
 export function createSpecCodeLensProvider(
-  getRoot: () => string | undefined,
+  getRoot: (document: vscode.TextDocument) => string | undefined,
+  getExternalReferences: (
+    document: vscode.TextDocument,
+  ) =>
+    | readonly ResolvedBlueprintReference[]
+    | Promise<readonly ResolvedBlueprintReference[]> = () => [],
+  onDidChangeCodeLenses?: vscode.Event<void>,
 ): vscode.CodeLensProvider {
   // Flow: [SeeNavigation.CodeLens]
   return {
-    provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] | undefined {
-      const root = getRoot();
+    onDidChangeCodeLenses,
+    async provideCodeLenses(document: vscode.TextDocument): Promise<vscode.CodeLens[] | undefined> {
+      const root = getRoot(document);
       if (!root) return undefined;
       const text = document.getText();
       const lenses: vscode.CodeLens[] = [];
+      const inlineAssociations = new Map<string, number>();
       const re = new RegExp(SEE_RE.source, SEE_RE.flags);
       let match: RegExpExecArray | null;
       while ((match = re.exec(text)) !== null) {
@@ -32,6 +44,9 @@ export function createSpecCodeLensProvider(
         const range = new vscode.Range(startPos, startPos);
         const label = relPath.split("/").pop() ?? relPath;
         const anchors = match[2] ?? "";
+        const anchorIds = [...anchors.matchAll(/\[([^\]]+)\]/g)].map((entry) => entry[1]);
+        if (anchorIds.length === 1)
+          inlineAssociations.set(`${abs}\u0000${anchorIds[0]}`, lenses.length);
         lenses.push(
           new vscode.CodeLens(range, {
             title: `📜 Open ${label}${anchors ? ` ${anchors}` : ""}`,
@@ -39,6 +54,24 @@ export function createSpecCodeLensProvider(
             arguments: [vscode.Uri.file(abs)],
           }),
         );
+      }
+      for (const reference of await getExternalReferences(document)) {
+        const label = reference.targetPath.split(/[\\/]/).pop() ?? reference.targetPath;
+        const node = reference.targetAnchor
+          ? resolveNode(reference.targetPath, reference.targetAnchor)
+          : undefined;
+        const status = reference.resolution === "resolved" ? "" : ` · ${reference.resolution}`;
+        const associationKey = reference.targetAnchor
+          ? `${reference.targetPath}\u0000${reference.targetAnchor}`
+          : undefined;
+        const inlineIndex = associationKey ? inlineAssociations.get(associationKey) : undefined;
+        const lens = new vscode.CodeLens(reference.range, {
+          title: `$(references) ${reference.relation}: ${label}${reference.targetAnchor ? ` [${reference.targetAnchor}]` : ""}${inlineIndex === undefined ? "" : " · inline + Blueprint"}${status}`,
+          command: OPEN_SPEC_AT_LINE_COMMAND,
+          arguments: [{ path: reference.targetPath, line: node?.line ?? 0 }],
+        });
+        if (inlineIndex === undefined) lenses.push(lens);
+        else lenses[inlineIndex] = lens;
       }
       return lenses;
     },

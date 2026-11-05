@@ -97,6 +97,8 @@ export interface PiRpcManagerOptions {
   projectTrust?: "trust" | "ignore";
   /** Comma-separated Pi tool denylist passed as `--exclude-tools`. */
   excludedTools?: readonly string[];
+  /** Isolated host-mediated repository investigation; Pi has no executable tools. */
+  inspectionMode?: boolean;
   /** Environment overrides passed to the spawned runtime. */
   env?: Record<string, string>;
 }
@@ -149,16 +151,30 @@ export function createAgentManager(opts: PiRpcManagerOptions): AgentManager {
     if (retryError) throw retryError;
 
     const args = [
+      ...(opts.inspectionMode
+        ? [
+            "--no-tools",
+            "--no-extensions",
+            "--no-skills",
+            "--no-context-files",
+            "--no-prompt-templates",
+            "--no-themes",
+            "--no-session",
+            "--no-approve",
+          ]
+        : []),
       ...(!ephemeral && sessionDir ? ["--session-dir", sessionDir] : []),
       ...(ephemeral ? ["--no-session"] : []),
-      ...(projectTrust === "trust"
+      ...(!opts.inspectionMode && projectTrust === "trust"
         ? ["--approve"]
         : projectTrust === "ignore"
           ? ["--no-approve"]
           : []),
       ...(excludedTools.length > 0 ? ["--exclude-tools", excludedTools.join(",")] : []),
-      ...additionalSkillPaths.flatMap((p) => ["--skill", p]),
-      ...additionalSystemPromptPaths.flatMap((p) => ["--append-system-prompt", p]),
+      ...(opts.inspectionMode ? [] : additionalSkillPaths.flatMap((p) => ["--skill", p])),
+      ...(opts.inspectionMode
+        ? []
+        : additionalSystemPromptPaths.flatMap((p) => ["--append-system-prompt", p])),
     ];
 
     const c = createPiClient({

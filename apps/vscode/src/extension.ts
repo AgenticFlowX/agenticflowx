@@ -15,7 +15,7 @@
  */
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
-import { delimiter, extname, isAbsolute, join, resolve } from "node:path";
+import { delimiter, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
 import * as vscode from "vscode";
 
@@ -71,6 +71,10 @@ import {
 } from "./panels/sidebar-panel";
 import { WORKBENCH_VIEW_TYPE, createWorkbenchPanel } from "./panels/workbench-panel";
 import { createAfxCodeActionProvider } from "./providers/afx-code-actions";
+import {
+  BLUEPRINT_PREVIEW_SCHEME,
+  createBlueprintPreviewProvider,
+} from "./providers/blueprint-preview";
 import { createSeeCompletionProvider } from "./providers/see-completion";
 import {
   OPEN_SPEC_AT_LINE_COMMAND,
@@ -81,6 +85,40 @@ import { createSpecDefinitionProvider } from "./providers/spec-definition";
 import { createSpecHoverProvider } from "./providers/spec-hover";
 import { SecretStore } from "./secret-store";
 import {
+  type BlueprintBinding,
+  type BlueprintManifest,
+  createBlueprint,
+  openBlueprint,
+} from "./services/blueprint-artifacts";
+import {
+  type BlueprintExecutionContext,
+  createBlueprintSprint,
+  listBlueprintSprints,
+} from "./services/blueprint-execution-context";
+import {
+  type InvestigationResult,
+  investigateRepository,
+  renderInvestigation,
+} from "./services/blueprint-investigation";
+import { migrateBlueprint, recoverBlueprintMigration } from "./services/blueprint-migration";
+import {
+  loadBlueprintModel,
+  reconcileBlueprintModel,
+  saveBlueprintChanges,
+  saveBlueprintModel,
+} from "./services/blueprint-model-store";
+import { loadFindingReviews, saveFindingReview } from "./services/blueprint-review";
+import { chooseBlueprintSaveLocation } from "./services/blueprint-save-dialog";
+import { createBlueprintObservationStorage } from "./services/blueprint-storage";
+import {
+  type BlueprintTraceStore,
+  addTraceLink,
+  loadTraceStore,
+  relinkTraceSource,
+  repositionBlueprintReferences,
+  resolveBlueprintReferences,
+} from "./services/blueprint-traces";
+import {
   type CanvasActionExecutionContext,
   createCanvasActionService,
 } from "./services/canvas-action-service";
@@ -88,6 +126,16 @@ import { createCanvasEditSessionManager } from "./services/canvas-edit-session-m
 import { createCanvasLibraryService } from "./services/canvas-library-service";
 import { createCustomProvidersService } from "./services/custom-providers-service";
 import { createOAuthService } from "./services/oauth/oauth-service";
+import {
+  type ProjectContext,
+  createDocumentRootResolver,
+  discoverProjects,
+  resolveProject,
+} from "./services/project-context";
+import {
+  type RepositoryObservation,
+  inspectDocumentSymbols,
+} from "./services/repository-blueprint";
 import { createSpecsDataProvider } from "./services/specs-data";
 import { createSprintContextSync } from "./services/sprint-context";
 import { type WorkbenchFileState, createWorkbenchFileState } from "./services/workbench-file-state";
@@ -163,6 +211,12 @@ export interface AfxExtensionTestApi {
     models: Array<{ id: string; name: string; contextWindow?: number; maxTokens?: number }>;
   }): Promise<{ ok: boolean; error?: string }>;
   removeCustomProvider(providerId: string): Promise<{ ok: boolean; error?: string }>;
+  getBlueprintState(): {
+    attached: boolean;
+    executionContextActive: boolean;
+    schemaVersion?: number;
+    documentRootIds: string[];
+  };
 }
 
 function sddPrimaryActionForActiveEditor(editor: vscode.TextEditor | undefined | null) {
@@ -225,6 +279,49 @@ export async function activate(
   const packageJSON = context.extension.packageJSON as {
     version?: string;
     afxSkillsPin?: string;
+  };
+  let discoveredProjects: ProjectContext[] = [];
+  let projectDiscoveryGeneration = 0;
+  let activeBlueprint:
+    | {
+        artifactRoot: string;
+        manifest: BlueprintManifest;
+        binding: BlueprintBinding;
+        traces: BlueprintTraceStore;
+      }
+    | undefined;
+  let activeExecutionContext: BlueprintExecutionContext | undefined;
+  let activeBlueprintWatcher: vscode.FileSystemWatcher | undefined;
+  context.subscriptions.push({
+    dispose: () => {
+      activeBlueprintWatcher?.dispose();
+    },
+  });
+  let openedBlueprint: { artifactRoot: string; manifest: BlueprintManifest } | undefined;
+  const previewProvider = createBlueprintPreviewProvider();
+  const observationStorage = createBlueprintObservationStorage(context.storageUri?.fsPath);
+  const observations = new Map<string, RepositoryObservation>();
+  const investigations = new Map<string, InvestigationResult>();
+  const investigationParents = new Map<string, string | null>();
+  const blueprintLensChanges = new vscode.EventEmitter<void>();
+  context.subscriptions.push(blueprintLensChanges);
+  const bindingState = context.globalState as
+    (vscode.Memento & { setKeysForSync?(keys: readonly string[]): void }) | undefined;
+  const BINDING_KEY = "afx.blueprint.bindings.v1";
+
+  const refreshProjects = async (): Promise<void> => {
+    const generation = ++projectDiscoveryGeneration;
+    const result = await discoverProjects(vscode.workspace.workspaceFolders ?? []);
+    if (generation !== projectDiscoveryGeneration) return;
+    discoveredProjects = result.projects;
+    await observationStorage.cleanup(discoveredProjects.map((project) => project.id));
+  };
+  await refreshProjects();
+
+  const saveLocalBinding = async (binding: BlueprintBinding): Promise<void> => {
+    if (!bindingState) return;
+    const current = bindingState.get<Record<string, BlueprintBinding>>(BINDING_KEY, {});
+    await bindingState.update(BINDING_KEY, { ...current, [binding.blueprintId]: binding });
   };
   const secretStore = new SecretStore(context);
   // One AFX-owned OAuth orchestrator, shared by the Pi-SDK credential seam
@@ -372,9 +469,12 @@ export async function activate(
     return proxy ? { HTTP_PROXY: proxy, HTTPS_PROXY: proxy } : undefined;
   }
 
-  async function buildAgentInstances(): Promise<AgentInstance[]> {
+  async function buildAgentInstances(inspectionRoot?: string): Promise<AgentInstance[]> {
     const cfg = vscode.workspace.getConfiguration("afx");
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const workspaceRoot =
+      inspectionRoot ??
+      activeExecutionContext?.codeRoot ??
+      vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const configuredPiBinary = cfg.get<string>("agentBinaryPath", "").trim();
     const rpcEnabled = cfg.get<boolean>("rpc.enabled", false);
     const piBinaryPath = rpcEnabled
@@ -393,7 +493,12 @@ export async function activate(
       workspaceRoot,
     );
     const excludedTools = normalizeStringList(cfg.get<readonly string[]>("pi.excludedTools", []));
-    const runtimeEnv = buildRuntimeEnv(cfg.get<string>("network.httpProxy", ""));
+    const runtimeEnv = {
+      ...(buildRuntimeEnv(cfg.get<string>("network.httpProxy", "")) ?? {}),
+      ...(!inspectionRoot && activeExecutionContext
+        ? { AFX_BLUEPRINT_CONTEXT_JSON: JSON.stringify(activeExecutionContext) }
+        : {}),
+    };
     const legacySdkDefaultModel = cfg.get<string>("sdk.defaultModel", "anthropic:claude-opus-4-5");
     const selected = configuredModelSelection(cfg);
     const sdkDefaultModel =
@@ -409,15 +514,16 @@ export async function activate(
       binaryPath: piBinaryPath,
       piAvailable: rpcEnabled && Boolean(piBinaryPath),
       rpcEnabled,
-      ephemeral: cfg.get<boolean>("agentEphemeralSession", false),
+      ephemeral: inspectionRoot ? true : cfg.get<boolean>("agentEphemeralSession", false),
+      inspectionMode: Boolean(inspectionRoot),
       sessionDir: resolveAfxSessionDir(context),
       agentDir: piAgentDir,
       cwd: workspaceRoot,
-      additionalSystemPromptPaths,
-      additionalSkillPaths: effectiveSkillPaths,
-      projectTrust,
+      additionalSystemPromptPaths: inspectionRoot ? [] : additionalSystemPromptPaths,
+      additionalSkillPaths: inspectionRoot ? [] : effectiveSkillPaths,
+      projectTrust: inspectionRoot ? "ignore" : projectTrust,
       excludedTools,
-      runtimeEnv,
+      runtimeEnv: Object.keys(runtimeEnv).length > 0 ? runtimeEnv : undefined,
       secretStore,
       // Shared OAuth orchestrator (active-method resolver for the bundled Pi SDK seam).
       // @see docs/specs/353-agent-oauth-credential-store/spec.md [FR-1] [FR-2] [FR-4] [FR-5] [FR-6] [FR-7] [NFR-1]
@@ -621,13 +727,46 @@ export async function activate(
     // @see docs/specs/218-app-chat-provider-settings/design.md [DES-UI] [DES-API]
     oauthService,
     reconfigureAgentRuntimes: scheduleAgentRuntimeRebuild,
+    beforeAgentSend: async () => {
+      if (!activeBlueprint) return;
+      const pinned = activeExecutionContext;
+      if (!pinned)
+        throw new Error(
+          "A Blueprint is attached for navigation. Start a Blueprint Planning Session or create/continue a Blueprint Sprint before chatting, so specs and links stay outside the source checkout. Detach it to return to ordinary chat.",
+        );
+      const manifest = await openBlueprint(pinned.artifactRoot);
+      if (
+        manifest.id !== pinned.blueprintId ||
+        manifest.revision !== pinned.blueprintRevision ||
+        !manifest.repositories.some((repo) => repo.id === pinned.repositoryId)
+      )
+        throw new Error(
+          "The pinned Blueprint context changed or became unavailable. End the session and reopen the intended Blueprint; no source-checkout fallback was used.",
+        );
+      await vscode.workspace.fs.stat(vscode.Uri.file(pinned.codeRoot));
+      if (activeExecutionContext !== pinned)
+        throw new Error("Blueprint context changed before send; retry in the intended session.");
+    },
     openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     workspaceState: context.workspaceState,
     // @see docs/specs/214-app-chat-settings/spec.md [FR-8] [FR-10]
     customProvidersService,
   });
-  const workbenchFileState = createWorkbenchFileState();
+  const workbenchFileState = createWorkbenchFileState({
+    getWorkspaceFolders: () => {
+      const workspaceFolders = [...(vscode.workspace.workspaceFolders ?? [])];
+      if (!activeBlueprint) return workspaceFolders;
+      return [
+        ...workspaceFolders,
+        {
+          uri: vscode.Uri.file(activeBlueprint.artifactRoot),
+          name: `Blueprint: ${activeBlueprint.manifest.name}`,
+          index: workspaceFolders.length,
+        },
+      ];
+    },
+  });
   const workbenchMutationCoordinator = createWorkbenchMutationCoordinator({
     fileState: workbenchFileState,
   });
@@ -987,17 +1126,826 @@ export async function activate(
     ),
   );
 
-  const getRoot = (): string | undefined => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  let inspectionGeneration = 0;
+  let activeInspection: AbortController | undefined;
+  context.subscriptions.push({ dispose: () => activeInspection?.abort() });
+
+  async function selectBlueprintProject(
+    sourceUri?: vscode.Uri,
+  ): Promise<ProjectContext | undefined> {
+    const captured = sourceUri ?? vscode.window.activeTextEditor?.document.uri;
+    const resolvedProject = captured ? resolveProject(captured, discoveredProjects) : undefined;
+    if (resolvedProject) return resolvedProject;
+    if (discoveredProjects.length === 1) return discoveredProjects[0];
+    const picked = await vscode.window.showQuickPick(
+      discoveredProjects.map((project) => ({
+        label: project.name,
+        description: `${project.kind} · ${project.rootUri.toString()}`,
+        project,
+      })),
+      {
+        title: "AFX: Choose repository to inspect",
+        placeHolder: "Select an explicit project root",
+      },
+    );
+    return picked?.project;
+  }
+
+  async function inspectAndOpenBlueprint(
+    project: ProjectContext,
+    sourceUri?: vscode.Uri,
+  ): Promise<void> {
+    activeInspection?.abort();
+    const controller = new AbortController();
+    activeInspection = controller;
+    const generation = ++inspectionGeneration;
+    const boundRepository = activeBlueprint?.manifest.repositories.find(
+      (repo) => activeBlueprint?.binding.checkouts[repo.id] === project.rootUri.fsPath,
+    );
+    const previousModel =
+      activeBlueprint && boundRepository
+        ? await loadBlueprintModel(
+            activeBlueprint.artifactRoot,
+            activeBlueprint.manifest,
+            boundRepository.id,
+          )
+        : undefined;
+    if (!vscode.workspace.isTrusted) {
+      void vscode.window.showWarningMessage(
+        "Trust this workspace before starting a Pi investigation.",
+      );
+      return;
+    }
+    const instances = await buildAgentInstances(project.rootUri.fsPath);
+    const selection = configuredModelSelection(vscode.workspace.getConfiguration("afx"));
+    const instance = selection
+      ? instances.find((candidate) => candidate.id === selection.instanceId)
+      : instances[0];
+    if (!instance) {
+      await Promise.all(instances.map((candidate) => candidate.manager.dispose()));
+      throw new Error(
+        "The selected Pi runtime is unavailable. Choose an available model in AFX Settings before inspecting this repository.",
+      );
+    }
+    for (const other of instances) if (other !== instance) await other.manager.dispose();
+    const result = await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `AFX: Inspecting ${project.name}`,
+        cancellable: true,
+      },
+      async (progress, cancellation) => {
+        const subscription = cancellation.onCancellationRequested(() => controller.abort());
+        if (cancellation.isCancellationRequested) controller.abort();
+        try {
+          if (selection?.instanceId === instance.id) await instance.manager.setModel(selection);
+          return await investigateRepository({
+            root: project.rootUri.fsPath,
+            manager: instance.manager,
+            signal: controller.signal,
+            progress: (message) => progress.report({ message }),
+            previous: investigations.get(project.id) ?? previousModel?.investigation,
+            reviewGuidance:
+              activeBlueprint && boundRepository
+                ? await loadFindingReviews(
+                    activeBlueprint.artifactRoot,
+                    activeBlueprint.manifest,
+                    boundRepository.id,
+                  )
+                : [],
+            symbols: async (relativePath) => {
+              const document = await vscode.workspace.openTextDocument(
+                vscode.Uri.joinPath(project.rootUri, relativePath),
+              );
+              return inspectDocumentSymbols(document, generation, () => inspectionGeneration);
+            },
+          });
+        } finally {
+          subscription.dispose();
+          await instance.manager.dispose();
+        }
+      },
+    );
+    if (generation !== inspectionGeneration) return;
+    investigations.set(project.id, result);
+    investigationParents.set(project.id, previousModel?.modelRevisionId ?? null);
+    const uri = previewProvider.update({
+      id: project.id,
+      projectId: project.id,
+      ...(sourceUri ? { sourceUri } : {}),
+      content: renderInvestigation(result, project.name),
+    });
+    const document = await vscode.workspace.openTextDocument(uri);
+    await vscode.window.showTextDocument(document, {
+      viewColumn: vscode.ViewColumn.Active,
+      preview: true,
+    });
+  }
+
+  async function selectBoundRepository() {
+    const blueprint = activeBlueprint;
+    if (!blueprint) return undefined;
+    const repositories = blueprint.manifest.repositories.filter(
+      (repo) => blueprint.binding.checkouts[repo.id],
+    );
+    if (repositories.length === 1) return repositories[0];
+    return (
+      await vscode.window.showQuickPick(
+        repositories.map((repository) => ({
+          label: repository.name,
+          description: blueprint.binding.checkouts[repository.id],
+          repository,
+        })),
+        { title: "Choose Blueprint repository" },
+      )
+    )?.repository;
+  }
+
+  async function activateBlueprint(
+    artifactRoot: string,
+    manifest: BlueprintManifest,
+    project: ProjectContext,
+  ): Promise<void> {
+    const savedBindings = bindingState?.get<Record<string, BlueprintBinding>>(BINDING_KEY, {});
+    const existing = savedBindings?.[manifest.id];
+    const firstRepository =
+      manifest.repositories.length === 1
+        ? manifest.repositories[0]
+        : (
+            await vscode.window.showQuickPick(
+              manifest.repositories.map((repository) => ({
+                label: repository.name,
+                description: repository.id,
+                repository,
+              })),
+              { title: "Bind repository to selected checkout" },
+            )
+          )?.repository;
+    if (!firstRepository) return;
+    const binding: BlueprintBinding = existing ?? {
+      blueprintId: manifest.id,
+      artifactRoot,
+      checkouts: { [firstRepository.id]: project.rootUri.fsPath },
+    };
+    binding.artifactRoot = artifactRoot;
+    binding.checkouts[firstRepository.id] = project.rootUri.fsPath;
+    const traces = await loadTraceStore(artifactRoot, manifest);
+    activeBlueprint = { artifactRoot, manifest, binding, traces };
+    activeBlueprintWatcher?.dispose();
+    activeBlueprintWatcher = vscode.workspace.createFileSystemWatcher(
+      new vscode.RelativePattern(
+        artifactRoot,
+        manifest.schemaVersion === 3 ? "blueprint.json" : manifest.artifacts.traces,
+      ),
+    );
+    activeBlueprintWatcher.onDidChange(() => blueprintLensChanges.fire());
+    activeBlueprintWatcher.onDidCreate(() => blueprintLensChanges.fire());
+    activeBlueprintWatcher.onDidDelete(() => blueprintLensChanges.fire());
+    await saveLocalBinding(binding);
+    await vscode.commands.executeCommand("setContext", "afx.blueprintAttached", true);
+    void vscode.window.showInformationMessage(`Blueprint attached: ${manifest.name}`);
+    blueprintLensChanges.fire();
+  }
+
+  async function ensureBlueprintDocumentRoot(
+    blueprint: NonNullable<typeof activeBlueprint>,
+    repositoryId: string,
+  ): Promise<{ id: string; root: string } | undefined> {
+    const descriptor = blueprint.manifest.documents?.[0] ?? {
+      id: "sdd",
+      name: "AFX documents",
+      kind: "sdd" as const,
+    };
+    const existing = blueprint.binding.documentRoots?.[descriptor.id];
+    if (existing) return { id: descriptor.id, root: existing };
+    const projectRoot = blueprint.binding.checkouts[repositoryId];
+    const choice = await vscode.window.showQuickPick(
+      [
+        {
+          label: "$(folder) This project",
+          description: projectRoot ? join(projectRoot, "docs/specs") : undefined,
+          value: "project" as const,
+        },
+        {
+          label: "$(folder-opened) Choose another folder…",
+          description: "Keep AFX documents in a separate repository or private location",
+          value: "choose" as const,
+        },
+      ],
+      {
+        title: "Where should AFX documents live?",
+        placeHolder: "Asked once, when you first create or link a document",
+      },
+    );
+    if (!choice) return undefined;
+    const root =
+      choice.value === "project"
+        ? projectRoot
+        : (
+            await vscode.window.showOpenDialog({
+              title: "Choose AFX document root",
+              canSelectFiles: false,
+              canSelectFolders: true,
+              canSelectMany: false,
+            })
+          )?.[0]?.fsPath;
+    if (!root) return undefined;
+    blueprint.binding.documentRoots = {
+      ...(blueprint.binding.documentRoots ?? {}),
+      [descriptor.id]: root,
+    };
+    await saveLocalBinding(blueprint.binding);
+    return { id: descriptor.id, root };
+  }
+
+  const getRoot = createDocumentRootResolver(() => discoveredProjects);
+  const getExternalReferences = async (document: vscode.TextDocument) => {
+    const blueprint = activeBlueprint;
+    if (!blueprint) return [];
+    try {
+      blueprint.traces = await loadTraceStore(blueprint.artifactRoot, blueprint.manifest);
+    } catch {
+      return resolveBlueprintReferences(
+        document,
+        blueprint.artifactRoot,
+        blueprint.binding,
+        blueprint.traces,
+      ).map((reference) => ({ ...reference, resolution: "unresolved" as const }));
+    }
+    if (activeBlueprint !== blueprint) return [];
+    const references = resolveBlueprintReferences(
+      document,
+      blueprint.artifactRoot,
+      blueprint.binding,
+      blueprint.traces,
+    );
+    if (
+      !references.some(
+        (reference) =>
+          reference.resolution !== "resolved" &&
+          blueprint.traces.links.some((link) => link.id === reference.linkId && link.source.symbol),
+      )
+    )
+      return references;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const symbols = await Promise.race([
+        inspectDocumentSymbols(document, document.version, () => document.version),
+        new Promise<undefined>((resolve) => {
+          timer = setTimeout(() => resolve(undefined), 1500);
+        }),
+      ]);
+      return symbols?.state === "current"
+        ? repositionBlueprintReferences(references, blueprint.traces, symbols.symbols)
+        : references;
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  const blueprintMetadataWatcher = vscode.workspace.createFileSystemWatcher(
+    "**/{package.json,pyproject.toml,Cargo.toml,go.mod,.git}",
+  );
+  const invalidateExternalObservation = (uri: vscode.Uri): void => {
+    const project = resolveProject(uri, discoveredProjects);
+    if (!project) return;
+    observations.delete(project.id);
+    previewProvider.markStale(project.id, "stale");
+    void observationStorage.clear(project.id);
+  };
 
   // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-API]
   context.subscriptions.push(
+    previewProvider,
+    blueprintMetadataWatcher,
+    blueprintMetadataWatcher.onDidCreate(invalidateExternalObservation),
+    blueprintMetadataWatcher.onDidChange(invalidateExternalObservation),
+    blueprintMetadataWatcher.onDidDelete(invalidateExternalObservation),
+    vscode.workspace.registerTextDocumentContentProvider(BLUEPRINT_PREVIEW_SCHEME, previewProvider),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      void refreshProjects();
+    }),
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      const project = resolveProject(event.document.uri, discoveredProjects);
+      if (project)
+        previewProvider.markStale(project.id, event.document.isDirty ? "dirty" : "stale");
+    }),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      const project = resolveProject(document.uri, discoveredProjects);
+      if (!project) return;
+      observations.delete(project.id);
+      previewProvider.markStale(project.id, "stale");
+      void observationStorage.clear(project.id);
+    }),
+    vscode.commands.registerCommand("afx.inspectRepository", async (source?: vscode.Uri) => {
+      const captured = source ?? vscode.window.activeTextEditor?.document.uri;
+      const project = await selectBlueprintProject(captured);
+      if (!project) return;
+      await inspectAndOpenBlueprint(project, captured);
+    }),
+    vscode.commands.registerCommand("afx.refreshBlueprint", async (previewUri?: vscode.Uri) => {
+      const record = previewUri ? previewProvider.get(previewUri) : undefined;
+      const project = discoveredProjects.find((candidate) => candidate.id === record?.projectId);
+      if (!project) return;
+      await inspectAndOpenBlueprint(project, record?.sourceUri);
+    }),
+    vscode.commands.registerCommand("afx.changeBlueprintProject", async () => {
+      const project = await selectBlueprintProject();
+      if (project) await inspectAndOpenBlueprint(project);
+    }),
+    vscode.commands.registerCommand("afx.copyBlueprintContext", async (previewUri?: vscode.Uri) => {
+      const record = previewUri ? previewProvider.get(previewUri) : undefined;
+      if (record) await vscode.env.clipboard.writeText(record.content);
+    }),
+    vscode.commands.registerCommand("afx.clearBlueprintCache", async (projectId?: string) => {
+      await observationStorage.clear(projectId);
+      if (projectId) observations.delete(projectId);
+      else observations.clear();
+      vscode.window.showInformationMessage("AgenticFlowX: observation cache cleared.");
+    }),
+    vscode.commands.registerCommand("afx.showBlueprintCacheDetails", () => {
+      const details = observationStorage.details();
+      vscode.window.showInformationMessage(
+        `AgenticFlowX: Blueprint observations use ${details.mode} storage${details.storageRoot ? ` at ${details.storageRoot}` : ""}.`,
+      );
+    }),
+    vscode.commands.registerCommand("afx.saveBlueprint", async (previewUri?: vscode.Uri) => {
+      const record = previewUri ? previewProvider.get(previewUri) : undefined;
+      const project =
+        discoveredProjects.find((candidate) => candidate.id === record?.projectId) ??
+        (await selectBlueprintProject(record?.sourceUri));
+      if (!project) return;
+      const investigation = investigations.get(project.id);
+      if (!investigation || investigation.evidence.length === 0)
+        throw new Error("Inspect this repository successfully before saving a Blueprint.");
+      const destination = await chooseBlueprintSaveLocation(project);
+      if (!destination) return;
+      const { artifactRoot, name, attach } = destination;
+      const manifest = await createBlueprint({
+        schemaVersion: 3,
+        artifactRoot,
+        name,
+        repository: { name: project.name, kind: project.kind === "repository" ? "git" : "folder" },
+        researchMarkdown: renderInvestigation(investigation, project.name),
+      });
+      await saveBlueprintModel(artifactRoot, manifest, manifest.repositories[0]!.id, investigation);
+      const savedManifest = await openBlueprint(artifactRoot);
+      if (attach) await activateBlueprint(artifactRoot, savedManifest, project);
+      vscode.window.showInformationMessage(`AgenticFlowX: saved Blueprint at ${artifactRoot}.`);
+    }),
+    vscode.commands.registerCommand("afx.openBlueprint", async (manifestUri?: vscode.Uri) => {
+      const selected = manifestUri
+        ? [manifestUri]
+        : await vscode.window.showOpenDialog({
+            title: "Open Blueprint…",
+            canSelectFiles: true,
+            canSelectFolders: true,
+            canSelectMany: false,
+            filters: { "AFX Blueprint": ["json"] },
+          });
+      const chosen = selected?.[0]?.fsPath;
+      if (!chosen) return;
+      const manifest = await openBlueprint(chosen);
+      const artifactRoot = chosen.endsWith(".json") ? resolve(chosen, "..") : chosen;
+      openedBlueprint = { artifactRoot, manifest };
+      await vscode.window.showTextDocument(
+        vscode.Uri.file(
+          join(
+            artifactRoot,
+            manifest.schemaVersion === 3 ? "blueprint.md" : manifest.artifacts.overview,
+          ),
+        ),
+      );
+    }),
+    vscode.commands.registerCommand("afx.migrateBlueprint", async () => {
+      const blueprint = openedBlueprint ?? activeBlueprint;
+      if (!blueprint) throw new Error("Open the v1 Blueprint to migrate first.");
+      if (activeExecutionContext)
+        throw new Error("End the work session before migrating its Blueprint.");
+      const manifest = await migrateBlueprint(blueprint.artifactRoot);
+      openedBlueprint = { artifactRoot: blueprint.artifactRoot, manifest };
+      if (activeBlueprint?.manifest.id === manifest.id) {
+        activeBlueprint.manifest = manifest;
+        activeBlueprint.traces = await loadTraceStore(blueprint.artifactRoot, manifest);
+      }
+      void vscode.window.showInformationMessage(
+        "Blueprint migrated to v2. Inspect its bound repository to create a semantic model.",
+      );
+    }),
+    vscode.commands.registerCommand("afx.recoverBlueprintMigration", async () => {
+      const selected = await vscode.window.showOpenDialog({
+        title: "Recover Blueprint Migration",
+        canSelectFiles: false,
+        canSelectFolders: true,
+        canSelectMany: false,
+      });
+      if (!selected?.[0]) return;
+      const artifactRoot = selected[0].fsPath;
+      const manifest = await recoverBlueprintMigration(artifactRoot);
+      openedBlueprint = { artifactRoot, manifest };
+      void vscode.window.showInformationMessage(
+        "Blueprint migration recovered; reopen or attach it to continue.",
+      );
+    }),
+    vscode.commands.registerCommand("afx.attachBlueprint", async (sourceUri?: vscode.Uri) => {
+      if (!openedBlueprint) await vscode.commands.executeCommand("afx.openBlueprint");
+      if (!openedBlueprint) return;
+      const project = await selectBlueprintProject(sourceUri);
+      if (project)
+        await activateBlueprint(openedBlueprint.artifactRoot, openedBlueprint.manifest, project);
+    }),
+    vscode.commands.registerCommand("afx.beginBlueprintPlanning", async () => {
+      const blueprint = activeBlueprint;
+      if (!blueprint) throw new Error("Attach a Blueprint first.");
+      await vscode.window.showTextDocument(
+        vscode.Uri.file(join(blueprint.artifactRoot, "blueprint.md")),
+      );
+    }),
+    vscode.commands.registerCommand("afx.endBlueprintSession", async () => {
+      if ((await requireAgentManager().getStatus()).isStreaming)
+        throw new Error(
+          "Wait for or stop the active conversation before ending its Blueprint session.",
+        );
+      activeExecutionContext = undefined;
+      await scheduleAgentRuntimeRebuild("Blueprint work session ended");
+    }),
+    vscode.commands.registerCommand("afx.detachBlueprint", async () => {
+      if (activeExecutionContext)
+        throw new Error("End the Blueprint work session before detaching.");
+      activeBlueprintWatcher?.dispose();
+      activeBlueprintWatcher = undefined;
+      activeBlueprint = undefined;
+      await vscode.commands.executeCommand("setContext", "afx.blueprintAttached", false);
+      blueprintLensChanges.fire();
+    }),
+    vscode.commands.registerCommand("afx.saveBlueprintRevision", async () => {
+      const blueprint = activeBlueprint;
+      if (!blueprint) throw new Error("Attach a Blueprint before saving a new model revision.");
+      const repository = await selectBoundRepository();
+      if (!repository) return;
+      const project = discoveredProjects.find(
+        (item) => item.rootUri.fsPath === blueprint.binding.checkouts[repository.id],
+      );
+      const result = project ? investigations.get(project.id) : undefined;
+      if (!result?.evidence.length)
+        throw new Error("Inspect the bound repository before saving a new model revision.");
+      const model = await saveBlueprintModel(
+        blueprint.artifactRoot,
+        blueprint.manifest,
+        repository.id,
+        result,
+        project ? investigationParents.get(project.id) : undefined,
+      );
+      blueprint.manifest = await openBlueprint(blueprint.artifactRoot);
+      void vscode.window.showInformationMessage(
+        `Saved Blueprint model revision ${model.modelRevisionId}. Authored specs and trace links are retained.`,
+      );
+    }),
+    vscode.commands.registerCommand("afx.reviewBlueprintFinding", async () => {
+      const blueprint = activeBlueprint;
+      const repository = await selectBoundRepository();
+      if (!blueprint || !repository)
+        throw new Error("Attach a Blueprint before reviewing findings.");
+      const model = await loadBlueprintModel(
+        blueprint.artifactRoot,
+        blueprint.manifest,
+        repository.id,
+      );
+      if (!model) throw new Error("Save an investigated model first.");
+      const selected = await vscode.window.showQuickPick(
+        model.investigation.findings.map((finding) => ({
+          label: finding.title,
+          description: finding.category,
+          detail: finding.description,
+          finding,
+        })),
+        { title: "Review Blueprint Finding" },
+      );
+      if (!selected) return;
+      const decision = await vscode.window.showQuickPick(
+        ["accepted", "rejected", "corrected"] as const,
+        {
+          title: "Finding decision",
+          placeHolder: "This records your research review, not task verification.",
+        },
+      );
+      if (decision !== "accepted" && decision !== "rejected" && decision !== "corrected") return;
+      const notes = await vscode.window.showInputBox({
+        title: "Finding review notes",
+        prompt: "Describe the correction or basis for your decision.",
+        ignoreFocusOut: true,
+      });
+      if (notes === undefined) return;
+      await saveFindingReview(
+        blueprint.artifactRoot,
+        blueprint.manifest,
+        model,
+        selected.finding.id,
+        decision,
+        notes,
+      );
+      blueprint.manifest = await openBlueprint(blueprint.artifactRoot);
+      void vscode.window.showInformationMessage(
+        "Finding review saved separately from the derived model and retained for reinspection.",
+      );
+    }),
+    vscode.commands.registerCommand("afx.checkBlueprintChanges", async () => {
+      if (!activeBlueprint) throw new Error("Attach a saved Blueprint first.");
+      const repository = await selectBoundRepository();
+      if (!repository) return;
+      const model = await loadBlueprintModel(
+        activeBlueprint.artifactRoot,
+        activeBlueprint.manifest,
+        repository.id,
+      );
+      if (!model) throw new Error("This Blueprint has no saved semantic model.");
+      const codeRoot = activeBlueprint.binding.checkouts[repository.id];
+      if (!codeRoot) throw new Error("Bind a code checkout first.");
+      const changes = await reconcileBlueprintModel(model, codeRoot);
+      await saveBlueprintChanges(activeBlueprint.artifactRoot, activeBlueprint.manifest, changes);
+      activeBlueprint.manifest = await openBlueprint(activeBlueprint.artifactRoot);
+      const content = [
+        `# Blueprint changes: ${activeBlueprint.manifest.name}`,
+        "",
+        `Compared with model ${model.modelRevisionId}`,
+        `Git baseline: ${model.baseline.gitRevision ?? "unavailable"} → ${changes.toGitRevision ?? "unavailable"}. Content hashes determine freshness.`,
+        "",
+        `Affected claims: ${changes.affectedClaimIds.length} · Affected entities: ${changes.affectedEntityIds.length}`,
+        ...model.claims
+          .filter((claim) => changes.affectedClaimIds.includes(claim.id))
+          .map((claim) => `- Needs review: ${claim.description}`),
+        "",
+        "## Possible moves — review before relinking",
+        ...changes.renameCandidates.map(
+          (candidate) =>
+            `- \`${candidate.from}\` → \`${candidate.to}\` (${candidate.basis}; ${candidate.state})`,
+        ),
+        "",
+        ...(["changed", "missing", "added", "current", "unknown"] as const).flatMap((state) => [
+          `## ${state} (${changes[state].length})`,
+          "",
+          ...changes[state].map((file) => `- \`${file}\``),
+          "",
+        ]),
+        "Unknown files were not examined by this model. Reinspect explicitly to investigate impact.",
+      ].join("\n");
+      const uri = previewProvider.update({
+        id: `changes-${model.modelRevisionId}`,
+        projectId: model.repositoryId,
+        content,
+      });
+      await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri), {
+        viewColumn: vscode.ViewColumn.Active,
+        preview: true,
+      });
+    }),
+    vscode.commands.registerCommand("afx.linkSourceToBlueprint", async () => {
+      const blueprint = activeBlueprint;
+      const editor = vscode.window.activeTextEditor;
+      if (!blueprint || !editor) {
+        vscode.window.showWarningMessage(
+          "AgenticFlowX: open a saved Blueprint and source file first.",
+        );
+        return;
+      }
+      const repository = blueprint.manifest.repositories.find((candidate) => {
+        const root = blueprint.binding.checkouts[candidate.id];
+        if (!root) return false;
+        const candidatePath = relative(root, editor.document.uri.fsPath);
+        return (
+          candidatePath !== ".." &&
+          !candidatePath.startsWith(`..${sep}`) &&
+          !isAbsolute(candidatePath)
+        );
+      });
+      if (!repository)
+        throw new Error("The source file is outside this Blueprint's bound checkouts.");
+      const documentRoot = await ensureBlueprintDocumentRoot(blueprint, repository.id);
+      if (!documentRoot) return;
+      const targetPath = await vscode.window.showInputBox({
+        title: "Link to Blueprint…",
+        prompt: `Markdown path inside ${documentRoot.root}`,
+        placeHolder: "docs/specs/feature/spec.md",
+        ignoreFocusOut: true,
+      });
+      if (!targetPath) return;
+      const anchorId = await vscode.window.showInputBox({
+        title: "Link to Blueprint…",
+        prompt: "Optional requirement, design or task ID",
+        placeHolder: "FR-1",
+        ignoreFocusOut: true,
+      });
+      const selection = editor.selection;
+      let sourceScope: "file" | "symbol" | "range" = selection.isEmpty ? "file" : "range";
+      let sourceSymbol:
+        | {
+            name: string;
+            kind: number;
+            range: {
+              start: { line: number; character: number };
+              end: { line: number; character: number };
+            };
+            selectionRange: {
+              start: { line: number; character: number };
+              end: { line: number; character: number };
+            };
+          }
+        | undefined;
+      if (selection.isEmpty) {
+        const symbols =
+          (await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+            "vscode.executeDocumentSymbolProvider",
+            editor.document.uri,
+          )) ?? [];
+        const flatten = (items: readonly vscode.DocumentSymbol[]): vscode.DocumentSymbol[] =>
+          items.flatMap((item) => [item, ...flatten(item.children)]).slice(0, 200);
+        const choice = await vscode.window.showQuickPick(
+          [
+            { label: "$(file) Entire file", value: undefined as vscode.DocumentSymbol | undefined },
+            ...flatten(symbols).map((symbol) => ({
+              label: `$(symbol-method) ${symbol.name}`,
+              description: symbol.detail,
+              value: symbol,
+            })),
+          ],
+          { title: "Link to Blueprint… Choose source scope" },
+        );
+        if (!choice) return;
+        if (choice.value) {
+          const symbol = choice.value;
+          const mapRange = (range: vscode.Range) => ({
+            start: { line: range.start.line, character: range.start.character },
+            end: { line: range.end.line, character: range.end.character },
+          });
+          sourceScope = "symbol";
+          sourceSymbol = {
+            name: symbol.name,
+            kind: Number(symbol.kind) + 1,
+            range: mapRange(symbol.range),
+            selectionRange: mapRange(symbol.selectionRange),
+          };
+        }
+      }
+      const sourcePath = relative(
+        blueprint.binding.checkouts[repository.id]!,
+        editor.document.uri.fsPath,
+      ).replaceAll("\\", "/");
+      blueprint.traces = await addTraceLink(
+        blueprint.artifactRoot,
+        blueprint.manifest,
+        blueprint.traces.revision,
+        {
+          repositoryId: repository.id,
+          sourcePath,
+          languageId: editor.document.languageId,
+          scope: sourceScope,
+          ...(sourceScope === "range"
+            ? {
+                range: {
+                  start: { line: selection.start.line, character: selection.start.character },
+                  end: { line: selection.end.line, character: selection.end.character },
+                },
+              }
+            : {}),
+          targetPath,
+          documentRootId: documentRoot.id,
+          documentRoot: documentRoot.root,
+          ...(anchorId
+            ? {
+                targetAnchor: {
+                  kind: /^FR-|^NFR-/.test(anchorId)
+                    ? "requirement"
+                    : /^DES-/.test(anchorId)
+                      ? "design"
+                      : /^\d+\.\d+$/.test(anchorId)
+                        ? "task"
+                        : "section",
+                  id: anchorId,
+                },
+              }
+            : {}),
+          ...(sourceSymbol ? { symbol: sourceSymbol } : {}),
+          content: editor.document.getText(),
+        },
+      );
+      blueprint.manifest = await openBlueprint(blueprint.artifactRoot);
+      await vscode.commands.executeCommand("editor.action.codeLensRefresh");
+      blueprintLensChanges.fire();
+      vscode.window.showInformationMessage("AgenticFlowX: source link saved in the Blueprint.");
+    }),
+    vscode.commands.registerCommand("afx.reviewBlueprintLinks", async () => {
+      const blueprint = activeBlueprint;
+      const editor = vscode.window.activeTextEditor;
+      if (!blueprint || !editor) {
+        vscode.window.showWarningMessage(
+          "AgenticFlowX: open a saved Blueprint and the intended source file first.",
+        );
+        return;
+      }
+      const selected = await vscode.window.showQuickPick(
+        blueprint.traces.links.map((link) => ({
+          label: `${link.lastKnownResolution === "resolved" ? "$(pass)" : "$(warning)"} ${link.target.anchor ? `[${link.target.anchor.id}] ` : ""}${link.target.path}`,
+          description: `${link.source.path} · ${link.lastKnownResolution ?? "unresolved"}`,
+          detail: link.description,
+          link,
+        })),
+        {
+          title: "Review or Relink Blueprint Reference…",
+          placeHolder: "Choose the reference to bind to the active file or selection",
+        },
+      );
+      if (!selected) return;
+      const repository = blueprint.manifest.repositories.find((candidate) => {
+        const root = blueprint.binding.checkouts[candidate.id];
+        if (!root) return false;
+        const candidatePath = relative(root, editor.document.uri.fsPath);
+        return (
+          candidatePath !== ".." &&
+          !candidatePath.startsWith(`..${sep}`) &&
+          !isAbsolute(candidatePath)
+        );
+      });
+      if (!repository)
+        throw new Error("The active source file is outside this Blueprint's bound checkouts.");
+      const selection = editor.selection;
+      const mapRange = (range: vscode.Range) => ({
+        start: { line: range.start.line, character: range.start.character },
+        end: { line: range.end.line, character: range.end.character },
+      });
+      blueprint.traces = await relinkTraceSource(
+        blueprint.artifactRoot,
+        blueprint.manifest,
+        blueprint.traces.revision,
+        selected.link.id,
+        {
+          repositoryId: repository.id,
+          path: relative(
+            blueprint.binding.checkouts[repository.id]!,
+            editor.document.uri.fsPath,
+          ).replaceAll("\\", "/"),
+          languageId: editor.document.languageId,
+          scope: selection.isEmpty ? "file" : "range",
+          ...(!selection.isEmpty ? { range: mapRange(selection) } : {}),
+          content: editor.document.getText(),
+        },
+      );
+      blueprint.manifest = await openBlueprint(blueprint.artifactRoot);
+      await vscode.commands.executeCommand("editor.action.codeLensRefresh");
+      vscode.window.showInformationMessage(
+        "AgenticFlowX: Blueprint reference relinked to the active source.",
+      );
+    }),
+    vscode.commands.registerCommand("afx.newBlueprintSprint", async () => {
+      const blueprint = activeBlueprint;
+      if (!blueprint) throw new Error("Open a saved Blueprint before creating a Sprint.");
+      const name = await vscode.window.showInputBox({
+        title: "New Blueprint Sprint",
+        prompt: "Sprint name",
+      });
+      if (!name) return;
+      const repository = await selectBoundRepository();
+      if (!repository) return;
+      const documentRoot = await ensureBlueprintDocumentRoot(blueprint, repository.id);
+      if (!documentRoot) return;
+      const created = await createBlueprintSprint({
+        manifest: blueprint.manifest,
+        artifactRoot: blueprint.artifactRoot,
+        documentRoot: documentRoot.root,
+        name,
+        owner: "@owner",
+      });
+      await vscode.window.showTextDocument(vscode.Uri.file(created.sprintPath), { preview: false });
+    }),
+    vscode.commands.registerCommand("afx.continueBlueprintTask", async () => {
+      const blueprint = activeBlueprint;
+      if (!blueprint) throw new Error("Open a saved Blueprint before continuing a Sprint.");
+      const repository = await selectBoundRepository();
+      if (!repository) return;
+      const documentRoot = await ensureBlueprintDocumentRoot(blueprint, repository.id);
+      if (!documentRoot) return;
+      const sprints = await listBlueprintSprints(
+        blueprint.manifest,
+        blueprint.artifactRoot,
+        documentRoot.root,
+      );
+      const selected = await vscode.window.showQuickPick(
+        sprints.map((sprint) => ({ label: sprint.id, description: sprint.sprintPath, sprint })),
+        { title: "Continue Blueprint Sprint" },
+      );
+      if (!selected) return;
+      await vscode.window.showTextDocument(vscode.Uri.file(selected.sprint.sprintPath), {
+        preview: false,
+      });
+    }),
     // @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-6]
     // @see docs/specs/202-app-vscode-editor-actions/design.md [DES-ACTION-PREVIEW-PANEL]
     vscode.commands.registerCommand("afx.openAfxPreview", (uri?: vscode.Uri) =>
       openAfxPreview(afxPreviewDeps, uri ?? vscode.window.activeTextEditor?.document.uri),
     ),
     // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-MOCKUP-CODELENS]
-    vscode.languages.registerCodeLensProvider(TRACE_LANGUAGES, createSpecCodeLensProvider(getRoot)),
+    vscode.languages.registerCodeLensProvider(
+      TRACE_LANGUAGES,
+      createSpecCodeLensProvider(getRoot, getExternalReferences, blueprintLensChanges.event),
+    ),
     // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-CONTEXT-EXTRACTION]
     vscode.languages.registerHoverProvider(TRACE_LANGUAGES, createSpecHoverProvider(getRoot)),
     // @see docs/specs/203-app-vscode-see-navigation/design.md [DES-SEE-NODE-RESOLUTION]
@@ -1074,6 +2022,12 @@ export async function activate(
       customProvidersService.applyMutation({ kind: "upsertProvider", provider: input }),
     removeCustomProvider: (providerId) =>
       customProvidersService.applyMutation({ kind: "removeProvider", providerId }),
+    getBlueprintState: () => ({
+      attached: Boolean(activeBlueprint),
+      executionContextActive: Boolean(activeExecutionContext),
+      ...(activeBlueprint ? { schemaVersion: activeBlueprint.manifest.schemaVersion } : {}),
+      documentRootIds: Object.keys(activeBlueprint?.binding.documentRoots ?? {}),
+    }),
   };
 }
 

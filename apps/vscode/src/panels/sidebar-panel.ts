@@ -113,6 +113,8 @@ export interface SidebarPanelDeps {
   /** Resolved Pi agent directory (honours PI_CODING_AGENT_DIR). Defaults to ~/.pi/agent. */
   piAgentDir?: string;
   agentManager: AgentManager;
+  /** Validate explicit host context before a prompt reaches any runtime. */
+  beforeAgentSend?: () => Promise<void>;
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
   secretStore?: SecretStore;
@@ -2710,6 +2712,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         normalizePromptMentions(content, mentions),
       );
       const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+      await deps.beforeAgentSend?.();
       if (images) await agentManager.send(prompt, images);
       else await agentManager.send(prompt);
       if (!options?.isAuthRetry) commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
@@ -4217,6 +4220,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     try {
       const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
+        await deps.beforeAgentSend?.();
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
@@ -4250,6 +4254,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     try {
       const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
       await enqueueQueueInjection(async (epoch) => {
+        await deps.beforeAgentSend?.();
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),

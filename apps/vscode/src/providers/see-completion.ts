@@ -32,12 +32,12 @@ const NODE_KIND_ICON: Record<NodeIdEntry["kind"], vscode.CompletionItemKind> = {
 };
 
 export function createSeeCompletionProvider(
-  getRoot: () => string | undefined,
+  getRoot: (document: vscode.TextDocument) => string | undefined,
 ): vscode.CompletionItemProvider {
   // Flow: [SeeNavigation.Completion]
   return {
     provideCompletionItems(document, position): vscode.CompletionItem[] | undefined {
-      const root = getRoot();
+      const root = getRoot(document);
       if (!root) return undefined;
 
       const linePrefix = document.lineAt(position).text.slice(0, position.character);
