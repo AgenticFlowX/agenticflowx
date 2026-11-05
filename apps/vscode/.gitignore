@@ -1,5 +1,6 @@
 # Copied from repo root during pnpm package (prepackage step)
 README.md
+!resources/contracts/blueprint/README.md
 CHANGELOG.md
 NOTICE
 THIRD_PARTY_NOTICES.md
