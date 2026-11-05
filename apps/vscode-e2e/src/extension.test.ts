@@ -127,6 +127,30 @@ suite("AFX Extension — activation", () => {
     }
   });
 
+  test("Blueprint commands are contributed and registered", async () => {
+    const ext = vscode.extensions.getExtension("agenticflowx.agenticflowx");
+    assert.ok(ext, "Extension agenticflowx.agenticflowx not found");
+    const contributed =
+      (
+        ext.packageJSON as {
+          contributes?: { commands?: Array<{ command?: string }> };
+        }
+      ).contributes?.commands?.map(({ command }) => command) ?? [];
+    const registered = await vscode.commands.getCommands(true);
+    for (const id of [
+      "afx.inspectRepository",
+      "afx.openBlueprint",
+      "afx.saveBlueprint",
+      "afx.linkSourceToBlueprint",
+      "afx.reviewBlueprintLinks",
+      "afx.newBlueprintSprint",
+      "afx.continueBlueprintTask",
+    ]) {
+      assert.ok(contributed.includes(id), `${id} missing from package.json contributions`);
+      assert.ok(registered.includes(id), `${id} not registered after activation`);
+    }
+  });
+
   test("afx.showLogs executes without throwing", async () => {
     await vscode.commands.executeCommand("afx.showLogs");
   });

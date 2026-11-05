@@ -54,6 +54,30 @@ describe("PiRpcManager send rewrite", () => {
     vi.useRealTimers();
   });
 
+  it("isolates investigation from native tools and discovered repository resources", async () => {
+    const { createAgentManager } = await import("./rpc-manager");
+    const { createPiClient } = await import("./rpc-client");
+    const manager = createAgentManager({
+      logger: createLogger(),
+      ephemeral: true,
+      inspectionMode: true,
+    });
+    await manager.send("inspect repository");
+    expect(createPiClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: expect.arrayContaining([
+          "--no-tools",
+          "--no-extensions",
+          "--no-skills",
+          "--no-context-files",
+          "--no-prompt-templates",
+          "--no-session",
+        ]),
+      }),
+    );
+    await manager.dispose();
+  });
+
   it("sends rewritten AFX skill commands to Pi prompt", async () => {
     const { createAgentManager } = await import("./rpc-manager");
     const manager = createAgentManager({

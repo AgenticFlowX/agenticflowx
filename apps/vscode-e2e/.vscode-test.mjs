@@ -12,10 +12,14 @@ import { defineConfig } from "@vscode/test-cli";
 const extensionDevelopmentPath = process.env.AFX_VSCODE_E2E_EXTENSION_PATH?.trim() || "../vscode";
 
 export default defineConfig({
-  version: "1.105.0",
+  version: process.env.AFX_VSCODE_E2E_VERSION?.trim() || "1.105.0",
   files: "out/**/*.test.js",
   workspaceFolder: "../..",
   extensionDevelopmentPath,
+  launchArgs: [
+    `--user-data-dir=/tmp/afx-vscode-e2e-${process.pid}`,
+    `--extensions-dir=/tmp/afx-vscode-e2e-extensions-${process.pid}`,
+  ],
   mocha: {
     timeout: 20_000,
   },

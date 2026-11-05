@@ -50,13 +50,36 @@ class Selection extends Range {
   }
 }
 
+function mockUriToString(this: { path: string; scheme: string; authority: string }) {
+  return this.scheme === "file"
+    ? `file://${this.authority}${this.path}`
+    : `${this.scheme}:${this.path}`;
+}
+
+function mockUri(pathValue: string, scheme = "file") {
+  return {
+    fsPath: pathValue,
+    path: pathValue,
+    scheme,
+    authority: "",
+    toString: mockUriToString,
+  };
+}
+
 const Uri = {
-  file: (path: string) => ({ fsPath: path, path, scheme: "file" }),
-  parse: (path: string) => ({ fsPath: path, path, scheme: "file" }),
-  joinPath: (base: { path: string }, ...segments: string[]) => ({
+  file: (path: string) => mockUri(path),
+  parse: (value: string) => {
+    const separator = value.indexOf(":");
+    return separator > 0
+      ? mockUri(value.slice(separator + 1), value.slice(0, separator))
+      : mockUri(value);
+  },
+  joinPath: (base: { path: string; scheme?: string }, ...segments: string[]) => ({
     fsPath: [base.path, ...segments].join("/"),
     path: [base.path, ...segments].join("/"),
-    scheme: "file",
+    scheme: base.scheme ?? "file",
+    authority: "",
+    toString: mockUriToString,
   }),
 };
 
@@ -156,6 +179,7 @@ export const workspace = {
       save: async () => true,
     }) as unknown as { uri: unknown; getText: () => string; save: () => Promise<boolean> },
   applyEdit: async (_edit: unknown) => true,
+  registerTextDocumentContentProvider: () => mockDisposable,
 };
 
 export const window = {

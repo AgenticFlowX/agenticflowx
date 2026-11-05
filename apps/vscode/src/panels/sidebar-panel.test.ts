@@ -3003,6 +3003,22 @@ describe("sidebar-panel host bridge", () => {
     expect(agent.newSession).toHaveBeenCalledOnce();
   });
 
+  it("blocks a send when its explicit Blueprint context is invalid without falling back to the source runtime", async () => {
+    const beforeAgentSend = vi.fn(async () => {
+      throw new Error("Blueprint context unavailable; no source fallback");
+    });
+    const { inbound, postMessage } = setupWithView({ beforeAgentSend });
+    inbound.fire({
+      type: "chat/send",
+      requestId: "blueprint-blocked",
+      content: "/afx-scaffold spec private-plan",
+    });
+    await vi.waitFor(() => expect(beforeAgentSend).toHaveBeenCalledOnce());
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(JSON.stringify(postMessage.mock.calls)).toContain("Blueprint context unavailable");
+  });
+
   it("chat/send delegates to agent.send with the user content", async () => {
     const inbound = setup();
     inbound.fire({

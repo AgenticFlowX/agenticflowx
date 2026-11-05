@@ -19,5 +19,9 @@ describe("AFX VS Code host overlay prompt", () => {
     expect(content).toContain("legacy machine-readable UI action marker blocks");
     expect(content).toContain("older conversation context");
     expect(content).toContain("For non-AFX turns");
+    expect(content).toContain("validate the manifest at blueprintRoot");
+    expect(content).toContain("only to the explicitly bound documentRoot");
+    expect(content).toContain("never fall back to blueprintRoot");
+    expect(content).not.toContain("Route all specs, sprints, journals, decisions");
   });
 });

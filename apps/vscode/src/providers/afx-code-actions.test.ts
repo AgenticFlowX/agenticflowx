@@ -3,6 +3,8 @@
  *
  * @see docs/specs/202-app-vscode-editor-actions/spec.md [FR-1] [FR-2]
  * @see docs/specs/202-app-vscode-editor-actions/design.md [DES-TEST]
+ * @see docs/specs/231-app-vscode-blueprint/spec.md [FR-6]
+ * @see docs/specs/231-app-vscode-blueprint/design.md [DES-UI]
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -312,7 +314,15 @@ describe("createAfxCodeActionProvider", () => {
       group: "navigation@1",
       when: "editorLangId == markdown && afx.activeSddDocument",
     });
-    expect(editorTitle).toHaveLength(2);
+    expect(editorTitle.map((entry) => entry.command)).toEqual(
+      expect.arrayContaining([
+        "afx.inspectRepository",
+        "afx.saveBlueprint",
+        "afx.refreshBlueprint",
+        "afx.copyBlueprintContext",
+      ]),
+    );
+    expect(editorTitle).toHaveLength(6);
     expect(editorTitle.some((entry) => entry.submenu === "afx.editorContext")).toBe(false);
     expect(editorContext[0]).toMatchObject({
       command: "afx.openAfxPreview",
@@ -328,10 +338,12 @@ describe("createAfxCodeActionProvider", () => {
       group: "0_preview@2",
       when: "editorLangId == markdown && afx.activeSddDocument",
     });
-    expect(editorContext[3]).toMatchObject({
-      command: "afx.action.saveToNotes",
-      group: "1_notes@1",
-    });
+    expect(editorContext.find((entry) => entry.command === "afx.action.saveToNotes")).toMatchObject(
+      {
+        command: "afx.action.saveToNotes",
+        group: "1_notes@1",
+      },
+    );
     expect(iconSvg).toContain(">AF<");
     expect(iconSvg).toContain(">x<");
     expect(iconSvg).toContain("#111111");

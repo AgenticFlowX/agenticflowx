@@ -211,6 +211,29 @@ describe("createPiSdkAgentManager", () => {
     vi.useRealTimers();
   });
 
+  it("isolates investigation from native tools and discovered repository resources", async () => {
+    const manager = createPiSdkAgentManager({
+      logger,
+      bootstrapPath: "/extension/dist/bootstrap.js",
+      provider: "anthropic",
+      modelId: "claude-opus-4-5",
+      getApiKey: () => "",
+      inspectionMode: true,
+    });
+    await manager.send("inspect repository");
+    expect(mocks.clients[0]!.options).toMatchObject({
+      args: expect.arrayContaining([
+        "--no-tools",
+        "--no-extensions",
+        "--no-skills",
+        "--no-context-files",
+        "--no-prompt-templates",
+        "--no-session",
+      ]),
+    });
+    await manager.dispose();
+  });
+
   it("wires bootstrap path, session args, and provider env into Pi RPC client", async () => {
     const manager = createPiSdkAgentManager({
       logger,
