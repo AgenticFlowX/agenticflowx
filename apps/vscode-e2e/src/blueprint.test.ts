@@ -162,7 +162,12 @@ suite("AFX Blueprint — real host lifecycle", () => {
     } finally {
       await vscode.commands.executeCommand("afx.detachBlueprint");
       await rm(source, { force: true });
-      await rm(root, { recursive: true, force: true });
+      await rm(root, {
+        recursive: true,
+        force: true,
+        maxRetries: 10,
+        retryDelay: 100,
+      });
     }
   });
 });
