@@ -5,7 +5,7 @@
  * @see docs/specs/231-app-vscode-blueprint/design.md [DES-FORMAT] [DES-STORAGE] [DES-ERR]
  */
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { portableBlueprintSchema, validatePortableBlueprint } from "./blueprint-validation";
@@ -14,6 +14,7 @@ import { withBlueprintLock } from "./blueprint-writer";
 export const BLUEPRINT_SCHEMA_VERSION = 3;
 export const BLUEPRINT_MANIFEST = "blueprint.json";
 export const BLUEPRINT_TRANSACTION = ".afx-blueprint-transaction.json";
+export const BLUEPRINT_MAX_BYTES = 2 * 1024 * 1024;
 
 export interface BlueprintRepository {
   id: string;
@@ -373,6 +374,11 @@ export async function openBlueprint(artifactRootOrManifest: string): Promise<Blu
       Promise.reject(new Error("Blueprint has an interrupted operation that requires recovery.")),
     () => undefined,
   );
+  const manifestInfo = await lstat(manifestPath);
+  if (!manifestInfo.isFile() || manifestInfo.isSymbolicLink())
+    throw new Error("Blueprint manifest must be a regular file, not a symlink.");
+  if (manifestInfo.size > BLUEPRINT_MAX_BYTES)
+    throw new Error("Blueprint manifest exceeds the 2 MiB safety limit.");
   const parsed: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
   return validateBlueprintManifest(parsed);
 }

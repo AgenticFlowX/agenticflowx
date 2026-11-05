@@ -2,13 +2,14 @@
  * @see docs/specs/231-app-vscode-blueprint/spec.md [FR-9] [FR-10] [FR-15]
  * @see docs/specs/231-app-vscode-blueprint/design.md [DES-TEST]
  */
-import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  BLUEPRINT_MAX_BYTES,
   BLUEPRINT_TRANSACTION,
   createBlueprint,
   openBlueprint,
@@ -88,5 +89,20 @@ describe("Blueprint artifacts", () => {
     });
     await writeFile(path.join(root, BLUEPRINT_TRANSACTION), '{"operation":"create-sprint"}\n');
     await expect(openBlueprint(root)).rejects.toThrow(/requires recovery/);
+  });
+
+  it("rejects oversized and symlinked manifests before parsing", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "afx-blueprint-"));
+    const outside = await mkdtemp(path.join(tmpdir(), "afx-blueprint-outside-"));
+    roots.push(root, outside);
+    const manifestPath = path.join(root, "blueprint.json");
+    await writeFile(manifestPath, " ".repeat(BLUEPRINT_MAX_BYTES + 1));
+    await expect(openBlueprint(root)).rejects.toThrow(/2 MiB safety limit/);
+
+    await rm(manifestPath);
+    const outsideManifest = path.join(outside, "blueprint.json");
+    await writeFile(outsideManifest, "{}\n");
+    await symlink(outsideManifest, manifestPath);
+    await expect(openBlueprint(root)).rejects.toThrow(/regular file, not a symlink/);
   });
 });
