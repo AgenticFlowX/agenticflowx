@@ -16,7 +16,7 @@ depends_on: ["350-agent-manager", "351-agent-pi"]
 
 - **Agent Manager**: [Agent Manager](../350-agent-manager/spec.md)
 - **Pi Adapter**: [Agent Pi](../351-agent-pi/spec.md)
-- **Governing ADR**: [ADR-0010 OAuth Managed SDK Scope](../../adr/ADR-0010-afx-oauth-managed-sdk-scope.md)
+- **ADR reference**: `ADR-0010-afx-oauth-managed-sdk-scope.md` was referenced during planning but is not present in this repository; the requirements below remain the available OAuth contract.
 
 ---
 

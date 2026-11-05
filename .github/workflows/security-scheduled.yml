@@ -37,13 +37,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: lycheeverse/lychee-action@v2
+        # Exclude upstream skill templates and local-only/generated trees as inputs.
+        # Reddit rejects automated requests; exempt only the project's community URL.
         with:
           args: |-
             --no-progress
+            --exclude-path '(^|/)node_modules/'
+            --exclude-path '(^|/)\.turbo/'
+            --exclude-path '(^|/)docs/design-system/'
+            --exclude-path '(^|/)apps/vscode/resources/skills/'
             --exclude '^https?://localhost'
             --exclude '^https?://127\.0\.0\.1'
+            --exclude '^https://www\.reddit\.com/r/agenticflowx/?$'
             './**/*.md'
-            '!./node_modules/**'
-            '!./docs/design-system/**'
-            '!./.turbo/**'
           fail: true

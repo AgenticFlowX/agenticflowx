@@ -11,6 +11,7 @@
  */
 import { fileURLToPath } from "node:url";
 
+import { registerBunOAuthFlows } from "@earendil-works/pi-ai/bun-oauth";
 import type { ExtensionAPI, ExtensionFactory } from "@earendil-works/pi-coding-agent";
 import { main } from "@earendil-works/pi-coding-agent";
 
@@ -111,6 +112,11 @@ export function buildAfxProviderOverridesExtensionFactory(
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  // Pi's standalone loader statically includes OAuth implementations. Despite
+  // its name, it also supports Node bundles; the default variable imports
+  // otherwise resolve missing sibling files beside bootstrap.js.
+  // @see docs/specs/351-agent-pi/spec.md [FR-2]
+  registerBunOAuthFlows();
   const onDiagnostic = (msg: string): void => {
     process.stderr.write(`${msg}\n`);
   };

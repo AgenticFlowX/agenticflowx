@@ -6,7 +6,7 @@
  * @see docs/specs/351-agent-pi/design.md [DES-TEST]
  */
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
@@ -47,6 +47,72 @@ describe("bundled Pi SDK bootstrap", () => {
       true,
     );
   });
+
+  it("loads bundled Codex OAuth before rejecting a synthetic token without a network request", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "afx-bundled-oauth-"));
+    // A fresh but deliberately invalid access token exercises OAuth.toAuth,
+    // then fails JWT parsing before any provider request can be made.
+    writeFileSync(
+      path.join(cwd, "auth.json"),
+      JSON.stringify({
+        "openai-codex": {
+          type: "oauth",
+          access: "synthetic-not-a-jwt",
+          refresh: "unused-fixture",
+          expires: Date.now() + 3_600_000,
+        },
+      }),
+    );
+    const child = spawn(
+      process.execPath,
+      [
+        path.join(resourceRoot, "bootstrap.js"),
+        "--mode",
+        "rpc",
+        "--no-session",
+        "--no-tools",
+        "--no-extensions",
+        "--no-skills",
+        "--no-context-files",
+        "--no-prompt-templates",
+        "--no-themes",
+        "--provider",
+        "openai-codex",
+        "--model",
+        "gpt-5.5",
+      ],
+      {
+        cwd,
+        env: { ...process.env, PI_CODING_AGENT_DIR: cwd, OPENAI_API_KEY: "" },
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
+    const lines = createInterface({ input: child.stdout });
+    const events: unknown[] = [];
+    const timeout = setTimeout(() => child.kill(), 15_000);
+    try {
+      child.stdin.write(
+        JSON.stringify({ type: "prompt", message: "OAuth packaging fixture" }) + "\n",
+      );
+      let ended = false;
+      for await (const line of lines) {
+        const event = JSON.parse(line) as { type: string };
+        events.push(event);
+        if (event.type === "agent_end") {
+          ended = true;
+          break;
+        }
+      }
+      expect(ended).toBe(true);
+      expect(JSON.stringify(events)).toContain("Failed to extract accountId from token");
+      expect(JSON.stringify(events)).not.toContain("Cannot find module");
+    } finally {
+      clearTimeout(timeout);
+      lines.close();
+      child.kill();
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }, 20_000);
 
   it("starts the shipped Pi 0.84.4 runtime and clears its real queues without a model request", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "afx-bundled-pi-"));

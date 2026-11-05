@@ -5,7 +5,7 @@
 This file is generated from the production bundles and copied runtime assets.
 Do not edit it manually. Run `pnpm legal:write` after `pnpm build`.
 
-Inventory: 248 shipped package-version components.
+Inventory: 249 shipped package-version components.
 
 ## Shipped components
 
@@ -253,6 +253,13 @@ Inventory: 248 shipped package-version components.
 - Repository: https://github.com/googleapis/js-genai
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `cfc7749b96f6`
+
+### @isaacs/nonrecursive-glob-match 1.0.3
+
+- License: `BlueOak-1.0.0`
+- Repository: https://www.npmjs.com/package/%40isaacs%2Fnonrecursive-glob-match
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `8a1af140fdfb`
 
 ### @radix-ui/number 1.1.3
 
@@ -1360,7 +1367,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### minimatch 10.2.5
+### minimatch 11.0.1
 
 - License: `BlueOak-1.0.0`
 - Repository: https://github.com/isaacs/minimatch
@@ -1626,7 +1633,7 @@ Inventory: 248 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `baaa39822b65`
 
-### undici 8.10.2
+### undici 8.12.2
 
 - License: `MIT`
 - Repository: https://github.com/nodejs/undici
@@ -1747,15 +1754,15 @@ Inventory: 248 shipped package-version components.
 
 ## Audited evidence overrides
 
-- **@aws-sdk/credential-provider-http@3.972.76** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
-- **@aws-sdk/credential-provider-login@3.972.81** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
-- **@aws-sdk/nested-clients@3.997.48** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3
+- **@aws-sdk/credential-provider-http@3.972.76** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
+- **@aws-sdk/credential-provider-login@3.972.81** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
+- **@aws-sdk/nested-clients@3.997.48** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
 - **@earendil-works/pi-agent-core@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-ai@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-coding-agent@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-telemetry@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-tui@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
-- **data-uri-to-buffer@4.0.1** — The npm artifact carries its exact MIT license in README.md rather than a LICENSE file. Source: https://github.com/TooTallNate/node-data-uri-to-buffer/blob/v4.0.1/README.md#license
+- **data-uri-to-buffer@4.0.1** — The npm artifact carries its exact MIT license in README.md rather than a LICENSE file. Source: https://github.com/TooTallNate/node-data-uri-to-buffer/blob/85cd8c854aefbf1bb636789d80364cfac8ea1583/README.md#license
 - **highlight.js@11.9.0** — Pi ships a prebuilt Highlight.js 11.9.0 browser runtime whose version differs from its Node dependency. Source: https://github.com/highlightjs/highlight.js
 - **marked@18.0.5** — Pi ships Marked as a prebuilt browser runtime rather than an installed runtime package. Source: https://github.com/markedjs/marked
 - **react-remove-scroll-bar@2.3.8** — The npm artifact declares MIT but includes only a short README marker; the audited fallback is the upstream repository MIT file added after this release. Source: https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE
@@ -2815,7 +2822,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 2c7c5d22ed5a
 
-Used by: minimatch@10.2.5
+Used by: minimatch@11.0.1
 
 ~~~~text
 # Blue Oak Model License
@@ -4583,7 +4590,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 8a1af140fdfb
 
-Used by: lru-cache@11.5.3
+Used by: @isaacs/nonrecursive-glob-match@1.0.3, lru-cache@11.5.3
 
 ~~~~text
 # Blue Oak Model License
@@ -4855,7 +4862,7 @@ SOFTWARE.
 
 ### a6db8096b270
 
-Used by: undici@8.10.2
+Used by: undici@8.12.2
 
 ~~~~text
 MIT License

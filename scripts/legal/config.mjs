@@ -139,7 +139,7 @@ export const auditedOverrides = [
     licenseFiles: ["scripts/legal/licenses/aws-apache-2.txt"],
     reason:
       "This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact.",
-    source: "https://www.npmjs.com/package/@aws-sdk/core/v/3.978.3",
+    source: "https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE",
   })),
   {
     name: "data-uri-to-buffer",
@@ -149,7 +149,8 @@ export const auditedOverrides = [
     packageLicenseSections: [{ file: "README.md", start: "(The MIT License)", end: "\n[rfc]:" }],
     reason:
       "The npm artifact carries its exact MIT license in README.md rather than a LICENSE file.",
-    source: "https://github.com/TooTallNate/node-data-uri-to-buffer/blob/v4.0.1/README.md#license",
+    source:
+      "https://github.com/TooTallNate/node-data-uri-to-buffer/blob/85cd8c854aefbf1bb636789d80364cfac8ea1583/README.md#license",
   },
   {
     name: "react-remove-scroll-bar",

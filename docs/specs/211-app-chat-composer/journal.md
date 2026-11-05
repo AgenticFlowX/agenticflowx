@@ -13,7 +13,7 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 <!-- prefix: CC -->
 
 > Quick captures and discussion history for AI-assisted development sessions.
-> See [agenticflowx.md](../agenticflowx.md) for workflow.
+> See [agenticflowx.md](https://github.com/AgenticFlowX/afx/blob/main/docs/agenticflowx/agenticflowx.md) for workflow.
 
 ## Captures
 

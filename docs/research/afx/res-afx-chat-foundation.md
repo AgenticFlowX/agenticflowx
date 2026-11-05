@@ -274,7 +274,7 @@ This keeps the foundation roughly five small specs/ADRs (one per topic A/B/C/D/E
 
 - [apps/chat/src/app.tsx](../../../apps/chat/src/app.tsx) — tab shell
 - [apps/chat/src/views/chat.tsx](../../../apps/chat/src/views/chat.tsx) — composer + status bar
-- [apps/chat/src/views/explorer.tsx](../../../apps/chat/src/views/explorer.tsx) — to be replaced
+- Historical explorer view: `apps/chat/src/views/explorer.tsx` (subsequently removed).
 - [apps/chat/src/lib/bridge.ts](../../../apps/chat/src/lib/bridge.ts) — message bridge
 - [apps/vscode/src/agent-factory.ts](../../../apps/vscode/src/agent-factory.ts) — single Pi-aware chokepoint
 - [packages/shared/src/agent.ts](../../../packages/shared/src/agent.ts) — `AgentManager` contract
@@ -283,7 +283,7 @@ This keeps the foundation roughly five small specs/ADRs (one per topic A/B/C/D/E
 
 ### Related research
 
-- [res-pi-rpc-features.md](res-pi-rpc-features.md) — full RPC surface
+- [res-pi-rpc-features.md](../pi/res-pi-rpc-features.md) — full RPC surface
 - [res-afx-chat-display-surface.md](res-afx-chat-display-surface.md) — display priority and command picker behavior
 - [res-afx-product-boundary.md](res-afx-product-boundary.md) — runtime-adapter boundary, AFX-native vs runtime concerns
 

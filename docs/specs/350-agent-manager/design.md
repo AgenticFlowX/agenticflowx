@@ -178,7 +178,7 @@ The five behaviour mutations route to the **currently active instance only**, no
 - `setAutoCompaction(enabled)`
 - `setAutoRetry(enabled)`
 
-Implementation: `MultiplexedAgentManager` forwards each call via `requireActive().manager.<setter>(...)` ([apps/vscode/src/multiplex-agent-manager.ts](apps/vscode/src/multiplex-agent-manager.ts) lines 212-229). When the user switches model in the composer (which switches the active instance via `setModel({ instanceId })`), subsequent behaviour mutations target the new instance.
+Implementation: `MultiplexedAgentManager` forwards each call via `requireActive().manager.<setter>(...)` ([apps/vscode/src/multiplex-agent-manager.ts](../../../apps/vscode/src/multiplex-agent-manager.ts) lines 212-229). When the user switches model in the composer (which switches the active instance via `setModel({ instanceId })`), subsequent behaviour mutations target the new instance.
 
 **Consequence for UI:** each `AgentInstance` keeps its own copy of these values internally. Settings UI must surface the active-instance scope so users understand why a value set against one instance does not propagate to another (see `214-app-chat-settings [DES-SETTINGS-INSTANCE-CARDS]`).
 

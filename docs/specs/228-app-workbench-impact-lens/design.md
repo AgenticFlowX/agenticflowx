@@ -130,7 +130,7 @@ relationships and verification evidence.
 
 Implementation has not landed yet. The shapes below are the contract proposed by
 the upstream sprint at
-[../../../../docs/specs/001-vscode-impact-lens/001-vscode-impact-lens.md](../../../../docs/specs/001-vscode-impact-lens/001-vscode-impact-lens.md)
+`docs/specs/001-vscode-impact-lens/001-vscode-impact-lens.md` in the separate AFX planning workspace
 [DES-SHARED]. When `packages/shared/src/workbench-types.ts` lands these, each new
 type should carry `@see` to this anchor and the corresponding sub-anchor.
 

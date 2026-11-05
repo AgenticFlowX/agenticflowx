@@ -650,7 +650,7 @@ detector panel above the stepper.
 
 ### [DES-SETTINGS-INSTANCE-CARDS] Per-Instance Runtime Cards
 
-The Runtimes group renders one card per registered `AgentInstance` from `MultiplexedAgentManager.instances` ([apps/vscode/src/multiplex-agent-manager.ts](apps/vscode/src/multiplex-agent-manager.ts)). v1 has up to two:
+The Runtimes group renders one card per registered `AgentInstance` from `MultiplexedAgentManager.instances` ([apps/vscode/src/multiplex-agent-manager.ts](../../../apps/vscode/src/multiplex-agent-manager.ts)). v1 has up to two:
 
 | Card                | Renders when                                                                         | Body                                                                                                       |
 | ------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |

@@ -31,7 +31,7 @@ Before investing further in this integration, we need to decide **how AFX integr
 
 Concretely:
 
-1. **Engine transport**: extension host spawns `pi --mode rpc` as a child process via [`apps/vscode/src/engine/pi-client.ts`](../../apps/vscode/src/engine/pi-client.ts) and communicates over JSONL.
+1. **Engine transport**: extension host spawns `pi --mode rpc` as a child process via [`packages/agent/pi/src/rpc-client.ts`](../../packages/agent/pi/src/rpc-client.ts) and communicates over JSONL.
 2. **No pi packages in the extension bundle.** `@mariozechner/pi-coding-agent` stays as an extension `devDependency` only (for protocol types like `RpcCommand` / `RpcResponse`), not bundled into `out/extension.js`.
 3. **Lean harder on pi's extension points** for AFX-specific behaviour (skills, custom tools, event hooks) instead of building parallel systems in the extension host.
 
@@ -159,7 +159,7 @@ Pi explicitly does **not** ship built-in MCP support: _"Build CLI tools with REA
 
 ## References
 
-- Pi integration: [`apps/vscode/src/engine/pi-client.ts`](../../apps/vscode/src/engine/pi-client.ts), [`apps/vscode/src/engine/pi-manager.ts`](../../apps/vscode/src/engine/pi-manager.ts)
+- Pi integration: [`packages/agent/pi/src/rpc-client.ts`](../../packages/agent/pi/src/rpc-client.ts), [`packages/agent/pi/src/rpc-manager.ts`](../../packages/agent/pi/src/rpc-manager.ts)
 - Integration research: [`docs/research/pi/res-pi-integration-strategy.md`](../research/pi/res-pi-integration-strategy.md)
 - Pi RPC protocol docs: `pi-mono/packages/coding-agent/docs/rpc.md`
 - Pi SDK docs: `pi-mono/packages/coding-agent/docs/sdk.md`

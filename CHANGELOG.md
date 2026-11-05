@@ -2,6 +2,14 @@
 
 <!-- markdownlint-disable MD024 -->
 
+## [2.5.4] - 2026-11-05
+
+### Fixed
+
+- Include OAuth provider loaders in the bundled Pi runtime so signed-in Codex sessions can start reliably.
+- Update vulnerable runtime dependencies while retaining Pi 0.84.4.
+- Repair documentation links checked by scheduled CI.
+
 ## [2.5.3] - 2026-10-20
 
 ### Changed

@@ -30,12 +30,12 @@ approval:
 
 - **ADR**: [docs/adr/ADR-0007-runtime-theme-families.md](../../adr/ADR-0007-runtime-theme-families.md)
 - **Research**: [docs/research/res-meridian-shadcn-theme-taxonomy.md](../../research/res-meridian-shadcn-theme-taxonomy.md)
-- **Design workspace**: [docs/design-system/README.md](../../design-system/README.md)
-- **Design tokens**: [docs/design-system/tokens/meridian.tokens.css](../../design-system/tokens/meridian.tokens.css)
-- **Direction**: [docs/design-system/docs/rev-02-direction.md](../../design-system/docs/rev-02-direction.md)
-- **Token visibility**: [docs/design-system/docs/token-visibility-ui.md](../../design-system/docs/token-visibility-ui.md)
-- **History events**: [docs/design-system/docs/chat-history-events.md](../../design-system/docs/chat-history-events.md)
-- **Static mockup**: [docs/design-system/ui_kits/chat-main.html](../../design-system/ui_kits/chat-main.html)
+- **Local design workspace (not distributed)**: `docs/design-system/README.md`
+- **Local design tokens**: `docs/design-system/tokens/meridian.tokens.css`
+- **Local direction notes**: `docs/design-system/docs/rev-02-direction.md`
+- **Local token visibility notes**: `docs/design-system/docs/token-visibility-ui.md`
+- **Local history event notes**: `docs/design-system/docs/chat-history-events.md`
+- **Local static mockup**: `docs/design-system/ui_kits/chat-main.html`
 - **Existing spec**: [docs/specs/130-package-ui/spec.md](../130-package-ui/spec.md), [docs/specs/130-package-ui/design.md](../130-package-ui/design.md)
 - **Existing spec**: [docs/specs/200-app-vscode/spec.md](../200-app-vscode/spec.md), [docs/specs/200-app-vscode/design.md](../200-app-vscode/design.md)
 - **Existing spec**: [docs/specs/210-app-chat/spec.md](../210-app-chat/spec.md), [docs/specs/210-app-chat/design.md](../210-app-chat/design.md)
