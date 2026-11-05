@@ -51,11 +51,17 @@ function uriIdentity(uri: vscode.Uri): string {
 function contains(root: vscode.Uri, candidate: vscode.Uri): boolean {
   if ((root.scheme ?? "file") !== (candidate.scheme ?? "file")) return false;
   if ((root.authority ?? "") !== (candidate.authority ?? "")) return false;
-  const relative = path.posix.relative(
-    root.path ?? root.fsPath,
-    candidate.path ?? candidate.fsPath,
+  const isFile = root.scheme === "file";
+  const relative = isFile
+    ? path.relative(root.fsPath, candidate.fsPath)
+    : path.posix.relative(root.path, candidate.path);
+  const separator = isFile ? path.sep : path.posix.sep;
+  return (
+    relative === "" ||
+    (relative !== ".." &&
+      !relative.startsWith(`..${separator}`) &&
+      !(isFile ? path.isAbsolute(relative) : path.posix.isAbsolute(relative)))
   );
-  return relative === "" || (relative !== ".." && !relative.startsWith("../"));
 }
 
 async function markerKind(root: string): Promise<GitMarkerKind | undefined> {
