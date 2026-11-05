@@ -5,137 +5,137 @@
 This file is generated from the production bundles and copied runtime assets.
 Do not edit it manually. Run `pnpm legal:write` after `pnpm build`.
 
-Inventory: 249 shipped package-version components.
+Inventory: 260 shipped package-version components.
 
 ## Shipped components
 
-### @anthropic-ai/sdk 0.91.1
+### @anthropic-ai/sdk 0.129.0
 
 - License: `MIT`
 - Repository: https://github.com/anthropics/anthropic-sdk-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `f8508be03f7b`
 
-### @aws-sdk/client-bedrock-runtime 3.1048.0
+### @aws-sdk/client-bedrock-runtime 3.1127.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `18c295fdd68d`
 
-### @aws-sdk/core 3.978.3
+### @aws-sdk/core 3.980.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-env 3.972.74
+### @aws-sdk/credential-provider-env 3.972.81
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-http 3.972.76
+### @aws-sdk/credential-provider-http 3.972.83
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-ini 3.973.19
+### @aws-sdk/credential-provider-ini 3.973.26
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-login 3.972.81
+### @aws-sdk/credential-provider-login 3.972.88
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/credential-provider-node 3.972.86
+### @aws-sdk/credential-provider-node 3.972.93
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/credential-provider-process 3.972.74
+### @aws-sdk/credential-provider-process 3.972.81
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-sso 3.973.18
+### @aws-sdk/credential-provider-sso 3.973.25
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/credential-provider-web-identity 3.972.80
+### @aws-sdk/credential-provider-web-identity 3.972.87
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `84d995af201d`
 
-### @aws-sdk/eventstream-handler-node 3.972.36
+### @aws-sdk/eventstream-handler-node 3.972.40
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/middleware-eventstream 3.972.31
+### @aws-sdk/middleware-eventstream 3.972.36
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `e345c2ee7df4`
 
-### @aws-sdk/middleware-websocket 3.972.56
+### @aws-sdk/middleware-websocket 3.972.63
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/nested-clients 3.997.48
+### @aws-sdk/nested-clients 3.998.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4186c3f89c23`
 
-### @aws-sdk/signature-v4-multi-region 3.996.48
+### @aws-sdk/signature-v4-multi-region 3.996.51
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
 
-### @aws-sdk/token-providers 3.1048.0
+### @aws-sdk/token-providers 3.1127.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/token-providers 3.1150.0
+### @aws-sdk/token-providers 3.1162.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @aws-sdk/xml-builder 3.972.41
+### @aws-sdk/xml-builder 3.972.42
 
 - License: `Apache-2.0`
 - Repository: https://github.com/aws/aws-sdk-js-v3
@@ -177,35 +177,56 @@ Inventory: 249 shipped package-version components.
 - Included by: Workbench webview
 - Exact license evidence: `537607e3f153`
 
-### @earendil-works/pi-agent-core 0.84.4
+### @earendil-works/pi-agent-core 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-ai 0.84.4
+### @earendil-works/pi-ai 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-coding-agent 0.84.4
+### @earendil-works/pi-codemode 1.5.0
+
+- License: `MIT`
+- Repository: https://github.com/earendil-works/pi
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `4f6a1985796d`
+
+### @earendil-works/pi-coding-agent 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers, Pi export templates, Pi interactive themes and assets
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-telemetry 0.84.4
+### @earendil-works/pi-mcp 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `4f6a1985796d`
 
-### @earendil-works/pi-tui 0.84.4
+### @earendil-works/pi-schema 1.5.0
+
+- License: `MIT`
+- Repository: https://github.com/earendil-works/pi
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `4f6a1985796d`
+
+### @earendil-works/pi-telemetry 1.5.0
+
+- License: `MIT`
+- Repository: https://github.com/earendil-works/pi
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `4f6a1985796d`
+
+### @earendil-works/pi-tui 1.5.0
 
 - License: `MIT`
 - Repository: https://github.com/earendil-works/pi
@@ -247,7 +268,7 @@ Inventory: 249 shipped package-version components.
 - Included by: JetBrains Mono webfonts in Chat, JetBrains Mono webfonts in Workbench
 - Exact license evidence: `403581b69dac`
 
-### @google/genai 1.52.0
+### @google/genai 2.21.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/googleapis/js-genai
@@ -555,7 +576,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `db5502bc3655`
 
-### @smithy/core 3.36.0
+### @smithy/core 3.39.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
@@ -583,26 +604,33 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/node-http-handler 4.7.3
+### @smithy/node-http-handler 4.14.2
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/signature-v4 5.7.4
+### @smithy/signature-v4 5.7.5
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `b659ef9e3ce8`
 
-### @smithy/types 4.19.0
+### @smithy/types 4.20.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/smithy-lang/smithy-typescript
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `07364a5f7d01`
+
+### @stablelib/base64 1.0.1
+
+- License: `MIT`
+- Repository: https://github.com/StableLib/stablelib
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `1605b77bebe0`
 
 ### @ungap/structured-clone 1.4.0
 
@@ -626,6 +654,13 @@ Inventory: 249 shipped package-version components.
 - Exact license evidence: `023119ac20fb`
 
 ### agent-base 7.1.4
+
+- License: `MIT`
+- Repository: https://github.com/TooTallNate/proxy-agents
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `71368fd0f5b4`
+
+### agent-base 9.0.0
 
 - License: `MIT`
 - Repository: https://github.com/TooTallNate/proxy-agents
@@ -667,7 +702,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `cc84225fb9bf`
 
-### bowser 2.14.1
+### bowser 2.15.0
 
 - License: `MIT`
 - Repository: https://github.com/bowser-js/bowser
@@ -695,7 +730,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `63cb98b3f6ab`
 
-### chalk 5.6.2
+### chalk 6.0.0
 
 - License: `MIT`
 - Repository: chalk/chalk
@@ -870,6 +905,13 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Pi SDK bootstrap and providers, Workbench webview
 - Exact license evidence: `c354ef13b369`
 
+### fast-sha256 1.3.0
+
+- License: `Unlicense`
+- Repository: https://github.com/dchest/fast-sha256-js
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `88d9b4eb6057`
+
 ### fetch-blob 3.2.0
 
 - License: `MIT`
@@ -933,7 +975,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `f65c5d9f22a3`
 
-### grok-mermaid 0.2.2
+### grok-mermaid 0.2.3
 
 - License: `Apache-2.0`
 - Repository: https://github.com/xl0/grok-mermaid
@@ -989,7 +1031,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `e18cf5173e92`
 
-### http-proxy-agent 7.0.2
+### http-proxy-agent 9.1.0
 
 - License: `MIT`
 - Repository: https://github.com/TooTallNate/proxy-agents
@@ -1003,7 +1045,14 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `71368fd0f5b4`
 
-### ignore 7.0.5
+### https-proxy-agent 9.1.0
+
+- License: `MIT`
+- Repository: https://github.com/TooTallNate/proxy-agents
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `71368fd0f5b4`
+
+### ignore 7.0.8
 
 - License: `MIT`
 - Repository: https://github.com/kaelzhang/node-ignore
@@ -1094,12 +1143,19 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### marked 18.0.5
+### marked 18.0.11
 
 - License: `MIT`
 - Repository: https://github.com/markedjs/marked
 - Included by: Marked export runtime, Pi SDK bootstrap and providers
 - Exact license evidence: `8e3a3f82f59a`
+
+### marked-cjk-friendly 0.1.2
+
+- License: `MIT`
+- Repository: https://github.com/tats-u/markdown-cjk-friendly
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `e10f2bca78e4`
 
 ### mdast-util-find-and-replace 3.0.3
 
@@ -1367,7 +1423,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `dd1081884a92`
 
-### minimatch 11.0.1
+### minimatch 11.0.3
 
 - License: `BlueOak-1.0.0`
 - Repository: https://github.com/isaacs/minimatch
@@ -1395,7 +1451,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `182caebbe3ce`
 
-### openai 6.40.0
+### openai 7.19.0
 
 - License: `Apache-2.0`
 - Repository: https://github.com/openai/openai-node
@@ -1436,6 +1492,20 @@ Inventory: 249 shipped package-version components.
 - Repository: wooorm/property-information
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `5d0698266086`
+
+### proxy-agent-negotiate 1.1.0
+
+- License: `MIT`
+- Repository: https://github.com/TooTallNate/proxy-agents
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `71368fd0f5b4`
+
+### quickjs-wasi 3.6.2
+
+- License: `MIT`
+- Repository: https://github.com/vercel-labs/quickjs-wasi
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `f7735da3b253`
 
 ### react 19.3.1
 
@@ -1542,7 +1612,7 @@ Inventory: 249 shipped package-version components.
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `da6d3703ed11`
 
-### semver 7.8.0
+### semver 7.8.5
 
 - License: `ISC`
 - Repository: https://github.com/npm/node-semver
@@ -1576,6 +1646,13 @@ Inventory: 249 shipped package-version components.
 - Repository: wooorm/space-separated-tokens
 - Included by: Chat webview, Workbench webview
 - Exact license evidence: `ca4662cb5d1b`
+
+### standardwebhooks 1.1.1
+
+- License: `MIT`
+- Repository: https://github.com/standard-webhooks/standard-webhooks
+- Included by: Pi SDK bootstrap and providers
+- Exact license evidence: `5ec8c7b26b64`
 
 ### style-to-js 1.1.21
 
@@ -1623,17 +1700,17 @@ Inventory: 249 shipped package-version components.
 
 - License: `0BSD`
 - Repository: https://github.com/Microsoft/tslib
-- Included by: Chat webview, Pi SDK bootstrap and providers, Workbench webview
+- Included by: Chat webview, Workbench webview
 - Exact license evidence: `598935964591`
 
-### typebox 1.3.7
+### typebox 1.3.27
 
 - License: `MIT`
 - Repository: https://github.com/sinclairzx81/typebox
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `baaa39822b65`
 
-### undici 8.12.2
+### undici 8.12.3
 
 - License: `MIT`
 - Repository: https://github.com/nodejs/undici
@@ -1754,19 +1831,24 @@ Inventory: 249 shipped package-version components.
 
 ## Audited evidence overrides
 
-- **@aws-sdk/credential-provider-http@3.972.76** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
-- **@aws-sdk/credential-provider-login@3.972.81** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
-- **@aws-sdk/nested-clients@3.997.48** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
-- **@earendil-works/pi-agent-core@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
-- **@earendil-works/pi-ai@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
-- **@earendil-works/pi-coding-agent@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
-- **@earendil-works/pi-telemetry@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
-- **@earendil-works/pi-tui@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@aws-sdk/credential-provider-http@3.972.83** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
+- **@aws-sdk/credential-provider-login@3.972.88** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
+- **@aws-sdk/nested-clients@3.998.0** — This internal AWS SDK package declares Apache-2.0 but omits the monorepo root LICENSE from its npm artifact. Source: https://github.com/aws/aws-sdk-js-v3/blob/main/LICENSE
+- **@earendil-works/pi-agent-core@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-ai@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-codemode@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-coding-agent@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-mcp@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-schema@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-telemetry@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
+- **@earendil-works/pi-tui@1.5.0** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v1.5.0/LICENSE
 - **@isaacs/nonrecursive-glob-match@1.0.3** — The npm artifact omits repository metadata; retain its complete license and link to the upstream repository. Source: https://github.com/isaacs/nonrecursive-glob-match
 - **data-uri-to-buffer@4.0.1** — The npm artifact carries its exact MIT license in README.md rather than a LICENSE file. Source: https://github.com/TooTallNate/node-data-uri-to-buffer/blob/85cd8c854aefbf1bb636789d80364cfac8ea1583/README.md#license
 - **highlight.js@11.9.0** — Pi ships a prebuilt Highlight.js 11.9.0 browser runtime whose version differs from its Node dependency. Source: https://github.com/highlightjs/highlight.js
-- **marked@18.0.5** — Pi ships Marked as a prebuilt browser runtime rather than an installed runtime package. Source: https://github.com/markedjs/marked
+- **marked@18.0.11** — Pi ships Marked as a prebuilt browser runtime rather than an installed runtime package. Source: https://github.com/markedjs/marked
+- **proxy-agent-negotiate@1.1.0** — The published package declares MIT but omits a LICENSE file; preserve the upstream monorepo's MIT text for this exact version. Source: https://github.com/TooTallNate/proxy-agents/blob/main/packages/http-proxy-agent/LICENSE
 - **react-remove-scroll-bar@2.3.8** — The npm artifact declares MIT but includes only a short README marker; the audited fallback is the upstream repository MIT file added after this release. Source: https://github.com/theKashey/react-remove-scroll-bar/blob/7301c160fda44cb8cf2b9fdfde61efad35736196/LICENSE
+- **standardwebhooks@1.1.1** — The published package declares MIT but omits the license file; preserve the upstream libraries license for this exact version. Source: https://github.com/standard-webhooks/standard-webhooks/blob/main/libraries/LICENSE
 
 ## Open-format and standards acknowledgments
 
@@ -1864,7 +1946,7 @@ THE SOFTWARE.
 
 ### 07364a5f7d01
 
-Used by: @aws-sdk/eventstream-handler-node@3.972.36, @aws-sdk/middleware-websocket@3.972.56, @aws-sdk/signature-v4-multi-region@3.996.48, @smithy/core@3.36.0, @smithy/types@4.19.0
+Used by: @aws-sdk/eventstream-handler-node@3.972.40, @aws-sdk/middleware-websocket@3.972.63, @aws-sdk/signature-v4-multi-region@3.996.51, @smithy/core@3.39.0, @smithy/types@4.20.0
 
 ~~~~text
                                 Apache License
@@ -2504,6 +2586,34 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ~~~~
 
+### 1605b77bebe0
+
+Used by: @stablelib/base64@1.0.1
+
+~~~~text
+This software is licensed under the MIT license:
+
+Copyright (C) 2016 Dmitry Chestnykh
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+~~~~
+
 ### 1662fae9b531
 
 Used by: ms@2.1.3
@@ -2562,7 +2672,7 @@ SOFTWARE.
 
 ### 18c295fdd68d
 
-Used by: @aws-sdk/client-bedrock-runtime@3.1048.0
+Used by: @aws-sdk/client-bedrock-runtime@3.1127.0
 
 ~~~~text
                                 Apache License
@@ -2823,7 +2933,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 2c7c5d22ed5a
 
-Used by: minimatch@11.0.1
+Used by: minimatch@11.0.3
 
 ~~~~text
 # Blue Oak Model License
@@ -3110,7 +3220,7 @@ THE SOFTWARE.
 
 ### 4186c3f89c23
 
-Used by: @aws-sdk/core@3.978.3, @aws-sdk/credential-provider-http@3.972.76, @aws-sdk/credential-provider-login@3.972.81, @aws-sdk/nested-clients@3.997.48
+Used by: @aws-sdk/core@3.980.0, @aws-sdk/credential-provider-http@3.972.83, @aws-sdk/credential-provider-login@3.972.88, @aws-sdk/nested-clients@3.998.0
 
 ~~~~text
 Apache License
@@ -3390,7 +3500,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ### 4ec3d4c66cd8
 
-Used by: isexe@2.0.0, semver@7.8.0, which@2.0.2
+Used by: isexe@2.0.0, semver@7.8.5, which@2.0.2
 
 ~~~~text
 The ISC License
@@ -3412,7 +3522,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ### 4f6a1985796d
 
-Used by: @earendil-works/pi-agent-core@0.84.4, @earendil-works/pi-ai@0.84.4, @earendil-works/pi-coding-agent@0.84.4, @earendil-works/pi-telemetry@0.84.4, @earendil-works/pi-tui@0.84.4
+Used by: @earendil-works/pi-agent-core@1.5.0, @earendil-works/pi-ai@1.5.0, @earendil-works/pi-codemode@1.5.0, @earendil-works/pi-coding-agent@1.5.0, @earendil-works/pi-mcp@1.5.0, @earendil-works/pi-schema@1.5.0, @earendil-works/pi-telemetry@1.5.0, @earendil-works/pi-tui@1.5.0
 
 ~~~~text
 MIT License
@@ -3705,7 +3815,7 @@ SOFTWARE.
 
 ### 542e7521fab2
 
-Used by: ignore@7.0.5
+Used by: ignore@7.0.8
 
 ~~~~text
 Copyright (c) 2013 Kael Zhang <i@kael.me>, contributors
@@ -3800,7 +3910,7 @@ THIS SOFTWARE.
 
 ### 5c932d88256b
 
-Used by: chalk@5.6.2, escape-string-regexp@5.0.0, get-east-asian-width@1.6.0, is-plain-obj@4.1.0, supports-color@8.1.1
+Used by: chalk@6.0.0, escape-string-regexp@5.0.0, get-east-asian-width@1.6.0, is-plain-obj@4.1.0, supports-color@8.1.1
 
 ~~~~text
 MIT License
@@ -3843,9 +3953,37 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ~~~~
 
+### 5ec8c7b26b64
+
+Used by: standardwebhooks@1.1.1
+
+~~~~text
+The MIT License
+
+Copyright (c) 2023 Svix (https://www.svix.com)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+~~~~
+
 ### 636eb7d79da9
 
-Used by: openai@6.40.0
+Used by: openai@7.19.0
 
 ~~~~text
                                  Apache License
@@ -4191,7 +4329,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 71368fd0f5b4
 
-Used by: agent-base@7.1.4, http-proxy-agent@7.0.2, https-proxy-agent@7.0.6
+Used by: agent-base@7.1.4, agent-base@9.0.0, http-proxy-agent@9.1.0, https-proxy-agent@7.0.6, https-proxy-agent@9.1.0, proxy-agent-negotiate@1.1.0
 
 ~~~~text
 (The MIT License)
@@ -4326,7 +4464,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### 84d995af201d
 
-Used by: @aws-sdk/credential-provider-process@3.972.74, @aws-sdk/credential-provider-sso@3.973.18, @aws-sdk/credential-provider-web-identity@3.972.80
+Used by: @aws-sdk/credential-provider-process@3.972.81, @aws-sdk/credential-provider-sso@3.973.25, @aws-sdk/credential-provider-web-identity@3.972.87
 
 ~~~~text
 Apache License
@@ -4532,6 +4670,37 @@ Apache License
    limitations under the License.
 ~~~~
 
+### 88d9b4eb6057
+
+Used by: fast-sha256@1.3.0
+
+~~~~text
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+In jurisdictions that recognize copyright laws, the author or authors
+of this software dedicate any and all copyright interest in the
+software to the public domain. We make this dedication for the benefit
+of the public at large and to the detriment of our heirs and
+successors. We intend this dedication to be an overt act of
+relinquishment in perpetuity of all present and future rights to this
+software under copyright law.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+
+For more information, please refer to <http://unlicense.org>
+~~~~
+
 ### 88de0af64f3f
 
 Used by: react-remove-scroll-bar@2.3.8
@@ -4653,7 +4822,7 @@ software or this license, under any kind of legal claim.***
 
 ### 8e3a3f82f59a
 
-Used by: marked@18.0.5
+Used by: marked@18.0.11
 
 ~~~~text
 # License information
@@ -4863,7 +5032,7 @@ SOFTWARE.
 
 ### a6db8096b270
 
-Used by: undici@8.12.2
+Used by: undici@8.12.3
 
 ~~~~text
 MIT License
@@ -5053,7 +5222,7 @@ SOFTWARE.
 
 ### b659ef9e3ce8
 
-Used by: @aws-sdk/credential-provider-env@3.972.74, @aws-sdk/credential-provider-ini@3.973.19, @aws-sdk/credential-provider-node@3.972.86, @aws-sdk/token-providers@3.1048.0, @aws-sdk/token-providers@3.1150.0, @aws-sdk/xml-builder@3.972.41, @smithy/credential-provider-imds@4.5.2, @smithy/fetch-http-handler@5.8.0, @smithy/node-http-handler@4.12.1, @smithy/node-http-handler@4.7.3, @smithy/signature-v4@5.7.4
+Used by: @aws-sdk/credential-provider-env@3.972.81, @aws-sdk/credential-provider-ini@3.973.26, @aws-sdk/credential-provider-node@3.972.93, @aws-sdk/token-providers@3.1127.0, @aws-sdk/token-providers@3.1162.0, @aws-sdk/xml-builder@3.972.42, @smithy/credential-provider-imds@4.5.2, @smithy/fetch-http-handler@5.8.0, @smithy/node-http-handler@4.12.1, @smithy/node-http-handler@4.14.2, @smithy/signature-v4@5.7.5
 
 ~~~~text
 Apache License
@@ -5326,7 +5495,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### baaa39822b65
 
-Used by: typebox@1.3.7
+Used by: typebox@1.3.27
 
 ~~~~text
 TypeBox
@@ -5579,7 +5748,7 @@ SOFTWARE.
 
 ### cfc7749b96f6
 
-Used by: @google/genai@1.52.0, gaxios@7.3.1, gcp-metadata@8.1.2, google-auth-library@10.9.1, google-logging-utils@1.1.3
+Used by: @google/genai@2.21.0, gaxios@7.3.1, gcp-metadata@8.1.2, google-auth-library@10.9.1, google-logging-utils@1.1.3
 
 ~~~~text
 
@@ -5846,7 +6015,7 @@ SOFTWARE.
 
 ### d7aefc126206
 
-Used by: grok-mermaid@0.2.2
+Used by: grok-mermaid@0.2.3
 
 ~~~~text
 Copyright 2023-2026 SpaceXAI
@@ -6401,7 +6570,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### dfde54fedc27
 
-Used by: bowser@2.14.1
+Used by: bowser@2.15.0
 
 ~~~~text
 Copyright 2015, Dustin Diaz (the "Original Author")
@@ -6488,6 +6657,35 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ~~~~
 
+### e10f2bca78e4
+
+Used by: marked-cjk-friendly@0.1.2
+
+~~~~text
+Copyright (c) 2024 Tatsunori Uchino, and authors and contributors of original packages
+
+Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation
+files (the "Software"), to deal in the Software without
+restriction, including without limitation the rights to use,
+copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+OTHER DEALINGS IN THE SOFTWARE.
+~~~~
+
 ### e18cf5173e92
 
 Used by: html-url-attributes@3.0.1
@@ -6518,7 +6716,7 @@ THE SOFTWARE.
 
 ### e345c2ee7df4
 
-Used by: @aws-sdk/middleware-eventstream@3.972.31
+Used by: @aws-sdk/middleware-eventstream@3.972.36
 
 ~~~~text
                                 Apache License
@@ -6824,9 +7022,37 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
 IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ~~~~
 
+### f7735da3b253
+
+Used by: quickjs-wasi@3.6.2
+
+~~~~text
+MIT License
+
+Copyright (c) 2026 Vercel, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+~~~~
+
 ### f8508be03f7b
 
-Used by: @anthropic-ai/sdk@0.91.1
+Used by: @anthropic-ai/sdk@0.129.0
 
 ~~~~text
 Copyright 2023 Anthropic, PBC.

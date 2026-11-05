@@ -1,4 +1,4 @@
-import { chmod, copyFile, mkdir, readdir, rm } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readdir, realpath, rm } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { platform } from "node:process";
 import { fileURLToPath } from "node:url";
@@ -6,10 +6,12 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const outfile = resolve("dist/bootstrap.js");
-const piCodingAgentRoot = resolve(
-  dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))),
-  "..",
+const piCodingAgentRoot = await realpath(
+  resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), ".."),
 );
+// Pi 1.5's optional peer dependencies can make pnpm install two physical pi-ai
+// copies. Register OAuth loaders on the copy consumed by pi-coding-agent.
+const piAiBundledOAuth = resolve(piCodingAgentRoot, "../pi-ai/dist/bun-oauth.js");
 
 await build({
   entryPoints: ["bootstrap/bootstrap.ts"],
@@ -18,6 +20,7 @@ await build({
   platform: "node",
   format: "esm",
   target: "node22",
+  alias: { "@earendil-works/pi-ai/bun-oauth": piAiBundledOAuth },
   sourcemap: true,
   banner: {
     js: 'import { createRequire as __afxCreateRequire } from "node:module";\nconst require = __afxCreateRequire(import.meta.url);',

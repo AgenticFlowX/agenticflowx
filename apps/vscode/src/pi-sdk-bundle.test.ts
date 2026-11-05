@@ -32,7 +32,7 @@ describe("bundled Pi SDK bootstrap", () => {
 
     expect(JSON.parse(readFileSync(packageJsonPath, "utf8"))).toMatchObject({
       type: "module",
-      afxBundledPi: { package: "@earendil-works/pi-coding-agent", version: "0.84.4" },
+      afxBundledPi: { package: "@earendil-works/pi-coding-agent", version: "1.5.0" },
     });
   });
 
@@ -114,7 +114,7 @@ describe("bundled Pi SDK bootstrap", () => {
     }
   }, 20_000);
 
-  it("starts the shipped Pi 0.84.4 runtime and clears its real queues without a model request", async () => {
+  it("starts the shipped Pi 1.5.0 runtime and clears its real queues without a model request", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "afx-bundled-pi-"));
     const child = spawn(
       process.execPath,
