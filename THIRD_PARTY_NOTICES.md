@@ -257,7 +257,7 @@ Inventory: 249 shipped package-version components.
 ### @isaacs/nonrecursive-glob-match 1.0.3
 
 - License: `BlueOak-1.0.0`
-- Repository: https://www.npmjs.com/package/%40isaacs%2Fnonrecursive-glob-match
+- Repository: https://github.com/isaacs/nonrecursive-glob-match
 - Included by: Pi SDK bootstrap and providers
 - Exact license evidence: `8a1af140fdfb`
 
@@ -1762,6 +1762,7 @@ Inventory: 249 shipped package-version components.
 - **@earendil-works/pi-coding-agent@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-telemetry@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
 - **@earendil-works/pi-tui@0.84.4** — The Pi npm package declares MIT but omits the monorepo root LICENSE from the published package. Source: https://github.com/earendil-works/pi/blob/v0.84.4/LICENSE
+- **@isaacs/nonrecursive-glob-match@1.0.3** — The npm artifact omits repository metadata; retain its complete license and link to the upstream repository. Source: https://github.com/isaacs/nonrecursive-glob-match
 - **data-uri-to-buffer@4.0.1** — The npm artifact carries its exact MIT license in README.md rather than a LICENSE file. Source: https://github.com/TooTallNate/node-data-uri-to-buffer/blob/85cd8c854aefbf1bb636789d80364cfac8ea1583/README.md#license
 - **highlight.js@11.9.0** — Pi ships a prebuilt Highlight.js 11.9.0 browser runtime whose version differs from its Node dependency. Source: https://github.com/highlightjs/highlight.js
 - **marked@18.0.5** — Pi ships Marked as a prebuilt browser runtime rather than an installed runtime package. Source: https://github.com/markedjs/marked

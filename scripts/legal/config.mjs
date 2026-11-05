@@ -111,6 +111,16 @@ export const copiedAssets = [
  * until this audit is reviewed and updated.
  */
 export const auditedOverrides = [
+  {
+    name: "@isaacs/nonrecursive-glob-match",
+    version: "1.0.3",
+    license: "BlueOak-1.0.0",
+    repository: "https://github.com/isaacs/nonrecursive-glob-match",
+    packageLicenseSections: [{ file: "LICENSE.md", start: "# Blue Oak Model License" }],
+    reason:
+      "The npm artifact omits repository metadata; retain its complete license and link to the upstream repository.",
+    source: "https://github.com/isaacs/nonrecursive-glob-match",
+  },
   ...[
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",

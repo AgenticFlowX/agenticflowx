@@ -1,0 +1,2 @@
+# Keep bundled skill frontmatter and helper scripts identical on Windows.
+apps/vscode/resources/skills/** text eol=lf

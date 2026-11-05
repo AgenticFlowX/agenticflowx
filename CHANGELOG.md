@@ -7,7 +7,8 @@
 ### Fixed
 
 - Include OAuth provider loaders in the bundled Pi runtime so signed-in Codex sessions can start reliably.
-- Update vulnerable runtime dependencies while retaining Pi 0.84.4.
+- Update vulnerable runtime and development dependencies while retaining Pi 0.84.4.
+- Preserve bundled skill line endings on Windows so helper validation succeeds.
 - Repair documentation links checked by scheduled CI.
 
 ## [2.5.3] - 2026-10-20

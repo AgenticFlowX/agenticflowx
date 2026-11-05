@@ -16,6 +16,36 @@ const braces = fromMatch("braces") as {
   compile: (input: string) => string;
   expand: (input: string) => string[];
 };
+const fromUi = createRequire(new URL("../../packages/ui/package.json", import.meta.url));
+const fromShadcn = createRequire(fromUi.resolve("shadcn"));
+const deepmerge = fromShadcn("deepmerge") as (
+  target: object,
+  source: object,
+) => Record<string, unknown>;
+
+describe("GHSA-gcqx-w48m-w2h4 local mitigation", () => {
+  it.each(["target", "source"])("rejects prototype keys from the %s", (side) => {
+    const payload = JSON.parse('{"__proto__":{"polluted":true},"safe":1}') as object;
+    const empty = Object.create(null) as object;
+    const result = side === "target" ? deepmerge(payload, empty) : deepmerge(empty, payload);
+    expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
+    expect(result.polluted).toBeUndefined();
+    expect(Object.hasOwn(result, "__proto__")).toBe(false);
+    expect(result.safe).toBe(1);
+  });
+
+  it("protects nested objects while preserving arrays and symbol keys", () => {
+    const marker = Symbol("marker");
+    const result = deepmerge(
+      { nested: JSON.parse('{"__proto__":{"polluted":true},"safe":1}'), items: [1] },
+      { nested: { other: 2 }, items: [2], [marker]: "kept" },
+    );
+    expect(Object.getPrototypeOf(result.nested)).toBe(Object.prototype);
+    expect(result.nested).toEqual({ safe: 1, other: 2 });
+    expect(result.items).toEqual([1, 2]);
+    expect(Reflect.get(result, marker)).toBe("kept");
+  });
+});
 
 describe("GHSA-vfj7-8cjw-p6xm local mitigation", () => {
   it.each(["parse", "compile", "expand"] as const)(

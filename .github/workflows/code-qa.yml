@@ -164,11 +164,15 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # full history for diff scan
-      - uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # GITLEAKS_LICENSE only required for org-owned private repos with > $25/seat plan.
-          # For solo/public repos, leave unset; the action runs in OSS mode.
+      - name: Install pinned Gitleaks CLI
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
+            --output "$RUNNER_TEMP/gitleaks.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/gitleaks.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP" gitleaks
+      - name: Scan repository history
+        run: '"$RUNNER_TEMP/gitleaks" git --redact --verbose'
 
   # @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-16] [FR-18] [DES-SUPPLY] [DES-SEC]
   security:

@@ -5,7 +5,7 @@ status: Living
 owner: "@rixrix"
 version: "1.1"
 created_at: "2026-04-28T02:36:26.000Z"
-updated_at: "2026-07-19T06:52:10.000Z"
+updated_at: "2026-11-05T04:34:27.000Z"
 tags:
   [
     "430-dx-enforcement",
@@ -754,9 +754,9 @@ secrets:
   steps:
     - uses: actions/checkout@<sha>
       with: { fetch-depth: 0 }
-    - uses: gitleaks/gitleaks-action@<sha>
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # Install the official Gitleaks CLI with a pinned version and verified SHA-256
+    # (see code-qa.yml), then scan full history without an action license dependency.
+    - run: '"$RUNNER_TEMP/gitleaks" git --redact --verbose'
 ```
 
 #### Weekly history scan (.github/workflows/security-scheduled.yml — new file)
@@ -1010,7 +1010,7 @@ vitest-fail-on-console ^0.7.x
 System tools (CI / pre-commit; not npm deps):
 
 ```text
-gitleaks               (binary; via gitleaks-action in CI; brew/apt for local pre-commit)
+gitleaks               (binary; pinned and checksum-verified in CI; brew/apt locally)
 trufflehog             (binary; via action only; CI-only)
 ```
 
@@ -1332,7 +1332,7 @@ References use Node IDs: `[FR-X]`, `[NFR-X]` (Spec section), `[DES-X]` (Plan sec
 <!-- files: .github/workflows/code-qa.yml -->
 <!-- @see docs/specs/430-dx-enforcement/430-dx-enforcement.md [FR-15] [DES-SECRETS] -->
 
-- [ ] Add `secrets` job using `gitleaks/gitleaks-action@<sha>` with `fetch-depth: 0`
+- [x] Add `secrets` job using the official pinned, checksum-verified Gitleaks CLI with `fetch-depth: 0`
 - [ ] Run on PR; confirm green on clean PR
 
 #### 6.3 Scheduled trufflehog history scan

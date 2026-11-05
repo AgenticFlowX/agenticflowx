@@ -6,3 +6,11 @@
 id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2026-11-19T06:30:00.000Z
 reason = "braces@3.0.3 has a pnpm patch bounding AST nesting at 100; installed-package regression tests cover parse, compile, expand, and normal patterns."
+
+# No fixed deepmerge release exists. The patch rejects __proto__ in both inputs,
+# including nested objects and null-prototype sources; installed-package tests
+# reproduce the vulnerability before patching and verify ordinary merge behavior.
+[[IgnoredVulns]]
+id = "GHSA-gcqx-w48m-w2h4"
+ignoreUntil = 2026-11-19T06:30:00.000Z
+reason = "deepmerge@4.3.1 is patched to reject __proto__ writes in all published entrypoints; scripts/conventions/security-patches.test.ts verifies the installed mitigation."
