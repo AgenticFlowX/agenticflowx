@@ -743,7 +743,14 @@ export async function investigateRepository(
         }
       }
       await options.checkpoint?.(structuredClone(result));
-      prompt = `Host evidence results:\n${JSON.stringify(outputs)}\nCurrent finding identities (use findingId only to update one of these exact records):\n${JSON.stringify(result.findings.map(({ id, category, title }) => ({ id, category, title })))}\n${tracingGuidance}\nContinue investigating actual code, or synthesize findings with evidence and explicit gaps. Return only protocol JSON.`;
+      // Historical IDs remain valid during a fresh rebuild, even before re-emission.
+      // Current findings override their historical titles without duplicating identities.
+      const findingIdentities = new Map(
+        [...(options.previous?.findings ?? []), ...result.findings].map(
+          ({ id, category, title }) => [id, { id, category, title }],
+        ),
+      );
+      prompt = `Host evidence results:\n${JSON.stringify(outputs)}\nCurrent finding identities (use findingId only to update one of these exact records):\n${JSON.stringify([...findingIdentities.values()])}\n${tracingGuidance}\nContinue investigating actual code, or synthesize findings with evidence and explicit gaps. Return only protocol JSON.`;
     }
     if (controller.signal.aborted) {
       result.outcome = options.signal.aborted ? "cancelled" : "partial";

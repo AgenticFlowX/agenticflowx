@@ -594,18 +594,28 @@ describe("host-mediated Pi investigation", () => {
           expect(context.evidence).toEqual(previous.evidence);
           return { requests: [{ operation: "read", path: "src/main.cpp" }] };
         }
+        const identities = currentFindings(prompt);
+        expect(identities.map(({ id }) => id)).toEqual(["callback", "engine"]);
+        if (turn === 2) {
+          expect(identities.map(({ title }) => title)).toEqual([
+            "Current callback",
+            "Current engine",
+          ]);
+          return { done: true };
+        }
         const freshId = hostResults(prompt)[0]!.result!.evidence!.id;
         return {
           findings: previous.findings.map(({ id, ...finding }) => ({
             ...finding,
-            findingId: id,
+            title: `Current ${id}`,
+            findingId: identities.find((item) => item.id === id)!.id,
             evidenceIds: [freshId],
           })),
           relationships: [
             { ...previous.relationships![0], description: "Stale citation must be rejected" },
             { ...previous.relationships![0], evidenceIds: [freshId] },
           ],
-          done: true,
+          requests: [{ operation: "read", path: "src/main.cpp" }],
         };
       }),
     });
