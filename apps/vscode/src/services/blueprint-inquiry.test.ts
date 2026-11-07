@@ -1,7 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { BlueprintManifest } from "./blueprint-artifacts";
-import { renderBlueprintInquiry } from "./blueprint-inquiry";
+import { prepareBlueprintInquiry, renderBlueprintInquiry } from "./blueprint-inquiry";
 import type { InvestigationResult } from "./blueprint-investigation";
 import type { BlueprintModel } from "./blueprint-model-store";
 
@@ -87,6 +92,31 @@ describe("Blueprint inquiry", () => {
     expect(() => renderBlueprintInquiry(manifest, "other", undefined, "hello")).toThrow(
       /unavailable/,
     );
+  });
+
+  it("prioritizes a named operation over generic tracing vocabulary", () => {
+    const snapshot = model([
+      {
+        ...finding("execute", "task_execute runs commands"),
+        category: "flow",
+        description:
+          "Trace the source handler through relevance and timeline retrieval and back to its returned response. Mentions task_search.",
+      },
+      {
+        ...finding("search", "task_search retrieves indexed items"),
+        category: "flow",
+        description: "Queries an index.",
+      },
+    ]);
+    const context = data(
+      renderBlueprintInquiry(
+        manifest,
+        "repo",
+        snapshot,
+        "Trace task_search from its handler through relevance or timeline retrieval and back to its returned response.",
+      ),
+    );
+    expect(context.findings[0].id).toBe("search");
   });
 
   it("prioritizes relevant findings with saved citations, gaps and explicit omitted coverage", () => {
@@ -252,5 +282,200 @@ describe("Blueprint inquiry", () => {
     const nonGit = data(renderBlueprintInquiry(manifest, "repo", model([]), "What changed?"));
     expect(nonGit).not.toHaveProperty("sourceGitRevision");
     expect(nonGit).not.toHaveProperty("sourceWasDirty");
+  });
+});
+
+describe("Blueprint checked inquiry excerpts", () => {
+  const roots: string[] = [];
+  afterEach(async () => {
+    await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+  });
+  async function fixture(content = "const shared = true;\nif (started) restart();\nelse start();") {
+    const root = await mkdtemp(path.join(os.tmpdir(), "afx-inquiry-"));
+    roots.push(root);
+    await mkdir(path.join(root, "src"));
+    await writeFile(path.join(root, "src/login.ts"), content);
+    const snapshot = model([finding("lifecycle", "Start load lifecycle")]);
+    snapshot.investigation.inventory = ["src/login.ts"];
+    snapshot.investigation.evidence[0] = {
+      ...snapshot.investigation.evidence[0]!,
+      endLine: content.split("\n").length,
+      contentHash: `sha256:${createHash("sha256").update(content).digest("hex")}`,
+    };
+    return { root, snapshot };
+  }
+
+  it("supplies the shared statement and both branches without promoting the saved summary", async () => {
+    const { root, snapshot } = await fixture();
+    snapshot.investigation.findings[0]!.description = "Only restarts use shared.";
+    const before = structuredClone(snapshot);
+    const prompt = await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root);
+    expect(data(prompt).sources.excerpts).toEqual([
+      expect.objectContaining({
+        status: "verified",
+        startLine: 1,
+        endLine: 3,
+        text: "const shared = true;\nif (started) restart();\nelse start();",
+      }),
+    ]);
+    expect(prompt).toContain("Prefer the excerpt over a model-authored summary");
+    expect(prompt).toContain("not exclusive to one");
+    expect(snapshot).toEqual(before);
+  });
+
+  it("withholds changed disk text and unsaved buffers, and supports missing bindings", async () => {
+    const { root, snapshot } = await fixture();
+    await writeFile(path.join(root, "src/login.ts"), "CHANGED PRIVATE CONTENT");
+    const changed = await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root);
+    expect(data(changed).sources.excerpts[0]).toMatchObject({ status: "changed" });
+    expect(changed).not.toContain("CHANGED PRIVATE CONTENT");
+    const unsaved = await prepareBlueprintInquiry(
+      manifest,
+      "repo",
+      snapshot,
+      "load",
+      root,
+      new Set(["src/login.ts"]),
+    );
+    expect(data(unsaved).sources.excerpts[0]).toMatchObject({ status: "unsaved" });
+    expect(
+      data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", undefined)),
+    ).not.toHaveProperty("sources");
+  });
+
+  it("rejects excluded, uninventoried, missing, binary and escaping files without leaking errors", async () => {
+    const { root, snapshot } = await fixture();
+    const other = await fixture("DO NOT EXPOSE OUTSIDE CONTENT");
+    await symlink(path.join(other.root, "src/login.ts"), path.join(root, "escape.ts"));
+    await writeFile(path.join(root, ".env"), "DO NOT EXPOSE SECRET");
+    await symlink(path.join(root, ".env"), path.join(root, "alias.ts"));
+    await writeFile(path.join(root, "binary.ts"), Buffer.from([0, 1, 2]));
+    const paths = [
+      ".env",
+      "src/login.ts",
+      "missing.ts",
+      "binary.ts",
+      "escape.ts",
+      "../outside.ts",
+      "alias.ts",
+    ];
+    snapshot.investigation.inventory = paths.filter((name) => name !== "src/login.ts");
+    snapshot.investigation.evidence = paths.map((name, i) => ({
+      ...snapshot.investigation.evidence[0]!,
+      id: `e${i}`,
+      path: name,
+    }));
+    snapshot.investigation.findings[0]!.steps = paths.map((_, i) => ({
+      description: "step",
+      evidenceIds: [`e${i}`],
+    }));
+    const prompt = await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root);
+    expect(data(prompt).sources.excerpts).toHaveLength(7);
+    expect(
+      data(prompt).sources.excerpts.every(
+        (entry: { status: string; text?: string }) =>
+          entry.status === "unavailable" && entry.text === undefined,
+      ),
+    ).toBe(true);
+    expect(prompt).not.toContain(root);
+    expect(prompt).not.toContain(other.root);
+    expect(prompt).not.toContain("DO NOT EXPOSE");
+    expect(prompt).not.toContain("ENOENT");
+  });
+
+  it("keeps noncontiguous evidence separate and clips only at whole-line boundaries", async () => {
+    const content = [
+      "a".repeat(3999),
+      "b".repeat(3999),
+      "UNREAD GAP",
+      "const limit = 40 * 1024;",
+    ].join("\n");
+    const { root, snapshot } = await fixture(content);
+    snapshot.investigation.evidence[0]!.endLine = 2;
+    snapshot.investigation.evidence.push({
+      ...snapshot.investigation.evidence[0]!,
+      id: "e2",
+      startLine: 4,
+      endLine: 4,
+    });
+    snapshot.investigation.findings[0]!.evidenceIds.push("e2");
+    const prompt = await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root);
+    expect(data(prompt).sources.excerpts).toEqual([
+      expect.objectContaining({ status: "verified", startLine: 1, endLine: 2 }),
+      expect.objectContaining({
+        status: "verified",
+        startLine: 4,
+        endLine: 4,
+        text: "const limit = 40 * 1024;",
+      }),
+    ]);
+    expect(prompt).not.toContain("UNREAD GAP");
+    snapshot.investigation.evidence[0]!.endLine = 4;
+    const clipped = data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root));
+    expect(clipped.sources.excerpts[0]).toMatchObject({ endLine: 2 });
+    expect(clipped.sources.excerpts[0].text).not.toContain("UNREAD GAP");
+  });
+
+  it("deduplicates contained ranges without concealing conflicting saved hashes", async () => {
+    const { root, snapshot } = await fixture();
+    const first = snapshot.investigation.evidence[0]!;
+    snapshot.investigation.evidence.push(
+      { ...first, id: "contained", startLine: 2, endLine: 2 },
+      { ...first, id: "old", contentHash: "sha256:old" },
+    );
+    snapshot.investigation.findings[0]!.evidenceIds = ["e1", "contained", "old"];
+    const context = data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root));
+    expect(context.sources.excerpts).toEqual([
+      expect.objectContaining({ id: "e1", status: "verified" }),
+      expect.objectContaining({ id: "old", status: "changed" }),
+    ]);
+    expect(context.sources.omittedRanges).toBe(0);
+  });
+
+  it("does not certify oversized first lines or invalid ranges", async () => {
+    const { root, snapshot } = await fixture("x".repeat(8001));
+    expect(
+      data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root)).sources
+        .excerpts[0],
+    ).toMatchObject({ status: "unavailable" });
+    snapshot.investigation.evidence[0]!.startLine = 0;
+    expect(
+      data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root)).sources
+        .excerpts[0],
+    ).not.toHaveProperty("text");
+  });
+
+  it("bounds source ranges, files, escaped payload size and explicitly reports omissions", async () => {
+    const { root, snapshot } = await fixture();
+    const evidence = snapshot.investigation.evidence[0]!;
+    snapshot.investigation.evidence = [];
+    snapshot.investigation.findings[0]!.evidenceIds = [];
+    snapshot.investigation.findings[0]!.steps = [];
+    for (let i = 0; i < 15; i++) {
+      const name = `source-${i}.ts`,
+        content = "\u0001".repeat(7999);
+      await writeFile(path.join(root, name), content);
+      snapshot.investigation.inventory.push(name);
+      snapshot.investigation.evidence.push({
+        ...evidence,
+        id: `r${i}`,
+        path: name,
+        startLine: 1,
+        endLine: 1,
+        contentHash: `sha256:${createHash("sha256").update(content).digest("hex")}`,
+      });
+      snapshot.investigation.findings[0]!.steps.push({
+        description: "load",
+        evidenceIds: [`r${i}`],
+      });
+    }
+    const context = data(await prepareBlueprintInquiry(manifest, "repo", snapshot, "load", root));
+    expect(context.sources.excerpts).toHaveLength(12);
+    expect(context.sources.omittedRanges).toBe(3);
+    expect(
+      context.sources.excerpts.every((entry: { status: string }) => entry.status === "budget"),
+    ).toBe(true);
+    expect(JSON.stringify(context.sources).length).toBeLessThanOrEqual(24000);
+    expect(JSON.stringify(context).length).toBeLessThanOrEqual(42000);
   });
 });

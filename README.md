@@ -108,6 +108,18 @@ Code, Explore, and Spec are lanes, not separate products.
   <img src="https://agenticflowx.github.io/assets/screenshots/chat-explore.png" alt="AgenticFlowX chat in Explore mode with read-only workspace investigation" width="100%">
 </p>
 
+### Blueprint in Explore
+
+Blueprint is an optional project map inside Explore. Type `/afx-blueprint` to reveal its workflow, or use the Blueprint commands in the Command Palette. Opening the workflow does not start a model request. Inspect uses your selected provider to investigate the project; review the findings before saving.
+
+A new Blueprint saves two portable files, `blueprint.json` and `blueprint.md`, in the location you choose. It does not require a Sprint or planning folder. Local continuation checkpoints live in extension storage. A partial result means the investigation stopped with gaps—for example, at its allowance—not that the whole project was mapped. Read the gaps, then Continue when useful.
+
+Attach a saved Blueprint and ask questions in chat. Answers use selected findings and bounded source excerpts when the saved file hashes still match. Missing or changed evidence stays a limitation; citations and model-generated descriptions are not proof that behavior was executed or independently verified. Unsaved editor changes are not treated as saved evidence.
+
+Use **Check Changes** for a local comparison without a model call or artifact write. **Update** investigates affected areas; **Rebuild** investigates more broadly. Both produce proposals: review additions, changes and retirements before Apply. An omitted finding does not prove the feature was removed. Authored notes outside the generated reader section are preserved; conflicting reader edits, source changes or revisions block Apply.
+
+**Start Sprint** is optional. Review the findings and discussion to carry, choose the planning destination, and create a Draft Sprint in Spec mode. Blueprint questions alone do not create planning documents or grant write access.
+
 ## 04 · Spec mode makes the next step obvious
 
 Spec-driven development should not feel like joining a methodology cult. In AFX, it is a guided lane inside chat.

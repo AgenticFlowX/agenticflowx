@@ -105,7 +105,7 @@ import {
   prepareBlueprintExecutionContext,
 } from "./services/blueprint-execution-context";
 import { type BlueprintSprintInput, renderBlueprintHandoff } from "./services/blueprint-handoff";
-import { renderBlueprintInquiry } from "./services/blueprint-inquiry";
+import { prepareBlueprintInquiry } from "./services/blueprint-inquiry";
 import {
   type InvestigationOptions,
   type InvestigationResult,
@@ -852,9 +852,14 @@ export async function activate(
       const selected = activeBlueprint;
       const revision = selected?.manifest.revision;
       const repositoryId = selected?.repositoryId;
+      const sourceRoot = repositoryId ? selected?.binding.checkouts[repositoryId] : undefined;
       return async (question) => {
         const assertSelection = () => {
-          if (activeBlueprint !== selected || selected?.manifest.revision !== revision)
+          if (
+            activeBlueprint !== selected ||
+            selected?.manifest.revision !== revision ||
+            (repositoryId && selected?.binding.checkouts[repositoryId] !== sourceRoot)
+          )
             throw new Error(
               "Blueprint selection changed before send; retry with the intended Blueprint.",
             );
@@ -865,11 +870,26 @@ export async function activate(
         if (manifest.id !== selected.manifest.id || manifest.revision !== revision)
           throw new Error("Blueprint changed on disk; reopen and attach it before sending.");
         const model = await loadBlueprintModel(selected.artifactRoot, manifest, repositoryId);
+        const unsavedPaths = new Set(
+          vscode.workspace.textDocuments
+            .filter((document) => document.isDirty && document.uri.scheme === "file")
+            .map((document) =>
+              sourceRoot ? relative(sourceRoot, document.uri.fsPath).split(sep).join("/") : "",
+            ),
+        );
+        const prepared = await prepareBlueprintInquiry(
+          manifest,
+          repositoryId,
+          model,
+          question,
+          sourceRoot,
+          unsavedPaths,
+        );
         const current = await openBlueprint(selected.artifactRoot);
         assertSelection();
         if (current.id !== manifest.id || current.revision !== revision)
           throw new Error("Blueprint changed while preparing the question; reopen it and retry.");
-        return renderBlueprintInquiry(manifest, repositoryId, model, question);
+        return prepared;
       };
     },
     openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),

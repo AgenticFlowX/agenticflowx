@@ -169,14 +169,22 @@ function allowed(file: string): boolean {
   return !SECRET.test(file) && !file.split("/").some((part) => EXCLUDED.has(part));
 }
 
-/** Resolves only inventoried files; symlinks cannot escape the bound root. */
-async function safeRead(root: string, file: string, inventory: Set<string>): Promise<string> {
-  if (!inventory.has(file) || !allowed(file))
+/** Resolves only inventoried files; symlinks cannot escape the bound root.
+ * @see docs/specs/900-fleet/22-blueprint-explore/design.md [DES-RETRIEVAL]
+ */
+export async function readBlueprintSource(
+  root: string,
+  file: string,
+  inventory: Set<string>,
+): Promise<string> {
+  if (!isPortableRelativePath(file) || !inventory.has(file) || !allowed(file))
     throw new Error("File is outside the inspection inventory.");
   const canonical = await realpath(path.join(root, file));
   const relative = path.relative(await realpath(root), canonical);
   if (relative.startsWith(`..${path.sep}`) || relative === ".." || path.isAbsolute(relative))
     throw new Error("File escapes the inspected root.");
+  if (!allowed(relative.split(path.sep).join("/")))
+    throw new Error("Resolved file is excluded from inspection.");
   const info = await lstat(canonical);
   if (!info.isFile() || info.size > 1024 * 1024)
     throw new Error("File is not a bounded text source (maximum 1 MiB).");
@@ -638,7 +646,7 @@ export async function investigateRepository(
           if (request.operation === "list") {
             value = listBlueprintFiles(result.inventory, request.path ?? ".", request.offset ?? 0);
           } else if (request.operation === "read" && typeof request.path === "string") {
-            const content = await safeRead(options.root, request.path, inventory);
+            const content = await readBlueprintSource(options.root, request.path, inventory);
             const lines = content.split("\n");
             const start = Number.isInteger(request.startLine) ? Math.max(1, request.startLine!) : 1;
             if (start > lines.length) throw new Error("Requested line is beyond end of file.");
@@ -670,7 +678,7 @@ export async function investigateRepository(
             if (result.usage.bytes + Buffer.byteLength(JSON.stringify(value)) <= limits.bytes)
               result.evidence.push(evidence);
           } else if (request.operation === "symbols" && typeof request.path === "string") {
-            const content = await safeRead(options.root, request.path, inventory);
+            const content = await readBlueprintSource(options.root, request.path, inventory);
             const observation = options.symbols
               ? await boundedSymbols(options.symbols, request.path, controller.signal)
               : undefined;
@@ -719,7 +727,7 @@ export async function investigateRepository(
               )
                 continue;
               try {
-                const content = await safeRead(options.root, file, inventory);
+                const content = await readBlueprintSource(options.root, file, inventory);
                 content.split("\n").forEach((line, index) => {
                   if (matches.length < 40 && line.includes(request.query!))
                     matches.push({ path: file, line: index + 1, text: line.slice(0, 200) });
@@ -760,7 +768,10 @@ export async function investigateRepository(
     // Recheck every cited disk file before calling its evidence current.
     for (const evidence of result.evidence) {
       try {
-        if (hash(await safeRead(options.root, evidence.path, inventory)) === evidence.contentHash)
+        if (
+          hash(await readBlueprintSource(options.root, evidence.path, inventory)) ===
+          evidence.contentHash
+        )
           continue;
       } catch {
         /* Missing files are stale too. */
@@ -855,7 +866,7 @@ export async function validateInvestigationResume(
 ): Promise<void> {
   const inventory = new Set(await inventoryRepository(root));
   for (const evidence of result.evidence) {
-    if (hash(await safeRead(root, evidence.path, inventory)) !== evidence.contentHash)
+    if (hash(await readBlueprintSource(root, evidence.path, inventory)) !== evidence.contentHash)
       throw new Error(
         `Cannot continue: source evidence changed at ${evidence.path}. Inspect again or update the affected scope.`,
       );
