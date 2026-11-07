@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import type {
   BlueprintSprintSubmission,
@@ -8,6 +8,7 @@ import type {
 
 import { BlueprintHandoff } from "./blueprint-handoff";
 
+/** @see docs/specs/900-fleet/22-blueprint-explore/tasks.md [7.5] */
 export function BlueprintRail({
   state,
   onAction,
@@ -20,13 +21,19 @@ export function BlueprintRail({
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("afx.blueprint.collapsed") === "true",
   );
+  const headingRef = useRef<HTMLButtonElement>(null);
   const busy = state.phase === "inspecting";
+  const runAction = (action: BlueprintWorkflowAction) => {
+    if (!["review", "read", "check"].includes(action))
+      headingRef.current?.focus({ preventScroll: true });
+    onAction(action);
+  };
   const button = (action: BlueprintWorkflowAction, label: string) => (
     <button
       type="button"
       className="rounded border px-2 py-1 text-xs hover:bg-accent focus-visible:outline focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-50"
       disabled={action === "save" && (!state.reviewed || state.canSave === false)}
-      onClick={() => onAction(action)}
+      onClick={() => runAction(action)}
     >
       {label}
     </button>
@@ -35,6 +42,7 @@ export function BlueprintRail({
     <section aria-label="Blueprint workflow" className="min-w-0 border-t px-3 py-2 text-xs">
       <div className="flex min-w-0 items-center gap-2">
         <button
+          ref={headingRef}
           type="button"
           aria-expanded={!collapsed}
           aria-controls="blueprint-rail-content"
@@ -57,6 +65,22 @@ export function BlueprintRail({
         </button>
         {busy ? button("stop", "Stop investigation") : null}
       </div>
+      <p role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {busy
+          ? "Blueprint investigation in progress."
+          : state.handoff
+            ? "Review Blueprint Sprint handoff."
+            : state.phase === "review"
+              ? `${state.findingCount} Blueprint findings ready for review.`
+              : state.hasSaved
+                ? "Blueprint saved."
+                : "Blueprint ready to inspect."}
+      </p>
+      {state.error ? (
+        <p role="alert" className="my-2 break-words">
+          {state.error}
+        </p>
+      ) : null}
       <div id="blueprint-rail-content" hidden={collapsed}>
         {state.phase === "inspecting" || state.phase === "review" ? (
           <ol
@@ -83,17 +107,12 @@ export function BlueprintRail({
         {state.detail ? (
           <p className="my-2 break-words text-muted-foreground">{state.detail}</p>
         ) : null}
-        {state.error ? (
-          <p role="alert" className="my-2 break-words">
-            {state.error}
-          </p>
-        ) : null}
         {state.handoff && onCreateSprint ? (
           <BlueprintHandoff
             busy={state.handoffBusy}
             handoff={state.handoff}
             onCreate={onCreateSprint}
-            onCancel={() => onAction("discard")}
+            onCancel={() => runAction("discard")}
           />
         ) : null}
         {!busy && !state.handoff ? (

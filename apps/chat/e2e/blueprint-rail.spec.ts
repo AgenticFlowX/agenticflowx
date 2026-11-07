@@ -16,12 +16,14 @@ test("Blueprint review and collapsed Stop are operable by keyboard", async ({ pa
   await page.keyboard.press("Tab");
   await expect(rail.getByRole("button", { name: "Inspect project", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");
-  await heading.focus();
+  await expect(heading).toBeFocused();
+  await expect(rail.getByRole("status")).toHaveText("Blueprint investigation in progress.");
   await page.keyboard.press("Enter");
   await page.keyboard.press("Tab");
   await expect(rail.getByRole("button", { name: "Stop investigation" })).toBeFocused();
   await page.keyboard.press("Enter");
-  await rail.getByRole("button", { expanded: false }).focus();
+  await expect(rail.getByRole("status")).toHaveText("3 Blueprint findings ready for review.");
+  await expect(rail.getByRole("button", { expanded: false })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(rail.getByRole("button", { name: "Save Blueprint", exact: true })).toBeDisabled();
   await page.keyboard.press("Tab");
@@ -89,6 +91,7 @@ test("reviewed maintenance and Sprint handoff remain explicit in Explore", async
   await expect(handoff.getByRole("button", { name: "Create Draft Sprint" })).toBeDisabled();
   await handoff.getByRole("button", { name: "Cancel handoff" }).click();
   await expect(handoff).not.toBeVisible();
+  await expect(rail.getByRole("button", { expanded: true })).toBeFocused();
   await rail.getByRole("button", { name: "Start Sprint" }).click();
   await handoff.getByLabel("Sprint name").fill("Improve purpose");
   await handoff.getByLabel("Desired outcome").fill("Clarify project behavior");
@@ -101,4 +104,34 @@ test("reviewed maintenance and Sprint handoff remain explicit in Explore", async
   await page.getByRole("button", { name: "Return to Blueprint", exact: true }).click();
   await expect(page.getByRole("button", { name: "Workspace mode: Explore" })).toBeVisible();
   await expect(rail.getByRole("button", { name: "Check Changes" })).toBeVisible();
+});
+
+test("Blueprint controls remain named and reachable in forced colors at narrow width", async ({
+  page,
+}) => {
+  await page.emulateMedia({ forcedColors: "active", colorScheme: "dark", reducedMotion: "reduce" });
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.goto("/");
+  const composer = page.getByRole("textbox", { name: "Chat composer" });
+  await composer.fill("/afx-blueprint");
+  await composer.press("Enter");
+  const rail = page.getByRole("region", { name: "Blueprint workflow" });
+  const heading = rail.getByRole("button", { expanded: true });
+  await heading.focus();
+  await page.keyboard.press("Tab");
+  await expect(rail.getByRole("button", { name: "Inspect project", exact: true })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(heading).toBeFocused();
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Tab");
+  await expect(rail.getByRole("button", { name: "Stop investigation" })).toBeFocused();
+  const width = await rail.evaluate((node) => ({
+    scroll: node.scrollWidth,
+    client: node.clientWidth,
+  }));
+  expect(width.scroll).toBeLessThanOrEqual(width.client);
+  const accessibility = await rail.ariaSnapshot();
+  expect(accessibility).toContain('button "Stop investigation"');
+  expect(accessibility).toContain("Blueprint investigation in progress.");
+  await page.screenshot({ path: test.info().outputPath("blueprint-forced-colors.png") });
 });
