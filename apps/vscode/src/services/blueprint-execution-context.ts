@@ -12,6 +12,7 @@ import type { BlueprintBinding, BlueprintManifest } from "./blueprint-artifacts"
 import {
   BLUEPRINT_TRANSACTION,
   blueprintArtifactInternals,
+  openBlueprint,
   resolveInside,
   updateBlueprint,
 } from "./blueprint-artifacts";
@@ -89,8 +90,19 @@ export async function createBlueprintSprint(input: {
   name: string;
   owner: string;
   now?: string;
+  handoffMarkdown?: string;
+  expectedModelRevision?: string | null;
 }): Promise<{ id: string; sprintPath: string; journalPath: string }> {
   return withBlueprintLock(input.artifactRoot, async () => {
+    const current = await openBlueprint(input.artifactRoot);
+    if (current.id !== input.manifest.id || current.revision !== input.manifest.revision)
+      throw new Error("Blueprint changed before Sprint creation; review the handoff again.");
+    if (
+      input.expectedModelRevision !== undefined &&
+      ((current.model as { modelRevisionId?: string } | undefined)?.modelRevisionId ?? null) !==
+        input.expectedModelRevision
+    )
+      throw new Error("Blueprint model changed before Sprint creation; review the handoff again.");
     const id = safeSlug(input.name);
     const documentRoot =
       input.manifest.schemaVersion === 3 ? input.documentRoot : input.artifactRoot;
@@ -110,7 +122,10 @@ export async function createBlueprintSprint(input: {
       () => undefined,
     );
     const now = input.now ?? new Date().toISOString();
-    const sprint = `---\nafx: true\ntype: SPRINT\nstatus: Draft\nowner: "${input.owner}"\nversion: "0.1"\ncreated_at: "${now}"\nupdated_at: "${now}"\ntags: ["${id}", "blueprint", "external-traceability"]\napproval:\n  spec: Draft\n  design: Draft\n  tasks: Draft\n---\n\n# ${input.name}\n\n## 1. Spec\n\n### Problem Statement\n\nDescribe the intended outcome.\n\n## 2. Design\n\n### [DES-OVR] Overview\n\nDescribe the implementation approach.\n\n## 3. Tasks\n\n### Phase 1: Delivery\n\n#### 1.1 Define the first task\n\n- [ ] Replace this placeholder with verifiable criteria.\n\n### Cross-Reference Index\n\n| Task | Spec requirements | Design sections |\n| --- | --- | --- |\n| 1.1 | TBD | DES-OVR |\n\n## 4. Work Sessions\n\n| Date | Task | Action | Files Modified | Agent | Human |\n| --- | --- | --- | --- | --- | --- |\n`;
+    const sprintTemplate = `---\nafx: true\ntype: SPRINT\nstatus: Draft\nowner: "${input.owner}"\nversion: "0.1"\ncreated_at: "${now}"\nupdated_at: "${now}"\ntags: ["${id}", "blueprint", "external-traceability"]\napproval:\n  spec: Draft\n  design: Draft\n  tasks: Draft\n---\n\n# ${input.name}\n\n## 1. Spec\n\n### Problem Statement\n\nDescribe the intended outcome.\n\n## 2. Design\n\n### [DES-OVR] Overview\n\nDescribe the implementation approach.\n\n## 3. Tasks\n\n### Phase 1: Delivery\n\n#### 1.1 Define the first task\n\n- [ ] Replace this placeholder with verifiable criteria.\n\n### Cross-Reference Index\n\n| Task | Spec requirements | Design sections |\n| --- | --- | --- |\n| 1.1 | TBD | DES-OVR |\n\n## 4. Work Sessions\n\n| Date | Task | Action | Files Modified | Agent | Human |\n| --- | --- | --- | --- | --- | --- |\n`;
+    const sprint = input.handoffMarkdown
+      ? sprintTemplate.replace("Describe the intended outcome.", input.handoffMarkdown)
+      : sprintTemplate;
     const journal = `---\nafx: true\ntype: JOURNAL\nowner: "${input.owner}"\nversion: "1.0"\ncreated_at: "${now}"\nupdated_at: "${now}"\ntags: ["${id}", "blueprint"]\n---\n\n# ${input.name} Journal\n`;
     await ensureArtifactParent(
       documentRoot,

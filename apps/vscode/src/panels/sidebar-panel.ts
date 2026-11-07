@@ -51,6 +51,9 @@ import type {
   AgentToChat,
   AgentUiRequest,
   AgentUiResponse,
+  BlueprintSprintSubmission,
+  BlueprintWorkflowAction,
+  BlueprintWorkflowState,
   ChatToAgent,
   ChatToolView,
   ChatUsageView,
@@ -84,6 +87,7 @@ import {
   toModelSelectionIdentity,
 } from "../model-default-selection";
 import type { SecretStore } from "../secret-store";
+import { BLUEPRINT_HOST_COMMAND, parseBlueprintCommand } from "../services/blueprint-command";
 import type {
   CustomProvidersMutation,
   CustomProvidersService,
@@ -115,6 +119,11 @@ export interface SidebarPanelDeps {
   agentManager: AgentManager;
   /** Validate explicit host context before a prompt reaches any runtime. */
   beforeAgentSend?: () => Promise<void>;
+  /** Capture selection at receipt, then validate and assemble context at dispatch. */
+  capturePromptContext?: () => (question: string) => Promise<string>;
+  onBlueprintAction?: (action: BlueprintWorkflowAction, discussion?: string) => Promise<void>;
+  onBlueprintCreateSprint?: (input: BlueprintSprintSubmission) => Promise<void>;
+  getBlueprintChatContext?: () => { name: string; repositoryName: string; revision: number } | null;
   runtimeMonitor?: AgentRuntimeMonitor;
   logger: Logger;
   secretStore?: SecretStore;
@@ -289,6 +298,9 @@ export interface ActiveDocContextPayload {
 }
 
 export interface SidebarPanelProvider extends vscode.WebviewViewProvider {
+  postBlueprintWorkflow(state: BlueprintWorkflowState): void;
+  enterBlueprintExploreMode(): Promise<void>;
+  enterBlueprintSpecMode(): Promise<void>;
   sendExternalPrompt(content: string): Promise<void>;
   appendToDraft(content: string): Promise<void>;
   openSettingsTarget(target: SettingsOpenTarget): Promise<void>;
@@ -569,8 +581,16 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     mentions: readonly string[];
     intentSlot?: IntentSlot;
     images?: readonly AgentImageAttachment[];
+    capturedMode: WorkspaceMode;
+    prepareContext?: (question: string) => Promise<string>;
   } | null = null;
 
+  let blueprintWorkflow: BlueprintWorkflowState = {
+    phase: "idle",
+    findingCount: 0,
+    canContinue: false,
+    hasSaved: false,
+  };
   let webview: vscode.Webview | null = null;
   let chatReady = false;
   const pendingDraftMutations: Array<
@@ -2120,11 +2140,66 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     switch (msg.type) {
       // @see docs/specs/210-app-chat/design.md [DES-API]
       // @see docs/specs/212-app-chat-messages/design.md [DES-MESSAGES-EVENT-FLOW]
+      case "chat/blueprintCreateSprint": {
+        if (!deps.onBlueprintCreateSprint) {
+          postError(msg.requestId, "Sprint handoff is unavailable in this host.", "toast");
+          return;
+        }
+        void deps
+          .onBlueprintCreateSprint(msg.input)
+          .catch((error) =>
+            postError(
+              msg.requestId,
+              error instanceof Error ? error.message : String(error),
+              "toast",
+            ),
+          );
+        return;
+      }
+      case "chat/blueprintAction": {
+        const allowed = [
+          "inspect",
+          "open",
+          "status",
+          "check",
+          "update",
+          "rebuild",
+          "sprint",
+          "end-session",
+          "attach",
+          "review",
+          "save",
+          "continue",
+          "stop",
+          "read",
+          "adopt",
+          "recover",
+          "discard",
+        ];
+        if (!allowed.includes(msg.action) || !deps.onBlueprintAction) {
+          postError(msg.requestId, "Blueprint action is unavailable in this host.", "toast");
+          return;
+        }
+        void (async () => {
+          if (["inspect", "continue"].includes(msg.action)) {
+            await handleSetMode(msg.requestId, "explore", false);
+            if (workspaceMode() !== "explore")
+              throw new Error("Switch to Explore before investigating.");
+          }
+          if (msg.action === "sprint")
+            await deps.onBlueprintAction!(msg.action, latestBlueprintDiscussion());
+          else await deps.onBlueprintAction!(msg.action);
+        })().catch((error) =>
+          postError(msg.requestId, error instanceof Error ? error.message : String(error), "toast"),
+        );
+        return;
+      }
       case "chat/ready":
       case "chat/getState": {
         markChatReady();
         runtimeMonitor.start();
         postSnapshot();
+        post({ type: "chat/blueprintWorkflow", state: blueprintWorkflow });
         void runtimeMonitor.check();
         void broadcastRuntimeSettings();
         // @see docs/specs/100-package-shared/spec.md [FR-12]
@@ -2652,6 +2727,37 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     if (choice === "Open File") await openSourceFile(uri, line);
   }
 
+  function latestBlueprintDiscussion(): string {
+    const message = [...state.messages]
+      .reverse()
+      .find((item) => item.role === "user" && "content" in item);
+    return message && "content" in message ? message.content.slice(0, 4000) : "";
+  }
+
+  function handleBlueprintCommand(
+    content: string,
+    requestId: string,
+    attachmentIds: readonly string[],
+  ): Promise<void> | undefined {
+    const fail = (error: unknown) =>
+      postError(requestId, error instanceof Error ? error.message : String(error), "toast");
+    try {
+      const command = parseBlueprintCommand(content);
+      if (!command) return undefined;
+      restoreStagedAttachmentTray(attachmentIds);
+      if (!deps.onBlueprintAction)
+        throw new Error("Blueprint workflow actions are unavailable in this host.");
+      return (
+        command.action === "sprint"
+          ? deps.onBlueprintAction(command.action, latestBlueprintDiscussion())
+          : deps.onBlueprintAction(command.action)
+      ).catch(fail);
+    } catch (error) {
+      fail(error);
+      return Promise.resolve();
+    }
+  }
+
   async function handleSend(
     requestId: string,
     content: string,
@@ -2660,6 +2766,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     options?: { isAuthRetry?: boolean },
     imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
+    const blueprintCommand = handleBlueprintCommand(content, requestId, imageAttachmentIds);
+    if (blueprintCommand) {
+      await blueprintCommand;
+      return;
+    }
     if (state.isCompacting) {
       postError(requestId, "Compaction is in progress. Wait for it to finish.", "toast");
       restoreStagedAttachmentTray(imageAttachmentIds);
@@ -2670,6 +2781,13 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       restoreStagedAttachmentTray(imageAttachmentIds);
       return;
     }
+
+    const capturedMode = options?.isAuthRetry
+      ? (lastTurnSend?.capturedMode ?? workspaceMode())
+      : workspaceMode();
+    const prepareContext = options?.isAuthRetry
+      ? lastTurnSend?.prepareContext
+      : deps.capturePromptContext?.();
 
     // A fresh user turn (not an auth retry replay) resets the one-shot recovery
     // budget and records the prompt so a later auth_error can replay it once.
@@ -2682,7 +2800,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       ? lastTurnSend?.images
       : peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
     if (!options?.isAuthRetry) {
-      lastTurnSend = { content, mentions, intentSlot, images };
+      lastTurnSend = { content, mentions, intentSlot, images, capturedMode, prepareContext };
     }
 
     // An auth retry replays a prompt already shown in the transcript; don't echo
@@ -2711,8 +2829,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         content,
         normalizePromptMentions(content, mentions),
       );
-      const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+      const context = await prepareContext?.(content);
       await deps.beforeAgentSend?.();
+      if (workspaceMode() !== capturedMode)
+        throw new Error("Mode changed before send; retry in the intended mode.");
+      const prompt = prefixWorkspaceModePrompt(
+        context ? `${context}\n\n${inflated}` : inflated,
+        intentSlot,
+      );
       if (images) await agentManager.send(prompt, images);
       else await agentManager.send(prompt);
       if (!options?.isAuthRetry) commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
@@ -3038,7 +3162,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
    * @see docs/specs/200-app-vscode/spec.md [FR-11] [FR-12]
    * @see docs/specs/201-app-vscode-panels/spec.md [FR-9]
    */
-  async function handleSetMode(requestId: string, mode: WorkspaceMode): Promise<void> {
+  async function handleSetMode(
+    requestId: string,
+    mode: WorkspaceMode,
+    persist = true,
+  ): Promise<void> {
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
     // @see docs/specs/201-app-vscode-panels/design.md [DES-PANELS-MODE-WORKFLOW]
     const nextMode: WorkspaceMode =
@@ -3063,7 +3191,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       specModeResetPending = false;
     }
     try {
-      await vscode.commands.executeCommand("afx.setMode", nextMode);
+      if (persist) await vscode.commands.executeCommand("afx.setMode", nextMode);
       appendInfoMessage(formatModeSwitchInfo(nextMode));
       await handleGetSettingsSnapshot(requestId);
     } catch (err) {
@@ -3245,7 +3373,14 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       post({
         type: "agent/commands",
         requestId,
-        commands: mergeAgentCommands(runtimeCommands, bundledCommands),
+        commands: deps.onBlueprintAction
+          ? [
+              BLUEPRINT_HOST_COMMAND,
+              ...mergeAgentCommands(runtimeCommands, bundledCommands).filter(
+                (command) => command.name.replace(/^skill:/, "") !== "afx-blueprint",
+              ),
+            ]
+          : mergeAgentCommands(runtimeCommands, bundledCommands),
       });
     } catch (err) {
       log.error("getCommands failed", err instanceof Error ? err : undefined);
@@ -4212,6 +4347,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     intentSlot?: IntentSlot,
     imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
+    const blueprintCommand = handleBlueprintCommand(content, requestId, imageAttachmentIds);
+    if (blueprintCommand) {
+      await blueprintCommand;
+      return;
+    }
     if (!state.isStreaming) {
       postError(requestId, "Cannot steer: no turn is currently streaming.", "toast");
       restoreStagedAttachmentTray(imageAttachmentIds);
@@ -4219,13 +4359,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
     try {
       const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
+      const capturedMode = workspaceMode();
+      const prepareContext = deps.capturePromptContext?.();
       await enqueueQueueInjection(async (epoch) => {
-        await deps.beforeAgentSend?.();
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
-        const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+        const context = await prepareContext?.(content);
+        await deps.beforeAgentSend?.();
+        if (workspaceMode() !== capturedMode)
+          throw new Error("Mode changed before queued send; retry in the intended mode.");
+        const prompt = prefixWorkspaceModePrompt(
+          context ? `${context}\n\n${inflated}` : inflated,
+          intentSlot,
+        );
         if (images) await agentManager.steer(prompt, images);
         else await agentManager.steer(prompt);
         commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
@@ -4246,6 +4394,11 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     intentSlot?: IntentSlot,
     imageAttachmentIds: readonly string[] = [],
   ): Promise<void> {
+    const blueprintCommand = handleBlueprintCommand(content, requestId, imageAttachmentIds);
+    if (blueprintCommand) {
+      await blueprintCommand;
+      return;
+    }
     if (!state.isStreaming) {
       postError(requestId, "Cannot queue follow-up: no turn is currently streaming.", "toast");
       restoreStagedAttachmentTray(imageAttachmentIds);
@@ -4253,13 +4406,21 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     }
     try {
       const images = peekImageAttachments(stagedImageAttachments, imageAttachmentIds);
+      const capturedMode = workspaceMode();
+      const prepareContext = deps.capturePromptContext?.();
       await enqueueQueueInjection(async (epoch) => {
-        await deps.beforeAgentSend?.();
         const inflated = await inflateMentionContext(
           content,
           normalizePromptMentions(content, mentions),
         );
-        const prompt = prefixWorkspaceModePrompt(inflated, intentSlot);
+        const context = await prepareContext?.(content);
+        await deps.beforeAgentSend?.();
+        if (workspaceMode() !== capturedMode)
+          throw new Error("Mode changed before queued send; retry in the intended mode.");
+        const prompt = prefixWorkspaceModePrompt(
+          context ? `${context}\n\n${inflated}` : inflated,
+          intentSlot,
+        );
         if (images) await agentManager.followUp(prompt, images);
         else await agentManager.followUp(prompt);
         commitImageAttachments(stagedImageAttachments, imageAttachmentIds);
@@ -4360,6 +4521,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         type: "agent/runtimeSettings",
         requestId,
         settings: {
+          blueprintContext: deps.getBlueprintChatContext?.() ?? null,
           thinkingLevel: status.thinkingLevel,
           availableThinkingLevels: status.availableThinkingLevels,
           steeringMode: status.steeringMode,
@@ -4684,6 +4846,12 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
   }
 
   return {
+    enterBlueprintExploreMode: () => handleSetMode(cryptoRandom(), "explore", false),
+    enterBlueprintSpecMode: () => handleSetMode(cryptoRandom(), "spec", false),
+    postBlueprintWorkflow(next) {
+      blueprintWorkflow = next;
+      post({ type: "chat/blueprintWorkflow", state: next });
+    },
     resolveWebviewView,
     async sendExternalPrompt(content: string): Promise<void> {
       const requestId = cryptoRandom();
@@ -4718,6 +4886,7 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     },
     async refreshRuntimeConfiguration(): Promise<void> {
       if (!webview) return;
+      await broadcastRuntimeSettings();
       const requestId = cryptoRandom();
       await handleGetSettingsSnapshot(requestId);
       await postAvailableModels(requestId, { reportErrors: false });

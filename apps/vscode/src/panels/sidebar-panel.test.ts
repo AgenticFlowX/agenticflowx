@@ -1885,7 +1885,9 @@ describe("sidebar-panel host bridge", () => {
     };
     agent.setModel.mockResolvedValue(sdkModel);
     const runtimeMonitor = makeRuntimeMonitorMock();
-    const { inbound, postMessage } = setupWithView({ runtimeMonitor });
+    const prepare = vi.fn(async () => "Pinned Blueprint inquiry");
+    const capturePromptContext = vi.fn(() => prepare);
+    const { inbound, postMessage } = setupWithView({ runtimeMonitor, capturePromptContext });
     const listener = firstAgentEventListener();
 
     inbound.fire({
@@ -1905,6 +1907,11 @@ describe("sidebar-panel host bridge", () => {
 
     expect(runtimeMonitor.restart).toHaveBeenCalledWith("sdk-auth");
     expect(agent.send).toHaveBeenCalledTimes(2);
+    expect(capturePromptContext).toHaveBeenCalledOnce();
+    expect(prepare).toHaveBeenCalledTimes(2);
+    expect(agent.send).toHaveBeenLastCalledWith(
+      expect.stringContaining("Pinned Blueprint inquiry"),
+    );
     expect(postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         type: "chat/toast",
@@ -3019,6 +3026,60 @@ describe("sidebar-panel host bridge", () => {
     expect(JSON.stringify(postMessage.mock.calls)).toContain("Blueprint context unavailable");
   });
 
+  it.each(["chat/send", "chat/steer", "chat/followUp"] as const)(
+    "adds captured Blueprint knowledge to %s without changing the displayed question",
+    async (type) => {
+      const prepare = vi.fn(async () => "Saved Blueprint revision 4");
+      const { inbound, postMessage } = setupWithView({ capturePromptContext: () => prepare });
+      if (type !== "chat/send") firstAgentEventListener()?.({ type: "agent_start" });
+      inbound.fire({ type, requestId: "inquiry", content: "Where does login start?" });
+      await flushAsyncWork(3);
+      const method =
+        type === "chat/send" ? agent.send : type === "chat/steer" ? agent.steer : agent.followUp;
+      expect(method).toHaveBeenCalledWith(expect.stringContaining("Saved Blueprint revision 4"));
+      expect(prepare).toHaveBeenCalledWith("Where does login start?");
+      if (type === "chat/send")
+        expect(postMessage).toHaveBeenCalledWith(
+          expect.objectContaining({
+            type: "chat/messageStart",
+            role: "user",
+            content: "Where does login start?",
+          }),
+        );
+    },
+  );
+
+  it("rejects a queued inquiry when its captured selection changes before dispatch", async () => {
+    let release: (() => void) | undefined;
+    let selection = "one";
+    agent.steer.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const { inbound, postMessage } = setupWithView({
+      capturePromptContext: () => {
+        const captured = selection;
+        return async () => {
+          if (captured !== selection) throw new Error("Blueprint selection changed before send");
+          return captured;
+        };
+      },
+    });
+    firstAgentEventListener()?.({ type: "agent_start" });
+    inbound.fire({ type: "chat/steer", requestId: "first", content: "first" });
+    await flushAsyncWork(2);
+    inbound.fire({ type: "chat/followUp", requestId: "second", content: "second" });
+    selection = "two";
+    release?.();
+    await flushAsyncWork(3);
+    expect(agent.followUp).not.toHaveBeenCalled();
+    expect(JSON.stringify(postMessage.mock.calls)).toContain(
+      "Blueprint selection changed before send",
+    );
+  });
+
   it("chat/send delegates to agent.send with the user content", async () => {
     const inbound = setup();
     inbound.fire({
@@ -3029,6 +3090,62 @@ describe("sidebar-panel host bridge", () => {
     await new Promise((r) => setImmediate(r));
     expect(agent.send).toHaveBeenCalledOnce();
     expect(agent.send).toHaveBeenCalledWith(expect.stringContaining("hello world"));
+  });
+
+  it("enters Explore for Blueprint actions without persisting project mode settings", async () => {
+    const onBlueprintAction = vi.fn(async () => {});
+    const execute = vi.spyOn(vscode.commands, "executeCommand");
+    const { inbound, postMessage } = setupWithView({ onBlueprintAction });
+    inbound.fire({ type: "chat/blueprintAction", requestId: "inspect", action: "inspect" });
+    await flushAsyncWork(3);
+    expect(onBlueprintAction).toHaveBeenCalledWith("inspect");
+    expect(execute).not.toHaveBeenCalledWith("afx.setMode", "explore");
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/settingsSnapshot",
+        snapshot: expect.objectContaining({ mode: { active: "explore" } }),
+      }),
+    );
+  });
+
+  it.each(["chat/send", "chat/steer", "chat/followUp"] as const)(
+    "intercepts /afx-blueprint in %s before any runtime send",
+    async (type) => {
+      const onBlueprintAction = vi.fn(async () => {});
+      const { inbound } = setupWithView({ onBlueprintAction });
+      if (type !== "chat/send") firstAgentEventListener()?.({ type: "agent_start" });
+      inbound.fire({ type, requestId: "blueprint-command", content: "/afx-blueprint sync" });
+      await flushAsyncWork(3);
+      expect(onBlueprintAction).toHaveBeenCalledWith("check");
+      expect(agent.send).not.toHaveBeenCalled();
+      expect(agent.steer).not.toHaveBeenCalled();
+      expect(agent.followUp).not.toHaveBeenCalled();
+    },
+  );
+
+  it("rejects unknown Blueprint arguments locally and advertises the passive host command without a model", async () => {
+    const onBlueprintAction = vi.fn(async () => {});
+    const { inbound, postMessage } = setupWithView({ onBlueprintAction });
+    inbound.fire({
+      type: "chat/send",
+      requestId: "invalid-blueprint",
+      content: "/afx-blueprint update everything now",
+    });
+    await flushAsyncWork(2);
+    expect(onBlueprintAction).not.toHaveBeenCalled();
+    expect(agent.send).not.toHaveBeenCalled();
+    expect(JSON.stringify(postMessage.mock.calls)).toContain("Unknown Blueprint action");
+    agent.getCommands.mockRejectedValueOnce(new Error("No configured agent runtime"));
+    inbound.fire({ type: "chat/getCommands", requestId: "commands-without-model" });
+    await flushAsyncWork(3);
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "agent/commands",
+        commands: expect.arrayContaining([
+          expect.objectContaining({ name: "afx-blueprint", source: "extension" }),
+        ]),
+      }),
+    );
   });
 
   it("stages selected images under opaque ids and passes image payloads on chat/send", async () => {

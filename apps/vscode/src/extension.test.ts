@@ -81,6 +81,9 @@ vi.mock("./panels/sidebar-panel", () => ({
   createSidebarPanel: vi.fn(() => ({
     resolveWebviewView: vi.fn(),
     refreshRuntimeConfiguration: vi.fn(),
+    postBlueprintWorkflow: vi.fn(),
+    enterBlueprintExploreMode: vi.fn(async () => {}),
+    enterBlueprintSpecMode: vi.fn(async () => {}),
     refreshCustomModelsSnapshot: vi.fn(),
     sendExternalPrompt: vi.fn(),
     appendToDraft: vi.fn(),
@@ -128,6 +131,11 @@ function makeContext(): MockExtensionContext {
     subscriptions: [] as vscode.Disposable[],
     extensionUri: vscode.Uri.file("/tmp/agenticflowx"),
     globalStorageUri: vscode.Uri.file("/tmp/agenticflowx-global"),
+    workspaceState: {
+      get: vi.fn((_key: string, fallback?: unknown) => fallback),
+      update: vi.fn(async () => {}),
+      keys: vi.fn(() => []),
+    },
     extensionMode: vscode.ExtensionMode.Test,
     extension: { packageJSON: { version: "2.0.0-test" } },
     secrets: {

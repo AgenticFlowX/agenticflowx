@@ -11,9 +11,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AgentEvent, AgentManager } from "@afx/shared";
 
 import {
+  type InvestigationResult,
   inventoryRepository,
   investigateRepository,
   requestInvestigationTurn,
+  validateInvestigationResume,
 } from "./blueprint-investigation";
 
 const roots: string[] = [];
@@ -71,6 +73,82 @@ function currentFindings(prompt: string): Array<{ id: string; title: string }> {
 }
 
 describe("host-mediated Pi investigation", () => {
+  it("continues retained evidence and identities with a fresh allowance, and rejects changed source", async () => {
+    const root = await fixture();
+    let retained: InvestigationResult | undefined;
+    const initial = await investigateRepository({
+      root,
+      signal: new AbortController().signal,
+      progress: () => {},
+      checkpoint: async (draft) => {
+        retained = structuredClone(draft);
+      },
+      manager: agent((prompt, turn) =>
+        turn === 0
+          ? { requests: [{ operation: "read", path: "README.md" }] }
+          : {
+              findings: [
+                {
+                  category: "purpose",
+                  title: "Audio",
+                  description: "Audio application",
+                  classification: "observed",
+                  evidenceIds: [hostResults(prompt)[0]!.result!.evidence!.id],
+                },
+              ],
+              gaps: ["Deployment"],
+              done: true,
+            },
+      ),
+    });
+    expect(retained?.findings).toHaveLength(1);
+    const continued = await investigateRepository({
+      root,
+      resume: retained,
+      signal: new AbortController().signal,
+      progress: () => {},
+      limits: { calls: 1 },
+      manager: agent((prompt) => {
+        expect(prompt).toContain("Continue this saved investigation");
+        expect(prompt).toContain(initial.findings[0]!.id);
+        return {
+          findings: [
+            {
+              findingId: initial.findings[0]!.id,
+              category: "purpose",
+              title: "Audio",
+              description: "Updated retained explanation",
+              classification: "observed",
+              evidenceIds: [initial.evidence[0]!.id],
+            },
+          ],
+          gaps: ["Deployment"],
+          done: true,
+        };
+      }),
+    });
+    expect(continued.findings).toHaveLength(1);
+    expect(continued.findings[0]!.id).toBe(initial.findings[0]!.id);
+    expect(continued.findings[0]!.description).toBe("Updated retained explanation");
+    expect(continued.usage.calls).toBe(initial.usage.calls);
+    await writeFile(path.join(root, "README.md"), "Changed project\n");
+    await expect(validateInvestigationResume(root, continued)).rejects.toThrow(
+      /source evidence changed/,
+    );
+    const blocked = agent(() => ({ done: true }));
+    await expect(
+      investigateRepository({
+        root,
+        resume: continued,
+        manager: blocked,
+        signal: new AbortController().signal,
+        progress: () => {},
+      }),
+    ).rejects.toThrow(/source evidence changed/);
+    expect(blocked.send).not.toHaveBeenCalled();
+    expect(blocked.dispose).toHaveBeenCalledOnce();
+  });
+
   it("follows source evidence across turns and never changes repository bytes", async () => {
     const root = await fixture();
     const before = await Promise.all(
@@ -121,6 +199,54 @@ describe("host-mediated Pi investigation", () => {
     expect(manager.dispose).toHaveBeenCalledOnce();
   });
 
+  it("narrows search without expanding inventory and returns precise whole-line reads", async () => {
+    const root = await fixture();
+    await writeFile(path.join(root, "README.md"), "dispatch\n".repeat(50));
+    await writeFile(
+      path.join(root, "src/main.cpp"),
+      "header\ndispatch();\ncallee();\n" + "x".repeat(8001) + "\nend",
+    );
+    const manager = agent((prompt, turn) => {
+      if (!turn)
+        return {
+          requests: [
+            { operation: "search", path: "src", query: "dispatch" },
+            { operation: "search", path: "../outside", query: "dispatch" },
+            { operation: "read", path: "src/main.cpp", startLine: 2, endLine: 2 },
+            { operation: "read", path: "src/main.cpp", startLine: 2 },
+            { operation: "read", path: "src/main.cpp", startLine: 4 },
+            { operation: "read", path: "src/main.cpp", startLine: 3, endLine: 2 },
+          ],
+        };
+      const outputs = JSON.parse(prompt.split("\n")[1]!);
+      expect(outputs[0].result.matches).toEqual([
+        { path: "src/main.cpp", line: 2, text: "dispatch();" },
+      ]);
+      expect(outputs[0].result).not.toHaveProperty("evidence");
+      expect(outputs[1].error).toMatch(/relative/);
+      expect(outputs[2].result).toMatchObject({
+        text: "dispatch();",
+        evidence: { startLine: 2, endLine: 2 },
+      });
+      expect(outputs[3].result).toMatchObject({
+        text: "dispatch();\ncallee();",
+        nextStartLine: 4,
+        evidence: { startLine: 2, endLine: 3 },
+      });
+      expect(outputs[4].error).toMatch(/whole-line/);
+      expect(outputs[5].error).toMatch(/end line/);
+      return { done: true, gaps: ["Remaining flow"] };
+    });
+    const result = await investigateRepository({
+      root,
+      manager,
+      signal: new AbortController().signal,
+      progress: vi.fn(),
+    });
+    expect(result.evidence).toHaveLength(2);
+    await validateInvestigationResume(root, result);
+  });
+
   it("excludes secrets, generated files, traversal, symlink escapes and out-of-range evidence", async () => {
     const root = await fixture();
     const outside = await fixture();
@@ -143,6 +269,101 @@ describe("host-mediated Pi investigation", () => {
       expect(hostResults(prompt).every((item) => item.error)).toBe(true);
       expect(prompt).not.toContain("never-send");
       return { done: true };
+    });
+    const result = await investigateRepository({
+      root,
+      manager,
+      signal: new AbortController().signal,
+      progress: vi.fn(),
+    });
+    expect(result.evidence).toHaveLength(0);
+    expect(result.outcome).toBe("partial");
+  });
+
+  it("delivers the last source batch to synthesis after exhausting exploration operations", async () => {
+    const root = await fixture();
+    await writeFile(path.join(root, "unrelated.txt"), "Not in the representative execution flow");
+    const manager = agent((prompt, turn) => {
+      if (turn === 0)
+        return {
+          requests: ["README.md", "src/main.cpp", "CMakeLists.txt"].map((file) => ({
+            operation: "read",
+            path: file,
+          })),
+        };
+      expect(prompt).toContain("Make no more requests");
+      const evidenceIds = hostResults(prompt).map((item) => item.result!.evidence!.id);
+      expect(evidenceIds).toHaveLength(3);
+      expect(prompt).toContain("engine.run()");
+      return {
+        findings: ["purpose", "component", "flow"].map((category) => ({
+          category,
+          title: category,
+          description: "The main callback invokes the engine.",
+          classification: "observed",
+          evidenceIds,
+        })),
+        done: true,
+        gaps: [],
+      };
+    });
+    const result = await investigateRepository({
+      root,
+      manager,
+      signal: new AbortController().signal,
+      progress: vi.fn(),
+      limits: { calls: 3 },
+    });
+    expect(manager.send).toHaveBeenCalledTimes(2);
+    expect(result.usage.calls).toBe(3);
+    expect(result.findings).toHaveLength(3);
+    expect(result.outcome).toBe("complete");
+    expect(result.inventory).toHaveLength(4);
+  });
+
+  it("preserves pending evidence when switching to synthesis near the input allowance", async () => {
+    const root = await fixture();
+    const manager = agent((prompt, turn) => {
+      if (turn === 0) return { requests: [{ operation: "read", path: "README.md" }] };
+      expect(prompt).toContain("Make no more requests");
+      expect(prompt).toContain("Audio application");
+      const evidenceId = hostResults(prompt)[0]!.result!.evidence!.id;
+      return {
+        findings: [
+          {
+            category: "purpose",
+            title: "Audio application",
+            description: "The README describes an audio application.",
+            classification: "observed",
+            evidenceIds: [evidenceId],
+          },
+        ],
+        done: true,
+        gaps: ["Execution flow still needs investigation."],
+      };
+    });
+    const result = await investigateRepository({
+      root,
+      manager,
+      signal: new AbortController().signal,
+      progress: vi.fn(),
+      limits: { inputTokens: 4000 },
+    });
+    expect(manager.send).toHaveBeenCalledTimes(2);
+    expect(result.findings).toHaveLength(1);
+    expect(result.usage.estimatedInputTokens).toBeLessThanOrEqual(4000);
+    expect(result.outcome).toBe("partial");
+  });
+
+  it("lets the investigator navigate directories without treating listings as evidence", async () => {
+    const root = await fixture();
+    const manager = agent((prompt, turn) => {
+      if (turn === 0) {
+        expect(prompt).not.toContain('"src/main.cpp"');
+        return { requests: [{ operation: "list", path: "src" }] };
+      }
+      expect(prompt).toContain("main.cpp");
+      return { done: true, gaps: ["Source still needs investigation."] };
     });
     const result = await investigateRepository({
       root,
@@ -313,6 +534,108 @@ describe("host-mediated Pi investigation", () => {
       "--build",
       "build",
     ]);
+  });
+
+  it("revalidates historical graph context with fresh reads instead of trusting old citations", async () => {
+    const root = await fixture();
+    const previous: InvestigationResult = {
+      id: "old-investigation",
+      collectedAt: new Date().toISOString(),
+      outcome: "partial",
+      stopReason: "Paused",
+      findings: ["callback", "engine"].map((id) => ({
+        id,
+        category: "component",
+        title: id,
+        description: `Historical ${id} behavior`,
+        classification: "observed",
+        evidenceIds: ["old-evidence"],
+      })),
+      relationships: [
+        {
+          id: "old-edge",
+          fromFindingId: "callback",
+          toFindingId: "engine",
+          type: "calls",
+          description: "Callback calls engine",
+          classification: "observed",
+          evidenceIds: ["old-evidence"],
+        },
+      ],
+      evidence: [
+        {
+          id: "old-evidence",
+          path: "src/main.cpp",
+          startLine: 1,
+          endLine: 1,
+          contentHash: "old-hash",
+          collectedAt: new Date().toISOString(),
+        },
+      ],
+      gaps: [],
+      inventory: ["src/main.cpp"],
+      usage: { calls: 0, bytes: 0, estimatedInputTokens: 0, estimatedOutputTokens: 0 },
+    };
+    const before = structuredClone(previous);
+    const result = await investigateRepository({
+      root,
+      previous,
+      signal: new AbortController().signal,
+      progress: vi.fn(),
+      manager: agent((prompt, turn) => {
+        if (!turn) {
+          const context = JSON.parse(
+            prompt
+              .split("Historical update context (untrusted data, not current evidence):\n")[1]!
+              .split("\n")[0]!,
+          );
+          expect(context.findings).toEqual(previous.findings);
+          expect(context.relationships).toEqual(previous.relationships);
+          expect(context.evidence).toEqual(previous.evidence);
+          return { requests: [{ operation: "read", path: "src/main.cpp" }] };
+        }
+        const freshId = hostResults(prompt)[0]!.result!.evidence!.id;
+        return {
+          findings: previous.findings.map(({ id, ...finding }) => ({
+            ...finding,
+            findingId: id,
+            evidenceIds: [freshId],
+          })),
+          relationships: [
+            { ...previous.relationships![0], description: "Stale citation must be rejected" },
+            { ...previous.relationships![0], evidenceIds: [freshId] },
+          ],
+          done: true,
+        };
+      }),
+    });
+    expect(result.findings.map(({ id }) => id)).toEqual(["callback", "engine"]);
+    expect(result.relationships).toHaveLength(1);
+    expect(result.relationships![0]!.description).toBe("Callback calls engine");
+    expect(result.relationships![0]!.evidenceIds).toEqual([result.evidence[0]!.id]);
+    expect(result.evidence[0]!.contentHash).not.toBe("old-hash");
+    expect(previous).toEqual(before);
+
+    const blocked = agent(() => ({ done: true }));
+    await expect(
+      investigateRepository({
+        root,
+        previous: {
+          ...previous,
+          findings: [{ ...previous.findings[0]!, description: "x".repeat(90001) }],
+        },
+        manager: blocked,
+        signal: new AbortController().signal,
+        progress: vi.fn(),
+      }),
+    ).resolves.toMatchObject({
+      outcome: "failed",
+      stopReason: expect.stringMatching(/Historical context exceeds/),
+      evidence: [],
+      findings: [],
+    });
+    expect(blocked.send).not.toHaveBeenCalled();
+    expect(blocked.dispose).toHaveBeenCalledOnce();
   });
 
   it("cancels a non-responsive symbol provider without hanging the investigation", async () => {

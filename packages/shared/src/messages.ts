@@ -552,7 +552,57 @@ export interface SettingsSnapshot {
  * @see docs/specs/100-package-shared/spec.md [FR-1] [FR-4]
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
+export type BlueprintWorkflowAction =
+  | "status"
+  | "check"
+  | "update"
+  | "rebuild"
+  | "sprint"
+  | "end-session"
+  | "attach"
+  | "inspect"
+  | "open"
+  | "review"
+  | "save"
+  | "continue"
+  | "stop"
+  | "read"
+  | "adopt"
+  | "recover"
+  | "discard";
+export interface BlueprintSprintSubmission {
+  name: string;
+  goal: string;
+  discussion: string;
+  findingIds: string[];
+}
+export interface BlueprintWorkflowState {
+  phase: "idle" | "inspecting" | "review" | "saved";
+  name?: string;
+  detail?: string;
+  error?: string;
+  findingCount: number;
+  canContinue: boolean;
+  hasSaved: boolean;
+  reviewed?: boolean;
+  canSave?: boolean;
+  attached?: boolean;
+  planning?: boolean;
+  handoffBusy?: boolean;
+  changes?: { changed: number; missing: number; added: number; unknown: number };
+  handoff?: {
+    blueprintId: string;
+    revision: number;
+    modelRevision?: string;
+    discussion: string;
+    findings: Array<{ id: string; title: string; description: string }>;
+  };
+  proposal?: { kind: "update" | "rebuild"; added: number; modified: number; retired: number };
+}
+
 export type ChatToAgent =
+  | { type: "chat/blueprintCreateSprint"; requestId: string; input: BlueprintSprintSubmission }
+  | { type: "chat/blueprintAction"; requestId: string; action: BlueprintWorkflowAction }
   /**
    * Webview finished mounting and is ready to receive state.
    *
@@ -1159,6 +1209,7 @@ export type ChatToAgent =
  * @see docs/specs/100-package-shared/design.md [DES-SHARED-CHAT-PROTOCOL]
  */
 export type AgentToChat =
+  | { type: "chat/blueprintWorkflow"; state: BlueprintWorkflowState }
   /**
    * Full state snapshot. Sent on ready and on reconnect.
    *
@@ -1491,7 +1542,7 @@ export type AgentToChat =
         | "pendingMessageCount"
         | "rpcEnabled"
         | "runtimeConfigured"
-      >;
+      > & { blueprintContext?: { name: string; repositoryName: string; revision: number } | null };
     }
   /**
    * Result of a compaction request.

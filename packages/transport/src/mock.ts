@@ -17,6 +17,8 @@ import {
   type AgentSessionInfo,
   type AgentToChat,
   type AgentTranscriptEntry,
+  type BlueprintWorkflowAction,
+  type BlueprintWorkflowState,
   type ChatMessageView,
   type ChatTimelineItem,
   type ChatToAgent,
@@ -367,6 +369,12 @@ const MOCK_COMPACTION = {
 // ---------------------------------------------------------------------------
 
 export function createMockTransport(): MockTransport {
+  let blueprintWorkflow: BlueprintWorkflowState = {
+    phase: "idle",
+    findingCount: 0,
+    canContinue: false,
+    hasSaved: false,
+  };
   const listeners = new Map<string, Set<(msg: AgentToChat) => void>>();
   const log: LogEntry[] = [];
   const logListeners = new Set<(entry: LogEntry) => void>();
@@ -2199,7 +2207,131 @@ Next: /afx-sprint task ${feature} convert Refs lines to canonical @see comments
     log.push(entry);
     for (const l of logListeners) l(entry);
 
+    const publishBlueprintMode = (mode: WorkspaceMode) => {
+      activeMode = mode;
+      MOCK_SETTINGS_SNAPSHOT.mode.active = mode;
+      emit({
+        type: "agent/settingsSnapshot",
+        requestId: uid(),
+        snapshot: { ...MOCK_SETTINGS_SNAPSHOT, appearance, context: { includeActiveFileContext } },
+      });
+    };
+    if (msg.type === "chat/send" && /^\/afx-blueprint(?:\s|$)/.test(msg.content.trim())) {
+      const token = msg.content.trim().split(/\s+/).slice(1).join(" ");
+      const aliases: Record<string, BlueprintWorkflowAction> = {
+        "": "status",
+        check: "check",
+        sync: "check",
+        update: "update",
+        rebuild: "rebuild",
+        resync: "rebuild",
+        sprint: "sprint",
+        end: "end-session",
+        review: "review",
+        apply: "save",
+        reject: "discard",
+      };
+      if (aliases[token])
+        send({ type: "chat/blueprintAction", requestId: msg.requestId, action: aliases[token] });
+      else
+        emit({ type: "chat/error", requestId: msg.requestId, message: "Unknown Blueprint action" });
+      return;
+    }
+    if (msg.type === "chat/blueprintCreateSprint") {
+      blueprintWorkflow = {
+        ...blueprintWorkflow,
+        handoff: undefined,
+        planning: true,
+        detail: "Demo Draft Sprint created in an external document folder.",
+      };
+      publishBlueprintMode("spec");
+      emitRuntimeSettings(undefined, {
+        blueprintContext: { name: "Demo project", repositoryName: "Demo repository", revision: 1 },
+      });
+      emit({ type: "chat/blueprintWorkflow", state: blueprintWorkflow });
+      return;
+    }
+    // Browser-only scripted host for workflow UI tests; production uses the extension coordinator.
+    if (msg.type === "chat/blueprintAction") {
+      if (msg.action === "inspect" || msg.action === "continue")
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          phase: "inspecting",
+          name: "Demo project",
+          detail: "Demo investigation: Stop to review retained findings.",
+          reviewed: false,
+        };
+      else if (msg.action === "stop")
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          phase: "review",
+          findingCount: blueprintWorkflow.findingCount + 3,
+          canContinue: true,
+          detail: "Demo partial result. Deployment remains unexplored.",
+        };
+      else if (msg.action === "status") publishBlueprintMode("explore");
+      else if (msg.action === "check")
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          changes: { changed: 1, missing: 0, added: 0, unknown: 2 },
+          detail: "Demo comparison: 1 changed file; no model call or artifact write.",
+        };
+      else if (msg.action === "update" || msg.action === "rebuild")
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          phase: "review",
+          reviewed: false,
+          proposal: {
+            kind: msg.action,
+            added: 0,
+            modified: 1,
+            retired: msg.action === "rebuild" ? 1 : 0,
+          },
+          detail: "Demo proposal. Review before applying.",
+        };
+      else if (msg.action === "sprint")
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          handoff: {
+            blueprintId: "demo",
+            revision: 1,
+            modelRevision: "demo-model",
+            discussion: "",
+            findings: [
+              { id: "purpose", title: "Project purpose", description: "Saved understanding" },
+              { id: "engine", title: "Engine", description: "Unselected component" },
+            ],
+          },
+        };
+      else if (msg.action === "end-session") {
+        blueprintWorkflow = { ...blueprintWorkflow, planning: false };
+        publishBlueprintMode("explore");
+      } else if (msg.action === "review")
+        blueprintWorkflow = { ...blueprintWorkflow, reviewed: true };
+      else if (msg.action === "save" && blueprintWorkflow.reviewed)
+        blueprintWorkflow = {
+          ...blueprintWorkflow,
+          phase: "saved",
+          hasSaved: true,
+          attached: true,
+          proposal: undefined,
+          reviewed: false,
+        };
+      else if (msg.action === "discard")
+        blueprintWorkflow = blueprintWorkflow.handoff
+          ? { ...blueprintWorkflow, handoff: undefined }
+          : {
+              ...blueprintWorkflow,
+              phase: blueprintWorkflow.hasSaved ? "saved" : "idle",
+              findingCount: 0,
+              canContinue: false,
+              proposal: undefined,
+            };
+      emit({ type: "chat/blueprintWorkflow", state: blueprintWorkflow });
+      return;
+    }
     if (msg.type === "chat/ready" || msg.type === "chat/getState") {
+      emit({ type: "chat/blueprintWorkflow", state: blueprintWorkflow });
       emit({
         type: "chat/state",
         isStreaming: mockStreaming,

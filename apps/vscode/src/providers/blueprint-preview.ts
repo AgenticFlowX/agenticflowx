@@ -4,6 +4,8 @@
  * @see docs/specs/231-app-vscode-blueprint/spec.md [FR-6] [FR-7]
  * @see docs/specs/231-app-vscode-blueprint/design.md [DES-UI] [DES-FLOW]
  */
+import { createHash } from "node:crypto";
+
 import * as vscode from "vscode";
 
 export const BLUEPRINT_PREVIEW_SCHEME = "afx-blueprint";
@@ -37,7 +39,7 @@ export function createBlueprintPreviewProvider(): BlueprintPreviewProvider {
     const existing = projectUris.get(record.projectId);
     if (existing) return existing;
     const uri = vscode.Uri.parse(
-      `${BLUEPRINT_PREVIEW_SCHEME}:/${encodeURIComponent(record.id)}.md`,
+      `${BLUEPRINT_PREVIEW_SCHEME}:/${createHash("sha256").update(record.id).digest("hex")}.md`,
     );
     projectUris.set(record.projectId, uri);
     return uri;

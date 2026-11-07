@@ -1,0 +1,6 @@
+{
+  "source": "AgenticFlowX/afx/skills/agenticflowx/afx-blueprint/SKILL.md",
+  "sha256": "4662ce1caa565badc81497b3e1a9e2a37a9f92b1febef24bd6599255d6e0f25b",
+  "publication": "workspace-draft",
+  "capability": "extension-host-command"
+}

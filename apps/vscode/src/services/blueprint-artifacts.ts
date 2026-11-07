@@ -8,8 +8,9 @@ import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
+import { generatedBlueprintSection } from "./blueprint-reader";
 import { portableBlueprintSchema, validatePortableBlueprint } from "./blueprint-validation";
-import { withBlueprintLock } from "./blueprint-writer";
+import { ensureArtifactParent, withBlueprintLock } from "./blueprint-writer";
 
 export const BLUEPRINT_SCHEMA_VERSION = 3;
 export const BLUEPRINT_MANIFEST = "blueprint.json";
@@ -329,7 +330,9 @@ export async function createBlueprint(input: CreateBlueprintInput): Promise<Blue
     );
     await atomicWrite(
       path.join(input.artifactRoot, "blueprint.md"),
-      `# ${manifest.name}\n\n${manifest.description ?? "AFX Blueprint"}\n\n${input.researchMarkdown.trim()}\n`,
+      manifest.schemaVersion === 3
+        ? `# ${manifest.name}\n\n${manifest.description ?? "AFX Blueprint"}\n\n## Your notes\n\n${generatedBlueprintSection(input.researchMarkdown)}\n`
+        : `# ${manifest.name}\n\n${manifest.description ?? "AFX Blueprint"}\n\n${input.researchMarkdown.trim()}\n`,
     );
     if (manifest.schemaVersion < 3) {
       for (const folder of ["research", "docs/specs", "decisions", "traces", "evidence"])
@@ -393,6 +396,7 @@ export async function updateBlueprint(
   artifactRoot: string,
   expectedRevision: number,
   transform: (manifest: BlueprintManifest) => BlueprintManifest,
+  reader?: (previous: string, next: BlueprintManifest) => string,
 ): Promise<BlueprintManifest> {
   return withBlueprintLock(artifactRoot, async () => {
     const current = await openBlueprint(artifactRoot);
@@ -401,9 +405,96 @@ export async function updateBlueprint(
     next.revision = current.revision + 1;
     next.updatedAt = new Date().toISOString();
     validateBlueprintManifest(next);
-    await atomicWrite(path.join(artifactRoot, BLUEPRINT_MANIFEST), stableJson(next));
+    if (Buffer.byteLength(stableJson(next)) > BLUEPRINT_MAX_BYTES)
+      throw new Error("Updated manifest exceeds the 2 MiB limit.");
+    if (reader) {
+      await ensureArtifactParent(artifactRoot, "blueprint.md");
+      const file = path.join(artifactRoot, "blueprint.md");
+      if ((await stat(file)).size > BLUEPRINT_MAX_BYTES)
+        throw new Error("Blueprint reader exceeds the 2 MiB limit.");
+      const before = await readFile(file, "utf8");
+      const after = reader(before, next);
+      if (Buffer.byteLength(after) > BLUEPRINT_MAX_BYTES)
+        throw new Error("Updated reader exceeds the 2 MiB limit.");
+      const transaction = path.join(artifactRoot, BLUEPRINT_TRANSACTION);
+      await ensureArtifactParent(artifactRoot, BLUEPRINT_TRANSACTION);
+      const recovery = stableJson({
+        kind: "afx-blueprint-reader-transaction",
+        before: { manifest: current, reader: before },
+        after: { manifest: next, reader: after },
+      });
+      if (Buffer.byteLength(recovery) > 12 * 1024 * 1024)
+        throw new Error("Reader recovery record exceeds its limit.");
+      await atomicWrite(transaction, recovery);
+      if ((await readFile(file, "utf8")) !== before) {
+        await rm(transaction);
+        throw new Error("Blueprint reader changed before apply; review and retry.");
+      }
+      await atomicWrite(file, after);
+      await atomicWrite(path.join(artifactRoot, BLUEPRINT_MANIFEST), stableJson(next));
+      await rm(transaction);
+    } else {
+      await atomicWrite(path.join(artifactRoot, BLUEPRINT_MANIFEST), stableJson(next));
+    }
     return next;
   });
 }
 
 export const blueprintArtifactInternals = { atomicWrite, stableJson };
+
+/** Explicitly rolls an interrupted reader/model pair back to the last validated version. */
+export async function recoverBlueprintReader(root: string): Promise<void> {
+  const lock = path.join(root, ".afx-blueprint.lock");
+  const owner = await readFile(path.join(lock, "owner.json"), "utf8").catch(() => undefined);
+  if (owner) {
+    const pid = (JSON.parse(owner) as { pid?: number }).pid;
+    if (!Number.isSafeInteger(pid) || !pid || pid < 1)
+      throw new Error("Inspect the abandoned lock before recovery.");
+    try {
+      process.kill(pid, 0);
+      throw new Error("Blueprint writer is still running; stop it before recovery.");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+    }
+    await rm(lock, { recursive: true });
+  }
+  await withBlueprintLock(root, async () => {
+    const file = path.join(root, BLUEPRINT_TRANSACTION);
+    await ensureArtifactParent(root, BLUEPRINT_TRANSACTION);
+    if ((await stat(file)).size > 12 * 1024 * 1024)
+      throw new Error("Recovery record exceeds its limit.");
+    const record = JSON.parse(await readFile(file, "utf8")) as {
+      kind: string;
+      before: { manifest: BlueprintManifest; reader: string };
+      after: { manifest: BlueprintManifest; reader: string };
+    };
+    if (
+      record.kind !== "afx-blueprint-reader-transaction" ||
+      typeof record.before?.reader !== "string" ||
+      typeof record.after?.reader !== "string"
+    )
+      throw new Error("Not a reader recovery record.");
+    validateBlueprintManifest(record.before.manifest);
+    validateBlueprintManifest(record.after.manifest);
+    if (
+      record.before.manifest.id !== record.after.manifest.id ||
+      record.after.manifest.revision !== record.before.manifest.revision + 1
+    )
+      throw new Error("Recovery identity conflict.");
+    for (const name of ["blueprint.md", BLUEPRINT_MANIFEST]) await ensureArtifactParent(root, name);
+    const currentReader = await readFile(path.join(root, "blueprint.md"), "utf8");
+    const currentManifest = await readFile(path.join(root, BLUEPRINT_MANIFEST), "utf8");
+    if (
+      ![record.before.reader, record.after.reader].includes(currentReader) ||
+      ![stableJson(record.before.manifest), stableJson(record.after.manifest)].includes(
+        currentManifest,
+      )
+    )
+      throw new Error(
+        "Files changed after interruption; preserve and resolve them before recovery.",
+      );
+    await atomicWrite(path.join(root, "blueprint.md"), record.before.reader);
+    await atomicWrite(path.join(root, BLUEPRINT_MANIFEST), stableJson(record.before.manifest));
+    await rm(file);
+  });
+}

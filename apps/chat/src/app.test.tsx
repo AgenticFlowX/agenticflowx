@@ -17,6 +17,37 @@ import { initTransport } from "./lib/bridge";
 
 vi.setConfig({ testTimeout: 45_000 });
 
+describe("Blueprint composer context", () => {
+  it("shows the attached repository and revision, then clears the row on detach", async () => {
+    const transport = createControlledTransport();
+    initTransport(transport);
+    render(<App transport={transport} />);
+    expect(screen.queryByLabelText("Attached Blueprint")).not.toBeInTheDocument();
+    act(() =>
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: {
+          blueprintContext: {
+            name: "Architecture map",
+            repositoryName: "Sample repository",
+            revision: 4,
+          },
+        },
+      }),
+    );
+    const row = await screen.findByLabelText("Attached Blueprint");
+    expect(row).toHaveTextContent("Architecture map");
+    expect(row).toHaveTextContent("Sample repository");
+    expect(row).toHaveTextContent("r4");
+    act(() =>
+      transport.emit({ type: "agent/runtimeSettings", settings: { blueprintContext: null } }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByLabelText("Attached Blueprint")).not.toBeInTheDocument(),
+    );
+  });
+});
+
 function renderApp() {
   const transport = createMockTransport();
   initTransport(transport);

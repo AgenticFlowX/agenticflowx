@@ -18,6 +18,7 @@ import {
   useState,
 } from "react";
 
+import type { BlueprintWorkflowState } from "@afx/shared";
 import type {
   ActiveFileContextSnapshot,
   AgentCommand,
@@ -100,7 +101,10 @@ function activeDocContextFromMessage(msg: ActiveDocContextMessage): ActiveDocCtx
 // ---------------------------------------------------------------------------
 
 /** Subset of AgentStatus fields the controller mirrors as `runtime`. */
-export type ChatRuntimeSettings = Partial<
+export type ChatRuntimeSettings = {
+  blueprintWorkflow?: BlueprintWorkflowState;
+  blueprintContext?: { name: string; repositoryName: string; revision: number } | null;
+} & Partial<
   Pick<
     AgentStatus,
     | "thinkingLevel"
@@ -1055,8 +1059,15 @@ export function useChatController({
           toast.error("Export failed", msg.error ?? "The transcript could not be exported.");
         }),
 
+        bridge.on("chat/blueprintWorkflow", (msg) => {
+          setRuntime((previous) => ({ ...previous, blueprintWorkflow: msg.state }));
+        }),
+
         bridge.on("agent/runtimeSettings", (msg) => {
-          setRuntime(msg.settings);
+          setRuntime((previous) => ({
+            ...msg.settings,
+            blueprintWorkflow: previous.blueprintWorkflow,
+          }));
           const pending = msg.settings.pendingMessageCount;
           if (typeof pending === "number") {
             const normalized = Math.max(0, pending);

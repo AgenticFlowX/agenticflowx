@@ -8,6 +8,18 @@ import * as vscode from "vscode";
 import { createBlueprintPreviewProvider } from "./blueprint-preview";
 
 describe("Blueprint preview provider", () => {
+  it("uses an opaque path even when the captured identity begins with a slash", () => {
+    const provider = createBlueprintPreviewProvider();
+    const uri = provider.update({
+      id: "/code/private project",
+      projectId: "source",
+      content: "# Project",
+    });
+    expect(uri.scheme).toBe("afx-blueprint");
+    expect(uri.path).toMatch(/^\/[a-f0-9]{64}\.md$/);
+    expect(uri.toString()).not.toContain("private");
+    expect(provider.get(uri)?.content).toBe("# Project");
+  });
   it("reuses one preview URI per project and binds its captured source", () => {
     const provider = createBlueprintPreviewProvider();
     const source = vscode.Uri.file("/code/src/index.ts");

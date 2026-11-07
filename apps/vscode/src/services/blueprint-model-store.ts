@@ -5,7 +5,7 @@
  */
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { readFile, realpath } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -15,7 +15,12 @@ import {
   resolveInside,
   updateBlueprint,
 } from "./blueprint-artifacts";
-import { type InvestigationResult, inventoryRepository } from "./blueprint-investigation";
+import {
+  type InvestigationResult,
+  inventoryRepository,
+  renderInvestigation,
+} from "./blueprint-investigation";
+import { updateBlueprintReader } from "./blueprint-reader";
 import { validatePortableBlueprint } from "./blueprint-validation";
 import { atomicJson, withBlueprintLock } from "./blueprint-writer";
 import type { SymbolObservation } from "./repository-blueprint";
@@ -182,7 +187,13 @@ export async function saveBlueprintModel(
       investigation,
     };
     validateModelReferences(model);
-    await updateBlueprint(root, manifest.revision, (current) => ({ ...current, model }));
+    await updateBlueprint(
+      root,
+      manifest.revision,
+      (current) => ({ ...current, model }),
+      (previous) =>
+        updateBlueprintReader(previous, renderInvestigation(investigation, manifest.name)),
+    );
     return model;
   }
   return withBlueprintLock(root, async () => {
@@ -308,8 +319,10 @@ export async function reconcileBlueprintModel(
     try {
       const canonical = await realpath(resolveInside(codeRoot, file));
       const relative = path.relative(await realpath(codeRoot), canonical);
-      if (relative.startsWith("..") || path.isAbsolute(relative))
+      if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
         throw new Error("Unbound source.");
+      if ((await stat(canonical)).size > 1024 * 1024)
+        throw new Error("Source exceeds the bounded comparison size.");
       (digest(await readFile(canonical)) === item.contentHash
         ? changes.current
         : changes.changed
@@ -341,7 +354,9 @@ export async function reconcileBlueprintModel(
     try {
       const location = await realpath(resolveInside(codeRoot, added));
       const relative = path.relative(await realpath(codeRoot), location);
-      if (relative.startsWith("..") || path.isAbsolute(relative)) continue;
+      if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+        continue;
+      if ((await stat(location)).size > 1024 * 1024) continue;
       const contentHash = digest(await readFile(location));
       for (const missing of changes.missing)
         if (evidence.get(missing)?.contentHash === contentHash)

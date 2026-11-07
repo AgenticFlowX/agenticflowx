@@ -583,6 +583,18 @@
         "command": "afx.reviewBlueprintFinding",
         "title": "Review Blueprint Finding\u2026",
         "category": "AFX"
+      },
+      {
+        "command": "afx.blueprint",
+        "title": "AFX: Blueprint"
+      },
+      {
+        "command": "afx.updateBlueprint",
+        "title": "AFX: Update Blueprint"
+      },
+      {
+        "command": "afx.rebuildBlueprint",
+        "title": "AFX: Rebuild Blueprint"
       }
     ],
     "submenus": [
@@ -593,6 +605,13 @@
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "afx.inspectRepository",
+          "when": "view == workbench.explorer.fileView",
+          "group": "afx@1"
+        }
+      ],
       "explorer/context": [
         {
           "submenu": "afx.editorContext",
@@ -872,7 +891,8 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "package": "pnpm vsce package --out ../../bin/ --no-dependencies",
-    "postpackage": "node ../../scripts/legal/third-party-notices.mjs verify-vsix bin"
+    "postpackage": "node ../../scripts/legal/third-party-notices.mjs verify-vsix bin",
+    "sync:blueprint-host": "node scripts/sync-blueprint-host-workflow.mjs"
   },
   "dependencies": {
     "@afx/agent-pi": "workspace:*",

@@ -39,6 +39,7 @@ import {
   outputChannelSink,
   sddPrimaryActionForPath,
 } from "@afx/shared";
+import type { AgentManager, BlueprintWorkflowAction, BlueprintWorkflowState } from "@afx/shared";
 
 import {
   type AgentInstance,
@@ -89,24 +90,44 @@ import {
   type BlueprintManifest,
   createBlueprint,
   openBlueprint,
+  recoverBlueprintReader,
+  updateBlueprint,
 } from "./services/blueprint-artifacts";
+import {
+  type BlueprintCheckpoint,
+  createBlueprintCheckpointStore,
+} from "./services/blueprint-checkpoint";
+import { parseBlueprintCommand } from "./services/blueprint-command";
 import {
   type BlueprintExecutionContext,
   createBlueprintSprint,
   listBlueprintSprints,
+  prepareBlueprintExecutionContext,
 } from "./services/blueprint-execution-context";
+import { type BlueprintSprintInput, renderBlueprintHandoff } from "./services/blueprint-handoff";
+import { renderBlueprintInquiry } from "./services/blueprint-inquiry";
 import {
+  type InvestigationOptions,
   type InvestigationResult,
+  inventoryRepository,
   investigateRepository,
   renderInvestigation,
+  validateInvestigationResume,
 } from "./services/blueprint-investigation";
 import { migrateBlueprint, recoverBlueprintMigration } from "./services/blueprint-migration";
 import {
+  type BlueprintModel,
   loadBlueprintModel,
   reconcileBlueprintModel,
-  saveBlueprintChanges,
   saveBlueprintModel,
 } from "./services/blueprint-model-store";
+import {
+  type BlueprintProposal,
+  affectedBlueprintFindings,
+  buildBlueprintProposal,
+  renderBlueprintProposal,
+} from "./services/blueprint-proposal";
+import { adoptBlueprintReader } from "./services/blueprint-reader";
 import { loadFindingReviews, saveFindingReview } from "./services/blueprint-review";
 import { chooseBlueprintSaveLocation } from "./services/blueprint-save-dialog";
 import { createBlueprintObservationStorage } from "./services/blueprint-storage";
@@ -211,6 +232,20 @@ export interface AfxExtensionTestApi {
     models: Array<{ id: string; name: string; contextWindow?: number; maxTokens?: number }>;
   }): Promise<{ ok: boolean; error?: string }>;
   removeCustomProvider(providerId: string): Promise<{ ok: boolean; error?: string }>;
+  runBlueprintInspectionForTest(
+    root: string,
+    manager: AgentManager,
+    continuing?: boolean,
+    limits?: InvestigationOptions["limits"],
+  ): Promise<void>;
+  getBlueprintWorkflow(): BlueprintWorkflowState;
+  runBlueprintMaintenanceForTest(kind: "update" | "rebuild", manager: AgentManager): Promise<void>;
+  submitBlueprintCommandForTest(content: string): Promise<void>;
+  createBlueprintHandoffForTest(input: BlueprintSprintInput, documentRoot: string): Promise<void>;
+  getBlueprintRestartDiagnostics(): unknown;
+  blueprintAction(action: BlueprintWorkflowAction): Promise<void>;
+  saveBlueprintDraftForTest(root: string): Promise<void>;
+  restoreBlueprintDraftForTest(): Promise<void>;
   getBlueprintState(): {
     attached: boolean;
     executionContextActive: boolean;
@@ -286,11 +321,22 @@ export async function activate(
     | {
         artifactRoot: string;
         manifest: BlueprintManifest;
+        repositoryId: string;
         binding: BlueprintBinding;
         traces: BlueprintTraceStore;
       }
     | undefined;
   let activeExecutionContext: BlueprintExecutionContext | undefined;
+  let finishingHandoff = false;
+  let pendingHandoff:
+    | {
+        manifest: BlueprintManifest;
+        model?: BlueprintModel;
+        attachment: NonNullable<typeof activeBlueprint>;
+      }
+    | undefined;
+  let configuredBlueprintAttachment: typeof activeBlueprint;
+  let configuredBlueprintExecution: BlueprintExecutionContext | undefined;
   let activeBlueprintWatcher: vscode.FileSystemWatcher | undefined;
   context.subscriptions.push({
     dispose: () => {
@@ -303,6 +349,36 @@ export async function activate(
   const observations = new Map<string, RepositoryObservation>();
   const investigations = new Map<string, InvestigationResult>();
   const investigationParents = new Map<string, string | null>();
+  let pendingProposal:
+    | {
+        proposal: BlueprintProposal;
+        base: BlueprintModel;
+      }
+    | undefined;
+  const checkpointStore = createBlueprintCheckpointStore(
+    join(context.globalStorageUri.fsPath, "blueprint-checkpoints"),
+  );
+  async function persistSavedCheckpoint(record: BlueprintCheckpoint): Promise<string | undefined> {
+    try {
+      await checkpointStore.save(record);
+      return undefined;
+    } catch (error) {
+      return `The Blueprint was saved, but its continuation checkpoint is unavailable: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  }
+  let workflowProjectId: string | undefined;
+  const recoverableProjectIds = new Set<string>();
+  let workflowState: BlueprintWorkflowState = {
+    phase: "idle",
+    findingCount: 0,
+    canContinue: false,
+    hasSaved: false,
+  };
+  function publishWorkflow(patch: Partial<BlueprintWorkflowState>): void {
+    workflowState = { ...workflowState, ...patch };
+    sidebarProvider?.postBlueprintWorkflow(workflowState);
+  }
+
   const blueprintLensChanges = new vscode.EventEmitter<void>();
   context.subscriptions.push(blueprintLensChanges);
   const bindingState = context.globalState as
@@ -474,6 +550,9 @@ export async function activate(
     const workspaceRoot =
       inspectionRoot ??
       activeExecutionContext?.codeRoot ??
+      (activeBlueprint
+        ? activeBlueprint.binding.checkouts[activeBlueprint.repositoryId]
+        : undefined) ??
       vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     const configuredPiBinary = cfg.get<string>("agentBinaryPath", "").trim();
     const rpcEnabled = cfg.get<boolean>("rpc.enabled", false);
@@ -558,6 +637,8 @@ export async function activate(
   function scheduleAgentRuntimeRebuild(reason: string): Promise<void> {
     runtimeRebuildChain = runtimeRebuildChain
       .then(async () => {
+        const targetAttachment = activeBlueprint;
+        const targetExecution = activeExecutionContext;
         const next = await buildAgentInstances();
         agentInstances = next;
         await agentManager?.replaceInstances(next);
@@ -566,6 +647,8 @@ export async function activate(
           instances: next.map((instance) => instance.id).join(","),
         });
         await runtimeMonitor.restart();
+        configuredBlueprintAttachment = targetAttachment;
+        configuredBlueprintExecution = targetExecution;
         await sidebarProvider?.refreshRuntimeConfiguration();
       })
       .catch((err) => {
@@ -728,12 +811,16 @@ export async function activate(
     oauthService,
     reconfigureAgentRuntimes: scheduleAgentRuntimeRebuild,
     beforeAgentSend: async () => {
+      if (
+        configuredBlueprintAttachment !== activeBlueprint ||
+        configuredBlueprintExecution !== activeExecutionContext
+      )
+        throw new Error(
+          "The agent runtime has not adopted the selected Blueprint context. Reconfigure the runtime before sending; no context fallback was used.",
+        );
       if (!activeBlueprint) return;
       const pinned = activeExecutionContext;
-      if (!pinned)
-        throw new Error(
-          "A Blueprint is attached for navigation. Start a Blueprint Planning Session or create/continue a Blueprint Sprint before chatting, so specs and links stay outside the source checkout. Detach it to return to ordinary chat.",
-        );
+      if (!pinned) return;
       const manifest = await openBlueprint(pinned.artifactRoot);
       if (
         manifest.id !== pinned.blueprintId ||
@@ -746,6 +833,44 @@ export async function activate(
       await vscode.workspace.fs.stat(vscode.Uri.file(pinned.codeRoot));
       if (activeExecutionContext !== pinned)
         throw new Error("Blueprint context changed before send; retry in the intended session.");
+    },
+    onBlueprintAction: runBlueprintAction,
+    onBlueprintCreateSprint: (input) => finishBlueprintHandoff(input),
+    getBlueprintChatContext: () => {
+      const selected = activeBlueprint;
+      return selected
+        ? {
+            name: selected.manifest.name,
+            repositoryName:
+              selected.manifest.repositories.find((repo) => repo.id === selected.repositoryId)
+                ?.name ?? selected.repositoryId,
+            revision: selected.manifest.revision,
+          }
+        : null;
+    },
+    capturePromptContext: () => {
+      const selected = activeBlueprint;
+      const revision = selected?.manifest.revision;
+      const repositoryId = selected?.repositoryId;
+      return async (question) => {
+        const assertSelection = () => {
+          if (activeBlueprint !== selected || selected?.manifest.revision !== revision)
+            throw new Error(
+              "Blueprint selection changed before send; retry with the intended Blueprint.",
+            );
+        };
+        assertSelection();
+        if (!selected || !repositoryId) return "";
+        const manifest = await openBlueprint(selected.artifactRoot);
+        if (manifest.id !== selected.manifest.id || manifest.revision !== revision)
+          throw new Error("Blueprint changed on disk; reopen and attach it before sending.");
+        const model = await loadBlueprintModel(selected.artifactRoot, manifest, repositoryId);
+        const current = await openBlueprint(selected.artifactRoot);
+        assertSelection();
+        if (current.id !== manifest.id || current.revision !== revision)
+          throw new Error("Blueprint changed while preparing the question; reopen it and retry.");
+        return renderBlueprintInquiry(manifest, repositoryId, model, question);
+      };
     },
     openAfxPreview: (uri) => openAfxPreview(afxPreviewDeps, uri),
     // @see docs/specs/201-app-vscode-panels/spec.md [FR-12]
@@ -1154,92 +1279,627 @@ export async function activate(
   async function inspectAndOpenBlueprint(
     project: ProjectContext,
     sourceUri?: vscode.Uri,
+    continuing = false,
+    testManager?: AgentManager,
+    testLimits?: InvestigationOptions["limits"],
+    maintenance?: "update" | "rebuild",
   ): Promise<void> {
-    activeInspection?.abort();
+    if (activeExecutionContext)
+      throw new Error("End the Blueprint Sprint session before investigating source changes.");
+    if (activeInspection)
+      throw new Error("Stop the current investigation before starting another.");
     const controller = new AbortController();
     activeInspection = controller;
     const generation = ++inspectionGeneration;
-    const boundRepository = activeBlueprint?.manifest.repositories.find(
-      (repo) => activeBlueprint?.binding.checkouts[repo.id] === project.rootUri.fsPath,
-    );
-    const previousModel =
-      activeBlueprint && boundRepository
-        ? await loadBlueprintModel(
-            activeBlueprint.artifactRoot,
-            activeBlueprint.manifest,
-            boundRepository.id,
-          )
+    try {
+      await sidebarProvider?.enterBlueprintExploreMode();
+      workflowProjectId = project.id;
+      await context.workspaceState.update(
+        "afx.blueprint.lastInvestigationRoot",
+        project.rootUri.fsPath,
+      );
+      publishWorkflow({
+        phase: "inspecting",
+        name: project.name,
+        error: undefined,
+        detail: "Discovering project…",
+        reviewed: false,
+        findingCount: 0,
+        canSave: false,
+      });
+      const boundRepository = activeBlueprint?.manifest.repositories.find(
+        (repo) => activeBlueprint?.binding.checkouts[repo.id] === project.rootUri.fsPath,
+      );
+      const previousModel =
+        activeBlueprint && boundRepository
+          ? await loadBlueprintModel(
+              activeBlueprint.artifactRoot,
+              activeBlueprint.manifest,
+              boundRepository.id,
+            )
+          : undefined;
+      const parentRevision = previousModel?.modelRevisionId ?? null;
+      const resume = continuing
+        ? await checkpointStore.load(project.rootUri.fsPath, parentRevision)
         : undefined;
-    if (!vscode.workspace.isTrusted) {
-      void vscode.window.showWarningMessage(
-        "Trust this workspace before starting a Pi investigation.",
+      if (continuing && !resume)
+        throw new Error(
+          "No valid checkpoint remains. Inspect the project again; checkpoints expire after 14 days or when evicted.",
+        );
+      let operation = resume?.operation;
+      if (maintenance) {
+        if (!activeBlueprint || !previousModel || activeBlueprint.manifest.schemaVersion !== 3)
+          throw new Error("Attach a saved v3 Blueprint model before updating or rebuilding.");
+        const fresh = await openBlueprint(activeBlueprint.artifactRoot);
+        if (
+          fresh.id !== activeBlueprint.manifest.id ||
+          fresh.revision !== activeBlueprint.manifest.revision
+        )
+          throw new Error("Blueprint changed on disk; reopen it before maintenance.");
+        const changes = await reconcileBlueprintModel(previousModel, project.rootUri.fsPath);
+        const affectedIds =
+          maintenance === "rebuild"
+            ? previousModel.investigation.findings.map((finding) => finding.id)
+            : affectedBlueprintFindings(previousModel, changes);
+        const evidenceIds = new Set(
+          previousModel.investigation.findings
+            .filter((finding) => affectedIds.includes(finding.id))
+            .flatMap((finding) => finding.evidenceIds),
+        );
+        const scopePaths = [
+          ...new Set([
+            ...changes.changed,
+            ...changes.added,
+            ...previousModel.investigation.evidence
+              .filter((item) => evidenceIds.has(item.id))
+              .map((item) => item.path),
+          ]),
+        ];
+        if (maintenance === "update" && !scopePaths.length && !affectedIds.length)
+          throw new Error(
+            "No changed evidence or new files require a targeted update. Use Rebuild for a broader investigation.",
+          );
+        if (maintenance === "update" && scopePaths.length > 500)
+          throw new Error(
+            "The changed scope exceeds 500 files. Choose Rebuild explicitly for a broader investigation.",
+          );
+        operation = {
+          kind: maintenance,
+          parentManifestRevision: fresh.revision,
+          affectedIds,
+          scopePaths,
+          inventory: await inventoryRepository(project.rootUri.fsPath),
+        };
+      }
+      if (
+        operation &&
+        (!activeBlueprint ||
+          !previousModel ||
+          activeBlueprint.manifest.revision !== operation.parentManifestRevision)
+      )
+        throw new Error(
+          "The maintenance checkpoint's Blueprint revision changed; inspect and review a new proposal.",
+        );
+      const capturedAttachment = activeBlueprint;
+      const capturedRevision = activeBlueprint?.manifest.revision;
+      pendingProposal = undefined;
+      if (!vscode.workspace.isTrusted)
+        throw new Error("Trust this workspace before starting a Pi investigation.");
+      if (
+        vscode.workspace.textDocuments.some(
+          (doc) =>
+            doc.isDirty &&
+            doc.uri.scheme === "file" &&
+            !relative(project.rootUri.fsPath, doc.uri.fsPath).startsWith("..") &&
+            !isAbsolute(relative(project.rootUri.fsPath, doc.uri.fsPath)),
+        )
+      )
+        void vscode.window.showWarningMessage(
+          "Blueprint investigation uses saved files. Unsaved source changes are not included.",
+        );
+      const instances = testManager
+        ? [{ id: "test", manager: testManager }]
+        : await buildAgentInstances(project.rootUri.fsPath);
+      const selection = configuredModelSelection(vscode.workspace.getConfiguration("afx"));
+      const instance =
+        selection && !testManager
+          ? instances.find((candidate) => candidate.id === selection.instanceId)
+          : instances[0];
+      if (!instance) {
+        await Promise.all(instances.map((candidate) => candidate.manager.dispose()));
+        throw new Error(
+          "The selected Pi runtime is unavailable. Choose an available model in AFX Settings before inspecting this repository.",
+        );
+      }
+      for (const other of instances) if (other !== instance) await other.manager.dispose();
+      let checkpointIssue: string | undefined;
+      const result = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `AFX: Inspecting ${project.name}`,
+          cancellable: true,
+        },
+        async (progress, cancellation) => {
+          const subscription = cancellation.onCancellationRequested(() => controller.abort());
+          if (cancellation.isCancellationRequested) controller.abort();
+          try {
+            if (selection?.instanceId === instance.id) await instance.manager.setModel(selection);
+            return await investigateRepository({
+              root: project.rootUri.fsPath,
+              manager: instance.manager,
+              signal: controller.signal,
+              progress: (message) => {
+                progress.report({ message });
+                publishWorkflow({ detail: message });
+              },
+              resume: resume?.result,
+              scope:
+                operation?.kind === "update"
+                  ? {
+                      paths: operation.scopePaths,
+                      purpose: `Update only the affected finding IDs ${operation.affectedIds.join(", ")}; investigate changed evidence and connected findings. Preserve unrelated knowledge.`,
+                    }
+                  : undefined,
+              limits: testLimits,
+              checkpoint: async (draft) => {
+                if (generation !== inspectionGeneration) return;
+                try {
+                  await checkpointStore.save({
+                    version: 1,
+                    root: project.rootUri.fsPath,
+                    parentRevision,
+                    savedAt: new Date().toISOString(),
+                    result: draft,
+                    ...(operation ? { operation } : {}),
+                  });
+                  checkpointIssue = undefined;
+                  recoverableProjectIds.add(project.id);
+                } catch (error) {
+                  checkpointIssue = `Current findings remain in memory, but checkpoint persistence failed: ${error instanceof Error ? error.message : String(error)}`;
+                }
+                publishWorkflow({ findingCount: draft.findings.length });
+              },
+              previous:
+                operation && previousModel
+                  ? {
+                      ...previousModel.investigation,
+                      findings: previousModel.investigation.findings.filter(
+                        (finding) =>
+                          operation.kind === "rebuild" ||
+                          operation.affectedIds.includes(finding.id),
+                      ),
+                    }
+                  : (investigations.get(project.id) ?? previousModel?.investigation),
+              reviewGuidance:
+                activeBlueprint && boundRepository
+                  ? await loadFindingReviews(
+                      activeBlueprint.artifactRoot,
+                      activeBlueprint.manifest,
+                      boundRepository.id,
+                    )
+                  : [],
+              symbols: async (relativePath) => {
+                const document = await vscode.workspace.openTextDocument(
+                  vscode.Uri.joinPath(project.rootUri, relativePath),
+                );
+                return inspectDocumentSymbols(document, generation, () => inspectionGeneration);
+              },
+            });
+          } finally {
+            subscription.dispose();
+            await instance.manager.dispose();
+          }
+        },
       );
-      return;
+      if (generation !== inspectionGeneration) return;
+      if (
+        activeBlueprint !== capturedAttachment ||
+        activeBlueprint?.manifest.revision !== capturedRevision
+      )
+        throw new Error(
+          "Blueprint attachment changed during investigation; no proposal was applied.",
+        );
+      let reviewedResult = result;
+      if (operation && previousModel) {
+        const proposal = buildBlueprintProposal({
+          kind: operation.kind,
+          base: previousModel,
+          parentRevision: operation.parentManifestRevision,
+          candidate: result,
+          affectedIds: operation.affectedIds,
+          inventory: operation.inventory,
+        });
+        pendingProposal = { proposal, base: previousModel };
+        reviewedResult = proposal.investigation;
+      }
+      investigations.set(project.id, reviewedResult);
+      investigationParents.set(project.id, previousModel?.modelRevisionId ?? null);
+      publishWorkflow({
+        phase: "review",
+        name: project.name,
+        findingCount: result.findings.length,
+        canContinue: !checkpointIssue && result.outcome !== "complete",
+        error: checkpointIssue,
+        hasSaved: Boolean(boundRepository),
+        canSave: reviewedResult.evidence.length > 0,
+        proposal: pendingProposal
+          ? {
+              kind: pendingProposal.proposal.kind,
+              added: pendingProposal.proposal.added.length,
+              modified: pendingProposal.proposal.modified.length,
+              retired: pendingProposal.proposal.retired.length,
+            }
+          : undefined,
+        reviewed: false,
+        detail: `${result.stopReason} ${result.gaps.length} coverage gaps. Continue adds a fresh standard investigation allowance. Draft checkpoints are local and retained for up to 14 days.`,
+      });
+      const uri = previewProvider.update({
+        id: project.id,
+        projectId: project.id,
+        ...(sourceUri ? { sourceUri } : {}),
+        content: pendingProposal
+          ? renderBlueprintProposal(pendingProposal.proposal, pendingProposal.base)
+          : renderInvestigation(result, project.name),
+      });
+      const document = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(document, {
+        viewColumn: vscode.ViewColumn.Active,
+        preview: true,
+      });
+    } catch (error) {
+      publishWorkflow({
+        phase: investigations.has(project.id) ? "review" : activeBlueprint ? "saved" : "idle",
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    } finally {
+      if (generation === inspectionGeneration) activeInspection = undefined;
     }
-    const instances = await buildAgentInstances(project.rootUri.fsPath);
-    const selection = configuredModelSelection(vscode.workspace.getConfiguration("afx"));
-    const instance = selection
-      ? instances.find((candidate) => candidate.id === selection.instanceId)
-      : instances[0];
-    if (!instance) {
-      await Promise.all(instances.map((candidate) => candidate.manager.dispose()));
-      throw new Error(
-        "The selected Pi runtime is unavailable. Choose an available model in AFX Settings before inspecting this repository.",
-      );
-    }
-    for (const other of instances) if (other !== instance) await other.manager.dispose();
-    const result = await vscode.window.withProgress(
-      {
-        location: vscode.ProgressLocation.Notification,
-        title: `AFX: Inspecting ${project.name}`,
-        cancellable: true,
-      },
-      async (progress, cancellation) => {
-        const subscription = cancellation.onCancellationRequested(() => controller.abort());
-        if (cancellation.isCancellationRequested) controller.abort();
-        try {
-          if (selection?.instanceId === instance.id) await instance.manager.setModel(selection);
-          return await investigateRepository({
-            root: project.rootUri.fsPath,
-            manager: instance.manager,
-            signal: controller.signal,
-            progress: (message) => progress.report({ message }),
-            previous: investigations.get(project.id) ?? previousModel?.investigation,
-            reviewGuidance:
-              activeBlueprint && boundRepository
-                ? await loadFindingReviews(
-                    activeBlueprint.artifactRoot,
-                    activeBlueprint.manifest,
-                    boundRepository.id,
-                  )
-                : [],
-            symbols: async (relativePath) => {
-              const document = await vscode.workspace.openTextDocument(
-                vscode.Uri.joinPath(project.rootUri, relativePath),
-              );
-              return inspectDocumentSymbols(document, generation, () => inspectionGeneration);
-            },
-          });
-        } finally {
-          subscription.dispose();
-          await instance.manager.dispose();
-        }
-      },
+  }
+
+  async function saveInvestigationBlueprint(
+    project: ProjectContext,
+    investigation: InvestigationResult,
+    destination: { artifactRoot: string; name: string; attach: boolean },
+  ): Promise<void> {
+    await validateInvestigationResume(project.rootUri.fsPath, investigation);
+    const { artifactRoot, name, attach } = destination;
+    const manifest = await createBlueprint({
+      schemaVersion: 3,
+      artifactRoot,
+      name,
+      repository: { name: project.name, kind: project.kind === "repository" ? "git" : "folder" },
+      researchMarkdown: renderInvestigation(investigation, project.name),
+    });
+    await saveBlueprintModel(artifactRoot, manifest, manifest.repositories[0]!.id, investigation);
+    const savedManifest = await openBlueprint(artifactRoot);
+    const savedModel = await loadBlueprintModel(
+      artifactRoot,
+      savedManifest,
+      savedManifest.repositories[0]!.id,
     );
-    if (generation !== inspectionGeneration) return;
-    investigations.set(project.id, result);
-    investigationParents.set(project.id, previousModel?.modelRevisionId ?? null);
-    const uri = previewProvider.update({
-      id: project.id,
-      projectId: project.id,
-      ...(sourceUri ? { sourceUri } : {}),
-      content: renderInvestigation(result, project.name),
+    const checkpointError = await persistSavedCheckpoint({
+      version: 1,
+      root: project.rootUri.fsPath,
+      parentRevision: savedModel?.modelRevisionId ?? null,
+      savedAt: new Date().toISOString(),
+      result: investigation,
     });
-    const document = await vscode.workspace.openTextDocument(uri);
-    await vscode.window.showTextDocument(document, {
-      viewColumn: vscode.ViewColumn.Active,
-      preview: true,
+    openedBlueprint = { artifactRoot, manifest: savedManifest };
+    investigationParents.set(project.id, savedModel?.modelRevisionId ?? null);
+    publishWorkflow({
+      phase: "saved",
+      name,
+      hasSaved: true,
+      reviewed: false,
+      error: checkpointError,
+      canContinue: !checkpointError && investigation.outcome !== "complete",
+      detail: "Reader and model saved. Continue is available after attaching this Blueprint.",
     });
+    if (attach) await activateBlueprint(artifactRoot, savedManifest, project);
+    if (checkpointError) publishWorkflow({ error: checkpointError, canContinue: false });
+    if (investigation.outcome === "complete") {
+      vscode.window.showInformationMessage(`AgenticFlowX: saved Blueprint at ${artifactRoot}.`);
+    } else {
+      void vscode.window.showWarningMessage(
+        `Saved an incomplete Blueprint at ${artifactRoot}: ${investigation.findings.length} findings. ${investigation.stopReason} Review its coverage gaps before relying on it.`,
+      );
+    }
+  }
+
+  async function workflowProject(): Promise<ProjectContext | undefined> {
+    const bound = activeBlueprint?.binding.checkouts[activeBlueprint.repositoryId];
+    if (activeBlueprint) {
+      const selected = discoveredProjects.find((project) => project.rootUri.fsPath === bound);
+      if (!selected)
+        throw new Error(
+          "The attached source checkout is unavailable. Rebind it before investigating; no workspace fallback was used.",
+        );
+      return selected;
+    }
+    const known = discoveredProjects.find((project) => project.id === workflowProjectId);
+    if (known) return known;
+    if (recoverableProjectIds.size > 1) {
+      const picked = await vscode.window.showQuickPick(
+        discoveredProjects
+          .filter((project) => recoverableProjectIds.has(project.id))
+          .map((project) => ({
+            label: project.name,
+            description: project.rootUri.fsPath,
+            project,
+          })),
+        { title: "Choose the investigation to continue" },
+      );
+      if (picked) workflowProjectId = picked.project.id;
+      return picked?.project;
+    }
+    return await selectBlueprintProject();
+  }
+
+  async function runBlueprintAction(
+    action: BlueprintWorkflowAction,
+    discussion = "",
+  ): Promise<void> {
+    try {
+      if (action === "stop") {
+        activeInspection?.abort();
+        return;
+      }
+      if (finishingHandoff && action === "discard")
+        throw new Error("Sprint creation is in progress; wait for it to finish.");
+      if (activeInspection)
+        throw new Error("Stop the investigation before performing this action.");
+      if (action === "sprint") {
+        if (activeExecutionContext)
+          throw new Error("Return to Blueprint inquiry before starting another Sprint session.");
+        if (pendingProposal)
+          throw new Error("Apply or reject the maintenance proposal before starting a Sprint.");
+        if (!activeBlueprint)
+          throw new Error("Attach the saved Blueprint before starting a Sprint.");
+        const attachment = activeBlueprint;
+        if (attachment.manifest.schemaVersion !== 3)
+          throw new Error(
+            "Reviewed Sprint handoff requires Blueprint v3. Convert the legacy Blueprint side by side before creating new handoffs.",
+          );
+        const manifest = await openBlueprint(attachment.artifactRoot);
+        if (
+          manifest.id !== attachment.manifest.id ||
+          manifest.revision !== attachment.manifest.revision
+        )
+          throw new Error("Reopen the changed Blueprint before preparing a Sprint.");
+        const model = await loadBlueprintModel(
+          attachment.artifactRoot,
+          manifest,
+          attachment.repositoryId,
+        );
+        pendingHandoff = { manifest: structuredClone(manifest), model, attachment };
+        publishWorkflow({
+          handoff: {
+            blueprintId: manifest.id,
+            revision: manifest.revision,
+            modelRevision: model?.modelRevisionId,
+            discussion: discussion.slice(0, 4000),
+            findings: (model?.investigation.findings ?? []).slice(0, 100).map((finding) => ({
+              id: finding.id,
+              title: finding.title.slice(0, 200),
+              description: finding.description.slice(0, 700),
+            })),
+          },
+          error: undefined,
+        });
+        await sidebarProvider?.enterBlueprintExploreMode();
+        await vscode.commands.executeCommand("afx.openSidebar");
+      } else if (action === "end-session") {
+        await vscode.commands.executeCommand("afx.endBlueprintSession");
+      } else if (action === "status") {
+        await sidebarProvider?.enterBlueprintExploreMode();
+        await vscode.commands.executeCommand("afx.openSidebar");
+        sidebarProvider?.postBlueprintWorkflow(workflowState);
+      } else if (action === "check") {
+        await sidebarProvider?.enterBlueprintExploreMode();
+        await vscode.commands.executeCommand("afx.checkBlueprintChanges");
+      } else if (action === "update" || action === "rebuild") {
+        const project = await workflowProject();
+        if (project)
+          await inspectAndOpenBlueprint(project, undefined, false, undefined, undefined, action);
+      } else if (action === "inspect" || action === "continue") {
+        const project = await workflowProject();
+        if (project) await inspectAndOpenBlueprint(project, undefined, action === "continue");
+      } else if (action === "open") {
+        await vscode.commands.executeCommand("afx.openBlueprint");
+        workflowProjectId = undefined;
+        if (openedBlueprint)
+          publishWorkflow({
+            attached: false,
+            canContinue: false,
+            findingCount: 0,
+            reviewed: false,
+            hasSaved: true,
+            name: openedBlueprint.manifest.name,
+            phase: "saved",
+            error: undefined,
+          });
+      } else if (action === "attach") {
+        await vscode.commands.executeCommand("afx.attachBlueprint");
+      } else if (action === "read") {
+        const saved = activeBlueprint ?? openedBlueprint;
+        if (saved)
+          await vscode.window.showTextDocument(
+            vscode.Uri.file(join(saved.artifactRoot, "blueprint.md")),
+          );
+      } else if (action === "review") {
+        const project = await workflowProject();
+        const result = project && investigations.get(project.id);
+        if (!project || !result) throw new Error("No draft findings are available.");
+        const uri = previewProvider.update({
+          id: project.id,
+          projectId: project.id,
+          content: pendingProposal
+            ? renderBlueprintProposal(pendingProposal.proposal, pendingProposal.base)
+            : renderInvestigation(result, project.name),
+        });
+        await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
+        publishWorkflow({ reviewed: true });
+      } else if (action === "save") {
+        if (!workflowState.reviewed) throw new Error("Review the findings before saving.");
+        await vscode.commands.executeCommand(
+          activeBlueprint && workflowState.hasSaved
+            ? "afx.saveBlueprintRevision"
+            : "afx.saveBlueprint",
+        );
+      } else if (action === "discard") {
+        if (pendingHandoff) {
+          pendingHandoff = undefined;
+          publishWorkflow({ handoff: undefined });
+          return;
+        }
+        const project = await workflowProject();
+        if (project) {
+          investigations.delete(project.id);
+          await checkpointStore.clear(project.rootUri.fsPath);
+        }
+        pendingProposal = undefined;
+        publishWorkflow({
+          proposal: undefined,
+          phase: activeBlueprint ? "saved" : "idle",
+          findingCount: 0,
+          canContinue: false,
+          reviewed: false,
+          error: undefined,
+          detail: "Draft discarded. Saved Blueprint files are retained.",
+        });
+      } else if (action === "adopt") {
+        const saved = activeBlueprint ?? openedBlueprint;
+        if (!saved) throw new Error("Open a saved Blueprint first.");
+        assertReaderSaved(saved.artifactRoot);
+        const manifest = await openBlueprint(saved.artifactRoot);
+        await updateBlueprint(
+          saved.artifactRoot,
+          manifest.revision,
+          (current) => current,
+          (previous) =>
+            adoptBlueprintReader(
+              previous,
+              "# Blueprint report\n\nApply reviewed findings to populate this generated section. The original document above is preserved.",
+            ),
+        );
+        saved.manifest = await openBlueprint(saved.artifactRoot);
+        publishWorkflow({
+          error: undefined,
+          detail: "Original document preserved. Apply the reviewed findings to update the report.",
+        });
+      } else if (action === "recover") {
+        const saved = activeBlueprint ?? openedBlueprint;
+        const chosen =
+          saved?.artifactRoot ??
+          (
+            await vscode.window.showOpenDialog({
+              title: "Recover interrupted Blueprint save",
+              canSelectFiles: false,
+              canSelectFolders: true,
+              canSelectMany: false,
+            })
+          )?.[0]?.fsPath;
+        if (!chosen) return;
+        assertReaderSaved(chosen);
+        await recoverBlueprintReader(chosen);
+        const manifest = await openBlueprint(chosen);
+        if (saved) saved.manifest = manifest;
+        openedBlueprint = { artifactRoot: chosen, manifest };
+        publishWorkflow({
+          error: undefined,
+          detail: "Recovered the last valid reader/model pair. Review before applying again.",
+        });
+      }
+    } catch (error) {
+      publishWorkflow({ error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
+  }
+
+  async function finishBlueprintHandoff(
+    input: BlueprintSprintInput,
+    explicitDocumentRoot?: string,
+  ): Promise<void> {
+    const pinned = pendingHandoff;
+    if (activeInspection) throw new Error("Stop the investigation before creating a Sprint.");
+    if (!pinned || activeBlueprint !== pinned.attachment)
+      throw new Error("Blueprint handoff context changed. Prepare and review it again.");
+    if (finishingHandoff) throw new Error("The Sprint handoff is already being created.");
+    finishingHandoff = true;
+    publishWorkflow({ handoffBusy: true });
+    try {
+      if ((await requireAgentManager().getStatus()).isStreaming)
+        throw new Error("Stop the current chat turn before entering the Sprint.");
+      const fresh = await openBlueprint(pinned.attachment.artifactRoot);
+      if (fresh.id !== pinned.manifest.id || fresh.revision !== pinned.manifest.revision)
+        throw new Error(
+          "Blueprint changed after handoff review; review it again before creating documents.",
+        );
+      const currentModel = await loadBlueprintModel(
+        pinned.attachment.artifactRoot,
+        fresh,
+        pinned.attachment.repositoryId,
+      );
+      if (currentModel?.modelRevisionId !== pinned.model?.modelRevisionId)
+        throw new Error(
+          "Blueprint model changed after handoff review; review it again before creating documents.",
+        );
+      const markdown = renderBlueprintHandoff(pinned.manifest, pinned.model, input);
+      const repositoryId = pinned.attachment.repositoryId;
+      const chosen = explicitDocumentRoot
+        ? { id: "sdd", root: explicitDocumentRoot }
+        : await ensureBlueprintDocumentRoot(pinned.attachment, repositoryId);
+      if (!chosen) return;
+      if (pendingHandoff !== pinned || activeBlueprint !== pinned.attachment)
+        throw new Error(
+          "Blueprint selection changed while choosing the document root; no Sprint was created.",
+        );
+      if (explicitDocumentRoot)
+        pinned.attachment.binding.documentRoots = {
+          ...pinned.attachment.binding.documentRoots,
+          [chosen.id]: chosen.root,
+        };
+      const created = await createBlueprintSprint({
+        manifest: pinned.manifest,
+        artifactRoot: pinned.attachment.artifactRoot,
+        documentRoot: chosen.root,
+        name: input.name.trim(),
+        owner: "@owner",
+        handoffMarkdown: markdown,
+        expectedModelRevision: pinned.model?.modelRevisionId ?? null,
+      });
+      await saveLocalBinding(pinned.attachment.binding);
+      activeExecutionContext = prepareBlueprintExecutionContext({
+        manifest: fresh,
+        binding: pinned.attachment.binding,
+        repositoryId,
+        sprintId: created.id,
+      });
+      pendingHandoff = undefined;
+      publishWorkflow({
+        handoff: undefined,
+        error: undefined,
+        planning: true,
+        detail:
+          "Sprint created as Draft. Blueprint context is pinned; source edits are not authorized by this transition.",
+      });
+      await sidebarProvider?.enterBlueprintSpecMode();
+      await scheduleAgentRuntimeRebuild("Blueprint Sprint handoff");
+      await vscode.window.showTextDocument(vscode.Uri.file(created.sprintPath), { preview: false });
+    } finally {
+      finishingHandoff = false;
+      publishWorkflow({ handoffBusy: false });
+    }
+  }
+
+  function assertReaderSaved(root: string): void {
+    if (
+      vscode.workspace.textDocuments.some(
+        (doc) => doc.uri.fsPath === join(root, "blueprint.md") && doc.isDirty,
+      )
+    )
+      throw new Error("Save your reader edits before applying Blueprint findings.");
   }
 
   async function selectBoundRepository() {
@@ -1261,11 +1921,55 @@ export async function activate(
     )?.repository;
   }
 
+  function restoreMaintenanceProposal(
+    project: ProjectContext,
+    record: BlueprintCheckpoint,
+    base: BlueprintModel,
+    manifestRevision: number,
+  ): void {
+    const operation = record.operation;
+    if (!operation || operation.parentManifestRevision !== manifestRevision)
+      throw new Error(
+        "The saved proposal's Blueprint revision changed. Continue a new investigation before applying.",
+      );
+    const proposal = buildBlueprintProposal({
+      kind: operation.kind,
+      base,
+      parentRevision: operation.parentManifestRevision,
+      candidate: record.result,
+      affectedIds: operation.affectedIds,
+      inventory: operation.inventory,
+    });
+    pendingProposal = { proposal, base };
+    investigations.set(project.id, proposal.investigation);
+    investigationParents.set(project.id, record.parentRevision);
+    publishWorkflow({
+      phase: "review",
+      findingCount: proposal.investigation.findings.length,
+      reviewed: false,
+      canSave: true,
+      canContinue: record.result.outcome !== "complete",
+      proposal: {
+        kind: proposal.kind,
+        added: proposal.added.length,
+        modified: proposal.modified.length,
+        retired: proposal.retired.length,
+      },
+      detail:
+        "Recovered maintenance proposal. Review its complete diff before applying; source and parent revisions will be checked again.",
+    });
+  }
+
   async function activateBlueprint(
     artifactRoot: string,
     manifest: BlueprintManifest,
     project: ProjectContext,
   ): Promise<void> {
+    if (activeInspection) throw new Error("Stop the investigation before changing attachments.");
+    if (activeExecutionContext)
+      throw new Error("End the Blueprint work session before changing attachments.");
+    if ((await requireAgentManager().getStatus()).isStreaming)
+      throw new Error("Stop the current conversation before changing Blueprint attachments.");
     const savedBindings = bindingState?.get<Record<string, BlueprintBinding>>(BINDING_KEY, {});
     const existing = savedBindings?.[manifest.id];
     const firstRepository =
@@ -1290,7 +1994,11 @@ export async function activate(
     binding.artifactRoot = artifactRoot;
     binding.checkouts[firstRepository.id] = project.rootUri.fsPath;
     const traces = await loadTraceStore(artifactRoot, manifest);
-    activeBlueprint = { artifactRoot, manifest, binding, traces };
+    if ((await requireAgentManager().getStatus()).isStreaming)
+      throw new Error("Stop the current conversation before changing Blueprint attachments.");
+    pendingProposal = undefined;
+    pendingHandoff = undefined;
+    activeBlueprint = { artifactRoot, manifest, repositoryId: firstRepository.id, binding, traces };
     activeBlueprintWatcher?.dispose();
     activeBlueprintWatcher = vscode.workspace.createFileSystemWatcher(
       new vscode.RelativePattern(
@@ -1303,7 +2011,43 @@ export async function activate(
     activeBlueprintWatcher.onDidDelete(() => blueprintLensChanges.fire());
     await saveLocalBinding(binding);
     await vscode.commands.executeCommand("setContext", "afx.blueprintAttached", true);
-    void vscode.window.showInformationMessage(`Blueprint attached: ${manifest.name}`);
+    await scheduleAgentRuntimeRebuild("Blueprint inquiry attached");
+    void vscode.window.showInformationMessage(
+      `Blueprint attached: ${manifest.name}. Ask about it in chat; no Sprint is required.`,
+    );
+    const restoredModel = await loadBlueprintModel(artifactRoot, manifest, firstRepository.id);
+    const restored = await checkpointStore
+      .load(project.rootUri.fsPath, restoredModel?.modelRevisionId ?? null)
+      .catch(() => undefined);
+    workflowProjectId = project.id;
+    if (restored) {
+      investigations.set(project.id, restored.result);
+      investigationParents.set(project.id, restored.parentRevision);
+    }
+    publishWorkflow({
+      phase: "saved",
+      name: manifest.name,
+      hasSaved: true,
+      attached: true,
+      findingCount: restoredModel?.investigation.findings.length ?? 0,
+      canContinue: Boolean(restored && restored.result.outcome !== "complete"),
+      reviewed: false,
+      error: undefined,
+      proposal: undefined,
+      handoff: undefined,
+    });
+    if (restored?.operation && restoredModel) {
+      investigations.delete(project.id);
+      try {
+        restoreMaintenanceProposal(project, restored, restoredModel, manifest.revision);
+      } catch (error) {
+        publishWorkflow({
+          canSave: false,
+          error: error instanceof Error ? error.message : String(error),
+          canContinue: restored.operation.parentManifestRevision === manifest.revision,
+        });
+      }
+    }
     blueprintLensChanges.fire();
   }
 
@@ -1479,18 +2223,7 @@ export async function activate(
         throw new Error("Inspect this repository successfully before saving a Blueprint.");
       const destination = await chooseBlueprintSaveLocation(project);
       if (!destination) return;
-      const { artifactRoot, name, attach } = destination;
-      const manifest = await createBlueprint({
-        schemaVersion: 3,
-        artifactRoot,
-        name,
-        repository: { name: project.name, kind: project.kind === "repository" ? "git" : "folder" },
-        researchMarkdown: renderInvestigation(investigation, project.name),
-      });
-      await saveBlueprintModel(artifactRoot, manifest, manifest.repositories[0]!.id, investigation);
-      const savedManifest = await openBlueprint(artifactRoot);
-      if (attach) await activateBlueprint(artifactRoot, savedManifest, project);
-      vscode.window.showInformationMessage(`AgenticFlowX: saved Blueprint at ${artifactRoot}.`);
+      await saveInvestigationBlueprint(project, investigation, destination);
     }),
     vscode.commands.registerCommand("afx.openBlueprint", async (manifestUri?: vscode.Uri) => {
       const selected = manifestUri
@@ -1551,7 +2284,11 @@ export async function activate(
       if (!openedBlueprint) return;
       const project = await selectBlueprintProject(sourceUri);
       if (project)
-        await activateBlueprint(openedBlueprint.artifactRoot, openedBlueprint.manifest, project);
+        await activateBlueprint(
+          openedBlueprint.artifactRoot,
+          await openBlueprint(openedBlueprint.artifactRoot),
+          project,
+        );
     }),
     vscode.commands.registerCommand("afx.beginBlueprintPlanning", async () => {
       const blueprint = activeBlueprint;
@@ -1565,19 +2302,41 @@ export async function activate(
         throw new Error(
           "Wait for or stop the active conversation before ending its Blueprint session.",
         );
+      pendingHandoff = undefined;
       activeExecutionContext = undefined;
+      publishWorkflow({
+        handoff: undefined,
+        planning: false,
+        detail: "Returned to Blueprint inquiry. Check Changes when source work is complete.",
+      });
+      await sidebarProvider?.enterBlueprintExploreMode();
       await scheduleAgentRuntimeRebuild("Blueprint work session ended");
     }),
     vscode.commands.registerCommand("afx.detachBlueprint", async () => {
+      if (activeInspection)
+        throw new Error("Stop the investigation before detaching its Blueprint.");
       if (activeExecutionContext)
         throw new Error("End the Blueprint work session before detaching.");
+      if ((await requireAgentManager().getStatus()).isStreaming)
+        throw new Error("Stop the current conversation before detaching its Blueprint.");
       activeBlueprintWatcher?.dispose();
       activeBlueprintWatcher = undefined;
       activeBlueprint = undefined;
+      publishWorkflow({
+        phase: openedBlueprint ? "saved" : "idle",
+        hasSaved: Boolean(openedBlueprint),
+        attached: false,
+        canContinue: false,
+        reviewed: false,
+        detail: "Blueprint detached from future chat context.",
+      });
+      await scheduleAgentRuntimeRebuild("Blueprint detached");
       await vscode.commands.executeCommand("setContext", "afx.blueprintAttached", false);
       blueprintLensChanges.fire();
     }),
     vscode.commands.registerCommand("afx.saveBlueprintRevision", async () => {
+      if (activeExecutionContext)
+        throw new Error("End the Sprint session before applying Blueprint changes.");
       const blueprint = activeBlueprint;
       if (!blueprint) throw new Error("Attach a Blueprint before saving a new model revision.");
       const repository = await selectBoundRepository();
@@ -1588,6 +2347,28 @@ export async function activate(
       const result = project ? investigations.get(project.id) : undefined;
       if (!result?.evidence.length)
         throw new Error("Inspect the bound repository before saving a new model revision.");
+      if (pendingProposal) {
+        if (!workflowState.reviewed)
+          throw new Error("Review the complete proposal before applying it.");
+        const pinned = pendingProposal.proposal;
+        const fresh = await openBlueprint(blueprint.artifactRoot);
+        const currentModel = await loadBlueprintModel(blueprint.artifactRoot, fresh, repository.id);
+        if (
+          pinned.blueprintId !== fresh.id ||
+          pinned.parentRevision !== fresh.revision ||
+          pinned.parentModelRevision !== currentModel?.modelRevisionId
+        )
+          throw new Error("Blueprint proposal revision conflict; review a new proposal.");
+        if (
+          JSON.stringify(await inventoryRepository(project!.rootUri.fsPath)) !==
+          JSON.stringify(pinned.investigation.inventory)
+        )
+          throw new Error(
+            "Repository inventory changed after the proposal. Investigate and review it again.",
+          );
+      }
+      assertReaderSaved(blueprint.artifactRoot);
+      await validateInvestigationResume(project!.rootUri.fsPath, result);
       const model = await saveBlueprintModel(
         blueprint.artifactRoot,
         blueprint.manifest,
@@ -1596,6 +2377,25 @@ export async function activate(
         project ? investigationParents.get(project.id) : undefined,
       );
       blueprint.manifest = await openBlueprint(blueprint.artifactRoot);
+      const checkpointError = await persistSavedCheckpoint({
+        version: 1,
+        root: blueprint.binding.checkouts[repository.id]!,
+        parentRevision: model.modelRevisionId,
+        savedAt: new Date().toISOString(),
+        result,
+      });
+      investigationParents.set(project!.id, model.modelRevisionId);
+      pendingProposal = undefined;
+      publishWorkflow({
+        phase: "saved",
+        hasSaved: true,
+        reviewed: false,
+        error: checkpointError,
+        canContinue: !checkpointError && result.outcome !== "complete",
+        proposal: undefined,
+        detail: "Reader and model saved. Authored notes retained.",
+      });
+      await sidebarProvider?.refreshRuntimeConfiguration();
       void vscode.window.showInformationMessage(
         `Saved Blueprint model revision ${model.modelRevisionId}. Authored specs and trace links are retained.`,
       );
@@ -1661,12 +2461,21 @@ export async function activate(
       const codeRoot = activeBlueprint.binding.checkouts[repository.id];
       if (!codeRoot) throw new Error("Bind a code checkout first.");
       const changes = await reconcileBlueprintModel(model, codeRoot);
-      await saveBlueprintChanges(activeBlueprint.artifactRoot, activeBlueprint.manifest, changes);
-      activeBlueprint.manifest = await openBlueprint(activeBlueprint.artifactRoot);
+      publishWorkflow({
+        changes: {
+          changed: changes.changed.length,
+          missing: changes.missing.length,
+          added: changes.added.length,
+          unknown: changes.unknown.length,
+        },
+        detail: `${changes.changed.length} changed, ${changes.missing.length} missing, ${changes.added.length} new files. ${changes.unknown.length} files remain unchecked. Saved disk files only; unsaved editor changes are excluded. This is not complete architectural verification.`,
+        error: undefined,
+      });
       const content = [
         `# Blueprint changes: ${activeBlueprint.manifest.name}`,
         "",
         `Compared with model ${model.modelRevisionId}`,
+        "Reads saved disk files only; unsaved editor changes are excluded.",
         `Git baseline: ${model.baseline.gitRevision ?? "unavailable"} → ${changes.toGitRevision ?? "unavailable"}. Content hashes determine freshness.`,
         "",
         `Affected claims: ${changes.affectedClaimIds.length} · Affected entities: ${changes.affectedEntityIds.length}`,
@@ -1894,28 +2703,21 @@ export async function activate(
         "AgenticFlowX: Blueprint reference relinked to the active source.",
       );
     }),
-    vscode.commands.registerCommand("afx.newBlueprintSprint", async () => {
-      const blueprint = activeBlueprint;
-      if (!blueprint) throw new Error("Open a saved Blueprint before creating a Sprint.");
-      const name = await vscode.window.showInputBox({
-        title: "New Blueprint Sprint",
-        prompt: "Sprint name",
-      });
-      if (!name) return;
-      const repository = await selectBoundRepository();
-      if (!repository) return;
-      const documentRoot = await ensureBlueprintDocumentRoot(blueprint, repository.id);
-      if (!documentRoot) return;
-      const created = await createBlueprintSprint({
-        manifest: blueprint.manifest,
-        artifactRoot: blueprint.artifactRoot,
-        documentRoot: documentRoot.root,
-        name,
-        owner: "@owner",
-      });
-      await vscode.window.showTextDocument(vscode.Uri.file(created.sprintPath), { preview: false });
+    vscode.commands.registerCommand("afx.blueprint", async (argument?: string) => {
+      const parsed = parseBlueprintCommand(
+        argument?.startsWith("/") ? argument : `/afx-blueprint${argument ? ` ${argument}` : ""}`,
+      );
+      if (!parsed) throw new Error("Invalid Blueprint command.");
+      await runBlueprintAction(parsed.action);
     }),
+    vscode.commands.registerCommand("afx.updateBlueprint", () => runBlueprintAction("update")),
+    vscode.commands.registerCommand("afx.rebuildBlueprint", () => runBlueprintAction("rebuild")),
+    vscode.commands.registerCommand("afx.newBlueprintSprint", () => runBlueprintAction("sprint")),
     vscode.commands.registerCommand("afx.continueBlueprintTask", async () => {
+      if (activeExecutionContext || (await requireAgentManager().getStatus()).isStreaming)
+        throw new Error(
+          "End the current Sprint session and stop any active turn before continuing another Sprint.",
+        );
       const blueprint = activeBlueprint;
       if (!blueprint) throw new Error("Open a saved Blueprint before continuing a Sprint.");
       const repository = await selectBoundRepository();
@@ -1932,6 +2734,15 @@ export async function activate(
         { title: "Continue Blueprint Sprint" },
       );
       if (!selected) return;
+      activeExecutionContext = prepareBlueprintExecutionContext({
+        manifest: blueprint.manifest,
+        binding: blueprint.binding,
+        repositoryId: repository.id,
+        sprintId: selected.sprint.id,
+      });
+      publishWorkflow({ planning: true });
+      await sidebarProvider?.enterBlueprintSpecMode();
+      await scheduleAgentRuntimeRebuild("Blueprint Sprint continued");
       await vscode.window.showTextDocument(vscode.Uri.file(selected.sprint.sprintPath), {
         preview: false,
       });
@@ -2007,6 +2818,45 @@ export async function activate(
 
   void vscode.commands.executeCommand("setContext", "afx.loaded", true);
 
+  const lastRoot = context.workspaceState.get<string>("afx.blueprint.lastInvestigationRoot");
+  const recoverable = [];
+  for (const project of discoveredProjects) {
+    try {
+      const draft = await checkpointStore.load(project.rootUri.fsPath, null);
+      if (draft) {
+        recoverable.push({ project, draft });
+        recoverableProjectIds.add(project.id);
+      }
+    } catch {
+      /* Saved-model checkpoints require their explicit Blueprint attachment. */
+    }
+  }
+  const restored =
+    recoverable.find(({ project }) => project.rootUri.fsPath === lastRoot) ??
+    (recoverable.length === 1 ? recoverable[0] : undefined);
+  if (restored) {
+    workflowProjectId = restored.project.id;
+    investigations.set(restored.project.id, restored.draft.result);
+    investigationParents.set(restored.project.id, null);
+    await sidebarProvider?.enterBlueprintExploreMode();
+    publishWorkflow({
+      phase: "review",
+      name: restored.project.name,
+      findingCount: restored.draft.result.findings.length,
+      canContinue: restored.draft.result.outcome !== "complete",
+      canSave: restored.draft.result.evidence.length > 0,
+      detail: "Recovered local draft. Review it or continue with a fresh standard allowance.",
+      reviewed: false,
+    });
+  } else if (recoverable.length > 1) {
+    publishWorkflow({
+      canContinue: true,
+      detail:
+        "Multiple local drafts are available. Continue investigation lets you choose the intended project.",
+    });
+  }
+  sidebarProvider?.postBlueprintWorkflow(workflowState);
+
   if (context.extensionMode !== vscode.ExtensionMode.Test) return undefined;
 
   return {
@@ -2022,6 +2872,81 @@ export async function activate(
       customProvidersService.applyMutation({ kind: "upsertProvider", provider: input }),
     removeCustomProvider: (providerId) =>
       customProvidersService.applyMutation({ kind: "removeProvider", providerId }),
+    runBlueprintInspectionForTest: async (root, manager, continuing, limits) => {
+      const uri = vscode.Uri.file(root);
+      let project = discoveredProjects.find((entry) => entry.rootUri.fsPath === root);
+      if (!project) {
+        project = {
+          id: root,
+          rootUri: uri,
+          workspaceUri: uri,
+          name: "Lifecycle fixture",
+          kind: "folder",
+          gitMarker: "unavailable",
+          checkoutIdentity: root,
+          packagePaths: [],
+          discovery: { complete: true },
+        };
+        discoveredProjects.push(project);
+      }
+      await inspectAndOpenBlueprint(project, undefined, continuing, manager, limits);
+    },
+    runBlueprintMaintenanceForTest: async (kind, manager) => {
+      const project = await workflowProject();
+      if (!project) throw new Error("Missing bound project");
+      await inspectAndOpenBlueprint(project, undefined, false, manager, undefined, kind);
+    },
+    submitBlueprintCommandForTest: (content) => sidebarProvider.sendExternalPrompt(content),
+    createBlueprintHandoffForTest: (input, root) => finishBlueprintHandoff(input, root),
+    getBlueprintWorkflow: () => structuredClone(workflowState),
+    getBlueprintRestartDiagnostics: () => ({
+      lastRoot: context.workspaceState.get("afx.blueprint.lastInvestigationRoot"),
+      projects: discoveredProjects.map((project) => project.rootUri.fsPath),
+      globalStorage: context.globalStorageUri.fsPath,
+      workspaceStorage: context.storageUri?.fsPath,
+    }),
+    blueprintAction: runBlueprintAction,
+    saveBlueprintDraftForTest: async (root) => {
+      const project = await workflowProject();
+      const draft = project && investigations.get(project.id);
+      if (!project || !draft || !workflowState.reviewed) throw new Error("Review the draft first.");
+      await saveInvestigationBlueprint(project, draft, {
+        artifactRoot: root,
+        name: "Lifecycle fixture",
+        attach: true,
+      });
+    },
+    restoreBlueprintDraftForTest: async () => {
+      const project = await workflowProject();
+      if (!project) throw new Error("Missing project");
+      investigations.clear();
+      pendingProposal = undefined;
+      const repository = activeBlueprint?.repositoryId;
+      const model =
+        activeBlueprint && repository
+          ? await loadBlueprintModel(
+              activeBlueprint.artifactRoot,
+              activeBlueprint.manifest,
+              repository,
+            )
+          : undefined;
+      const record = await createBlueprintCheckpointStore(
+        join(context.globalStorageUri.fsPath, "blueprint-checkpoints"),
+      ).load(project.rootUri.fsPath, model?.modelRevisionId ?? null);
+      if (!record) throw new Error("Missing checkpoint");
+      if (record.operation && activeBlueprint && model) {
+        restoreMaintenanceProposal(project, record, model, activeBlueprint.manifest.revision);
+        return;
+      }
+      investigations.set(project.id, record.result);
+      investigationParents.set(project.id, record.parentRevision);
+      publishWorkflow({
+        phase: "review",
+        canContinue: true,
+        reviewed: false,
+        findingCount: record.result.findings.length,
+      });
+    },
     getBlueprintState: () => ({
       attached: Boolean(activeBlueprint),
       executionContextActive: Boolean(activeExecutionContext),

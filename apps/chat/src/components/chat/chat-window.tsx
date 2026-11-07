@@ -30,6 +30,7 @@ import type { SettingsOpenTarget } from "../../lib/settings-navigation";
 import type { AgentRecoveryActions } from "../agent-recovery-card";
 import { MentionPopup } from "../mention-popup";
 import { SlashPopup } from "../slash-popup";
+import { BlueprintRail } from "./blueprint-rail";
 import {
   type ComposerLocalCallbacks,
   collectPromptHistory,
@@ -393,7 +394,11 @@ export function ChatWindow({
           (e.key === "Enter" && !e.shiftKey && !(e.metaKey || e.ctrlKey))
         ) {
           const root = document.querySelector("[cmdk-root]");
-          if (root) {
+          if (
+            root &&
+            (e.key !== "Enter" ||
+              root.querySelector('[cmdk-item][aria-selected="true"]:not([aria-disabled="true"])'))
+          ) {
             e.preventDefault();
             root.dispatchEvent(
               new KeyboardEvent("keydown", {
@@ -608,6 +613,56 @@ export function ChatWindow({
             <div ref={bottomRef} className="h-3 shrink-0" />
           </div>
         </ConversationPane>
+      ) : null}
+
+      {(state.workspaceMode === "explore" ||
+        state.runtime.blueprintWorkflow?.phase === "inspecting") &&
+      state.runtime.blueprintWorkflow ? (
+        <BlueprintRail
+          state={state.runtime.blueprintWorkflow}
+          onCreateSprint={(input) =>
+            controller.bridge.send({
+              type: "chat/blueprintCreateSprint",
+              requestId: createChatUid(),
+              input,
+            })
+          }
+          onAction={(action) =>
+            controller.bridge.send({
+              type: "chat/blueprintAction",
+              requestId: createChatUid(),
+              action,
+            })
+          }
+        />
+      ) : null}
+      {state.runtime.blueprintContext ? (
+        <div
+          className="flex min-w-0 items-center gap-2 border-t px-3 py-1 text-xs text-muted-foreground"
+          aria-label="Attached Blueprint"
+        >
+          <span className="shrink-0">Blueprint</span>
+          <span className="truncate" title={state.runtime.blueprintContext.name}>
+            {state.runtime.blueprintContext.name}
+          </span>
+          <span className="truncate">{state.runtime.blueprintContext.repositoryName}</span>
+          <span className="shrink-0">r{state.runtime.blueprintContext.revision}</span>
+          {state.runtime.blueprintWorkflow?.planning ? (
+            <button
+              type="button"
+              className="shrink-0 rounded border px-1"
+              onClick={() =>
+                controller.bridge.send({
+                  type: "chat/blueprintAction",
+                  requestId: createChatUid(),
+                  action: "end-session",
+                })
+              }
+            >
+              Return to Blueprint
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {/* Surface: [Composer.ActivityBar] */}
