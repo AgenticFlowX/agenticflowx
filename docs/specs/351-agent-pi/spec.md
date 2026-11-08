@@ -3,9 +3,9 @@ afx: true
 type: SPEC
 status: Living
 owner: "@rixrix"
-version: "1.3"
+version: "1.4"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-26T12:50:19.000Z"
+updated_at: "2026-11-08T11:44:07.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "custom-providers", "skills", "project-trust"]
 depends_on: ["100-package-shared", "300-infra-pi", "350-agent-manager"]
 ---
@@ -55,7 +55,7 @@ Developers maintaining the Pi adapter and host runtime integration.
 | FR-4 | Implement the `350-agent-manager` contract without importing VSCode APIs from adapter packages                                                                                                                                                                                                                                                                      | Must Have   |
 | FR-5 | When the host sets `AFX_CUSTOM_PROVIDERS_JSON`, the Pi SDK bootstrap installs an extension factory that calls `pi.registerProvider(...)` for each AFX-managed canonical record before delegating to Pi `main(...)`; provider override factories apply env-key/base-URL overrides for built-in subscription providers without exposing secret values in process args | Should Have |
 | FR-6 | When `AFX_CUSTOM_PROVIDERS_JSON` and `AFX_PROVIDER_OVERRIDES_JSON` are unset, the Pi SDK bootstrap delegates to `main(args)` with current behaviour. AFX never writes Pi's global `auth.json`, `trust.json`, or `models.json` from the SDK path; existing session-dir handling stays put                                                                            | Must Have   |
-| FR-7 | Own Pi 0.80.2 compatibility surfaces: package pins, Node `>=22.19.0` runtime floor, `@earendil-works/pi-ai/api/*` bootstrap assets, provider-scoped auth/env compatibility, command `sourceInfo`, and compaction `estimatedTokensAfter` / `reason` / `willRetry` metadata normalization for both external Pi RPC and bundled SDK runtimes                           | Must Have   |
+| FR-7 | Own Pi compatibility surfaces: package pins, Node `>=22.19.0` runtime floor, runtime-resolvable lazy provider assets relative to the emitted SDK bootstrap, provider-scoped auth/env compatibility, command `sourceInfo`, and compaction `estimatedTokensAfter` / `reason` / `willRetry` metadata normalization for both external Pi RPC and bundled SDK runtimes   | Must Have   |
 | FR-8 | Own Pi project-local resource controls from the AFX host: `afx.pi.projectTrust` maps to `--approve` / `--no-approve`, unresolved `ask` starts with project resources ignored when workspace Pi resources exist, and AFX persists only its workspace setting rather than Pi global trust state                                                                       | Must Have   |
 | FR-9 | Own Pi runtime knobs that are surfaced by Settings but consumed by Pi startup: `afx.skills.extraPaths` becomes additional `--skill` args, `afx.pi.excludedTools` becomes `--exclude-tools`, and `afx.network.httpProxy` becomes `HTTP_PROXY` / `HTTPS_PROXY` in spawned runtime env                                                                                 | Must Have   |
 
@@ -81,7 +81,7 @@ Developers maintaining the Pi adapter and host runtime integration.
 - [ ] The Pi SDK custom-providers adapter (`packages/agent/pi-sdk/src/custom-providers-adapter.ts`) implements the harness-agnostic `HarnessAdapter` contract from `100-package-shared` per `[ADR-0008]`
 - [ ] `~/.pi/agent/models.json` is read only for the Pi RPC track read-only display in `214-app-chat-settings`; AFX never writes it from any code path
 - [ ] Pi RPC and Pi SDK startup args include bundled AFX skills, configured custom skill paths, project trust choice, excluded tools, proxy env, and only the host overlay markdown as an appended system prompt
-- [ ] Pi SDK bundled assets include the Pi 0.80 Bedrock API implementation under `resources/pi-sdk/api/bedrock-converse-stream.js`
+- [ ] Pi SDK bundled assets include the Bedrock implementation at the exact relative path resolved by the emitted bootstrap; for Pi 1.5 this is `resources/pi-sdk/bedrock-converse-stream.js`
 - [ ] Pi command provenance (`sourceInfo`) and compaction metadata (`estimatedTokensAfter`, `reason`, `willRetry`) survive adapter normalization into shared contracts
 
 ---

@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.4"
+version: "1.5"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-06-26T12:50:19.000Z"
+updated_at: "2026-11-08T11:44:07.000Z"
 tags: ["agent", "pi", "rpc", "sdk", "skills", "custom-providers", "project-trust"]
 spec: spec.md
 ---
@@ -56,10 +56,11 @@ No direct UI is owned here. Readiness/configuration status is exposed to chat se
 
 ## [DES-DEC] Key Decisions
 
-| Decision       | Options Considered                                  | Choice              | Rationale                                                |
-| -------------- | --------------------------------------------------- | ------------------- | -------------------------------------------------------- |
-| Pi ownership   | Keep in `300-infra-pi`, move to agent adapter child | Adapter child       | Pi is one runtime adapter among possible future adapters |
-| VSCode imports | Adapter imports VSCode, host injects config         | Host injects config | Keeps adapter package reusable and testable              |
+| Decision                  | Options Considered                                           | Choice                         | Rationale                                                                                                           |
+| ------------------------- | ------------------------------------------------------------ | ------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Pi ownership              | Keep in `300-infra-pi`, move to agent adapter child          | Adapter child                  | Pi is one runtime adapter among possible future adapters                                                            |
+| VSCode imports            | Adapter imports VSCode, host injects config                  | Host injects config            | Keeps adapter package reusable and testable                                                                         |
+| Lazy provider asset paths | Preserve upstream source directories, follow emitted imports | Follow emitted runtime imports | Bundling changes `import.meta.url`; packaged assets must resolve relative to the emitted bootstrap, not source tree |
 
 ---
 
@@ -168,7 +169,7 @@ Both the external Pi RPC manager and bundled Pi SDK manager construct startup ar
 
 Only the host overlay markdown is appended as a system prompt. AFX project trust is host-owned: choosing trust or ignore writes the workspace `afx.pi.projectTrust` setting and restarts runtimes; AFX does not write Pi global `trust.json`.
 
-The bundled SDK build includes Pi's Bedrock raw API implementation at `resources/pi-sdk/api/bedrock-converse-stream.js` so the packaged bootstrap can satisfy Pi's lazy import at runtime.
+The bundled SDK build emits Pi's Bedrock implementation as a sibling of the generated bootstrap at `resources/pi-sdk/bedrock-converse-stream.js`. Esbuild folds `api/bedrock-converse-stream.lazy.js` into `bootstrap.js`, so the lazy loader's `import.meta.url` is the bootstrap URL and `./bedrock-converse-stream.js` resolves from the resource root rather than the upstream `api/` directory.
 
 Adapter normalization preserves Pi 0.80 metadata:
 
@@ -258,7 +259,9 @@ Conflating them would force AFX to either (a) duplicate Pi's secret resolution l
 | `packages/agent/pi/src/rpc-client.ts`                              | JSONL subprocess transport                                                                                                               |
 | `packages/agent/pi/src/rpc-manager.ts`                             | Pi `AgentManager` implementation                                                                                                         |
 | `packages/agent/pi-sdk/src/index.ts`                               | SDK bundle/bootstrap surface                                                                                                             |
-| `apps/vscode/src/pi-sdk-bundle.test.ts`                            | Host bundle verification                                                                                                                 |
+| `packages/agent/pi-sdk/build.bootstrap.mjs`                        | Emits the bootstrap and lazy provider modules at their runtime-resolved paths                                                            |
+| `apps/vscode/scripts/prepare-pi-sdk.mjs`                           | Stages generated Pi SDK assets in the extension resource tree                                                                            |
+| `apps/vscode/src/pi-sdk-bundle.test.ts`                            | Verifies bootstrap independence and runtime-resolvable packaged assets                                                                   |
 | `apps/vscode/scripts/sync-skills.mjs`                              | Skills sync utility (`pnpm sync:skills`) that fetches upstream AFX skills and refreshes the vendored bundle                              |
 | `packages/agent/pi-sdk/src/sdk-rpc-manager.ts` `buildBootstrapEnv` | Bootstrap env injection for SDK custom providers, provider overrides, auth methods, proxy env, project trust, excluded tools, and skills |
 
@@ -291,6 +294,7 @@ Conflating them would force AFX to either (a) duplicate Pi's secret resolution l
 
 Run Pi RPC manager/client tests, SDK bundle tests, no-VSCode-import tests, and host config injection tests.
 
+- **Lazy-module path assertion**: inspect the emitted bootstrap's Bedrock lazy import, apply its runtime extension rewrite, resolve it relative to `bootstrap.js`, and assert that the packaged module exists. This guards against incorrectly preserving upstream source directories after bundling changes `import.meta.url`.
 - **Runtime-floor e2e assertion** (tied to `spec.md [NFR-4]` and `engines.vscode ^1.105.0`): the e2e suite asserts that the extension-host `process.versions.node` satisfies `>=22.19.0`. This is required because the bundled Pi SDK is spawned using the extension-host `process.execPath`; running on a VS Code whose bundled Node is older than `22.19.0` would silently break Pi SDK startup even if the VSIX installs successfully. The `engines.vscode ^1.105.0` floor prevents installation on affected VS Code versions, and the e2e assertion guards against regressions to that floor. See `ADR-0009`.
 
 ---

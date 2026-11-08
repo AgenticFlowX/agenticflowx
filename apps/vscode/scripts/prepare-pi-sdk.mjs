@@ -2,6 +2,8 @@ import { copyFile, cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+// @see docs/specs/351-agent-pi/spec.md [FR-2] [FR-7]
+// @see docs/specs/351-agent-pi/design.md [DES-PI-080-STARTUP] [DES-TEST]
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../..");
 const source = resolve(repoRoot, "packages/agent/pi-sdk/dist/bootstrap.js");
@@ -14,18 +16,17 @@ await copyFile(source, target);
 // Also copy the source map referenced by `//# sourceMappingURL=bootstrap.js.map`
 // so Vite (during tests) and any debugger don't warn about a missing map.
 await copyFile(`${source}.map`, `${target}.map`).catch(() => {});
-await rm(resolve(resourceRoot, "amazon-bedrock.js"), { force: true });
-await rm(resolve(resourceRoot, "amazon-bedrock.js.map"), { force: true });
+await Promise.all([
+  rm(resolve(resourceRoot, "amazon-bedrock.js"), { force: true }),
+  rm(resolve(resourceRoot, "amazon-bedrock.js.map"), { force: true }),
+  rm(resolve(resourceRoot, "api/bedrock-converse-stream.js"), { force: true }),
+  rm(resolve(resourceRoot, "api/bedrock-converse-stream.js.map"), { force: true }),
+]);
 
-// Pi 0.80 keeps Bedrock's AWS SDK implementation behind
-// `api/bedrock-converse-stream.lazy.js`, which runtime-imports its sibling.
-// Ship that bundled sibling at the same relative path for packaged VSIX usage.
-const bedrockSource = resolve(
-  repoRoot,
-  "packages/agent/pi-sdk/dist/api/bedrock-converse-stream.js",
-);
-const bedrockTarget = resolve(resourceRoot, "api/bedrock-converse-stream.js");
-await mkdir(dirname(bedrockTarget), { recursive: true });
+// The lazy loader is bundled into bootstrap.js, so its relative import resolves
+// from resourceRoot rather than from pi-ai's original `api/` source directory.
+const bedrockSource = resolve(repoRoot, "packages/agent/pi-sdk/dist/bedrock-converse-stream.js");
+const bedrockTarget = resolve(resourceRoot, "bedrock-converse-stream.js");
 await copyFile(bedrockSource, bedrockTarget);
 await copyFile(`${bedrockSource}.map`, `${bedrockTarget}.map`).catch(() => {});
 await writeFile(

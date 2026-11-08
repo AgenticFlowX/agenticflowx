@@ -33,7 +33,7 @@ export const bundleGroups = [
     label: "Pi SDK bootstrap and providers",
     files: [
       "packages/agent/pi-sdk/dist/bootstrap.js.map",
-      "packages/agent/pi-sdk/dist/api/bedrock-converse-stream.js.map",
+      "packages/agent/pi-sdk/dist/bedrock-converse-stream.js.map",
     ],
   },
   {

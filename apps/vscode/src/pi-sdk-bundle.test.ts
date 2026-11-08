@@ -48,6 +48,18 @@ describe("bundled Pi SDK bootstrap", () => {
     );
   });
 
+  it("ships the Bedrock implementation at the path resolved by the bundled lazy loader", () => {
+    const bootstrapPath = path.resolve(resourceRoot, "bootstrap.js");
+    const source = readFileSync(bootstrapPath, "utf8");
+    const match = source.match(/importNodeOnlyApi\("(\.\/bedrock-converse-stream\.ts)"\)/);
+
+    const lazySpecifier = match?.[1];
+    expect(lazySpecifier).toBe("./bedrock-converse-stream.ts");
+    if (!lazySpecifier) throw new Error("Bundled Bedrock lazy import was not found");
+    const runtimeSpecifier = lazySpecifier.replace(/\.ts$/, ".js");
+    expect(existsSync(path.resolve(path.dirname(bootstrapPath), runtimeSpecifier))).toBe(true);
+  });
+
   it("loads bundled Codex OAuth before rejecting a synthetic token without a network request", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "afx-bundled-oauth-"));
     // A fresh but deliberately invalid access token exercises OAuth.toAuth,

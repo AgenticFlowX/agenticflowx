@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
+// @see docs/specs/351-agent-pi/spec.md [FR-2] [FR-7]
+// @see docs/specs/351-agent-pi/design.md [DES-PI-080-STARTUP] [DES-TEST]
 const outfile = resolve("dist/bootstrap.js");
 const piCodingAgentRoot = await realpath(
   resolve(dirname(fileURLToPath(import.meta.resolve("@earendil-works/pi-coding-agent"))), ".."),
@@ -27,15 +29,23 @@ await build({
   },
 });
 
-// Pi 0.80 keeps Bedrock's AWS SDK implementation behind a variable-specifier
-// lazy import from `api/bedrock-converse-stream.lazy.js`. The bundled bootstrap
-// therefore needs the implementation at the same relative `api/` path.
+// Pi keeps Bedrock's AWS SDK implementation behind a variable-specifier lazy
+// import. Because esbuild folds the lazy loader into bootstrap.js, import.meta.url
+// points at the emitted bootstrap rather than pi-ai's original `api/` directory.
+// Ship the implementation as a sibling so `./bedrock-converse-stream.js` resolves.
 const bedrockEntry = fileURLToPath(
   import.meta.resolve("@earendil-works/pi-ai/api/bedrock-converse-stream"),
 );
+const bedrockOutfile = resolve("dist/bedrock-converse-stream.js");
+await Promise.all([
+  rm(resolve("dist/amazon-bedrock.js"), { force: true }),
+  rm(resolve("dist/amazon-bedrock.js.map"), { force: true }),
+  rm(resolve("dist/api/bedrock-converse-stream.js"), { force: true }),
+  rm(resolve("dist/api/bedrock-converse-stream.js.map"), { force: true }),
+]);
 await build({
   entryPoints: [bedrockEntry],
-  outfile: resolve("dist/api/bedrock-converse-stream.js"),
+  outfile: bedrockOutfile,
   bundle: true,
   platform: "node",
   format: "esm",
