@@ -633,6 +633,8 @@ export type ChatToAgent =
    * Relative paths are resolved across the available workspace folders. When `line` is
    * supplied (1-indexed, forwarded from `ChatToolView.firstChangedLine`), the
    * host reveals that line via the editor selection.
+   * `automatic: true` marks a fresh edit notification. The host opens source in
+   * the active editor group only when `afx.chat.autoOpenModifiedFiles` is enabled.
    *
    * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
    * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
@@ -642,6 +644,7 @@ export type ChatToAgent =
       path: string;
       line?: number;
       mode?: "editor" | "afxPreview" | "gitChanges";
+      automatic?: boolean;
     }
   /**
    * Open the Workbench bottom panel from chat onboarding or result-adjacent UI.
@@ -1542,7 +1545,11 @@ export type AgentToChat =
         | "pendingMessageCount"
         | "rpcEnabled"
         | "runtimeConfigured"
-      > & { blueprintContext?: { name: string; repositoryName: string; revision: number } | null };
+      > & {
+        blueprintContext?: { name: string; repositoryName: string; revision: number } | null;
+        /** @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP] */
+        autoOpenModifiedFiles?: boolean;
+      };
     }
   /**
    * Result of a compaction request.

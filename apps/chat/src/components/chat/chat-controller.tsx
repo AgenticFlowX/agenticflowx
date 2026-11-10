@@ -5,6 +5,8 @@
  *
  * @see docs/specs/216-app-chat-window-componentization/spec.md [FR-3] [FR-6] [FR-7] [FR-10]
  * @see docs/specs/216-app-chat-window-componentization/design.md [DES-ARCH] [DES-STATE] [DES-API] [DES-DATA]
+ * @see docs/specs/211-app-chat-composer/spec.md [FR-10]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
  */
 import {
   type ComponentType,
@@ -40,7 +42,6 @@ import type {
   WorkspaceMode,
 } from "@afx/shared";
 import {
-  classifySddDocumentPath,
   createCheckingAgentRuntimeStatus,
   getIntentPrompt,
   isIntentParentMode,
@@ -100,8 +101,12 @@ function activeDocContextFromMessage(msg: ActiveDocContextMessage): ActiveDocCtx
 // Types — surface boundary
 // ---------------------------------------------------------------------------
 
-/** Subset of AgentStatus fields the controller mirrors as `runtime`. */
+/**
+ * Runtime status and host-owned chat preferences mirrored by the controller.
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+ */
 export type ChatRuntimeSettings = {
+  autoOpenModifiedFiles?: boolean;
   blueprintWorkflow?: BlueprintWorkflowState;
   blueprintContext?: { name: string; repositoryName: string; revision: number } | null;
 } & Partial<
@@ -584,7 +589,8 @@ export function useChatController({
   const pendingAfxCommandSuggestRef = useRef(false);
   const activeCommandRef = useRef<{ requestId: string; command: string } | null>(null);
   const pendingDangerousRef = useRef<{ requestId: string; command: string } | null>(null);
-  const lastAutoOpenedSddPreviewRef = useRef<string | null>(null);
+  const lastAutoOpenedMessageRef = useRef<string | null>(null);
+  const liveEditToolCallIdsRef = useRef(new Set<string>());
   /** requestId of the in-flight chat/selectImages round-trip; null when idle. */
   const pendingImageSelectRef = useRef<string | null>(null);
   /** Mirror of `imageAttachments` for long-lived bridge handlers. */
@@ -706,6 +712,8 @@ export function useChatController({
       const offs = [
         // Full snapshot from host
         bridge.on("chat/state", (msg) => {
+          liveEditToolCallIdsRef.current.clear();
+          lastAutoOpenedMessageRef.current = null;
           setHasReceivedStateSnapshot(true);
           setMessages(sanitizeTimelineMessages(msg.messages));
           if (msg.messages.length === 0) {
@@ -724,6 +732,7 @@ export function useChatController({
 
         // New message start
         bridge.on("chat/messageStart", (msg) => {
+          if (msg.role === "user") liveEditToolCallIdsRef.current.clear();
           setMessages((prev: ChatTimelineItem[]) =>
             prev.some((m) => m.id === msg.id)
               ? prev
@@ -779,6 +788,7 @@ export function useChatController({
         }),
 
         bridge.on("chat/toolStart", (msg) => {
+          liveEditToolCallIdsRef.current.add(msg.toolCallId);
           const args = msg.args as Record<string, unknown> | undefined;
           setMessages((prev) => {
             const copy = [...prev];
@@ -1257,14 +1267,24 @@ export function useChatController({
 
   useEffect(() => {
     if (!latestEditingAssistantMessageId) return;
-    if (lastAutoOpenedSddPreviewRef.current === latestEditingAssistantMessageId) return;
-    const changedSddFiles = modifiedFiles.filter((file) => classifySddDocumentPath(file.path));
-    if (changedSddFiles.some((file) => file.status === "running")) return;
-    const changedSddFile = changedSddFiles.find((file) => file.status === "ok");
-    if (!changedSddFile) return;
-    lastAutoOpenedSddPreviewRef.current = latestEditingAssistantMessageId;
-    handleOpenAfxPreview(changedSddFile.path);
-  }, [handleOpenAfxPreview, latestEditingAssistantMessageId, modifiedFiles]);
+    if (lastAutoOpenedMessageRef.current === latestEditingAssistantMessageId) return;
+    const latestFiles = modifiedFiles.filter(
+      (file) => file.assistantMessageId === latestEditingAssistantMessageId,
+    );
+    if (latestFiles.some((file) => file.status === "running")) return;
+    const changedFile = latestFiles.find(
+      (file) => file.status === "ok" && liveEditToolCallIdsRef.current.has(file.toolCallId),
+    );
+    if (!changedFile) return;
+    lastAutoOpenedMessageRef.current = latestEditingAssistantMessageId;
+    if (!runtime.autoOpenModifiedFiles) return;
+    bridgeSend({
+      type: "chat/openFile",
+      path: changedFile.path,
+      line: changedFile.line,
+      automatic: true,
+    });
+  }, [latestEditingAssistantMessageId, modifiedFiles, runtime.autoOpenModifiedFiles]);
 
   const dismissModifiedFiles = useStableCallback(() => {
     setDismissedAtAssistantMessageId(latestEditingAssistantMessageId);
@@ -1806,6 +1826,7 @@ export function useChatController({
         tone: "neutral",
         visible: true,
         collapsible: true,
+        defaultCollapsedKey: latestEditingAssistantMessageId ?? undefined,
         dismissible: true,
         component: FilesPanelBody as ComponentType<unknown>,
         props: {
@@ -1994,6 +2015,7 @@ export function useChatController({
     handleOpenWorkbench,
     intentMinimized,
     intentSlot,
+    latestEditingAssistantMessageId,
     modifiedFiles,
     queued,
     restoreBlockedCommand,

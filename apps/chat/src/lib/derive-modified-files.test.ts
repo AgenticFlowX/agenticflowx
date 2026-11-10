@@ -88,6 +88,30 @@ describe("deriveModifiedFiles", () => {
     expect(out.latestEditingAssistantMessageId).toBe("a2");
   });
 
+  it("retains code edits when a later assistant message in the same turn edits a journal", () => {
+    const out = deriveModifiedFiles([
+      user("u1"),
+      asst("a1", [tool("Edit", { path: "src/code.ts" }, "ok", "code")]),
+      asst("a2", [tool("Write", { path: "docs/specs/feature/journal.md" }, "ok", "doc")]),
+      asst("a3", [tool("Read", { path: "README.md" })]),
+    ]);
+    expect(out.files.map((file) => file.path)).toEqual([
+      "docs/specs/feature/journal.md",
+      "src/code.ts",
+    ]);
+    expect(out.latestEditingAssistantMessageId).toBe("a2");
+  });
+
+  it("uses the latest edit metadata when the same file is edited across assistant messages", () => {
+    const out = deriveModifiedFiles([
+      user("u1"),
+      asst("a1", [tool("Edit", { path: "./src/code.ts" }, "ok", "old")]),
+      asst("a2", [tool("Edit", { path: "src/code.ts" }, "error", "new", { firstChangedLine: 9 })]),
+    ]);
+    expect(out.files).toHaveLength(1);
+    expect(out.files[0]).toMatchObject({ toolCallId: "new", status: "error", line: 9 });
+  });
+
   it("keeps the newest edit batch when later assistant messages do not edit", () => {
     const tl: ChatTimelineItem[] = [
       asst("a1", [tool("Edit", { path: "src/old.ts" })]),
@@ -197,6 +221,7 @@ describe("deriveModifiedFiles", () => {
   it("dedupes within the latest batch with the newest tool call winning and ordered first", () => {
     const tl: ChatTimelineItem[] = [
       asst("a1", [tool("Edit", { path: "src/historical.ts" }, "ok", "tc-old")]),
+      user("u2"),
       asst("a2", [
         tool("Edit", { path: "src/x.ts" }, "ok", "tc-1", { firstChangedLine: 10 }),
         tool("Write", { path: "src/y.ts" }, "ok", "tc-2", { firstChangedLine: 50 }),

@@ -4,7 +4,7 @@ type: JOURNAL
 status: Living
 owner: "@rixrix"
 created_at: "2026-05-03T11:23:57.000Z"
-updated_at: "2026-07-18T17:37:43.000Z"
+updated_at: "2026-11-09T10:43:27.000Z"
 tags: ["app", "chat", "composer", "webview", "journal"]
 ---
 
@@ -18,6 +18,12 @@ tags: ["app", "chat", "composer", "webview", "journal"]
 ## Captures
 
 <!-- Quick notes during active chat - cleared when recorded -->
+
+- **2026-11-09T10:43:27.000Z** - [AUTO:afx-dev] User approved opt-in edited-file opening and restoration-safe chat hydration.
+  `[modified-files, editor-opening, bug-fix, auto-capture]`
+  **Impact**: FR-10 / DES-COMPOSER-FILES-STRIP; chat controller, file derivation, shared bridge protocol, host dispatch, and extension configuration.
+  **Findings**: Hydrated successful SDD tools triggered the same preview effect as live edits; AFX Preview used a split editor. Deriving only one assistant message discarded earlier code edits when a later message updated documentation.
+  **Action**: changed → `afx.chat.autoOpenModifiedFiles` defaults off; opt-in opens fresh successful source edits in the active editor group without stealing focus. Snapshots cannot open files. The Modified rail retains all edited files within the newest editing user turn, with explicit Source, Preview, and Git changes actions.
 
 - `2026-05-04T08:02:36.000Z` `/afx-dev debug`: production queue bug found in composer/host queue paths. Rapid steer/follow-up submissions were dispatched concurrently to the runtime instead of serialized, local queue rows did not reconcile when `pendingMessageCount` drained to zero, and queue rows lacked visible `Steer` / `Follow-up` labels. Fixed in `apps/vscode/src/panels/sidebar-panel.ts` and `apps/chat/src/views/chat.tsx`; added regression coverage in app/sidebar tests. `[FR-4] [FR-8] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FLOW]`
 - `2026-05-05T07:29:30.000Z` `/afx-dev debug`: composer streaming actions lacked visible shortcut affordances for follow-up and steer. Updated streaming action buttons to show compact visible labels and shortcut chips: `Follow-up ⏎` and `Steer ⌘⏎`, moved follow-up/steer footer hints before idle send/note copy for narrow sidebars, and preserved accessible button names. Added regression coverage in `apps/chat/src/app.test.tsx`. `[FR-1] [FR-2] [FR-4] [NFR-1] [DES-COMPOSER-KEYS] [DES-COMPOSER-QUEUE] [DES-COMPOSER-FOOTER]`

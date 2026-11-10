@@ -43,6 +43,11 @@ function readManifest(): ExtensionManifest {
 }
 
 describe("extension configuration manifest", () => {
+  it("defaults automatic edited-file opening to off", () => {
+    expect(
+      readManifest().contributes.configuration.properties["afx.chat.autoOpenModifiedFiles"],
+    ).toMatchObject({ type: "boolean", default: false });
+  });
   it("contributes the full model-selection identity setting", () => {
     const setting =
       readManifest().contributes.configuration.properties["afx.model.defaultSelection"];

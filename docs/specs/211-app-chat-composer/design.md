@@ -3,9 +3,9 @@ afx: true
 type: DESIGN
 status: Living
 owner: "@rixrix"
-version: "1.26"
+version: "1.27"
 created_at: "2026-05-02T23:56:50.000Z"
-updated_at: "2026-07-19T00:11:03.000Z"
+updated_at: "2026-11-09T10:43:27.000Z"
 tags:
   [
     "app",
@@ -1178,7 +1178,10 @@ derived panel, while the original tool calls remain available in the conversatio
 
 State remains derived from the controller-owned timeline; there is no modified-files push message.
 `deriveModifiedFiles(timeline)` scans backward to the newest assistant message containing a supported
-`edit | write | patch | create | notebookedit` tool call, then derives files only from that message.
+`edit | write | patch | create | notebookedit` tool call, then derives files from all assistant
+messages back to that turn's user-message boundary. Later user turns without edits leave the
+previous editing turn available. Code files remain listed when a later assistant message in the
+same turn edits an SDD document.
 Path keys are probed in order: `path`, `filePath`, `file_path`, `notebook_path`. Normalized paths are
 deduplicated inside the batch; the newest tool call wins, moves the path to the front, and supplies the
 current status and `firstChangedLine`.
@@ -1193,10 +1196,21 @@ and source actions open the file at the top.
 > the 1-indexed line number of the first change in the new file. Other harnesses populate the
 > same field to opt into line-aware navigation.
 
-The panel survives webview hydration without extra plumbing. A later assistant message without edits
-does not clear the batch; the next message containing edits replaces it. Automatic SDD Preview is
-keyed to `latestEditingAssistantMessageId` and selects the newest successful SDD file from that same
-batch only, preventing a later non-SDD edit from reopening historical SDD content.
+The panel survives webview hydration. A later assistant message without edits does not clear the
+batch; edits in the next user turn replace it. Dismissal remains keyed to the newest editing
+assistant message. Each new editing message resets the panel's collapse default to expanded.
+
+The host mirrors the preference through `agent/runtimeSettings.autoOpenModifiedFiles` and
+rebroadcasts it when configuration changes. The controller defaults to false and consumes completed
+edit batches even while disabled, so enabling the preference never opens an already completed edit.
+Automatic opening sends `chat/openFile { path, line?, automatic: true }` once per newest editing
+assistant message after its edit tools settle. Only successful tools observed through live
+`chat/toolStart` events are eligible; restored webview state and `chat/state` snapshots never open
+files. The host checks `afx.chat.autoOpenModifiedFiles` on each automatic request (default false).
+When enabled, it opens source with `ViewColumn.Active`, `preview: true`, `preserveFocus: true`, and
+the optional changed-line selection. The newest successful file can be code or documentation;
+earlier messages cannot supply a fallback. Explicit Source, AFX Preview, and Git changes actions
+remain independent of the preference.
 
 ### Dismiss-gate (per assistant turn)
 

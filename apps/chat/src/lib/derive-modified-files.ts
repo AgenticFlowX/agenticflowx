@@ -1,6 +1,6 @@
 /**
  * Derive the list of files modified by agent edit/write tool calls in the newest
- * assistant edit batch. Pure helper consumed by the composer's `FilesPanelBody`.
+ * user turn with edits. Pure helper consumed by the composer's `FilesPanelBody`.
  *
  * @see docs/specs/211-app-chat-composer/spec.md [FR-10] [NFR-5]
  * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
@@ -69,14 +69,20 @@ function normalizePath(p: string): string {
     .replace(/\/+/g, "/");
 }
 
+/**
+ * Collect the newest editing turn's files across assistant messages.
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
+ */
 export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): DerivedModifiedFiles {
+  const files: ModifiedFile[] = [];
+  const seenPaths = new Set<string>();
+  let latestEditingAssistantMessageId: string | null = null;
   for (let index = timeline.length - 1; index >= 0; index -= 1) {
     const item = timeline[index];
     if (!item) continue;
+    if (item.role === "user" && files.length > 0) break;
     if (item.role !== "assistant") continue;
     const tools = item.tools ?? [];
-    const files: ModifiedFile[] = [];
-    const seenPaths = new Set<string>();
 
     // Walk newest-first so the latest call for a normalized path wins and the
     // resulting batch retains tool recency without a second sorting key.
@@ -88,6 +94,7 @@ export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): Deri
       if (!rawPath) continue;
       const filePath = normalizePath(rawPath);
       if (!filePath || seenPaths.has(filePath)) continue;
+      latestEditingAssistantMessageId ??= item.id;
       seenPaths.add(filePath);
       files.push({
         path: filePath,
@@ -98,13 +105,9 @@ export function deriveModifiedFiles(timeline: readonly ChatTimelineItem[]): Deri
         line: t.firstChangedLine,
       });
     }
-
-    if (files.length > 0) {
-      return { files, latestEditingAssistantMessageId: item.id };
-    }
   }
 
-  return { files: [], latestEditingAssistantMessageId: null };
+  return { files, latestEditingAssistantMessageId };
 }
 
 function isEditTool(t: ChatToolView): boolean {

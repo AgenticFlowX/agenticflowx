@@ -13,6 +13,7 @@
  * @see docs/specs/200-app-vscode/design.md [DES-SIDEBAR-FIRST-RESPONSE-WATCHDOG]
  * @see docs/specs/214-app-chat-settings/spec.md [FR-5] [FR-6] [FR-13]
  * @see docs/specs/211-app-chat-composer/spec.md [FR-9] [FR-10] [FR-11] [FR-12] [FR-13]
+ * @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -2421,7 +2422,15 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       // @see docs/specs/211-app-chat-composer/spec.md [FR-10]
       // @see docs/specs/211-app-chat-composer/design.md [DES-COMPOSER-FILES-STRIP]
       case "chat/openFile": {
-        void handleOpenFile(msg.path, msg.line, msg.mode);
+        if (
+          msg.automatic &&
+          !vscode.workspace
+            .getConfiguration("afx")
+            .get<boolean>("chat.autoOpenModifiedFiles", false)
+        ) {
+          return;
+        }
+        void handleOpenFile(msg.path, msg.line, msg.mode, msg.automatic);
         return;
       }
       // @see docs/specs/214-app-chat-settings/design.md [DES-SETTINGS-CUSTOM-MODELS]
@@ -2632,7 +2641,18 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
     filePath: string,
     line: number | undefined,
     mode: "editor" | "afxPreview" | "gitChanges" | undefined,
+    automatic = false,
   ): Promise<void> {
+    if (automatic) {
+      const uri = await resolveChatFileUri(filePath);
+      await vscode.window.showTextDocument(uri, {
+        ...sourceOpenOptions(line),
+        viewColumn: vscode.ViewColumn.Active,
+        preview: true,
+        preserveFocus: true,
+      });
+      return;
+    }
     if (mode === "gitChanges") {
       const fallbackUri = await resolveChatFileUri(filePath);
       const unavailableMessage = `AgenticFlowX: Git changes are unavailable for ${path.basename(fallbackUri.fsPath)}.`;
@@ -4521,6 +4541,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
         type: "agent/runtimeSettings",
         requestId,
         settings: {
+          autoOpenModifiedFiles: vscode.workspace
+            .getConfiguration("afx")
+            .get<boolean>("chat.autoOpenModifiedFiles", false),
           blueprintContext: deps.getBlueprintChatContext?.() ?? null,
           thinkingLevel: status.thinkingLevel,
           availableThinkingLevels: status.availableThinkingLevels,
@@ -4815,6 +4838,9 @@ export function createSidebarPanel(deps: SidebarPanelDeps): SidebarPanelProvider
       agentManager.onEvent(handleAgentEvent),
       agentManager.onStderr(handleAgentStderr),
       vscode.workspace.onDidChangeConfiguration((event) => {
+        if (event.affectsConfiguration("afx.chat.autoOpenModifiedFiles")) {
+          void broadcastRuntimeSettings();
+        }
         if (!event.affectsConfiguration("afx.telemetry.enabled")) return;
         postTelemetryState();
       }),

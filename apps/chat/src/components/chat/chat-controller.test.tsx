@@ -526,10 +526,118 @@ After.`,
     ).toBe(false);
   });
 
-  it("auto-opens AFX preview once after a fresh SDD edit succeeds", () => {
+  it("keeps code and AFX edits in the rail without opening files by default or on later opt-in", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    const { result } = renderHook(() => useChatController());
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "code",
+        toolName: "edit",
+        args: { path: "src/code.ts" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "code", ok: true });
+    });
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a2", role: "assistant", createdAt: 2 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "doc",
+        toolName: "write",
+        args: { path: "docs/specs/feature/journal.md" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "doc", ok: true });
+    });
+    const panel = result.current.composerPanelStackConfig.panels.find(
+      (p) => p.id === "modified-files",
+    );
+    expect(panel?.count).toBe(2);
+    act(() =>
+      transport.emit({ type: "agent/runtimeSettings", settings: { autoOpenModifiedFiles: true } }),
+    );
+    expect(transport.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/openFile" }),
+    );
+  });
+
+  it.each(["persisted", "snapshot"] as const)(
+    "never opens %s history even with automatic opening enabled",
+    (source) => {
+      const messages = [
+        {
+          id: "old",
+          role: "assistant" as const,
+          content: "",
+          createdAt: 1,
+          tools: [
+            {
+              toolCallId: "old-tool",
+              toolName: "write",
+              status: "ok" as const,
+              args: { path: "docs/specs/feature/journal.md" },
+            },
+          ],
+        },
+      ];
+      const transport = createControllableTransport(
+        source === "persisted"
+          ? {
+              chatView: { messages, commandOutputs: [], noteEvents: [], workspaceMode: "code" },
+            }
+          : undefined,
+      );
+      initTransport(transport);
+      const { result } = renderHook(() => useChatController());
+      act(() => {
+        transport.emit({
+          type: "agent/runtimeSettings",
+          settings: { autoOpenModifiedFiles: true },
+        });
+        if (source === "snapshot")
+          transport.emit({ type: "chat/state", messages, tools: [], isStreaming: false });
+      });
+      expect(
+        result.current.composerPanelStackConfig.panels.some((p) => p.id === "modified-files"),
+      ).toBe(true);
+      expect(transport.send).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: "chat/openFile" }),
+      );
+      act(() => {
+        transport.emit({ type: "chat/messageStart", id: "fresh", role: "assistant", createdAt: 2 });
+        transport.emit({
+          type: "chat/toolStart",
+          toolCallId: "fresh-tool",
+          toolName: "edit",
+          args: { path: "src/fresh.ts" },
+        });
+        transport.emit({
+          type: "chat/toolEnd",
+          toolCallId: "fresh-tool",
+          ok: true,
+          firstChangedLine: 12,
+        });
+      });
+      expect(transport.send).toHaveBeenCalledWith({
+        type: "chat/openFile",
+        path: "src/fresh.ts",
+        line: 12,
+        automatic: true,
+      });
+    },
+  );
+
+  it("requests automatic source opening once after a fresh edit succeeds when enabled", () => {
     const transport = createControllableTransport();
     initTransport(transport);
     renderHook(() => useChatController());
+    act(() =>
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { autoOpenModifiedFiles: true },
+      }),
+    );
 
     act(() => {
       transport.emit({
@@ -547,7 +655,7 @@ After.`,
     });
 
     expect(transport.send).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "chat/openFile", mode: "afxPreview" }),
+      expect.objectContaining({ type: "chat/openFile", automatic: true }),
     );
 
     act(() => {
@@ -557,7 +665,8 @@ After.`,
     expect(transport.send).toHaveBeenCalledWith({
       type: "chat/openFile",
       path: "docs/specs/billing-export/spec.md",
-      mode: "afxPreview",
+      automatic: true,
+      line: undefined,
     });
     const openPreviewCalls = vi.mocked(transport.send).mock.calls.filter(([message]) => {
       return (
@@ -565,17 +674,23 @@ After.`,
         message !== null &&
         "type" in message &&
         message.type === "chat/openFile" &&
-        "mode" in message &&
-        message.mode === "afxPreview"
+        "automatic" in message &&
+        message.automatic === true
       );
     });
     expect(openPreviewCalls).toHaveLength(1);
   });
 
-  it("does not reopen a historical SDD preview after a newer non-SDD edit batch", () => {
+  it("opens a fresh code edit rather than a historical SDD file", () => {
     const transport = createControllableTransport();
     initTransport(transport);
     renderHook(() => useChatController());
+    act(() =>
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { autoOpenModifiedFiles: true },
+      }),
+    );
 
     act(() => {
       transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
@@ -605,17 +720,27 @@ After.`,
         message !== null &&
         "type" in message &&
         message.type === "chat/openFile" &&
-        "mode" in message &&
-        message.mode === "afxPreview"
+        "automatic" in message &&
+        message.automatic === true
       );
     });
-    expect(openPreviewCalls).toHaveLength(1);
+    expect(openPreviewCalls).toHaveLength(2);
+    expect(openPreviewCalls[1]?.[0]).toMatchObject({
+      path: "apps/chat/src/app.tsx",
+      automatic: true,
+    });
   });
 
-  it("waits for the latest SDD batch to settle before previewing its newest successful file", () => {
+  it("waits for the latest batch to settle before opening its newest successful file", () => {
     const transport = createControllableTransport();
     initTransport(transport);
     renderHook(() => useChatController());
+    act(() =>
+      transport.emit({
+        type: "agent/runtimeSettings",
+        settings: { autoOpenModifiedFiles: true },
+      }),
+    );
 
     act(() => {
       transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
@@ -637,7 +762,7 @@ After.`,
       transport.emit({ type: "chat/toolEnd", toolCallId: "sdd-older", ok: true });
     });
     expect(transport.send).not.toHaveBeenCalledWith(
-      expect.objectContaining({ type: "chat/openFile", mode: "afxPreview" }),
+      expect.objectContaining({ type: "chat/openFile", automatic: true }),
     );
 
     act(() => {
@@ -646,8 +771,40 @@ After.`,
     expect(transport.send).toHaveBeenCalledWith({
       type: "chat/openFile",
       path: "docs/specs/billing-export/spec.md",
-      mode: "afxPreview",
+      automatic: true,
+      line: undefined,
     });
+  });
+
+  it("never falls back to an earlier message's document when the newest code edit fails", () => {
+    const transport = createControllableTransport();
+    initTransport(transport);
+    renderHook(() => useChatController());
+    act(() => {
+      transport.emit({ type: "agent/runtimeSettings", settings: { autoOpenModifiedFiles: true } });
+      transport.emit({ type: "chat/messageStart", id: "a1", role: "assistant", createdAt: 1 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "doc",
+        toolName: "write",
+        args: { path: "docs/specs/feature/spec.md" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "doc", ok: true });
+    });
+    vi.mocked(transport.send).mockClear();
+    act(() => {
+      transport.emit({ type: "chat/messageStart", id: "a2", role: "assistant", createdAt: 2 });
+      transport.emit({
+        type: "chat/toolStart",
+        toolCallId: "code",
+        toolName: "edit",
+        args: { path: "src/code.ts" },
+      });
+      transport.emit({ type: "chat/toolEnd", toolCallId: "code", ok: false });
+    });
+    expect(transport.send).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: "chat/openFile" }),
+    );
   });
 
   it("exposes a modified-file Git changes action through the chat bridge", () => {

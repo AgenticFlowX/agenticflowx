@@ -2384,6 +2384,39 @@ describe("sidebar-panel host bridge", () => {
     );
   });
 
+  it("ignores automatic file opening by default while allowing explicit opening", async () => {
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    mockAfxConfiguration();
+    const { inbound } = setupWithView();
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md", automatic: true });
+    await flushAsyncWork(2);
+    expect(showTextDocument).not.toHaveBeenCalled();
+    inbound.fire({ type: "chat/openFile", path: "/repo/docs/spec.md" });
+    await flushAsyncWork(2);
+    expect(showTextDocument).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens an opted-in automatic edit in the active group without stealing focus", async () => {
+    const showTextDocument = vi
+      .spyOn(vscode.window, "showTextDocument")
+      .mockResolvedValue(undefined as never);
+    mockAfxConfiguration({ "chat.autoOpenModifiedFiles": true });
+    const { inbound } = setupWithView();
+    inbound.fire({ type: "chat/openFile", path: "/repo/src/code.ts", line: 12, automatic: true });
+    await flushAsyncWork(2);
+    expect(showTextDocument).toHaveBeenCalledWith(
+      expect.objectContaining({ fsPath: "/repo/src/code.ts" }),
+      {
+        viewColumn: vscode.ViewColumn.Active,
+        preview: true,
+        preserveFocus: true,
+        selection: new vscode.Range(11, 0, 11, 0),
+      },
+    );
+  });
+
   it("chat/openFile resolves a workspace-name-prefixed source path", async () => {
     vi.spyOn(vscode.workspace, "workspaceFolders", "get").mockReturnValue([
       {
